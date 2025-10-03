@@ -731,7 +731,8 @@
 
                 <footer class="bg-gray-800 text-white py-6 mt-8">
                     <div class="container mx-auto px-4 text-center text-sm">
-                        &copy; 2024 The Dr. G. All Rights Reserved. (Mock Footer)
+                        <p class="mb-1">&copy; 2025 MODMEDICALIS All rights reserved</p>
+                        <p>Made by Muhammad Hasnain MS-II ALLAMA IQBAL MEDICAL COLLEGE,LHR,PK</p>
                     </div>
                 </footer>
             `;
@@ -1240,65 +1241,44 @@
 
             const lowerCaseQuery = query.toLowerCase();
 
-            if (lowerCaseQuery.length === 0) {
-                searchResultInfo.classList.add('hidden');
-                // Display all product names as suggestions when search is empty
-                products.forEach(product => {
-                    const suggestionItem = document.createElement('li');
-                    suggestionItem.innerHTML = `<a href="#" class="hover:text-brand-red block transition">${product.name}</a>`;
-                    suggestionsList.appendChild(suggestionItem);
-                });
-
-                // Display all products in the products list when search is empty
-                products.forEach(product => {
-                    const productDiv = document.createElement('div');
-                    productDiv.classList.add('flex', 'items-center', 'space-x-3');
-                    const imageSrc = product.img || `https://placehold.co/48x48/CCCCCC/333333?text=${product.name.replace(/ /g, '+')}`;
-                    productDiv.innerHTML = `
-                        <div class="w-12 h-12 bg-gray-200 rounded-lg flex-shrink-0">
-                            <img src="${imageSrc}" alt="${product.name}" class="placeholder-img rounded-lg">
-                        </div>
-                        <span class="font-semibold text-sm">${product.name}</span>
-                    `;
-                    productsList.appendChild(productDiv);
-                });
-                return;
-            }
-
-            // Filter products based on query
             const filteredProducts = products.filter(product =>
                 product.name.toLowerCase().includes(lowerCaseQuery)
             );
 
-            if (filteredProducts.length > 0) {
-                // Show suggestions
-                filteredProducts.forEach(product => {
-                    const suggestionItem = document.createElement('li');
-                    suggestionItem.innerHTML = `<a href="#" class="hover:text-brand-red block transition">${product.name}</a>`;
-                    suggestionsList.appendChild(suggestionItem);
-                });
+            // Display suggestions
+            filteredProducts.forEach(product => {
+                const suggestionItem = document.createElement('li');
+                suggestionItem.innerHTML = `<a href="#" class="hover:text-brand-red block transition" data-product-id="${product.id}">${product.name}</a>`;
+                suggestionsList.appendChild(suggestionItem);
+            });
 
-                // Show products
-                filteredProducts.forEach(product => {
-                    const productDiv = document.createElement('div');
-                    productDiv.classList.add('flex', 'items-center', 'space-x-3');
-                    const imageSrc = product.img || `https://placehold.co/48x48/CCCCCC/333333?text=${product.name.replace(/ /g, '+')}`;
-                    productDiv.innerHTML = `
-                        <div class="w-12 h-12 bg-gray-200 rounded-lg flex-shrink-0">
-                            <img src="${imageSrc}" alt="${product.name}" class="placeholder-img rounded-lg">
-                        </div>
-                        <span class="font-semibold text-sm">${product.name}</span>
-                    `;
-                    productsList.appendChild(productDiv);
-                });
+            // Display products
+            filteredProducts.forEach(product => {
+                const productDiv = document.createElement('div');
+                productDiv.classList.add('flex', 'items-center', 'space-x-3', 'cursor-pointer');
+                productDiv.setAttribute('data-product-id', product.id);
+                const imageSrc = product.img || `https://placehold.co/48x48/CCCCCC/333333?text=${product.name.replace(/ /g, '+')}`;
+                productDiv.innerHTML = `
+                    <div class="w-12 h-12 bg-gray-200 rounded-lg flex-shrink-0">
+                        <img src="${imageSrc}" alt="${product.name}" class="placeholder-img rounded-lg">
+                    </div>
+                    <span class="font-semibold text-sm">${product.name}</span>
+                `;
+                productsList.appendChild(productDiv);
+            });
 
-                searchResultText.textContent = `Found ${filteredProducts.length} result(s) for "${query}"`;
-                searchResultInfo.classList.remove('hidden');
+            if (lowerCaseQuery.length > 0) {
+                 if (filteredProducts.length > 0) {
+                    searchResultText.textContent = `Found ${filteredProducts.length} result(s) for "${query}"`;
+                    searchResultInfo.classList.remove('hidden');
+                } else {
+                    searchResultText.textContent = `No results found for "${query}"`;
+                    searchResultInfo.classList.remove('hidden');
+                    suggestionsList.innerHTML = `<li class="text-gray-500">No suggestions</li>`;
+                    productsList.innerHTML = `<div class="text-gray-500 text-sm">No products found.</div>`;
+                }
             } else {
-                searchResultText.textContent = `No results found for "${query}"`;
-                searchResultInfo.classList.remove('hidden');
-                suggestionsList.innerHTML = `<li class="text-gray-500">No suggestions</li>`;
-                productsList.innerHTML = `<div class="text-gray-500 text-sm">No products found.</div>`;
+                searchResultInfo.classList.add('hidden');
             }
         }
 
@@ -1338,9 +1318,12 @@
             const searchModal = document.getElementById('search-modal');
             const searchModalContent = searchModal.querySelector('div');
             const searchInput = document.getElementById('search-input');
+            const searchSuggestions = document.getElementById('search-suggestions');
+            const searchProductsList = document.getElementById('search-products-list');
 
             document.getElementById('search-toggle').addEventListener('click', () => {
                 searchModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
                 requestAnimationFrame(() => {
                     searchModal.classList.add('opacity-100');
                     searchModal.classList.remove('opacity-0');
@@ -1355,6 +1338,7 @@
                 searchModal.classList.add('opacity-0');
                 searchModalContent.classList.add('translate-y-4', 'opacity-0');
                 searchModalContent.classList.remove('translate-y-0', 'opacity-100');
+                document.body.style.overflow = '';
                 setTimeout(() => {
                     searchModal.classList.add('hidden');
                     searchInput.value = ''; // Clear search input
@@ -1363,6 +1347,30 @@
 
             searchInput.addEventListener('input', (e) => {
                 updateSearchUI(e.target.value);
+            });
+
+            // Event listener for search suggestions
+            searchSuggestions.addEventListener('click', (e) => {
+                e.preventDefault();
+                const productId = e.target.dataset.productId;
+                const productElement = document.querySelector(`[data-product-id="${productId}"]`);
+                if (productElement) {
+                     productElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                     document.getElementById('search-close').click(); // Close search modal
+                }
+            });
+
+            // Event listener for product clicks in search results
+            searchProductsList.addEventListener('click', (e) => {
+                e.preventDefault();
+                const productDiv = e.target.closest('[data-product-id]');
+                if (productDiv) {
+                    const productId = productDiv.dataset.productId;
+                    document.getElementById('search-close').click(); // Close search modal
+                    setTimeout(() => {
+                        openProductPage(productId); // Open product modal
+                    }, 300);
+                }
             });
 
 
