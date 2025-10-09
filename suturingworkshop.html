@@ -74,9 +74,12 @@
     <div id="app-root" class="min-h-screen p-4 flex items-center justify-center bg-blue-50 text-gray-900">
         </div>
 
+    <div id="feedback-modal-container"></div>
+
+
     <script>
         // --- Configuration ---
-        // !!! UPDATED with your new URL !!!
+        // !!! IMPORTANT: This URL MUST be correct and deployed as "Anyone" !!!
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzepPEaG6o2zuPMUT-rFsJywribc6_-m3ajv6vwJjcbkczgVi3go7e3KHIHk0en56V4/exec';
         
         const MAX_CAPACITY = 30; 
@@ -245,30 +248,38 @@
                 return;
             }
             
+            // FIX: Don't navigate immediately. Just update the selection.
             updateState({ 
-                selectedSlot: { timeId, batch, timeLabel: selectedTime.time },
-                currentPage: 'step_2'
+                selectedSlot: { timeId, batch, timeLabel: selectedTime.time }
             });
             checkFormValidity();
         }
 
         function handleTextChange(event) {
             const { name, value } = event.target;
-            state.formData[name] = value; 
-            renderRegistrationPage(false); 
-            checkFormValidity();
+            // Ensure rollNumber is treated as a string when updating state for validation
+            state.formData[name] = name === 'rollNumber' ? String(value).trim() : value; 
+            
+            // Rerender only for form updates in Step 2 if current page is Step 2
+            if (state.currentPage === 'step_2') {
+                checkFormValidity();
+            }
         }
         
         function handleFileChange(event) {
-            const { files } = event.target;
+            const files = event.target.files;
             
             if (files && files.length > 0) {
+                // Store the first file object
                 state.formData.paymentSlip = files[0];
             } else {
                 state.formData.paymentSlip = null;
             }
             
-            renderRegistrationPage(false); 
+            // Rerender only the necessary parts to update the file label
+            if (state.currentPage === 'step_2') {
+                renderStep2(false); 
+            }
             checkFormValidity();
         }
         
@@ -317,7 +328,7 @@
                     batch: selectBatch, 
                     batchSelection: batch, 
                     slotId: timeId,
-                    slotTime: timeLabel,
+                    slotTime: timeLabel, // This is the value COUNTIF looks for
                     paymentAmount: PAYMENT_AMOUNT,
                 };
 
@@ -333,7 +344,6 @@
                 if (apiResult.success) {
                     registrationSuccessful = true;
                 } else {
-                    // Display error message from the Google Script
                     throw new Error(apiResult.message || "Unknown error during registration via Google Sheet.");
                 }
 
@@ -347,10 +357,10 @@
                         ? error.message 
                         : error.message.includes("full") 
                             ? `The selected slot is now full. Please go back and try again.`
-                            : `An error occurred while reserving your slot. Error: ${error.message}`, 
+                            : `A server error occurred while reserving your slot. Error: ${error.message}`, 
                     type: 'error' 
                 });
-                fetchSlots(); 
+                fetchSlots(); // Refresh counts after a failed attempt
                 return;
             }
             
@@ -376,12 +386,14 @@
                     });
 
                     if (response.ok) {
+                        // Successful registration and email submission
                         updateState({ isRegistered: true, loading: false, currentPage: 'success' });
                         localStorage.setItem(LOCAL_STORAGE_KEY, 'true'); 
                         document.getElementById('registration-form').reset();
                         state.formData = { name: '', rollNumber: '', selectBatch: '', paymentSlip: null };
 
                     } else {
+                         // Slot reserved, but email failed
                          updateState({ loading: false, currentPage: 'step_2' }); 
                          showModal({ 
                             show: true, 
@@ -393,6 +405,7 @@
 
                 } catch (error) {
                     console.error("FormSubmit/Fetch failed:", error);
+                    // Slot reserved, but network or other error prevented email
                     updateState({ loading: false, currentPage: 'step_2' }); 
                     showModal({ 
                         show: true, 
@@ -418,7 +431,8 @@
                     const updatedSlots = state.slots.map(initial => {
                         const apiSlot = data.slots.find(s => s.id === initial.id);
                         if (apiSlot) {
-                            const registeredCount = apiSlot.registeredCount || 0;
+                            // FIX: Ensure registeredCount is explicitly a number, preventing 'undefined' slot issues
+                            const registeredCount = Number(apiSlot.registeredCount) || 0;
                             const maxCapacity = MAX_CAPACITY; 
                             return {
                                 ...initial,
@@ -426,7 +440,6 @@
                                 maxCapacity,
                                 isFull: registeredCount >= maxCapacity,
                                 // SIMULATED BATCH SLOTS FOR DISPLAY
-                                // This assumes the registeredCount is split equally/alternately between A and D
                                 remainingA: Math.max(0, BATCH_CAPACITY - Math.floor(registeredCount / 2)),
                                 remainingD: Math.max(0, BATCH_CAPACITY - Math.ceil(registeredCount / 2))
                             };
@@ -439,9 +452,17 @@
                     }
                 } else {
                      console.error("API response structure invalid:", data);
+                     // If the API returns a success=false with a message, show it
+                     if (!data.success && data.message) {
+                          showModal({ show: true, title: "Slot Data Error", message: `API Error: ${data.message}`, type: 'error' });
+                     }
                 }
             } catch (e) {
                 console.error("Error fetching slots:", e);
+                // Only show a critical error modal if data couldn't be fetched initially
+                 if (state.isSlotsLoading) {
+                    showModal({ show: true, title: "Connection Error", message: `Could not connect to Google Script API. Check the URL and deployment. Error: ${e.message}`, type: 'error' });
+                 }
             } finally {
                 if (state.isSlotsLoading) {
                     updateState({ isSlotsLoading: false });
@@ -673,7 +694,7 @@
                             </div>
 
                             <div class="relative">
-                                <label for="paymentSlip" class="file-upload-label ${fileUploadLabelClasses}" data-action="triggerFileInput">
+                                <label for="paymentSlip" class="file-upload-label ${fileUploadLabelClasses}">
                                     <span class="text-lg font-bold">
                                         ${fileUploadText}
                                     </span>
@@ -688,6 +709,7 @@
                                     required
                                     class="sr-only"
                                     accept="image/*,.pdf"
+                                    ${state.isRegistered ? 'disabled' : ''}
                                 />
                             </div>
                         </div>
@@ -714,17 +736,17 @@
             
             if (fullRender) {
                 appRoot.innerHTML = registrationContent;
-                
+                // --- Re-attach event listeners after a full render ---
                 const form = document.getElementById('registration-form');
                 if (form) {
                     form.addEventListener('submit', handleSubmit);
-                    
-                    const fileInput = document.getElementById('paymentSlip');
-                    if (fileInput) {
-                        fileInput.addEventListener('change', handleFileChange);
-                    }
+                }
+                const fileInput = document.getElementById('paymentSlip');
+                if (fileInput) {
+                    fileInput.addEventListener('change', handleFileChange);
                 }
             } else {
+                // Partial render update (for file label and button state)
                 const card = document.getElementById('registration-card');
                 if (card) {
                     const fileLabel = card.querySelector('.file-upload-label');
@@ -756,9 +778,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             appRoot = document.getElementById('app-root');
             
-            const modalContainer = document.createElement('div');
-            modalContainer.id = 'feedback-modal-container';
-            document.body.appendChild(modalContainer);
+            const modalContainer = document.getElementById('feedback-modal-container');
+            if (!modalContainer) {
+                 const newModalContainer = document.createElement('div');
+                 newModalContainer.id = 'feedback-modal-container';
+                 document.body.appendChild(newModalContainer);
+            }
 
             const registrationFlag = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (registrationFlag === 'true') {
@@ -772,6 +797,7 @@
 
             renderApp();
 
+            // --- Centralized Click Handler for navigation and selection ---
             document.body.addEventListener('click', (e) => {
                 let target = e.target;
                 while (target && !target.dataset.action && target !== document.body) {
@@ -788,16 +814,12 @@
                     } else if (action === 'closeModal') {
                         showModal({ show: false });
                         renderApp(); 
-                    } else if (action === 'triggerFileInput') {
-                        e.preventDefault(); 
-                        const fileInput = document.getElementById('paymentSlip');
-                        if (fileInput) {
-                            fileInput.click();
-                        }
-                    }
+                    } 
+                    // No need for 'triggerFileInput' handler anymore as file input is a standard element
                 }
             });
             
+            // --- Centralized Input Handler for form fields ---
             document.body.addEventListener('input', (e) => {
                 if (e.target.dataset.action === 'textChange') {
                     handleTextChange(e);
