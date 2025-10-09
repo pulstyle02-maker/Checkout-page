@@ -167,7 +167,8 @@
         function checkFormValidity() {
             const submitButton = document.getElementById('submit-button');
             const { name, rollNumber, selectBatch, paymentSlip } = state.formData;
-            const isFormComplete = name && rollNumber && selectBatch && paymentSlip;
+            // Check if all text fields and the file are present. Roll number must be > 0.
+            const isFormComplete = name && rollNumber && parseInt(rollNumber) > 0 && selectBatch && paymentSlip; 
             const isSlotSelected = state.selectedSlot.timeId && state.selectedSlot.batch;
             const isSubmitDisabled = state.loading || state.isRegistered || !isSlotSelected || !isFormComplete;
             
@@ -202,12 +203,19 @@
             checkFormValidity();
         }
         
+        // --- UPDATED FILE HANDLING FUNCTION ---
         function handleFileChange(event) {
-            const { files } = event.target;
+            const fileInput = event.target;
+            const { files } = fileInput;
+            
+            // Ensure a file exists and is not empty
             state.formData.paymentSlip = files && files.length > 0 ? files[0] : null;
+
+            // Force a re-render/update to show the file name on the button
             if (state.currentPage === 'step_2') renderStep2(false); 
             checkFormValidity();
         }
+        // ----------------------------------------
         
         function navigateTo(page) { updateState({ currentPage: page }); }
 
@@ -215,16 +223,13 @@
         
         async function fetchSlots() {
             try {
-                // SheetDB GET request to fetch ALL existing registrations
                 const response = await fetch(SHEETDB_API_URL, { method: 'GET', mode: 'cors' });
                 
                 if (!response.ok) throw new Error(`SheetDB HTTP error! status: ${response.status}`);
-                const data = await response.json(); // This returns an array of rows
+                const data = await response.json(); 
                 
-                // Count registrations per slot
                 const slotCounts = data.reduce((counts, row) => {
-                    // This uses the REQUIRED column header: Slot_ID
-                    const slotId = row.Slot_ID; 
+                    const slotId = row.Slot_ID; // Must match sheet header
                     if (slotId) {
                         counts[slotId] = (counts[slotId] || 0) + 1;
                     }
@@ -238,7 +243,6 @@
                         registeredCount,
                         maxCapacity: MAX_CAPACITY,
                         isFull: registeredCount >= MAX_CAPACITY,
-                        // SIMULATED BATCH SLOTS FOR DISPLAY (Assumed split: 15/15)
                         remainingA: Math.max(0, BATCH_CAPACITY - Math.floor(registeredCount / 2)),
                         remainingD: Math.max(0, BATCH_CAPACITY - Math.ceil(registeredCount / 2))
                     };
@@ -249,7 +253,7 @@
             } catch (e) {
                 console.error("Error fetching slots from SheetDB:", e);
                 if (state.isSlotsLoading) {
-                    showModal({ show: true, title: "API Connection Error", message: "Could not retrieve slot data from SheetDB. Please ensure your Google Sheet headers match the required names. Error: " + e.message, type: 'error' });
+                    showModal({ show: true, title: "API Connection Error", message: "Could not retrieve slot data from SheetDB. **Please ensure your Google Sheet headers are correct.** Error: " + e.message, type: 'error' });
                 }
             } finally {
                 if (state.isSlotsLoading) { updateState({ isSlotsLoading: false }); }
@@ -258,22 +262,31 @@
         
         async function handleSubmit(e) {
             e.preventDefault();
-            if (state.isRegistered) { showModal({ show: true, title: "Error", message: "You are already registered.", type: 'error' }); return; }
-
+            
             const { name, rollNumber, selectBatch, paymentSlip } = state.formData;
             const { timeId, batch, timeLabel } = state.selectedSlot;
+
+            // FINAL CHECK FOR MISSING FILE (this is the logic that was triggering the error)
+            if (state.isRegistered || !paymentSlip) { 
+                 if (!paymentSlip) {
+                    showModal({ show: true, title: "Missing Payment Slip", message: "Please select your payment slip file before submitting.", type: 'info' });
+                 }
+                 updateState({ loading: false }); // Ensure loading state is false if stopped here
+                 return; 
+            }
             
-            if (!timeId || !batch || !name || !rollNumber || !selectBatch || !paymentSlip) {
-                showModal({ show: true, title: "Missing Information", message: "Please fill in all required fields and upload the payment slip.", type: 'info' });
+            // Check required text fields again before attempting submit (should be covered by disabled state)
+            if (!name || !rollNumber || !selectBatch || !timeId || !batch) {
+                showModal({ show: true, title: "Missing Information", message: "Please fill in all required text fields and select a slot.", type: 'info' });
                 return;
             }
 
+
             updateState({ loading: true });
             
-            // 1. Check for Duplicate Roll Number (requires a specific SheetDB call)
+            // 1. Check for Duplicate Roll Number
             try {
-                // This uses the REQUIRED column header: Roll_Number
-                const checkResponse = await fetch(`${SHEETDB_API_URL}/search?Roll_Number=${rollNumber}`, { method: 'GET' });
+                const checkResponse = await fetch(`${SHEETDB_API_URL}/search?Roll_Number=${rollNumber}`, { method: 'GET' }); 
                 const checkData = await checkResponse.json();
                 
                 if (checkData.length > 0) {
@@ -291,13 +304,13 @@
                 const sheetDBPayload = {
                     data: {
                         "Timestamp": new Date().toISOString(),
-                        "Roll_Number": rollNumber, // REQUIRED header
-                        "Name": name, // REQUIRED header
-                        "User_Batch": selectBatch, // REQUIRED header
-                        "Slot_Time": timeLabel, // REQUIRED header
-                        "Slot_ID": timeId, // REQUIRED header
-                        "Batch_Selection": batch, // REQUIRED header
-                        "Payment_Amount": PAYMENT_AMOUNT, // REQUIRED header
+                        "Roll_Number": rollNumber, 
+                        "Name": name, 
+                        "User_Batch": selectBatch, 
+                        "Slot_Time": timeLabel, 
+                        "Slot_ID": timeId, 
+                        "Batch_Selection": batch, 
+                        "Payment_Amount": PAYMENT_AMOUNT, 
                     }
                 };
 
@@ -310,10 +323,11 @@
 
                 const sheetDBResult = await response.json();
 
-                if (sheetDBResult.created) {
+                if (response.ok && sheetDBResult.created) {
                     registrationSuccessful = true;
                 } else {
-                    throw new Error("Failed to write data to Google Sheet. (SheetDB Error)");
+                    const errorMessage = sheetDBResult.message || "Failed to write data to Google Sheet. (SheetDB Error)";
+                    throw new Error(errorMessage);
                 }
 
             } catch (error) {
@@ -321,8 +335,8 @@
                 updateState({ loading: false });
                 showModal({ 
                     show: true, 
-                    title: "Registration Failed", 
-                    message: `An error occurred while reserving your slot in the sheet. Please ensure all 8 required column headers are correct. Error: ${error.message}`, 
+                    title: "Registration Failed (Sheet)", 
+                    message: `Your slot could not be reserved in the sheet. Error: ${error.message}`, 
                     type: 'error' 
                 });
                 fetchSlots(); 
@@ -354,6 +368,7 @@
                         updateState({ isRegistered: true, loading: false, currentPage: 'success' });
                         localStorage.setItem(LOCAL_STORAGE_KEY, 'true'); 
                         document.getElementById('registration-form').reset();
+                        state.formData = { name: '', rollNumber: '', selectBatch: '', paymentSlip: null };
 
                     } else {
                          updateState({ loading: false, currentPage: 'step_2' }); 
@@ -384,7 +399,7 @@
                     <svg class="w-20 h-20 text-green-500 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     
                     <h1 class="text-3xl font-black text-gray-800 mb-4">REGISTRATION COMPLETE!</h1>
-                    <p class="text-xl font-semibold text-green-600 mb-8">Thank you for registering. Your spot is secured.</p>
+                    <p class="text-xl font-semibold text-green-600 mb-8">Thank thank you for registering. Your spot is secured.</p>
                     
                     <p class="text-lg text-gray-700 mb-10">
                         Regards, **BR DBR Batch A & D**<br>
@@ -495,12 +510,12 @@
                 : 'Click to Upload Payment Slip (Required)';
                 
             const formInputs = [
-                { id: 'name', type: 'text', label: 'Name' },
-                { id: 'rollNumber', type: 'number', label: 'Roll Number' }
+                { id: 'name', type: 'text', label: 'Name', key: 'name' },
+                { id: 'rollNumber', type: 'number', label: 'Roll Number', key: 'rollNumber' }
             ].map(field => `
                 <div class="relative">
                     <label for="${field.id}" class="block text-sm font-medium text-gray-700 mb-1 capitalize">${field.label}</label>
-                    <input type="${field.type}" id="${field.id}" name="${field.id}" value="${state.formData[field.id] || ''}" data-action="textChange" required placeholder="Enter your ${field.label.toLowerCase()}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200" ${field.id === 'rollNumber' ? 'min="1"' : ''} ${state.isRegistered ? 'disabled' : ''}/>
+                    <input type="${field.type}" id="${field.id}" name="${field.key}" value="${state.formData[field.key] || ''}" data-action="textChange" required placeholder="Enter your ${field.label.toLowerCase()}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200" ${field.id === 'rollNumber' ? 'min="1"' : ''} ${state.isRegistered ? 'disabled' : ''}/>
                 </div>
             `).join('');
 
@@ -578,10 +593,12 @@
                 const form = document.getElementById('registration-form');
                 if (form) {
                     form.addEventListener('submit', handleSubmit);
+                    // Ensure the event listener is attached to the file input
                     const fileInput = document.getElementById('paymentSlip');
                     if (fileInput) { fileInput.addEventListener('change', handleFileChange); }
                 }
             } else {
+                // Partial render update
                 const card = document.getElementById('registration-card');
                 if (card) {
                     const fileLabel = card.querySelector('.file-upload-label');
