@@ -7,64 +7,27 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Configure Inter font as requested */
-        :root {
-            font-family: 'Inter', sans-serif;
-        }
+        :root { font-family: 'Inter', sans-serif; }
 
-        /* Subtle medical cross icon styling */
-        .medical-cross-icon {
-            display: inline-block;
-            width: 1.5rem;
-            height: 1.5rem;
-            position: relative;
-        }
-        .medical-cross-icon::before,
-        .medical-cross-icon::after {
-            content: '';
-            position: absolute;
-            background-color: currentColor;
-            border-radius: 9999px;
-        }
-        .medical-cross-icon::before {
-            width: 100%;
-            height: 20%;
-            top: 40%;
-            left: 0;
-        }
-        .medical-cross-icon::after {
-            width: 20%;
-            height: 100%;
-            top: 0;
-            left: 40%;
-        }
+        /* Subtle medical cross icon styling (Tailwind-compatible) */
+        .medical-cross-icon { display: inline-block; width: 1.5rem; height: 1.5rem; position: relative; }
+        .medical-cross-icon::before, .medical-cross-icon::after { content: ''; position: absolute; background-color: currentColor; border-radius: 9999px; }
+        .medical-cross-icon::before { width: 100%; height: 20%; top: 40%; left: 0; }
+        .medical-cross-icon::after { width: 20%; height: 100%; top: 0; left: 40%; }
 
         /* Hide number input arrows */
         input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
-        }
-        input[type=number] {
-            -moz-appearance: textfield;
-        }
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        
         /* Style for file input label */
-        .file-upload-label {
-            display: block;
-            padding: 0.75rem 1rem;
-            border-width: 2px;
-            border-style: dashed;
-            border-radius: 0.75rem;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-        }
-        .file-upload-label:hover {
-            border-style: solid;
-        }
+        .file-upload-label { display: block; padding: 0.75rem 1rem; border-width: 2px; border-style: dashed; border-radius: 0.75rem; cursor: pointer; text-align: center; transition: all 0.2s; }
+        .file-upload-label:hover { border-style: solid; }
+        
         /* Style for the green submit button */
         #submit-button.valid-form:not(:disabled) {
             background-color: #10B981; /* bg-green-500 */
-            --tw-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.5), 0 4px 6px -2px rgba(16, 185, 129, 0.5); /* shadow-lg shadow-green-500/50 */
+            --tw-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.5), 0 4px 6px -2px rgba(16, 185, 129, 0.5); 
             box-shadow: var(--tw-shadow);
         }
     </style>
@@ -73,29 +36,31 @@
 
     <div id="app-root" class="min-h-screen p-4 flex items-center justify-center bg-blue-50 text-gray-900">
         </div>
-
     <div id="feedback-modal-container"></div>
 
-
     <script>
-        // --- Configuration ---
-        // !!! IMPORTANT: This URL MUST be correct and deployed as "Anyone" !!!
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzepPEaG6o2zuPMUT-rFsJywribc6_-m3ajv6vwJjcbkczgVi3go7e3KHIHk0en56V4/exec';
+        // --- CONFIGURATION ---
         
+        // !!! LATEST SHEETDB API URL FOR REAL-TIME SLOTS & DATA LOGGING !!!
+        const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/6z8r0kxklhars'; 
+        
+        // --- Slot Details ---
         const MAX_CAPACITY = 30; 
         const BATCH_CAPACITY = 15; 
         const BATCH_OPTIONS = ['A', 'B', 'C', 'D'];
 
-        // Payment and Email Configuration
+        // --- Payment and Email Configuration ---
         const PAYMENT_AMOUNT = '150 RS';
         const RECIPIENT_NAME = 'Hamza Masood Gondal';
         const RECIPIENT_NUMBER = '03328483843';
         const RECIPIENT_METHODS = 'JazzCash / EasyPaisa';
         
-        const FORMSUBMIT_EMAIL = 'hasnainmughal4200@gmail.com';
+        // !!! FORMSUBMIT EMAIL FOR PAYMENT SLIP UPLOAD !!!
+        const FORMSUBMIT_EMAIL = 'hasnainmughal4200@gmail.com'; 
         const FORMSUBMIT_URL = `https://formsubmit.co/ajax/${FORMSUBMIT_EMAIL}`;
         const LOCAL_STORAGE_KEY = 'workshopRegistrationStatus';
 
+        // NOTE: The Slot_ID in your Google Sheet must match these IDs: 'slot_12_1' and 'slot_1_2'
         const initialSlots = [
             { id: 'slot_12_1', time: '12:00 PM - 1:00 PM', registeredCount: 0, maxCapacity: MAX_CAPACITY, isFull: false },
             { id: 'slot_1_2', time: '1:00 PM - 2:00 PM', registeredCount: 0, maxCapacity: MAX_CAPACITY, isFull: false },
@@ -104,20 +69,11 @@
         // --- Global State Management ---
         const state = {
             slots: JSON.parse(JSON.stringify(initialSlots)), 
-            selectedSlot: { 
-                timeId: null,      
-                batch: null,       
-                timeLabel: null    
-            },
+            selectedSlot: { timeId: null, batch: null, timeLabel: null },
             isRegistered: false,
             isSlotsLoading: true,
             currentPage: 'step_1', 
-            formData: { 
-                name: '', 
-                rollNumber: '', 
-                selectBatch: '', 
-                paymentSlip: null 
-            }, 
+            formData: { name: '', rollNumber: '', selectBatch: '', paymentSlip: null }, 
             loading: false,
             modal: { show: false, title: '', message: '', type: 'info' }
         };
@@ -129,8 +85,10 @@
             renderApp(); 
         }
 
+        // --- UI & Helper Functions ---
+
         function createPrimaryButtonHTML(text, type, disabled, className = '', onClick = '', id = '') {
-            const disabledClass = 'bg-gray-400 cursor-not-allowed shadow-none';
+             const disabledClass = 'bg-gray-400 cursor-not-allowed shadow-none';
             const enabledClass = 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-lg shadow-indigo-500/50';
             
             return `
@@ -148,12 +106,8 @@
         }
         
         function renderStepIndicator(currentStep) {
-            const steps = [
-                { id: 'step_1', label: 'Time & Batch' },
-                { id: 'step_2', label: 'Details & Payment' }
-            ];
-            
-            return `
+            const steps = [{ id: 'step_1', label: 'Time & Batch' },{ id: 'step_2', label: 'Details & Payment' }];
+             return `
                 <div class="flex justify-between items-center mb-6">
                     ${steps.map((step, index) => {
                         const isActive = currentStep === step.id;
@@ -181,13 +135,8 @@
         }
 
         function showModal({ show, title, message, type = 'success' }) {
-            const typeClasses = {
-                success: 'bg-green-500',
-                error: 'bg-red-500',
-                info: 'bg-indigo-500',
-            };
+            const typeClasses = { success: 'bg-green-500', error: 'bg-red-500', info: 'bg-indigo-500' };
             const titleColor = typeClasses[type] || 'bg-indigo-500';
-
             const modalContainer = document.getElementById('feedback-modal-container');
             if (!modalContainer) return;
 
@@ -217,154 +166,170 @@
 
         function checkFormValidity() {
             const submitButton = document.getElementById('submit-button');
-            
             const { name, rollNumber, selectBatch, paymentSlip } = state.formData;
             const isFormComplete = name && rollNumber && selectBatch && paymentSlip;
             const isSlotSelected = state.selectedSlot.timeId && state.selectedSlot.batch;
-
             const isSubmitDisabled = state.loading || state.isRegistered || !isSlotSelected || !isFormComplete;
             
             if (submitButton) {
                 submitButton.disabled = isSubmitDisabled;
-                
                 if (!isSubmitDisabled) {
                     submitButton.classList.add('valid-form');
                     submitButton.classList.remove('bg-indigo-600');
                 } else {
                      submitButton.classList.remove('valid-form');
-                     if (state.loading) {
-                        submitButton.classList.add('bg-indigo-600');
-                     }
+                     if (state.loading) { submitButton.classList.add('bg-indigo-600'); }
                 }
             }
         }
 
         function handleBatchSlotSelect(timeId, batch) {
             if (state.isRegistered || state.isSlotsLoading) return;
-            
             const selectedTime = state.slots.find(s => s.id === timeId);
             if (selectedTime && selectedTime.isFull) {
                 showModal({ show: true, title: "Slot Full", message: "This entire time slot is at maximum capacity (30/30). Please choose another one.", type: 'info' });
                 return;
             }
             
-            // FIX: Don't navigate immediately. Just update the selection.
-            updateState({ 
-                selectedSlot: { timeId, batch, timeLabel: selectedTime.time }
-            });
+            updateState({ selectedSlot: { timeId, batch, timeLabel: selectedTime.time }, currentPage: 'step_2' });
             checkFormValidity();
         }
 
         function handleTextChange(event) {
             const { name, value } = event.target;
-            // Ensure rollNumber is treated as a string when updating state for validation
-            state.formData[name] = name === 'rollNumber' ? String(value).trim() : value; 
-            
-            // Rerender only for form updates in Step 2 if current page is Step 2
-            if (state.currentPage === 'step_2') {
-                checkFormValidity();
-            }
-        }
-        
-        function handleFileChange(event) {
-            const files = event.target.files;
-            
-            if (files && files.length > 0) {
-                // Store the first file object
-                state.formData.paymentSlip = files[0];
-            } else {
-                state.formData.paymentSlip = null;
-            }
-            
-            // Rerender only the necessary parts to update the file label
-            if (state.currentPage === 'step_2') {
-                renderStep2(false); 
-            }
+            state.formData[name] = value; 
+            if (state.currentPage === 'step_2') renderStep2(false); 
             checkFormValidity();
         }
         
-        function navigateTo(page) {
-             updateState({ currentPage: page });
+        function handleFileChange(event) {
+            const { files } = event.target;
+            state.formData.paymentSlip = files && files.length > 0 ? files[0] : null;
+            if (state.currentPage === 'step_2') renderStep2(false); 
+            checkFormValidity();
+        }
+        
+        function navigateTo(page) { updateState({ currentPage: page }); }
+
+        // --- Core SheetDB & FormSubmit Integration ---
+        
+        async function fetchSlots() {
+            try {
+                // SheetDB GET request to fetch ALL existing registrations
+                const response = await fetch(SHEETDB_API_URL, { method: 'GET', mode: 'cors' });
+                
+                if (!response.ok) throw new Error(`SheetDB HTTP error! status: ${response.status}`);
+                const data = await response.json(); // This returns an array of rows
+                
+                // Count registrations per slot
+                const slotCounts = data.reduce((counts, row) => {
+                    // This uses the REQUIRED column header: Slot_ID
+                    const slotId = row.Slot_ID; 
+                    if (slotId) {
+                        counts[slotId] = (counts[slotId] || 0) + 1;
+                    }
+                    return counts;
+                }, {});
+
+                const updatedSlots = state.slots.map(initial => {
+                    const registeredCount = slotCounts[initial.id] || 0;
+                    return {
+                        ...initial,
+                        registeredCount,
+                        maxCapacity: MAX_CAPACITY,
+                        isFull: registeredCount >= MAX_CAPACITY,
+                        // SIMULATED BATCH SLOTS FOR DISPLAY (Assumed split: 15/15)
+                        remainingA: Math.max(0, BATCH_CAPACITY - Math.floor(registeredCount / 2)),
+                        remainingD: Math.max(0, BATCH_CAPACITY - Math.ceil(registeredCount / 2))
+                    };
+                });
+                    
+                updateState({ slots: updatedSlots });
+                
+            } catch (e) {
+                console.error("Error fetching slots from SheetDB:", e);
+                if (state.isSlotsLoading) {
+                    showModal({ show: true, title: "API Connection Error", message: "Could not retrieve slot data from SheetDB. Please ensure your Google Sheet headers match the required names. Error: " + e.message, type: 'error' });
+                }
+            } finally {
+                if (state.isSlotsLoading) { updateState({ isSlotsLoading: false }); }
+            }
         }
         
         async function handleSubmit(e) {
             e.preventDefault();
-            
-            if (state.isRegistered) {
-                showModal({ show: true, title: "Error", message: "You are already registered.", type: 'error' });
-                return;
-            }
+            if (state.isRegistered) { showModal({ show: true, title: "Error", message: "You are already registered.", type: 'error' }); return; }
 
             const { name, rollNumber, selectBatch, paymentSlip } = state.formData;
             const { timeId, batch, timeLabel } = state.selectedSlot;
             
             if (!timeId || !batch || !name || !rollNumber || !selectBatch || !paymentSlip) {
-                showModal({ 
-                    show: true, 
-                    title: "Missing Information", 
-                    message: "Please fill in all required fields and upload the payment slip.", 
-                    type: 'info' 
-                });
+                showModal({ show: true, title: "Missing Information", message: "Please fill in all required fields and upload the payment slip.", type: 'info' });
                 return;
             }
 
             updateState({ loading: true });
-
-            const selectedTimeSlot = state.slots.find(s => s.id === timeId);
-            if (!selectedTimeSlot || selectedTimeSlot.isFull) {
+            
+            // 1. Check for Duplicate Roll Number (requires a specific SheetDB call)
+            try {
+                // This uses the REQUIRED column header: Roll_Number
+                const checkResponse = await fetch(`${SHEETDB_API_URL}/search?Roll_Number=${rollNumber}`, { method: 'GET' });
+                const checkData = await checkResponse.json();
+                
+                if (checkData.length > 0) {
+                    throw new Error("Roll Number is already registered.");
+                }
+            } catch (error) {
                  updateState({ loading: false });
-                 showModal({ show: true, title: "Full Capacity", message: "The selected time slot is now full. Please go back and choose the other slot.", type: 'error' });
+                 showModal({ show: true, title: "Registration Failed", message: error.message, type: 'error' });
                  return;
             }
-            
+
+            // 2. Log Registration via SheetDB (POST)
             let registrationSuccessful = false;
-            
-            // 1. Reserve Slot and Log Registration via Google Script API (Handles capacity and duplicate check)
             try {
-                const apiPayload = {
-                    action: 'register',
-                    name,
-                    rollNumber,
-                    batch: selectBatch, 
-                    batchSelection: batch, 
-                    slotId: timeId,
-                    slotTime: timeLabel, // This is the value COUNTIF looks for
-                    paymentAmount: PAYMENT_AMOUNT,
+                const sheetDBPayload = {
+                    data: {
+                        "Timestamp": new Date().toISOString(),
+                        "Roll_Number": rollNumber, // REQUIRED header
+                        "Name": name, // REQUIRED header
+                        "User_Batch": selectBatch, // REQUIRED header
+                        "Slot_Time": timeLabel, // REQUIRED header
+                        "Slot_ID": timeId, // REQUIRED header
+                        "Batch_Selection": batch, // REQUIRED header
+                        "Payment_Amount": PAYMENT_AMOUNT, // REQUIRED header
+                    }
                 };
 
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                const response = await fetch(SHEETDB_API_URL, {
                     method: 'POST',
                     mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(apiPayload),
+                    body: JSON.stringify(sheetDBPayload),
                 });
 
-                const apiResult = await response.json();
+                const sheetDBResult = await response.json();
 
-                if (apiResult.success) {
+                if (sheetDBResult.created) {
                     registrationSuccessful = true;
                 } else {
-                    throw new Error(apiResult.message || "Unknown error during registration via Google Sheet.");
+                    throw new Error("Failed to write data to Google Sheet. (SheetDB Error)");
                 }
 
             } catch (error) {
-                console.error("Google Script API registration failed:", error);
+                console.error("SheetDB logging failed:", error);
                 updateState({ loading: false });
                 showModal({ 
                     show: true, 
                     title: "Registration Failed", 
-                    message: error.message.includes("Roll Number is already registered")
-                        ? error.message 
-                        : error.message.includes("full") 
-                            ? `The selected slot is now full. Please go back and try again.`
-                            : `A server error occurred while reserving your slot. Error: ${error.message}`, 
+                    message: `An error occurred while reserving your slot in the sheet. Please ensure all 8 required column headers are correct. Error: ${error.message}`, 
                     type: 'error' 
                 });
-                fetchSlots(); // Refresh counts after a failed attempt
+                fetchSlots(); 
                 return;
             }
             
-            // 2. Submit Payment Slip and Form Data via FormSubmit (Email)
+            // 3. Submit Payment Slip and Form Data via FormSubmit (Email)
             if (registrationSuccessful) {
                 try {
                     const formSubmitData = new FormData();
@@ -386,14 +351,11 @@
                     });
 
                     if (response.ok) {
-                        // Successful registration and email submission
                         updateState({ isRegistered: true, loading: false, currentPage: 'success' });
                         localStorage.setItem(LOCAL_STORAGE_KEY, 'true'); 
                         document.getElementById('registration-form').reset();
-                        state.formData = { name: '', rollNumber: '', selectBatch: '', paymentSlip: null };
 
                     } else {
-                         // Slot reserved, but email failed
                          updateState({ loading: false, currentPage: 'step_2' }); 
                          showModal({ 
                             show: true, 
@@ -404,8 +366,6 @@
                     }
 
                 } catch (error) {
-                    console.error("FormSubmit/Fetch failed:", error);
-                    // Slot reserved, but network or other error prevented email
                     updateState({ loading: false, currentPage: 'step_2' }); 
                     showModal({ 
                         show: true, 
@@ -417,74 +377,14 @@
             }
         }
         
-        async function fetchSlots() {
-            try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getSlots`, {
-                    method: 'GET',
-                    mode: 'cors',
-                });
-                
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                
-                if (data.success && Array.isArray(data.slots)) {
-                    const updatedSlots = state.slots.map(initial => {
-                        const apiSlot = data.slots.find(s => s.id === initial.id);
-                        if (apiSlot) {
-                            // FIX: Ensure registeredCount is explicitly a number, preventing 'undefined' slot issues
-                            const registeredCount = Number(apiSlot.registeredCount) || 0;
-                            const maxCapacity = MAX_CAPACITY; 
-                            return {
-                                ...initial,
-                                registeredCount,
-                                maxCapacity,
-                                isFull: registeredCount >= maxCapacity,
-                                // SIMULATED BATCH SLOTS FOR DISPLAY
-                                remainingA: Math.max(0, BATCH_CAPACITY - Math.floor(registeredCount / 2)),
-                                remainingD: Math.max(0, BATCH_CAPACITY - Math.ceil(registeredCount / 2))
-                            };
-                        }
-                        return initial;
-                    });
-                    const slotsChanged = JSON.stringify(state.slots) !== JSON.stringify(updatedSlots);
-                    if (slotsChanged) {
-                         updateState({ slots: updatedSlots });
-                    }
-                } else {
-                     console.error("API response structure invalid:", data);
-                     // If the API returns a success=false with a message, show it
-                     if (!data.success && data.message) {
-                          showModal({ show: true, title: "Slot Data Error", message: `API Error: ${data.message}`, type: 'error' });
-                     }
-                }
-            } catch (e) {
-                console.error("Error fetching slots:", e);
-                // Only show a critical error modal if data couldn't be fetched initially
-                 if (state.isSlotsLoading) {
-                    showModal({ show: true, title: "Connection Error", message: `Could not connect to Google Script API. Check the URL and deployment. Error: ${e.message}`, type: 'error' });
-                 }
-            } finally {
-                if (state.isSlotsLoading) {
-                    updateState({ isSlotsLoading: false });
-                }
-            }
-        }
-
-
+        // --- Render Functions ---
         function renderSuccessPage() {
-            const cardClasses = 'bg-white shadow-2xl shadow-green-200/50';
-
-            return `
-                <div class="w-full max-w-lg p-6 md:p-10 rounded-3xl z-10 text-center ${cardClasses}">
+             return `
+                <div class="w-full max-w-lg p-6 md:p-10 rounded-3xl z-10 text-center bg-white shadow-2xl shadow-green-200/50">
                     <svg class="w-20 h-20 text-green-500 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     
-                    <h1 class="text-3xl font-black text-gray-800 mb-4">
-                        REGISTRATION COMPLETE!
-                    </h1>
-                    
-                    <p class="text-xl font-semibold text-green-600 mb-8">
-                        Thank you for registering. Your spot is secured.
-                    </p>
+                    <h1 class="text-3xl font-black text-gray-800 mb-4">REGISTRATION COMPLETE!</h1>
+                    <p class="text-xl font-semibold text-green-600 mb-8">Thank you for registering. Your spot is secured.</p>
                     
                     <p class="text-lg text-gray-700 mb-10">
                         Regards, **BR DBR Batch A & D**<br>
@@ -495,19 +395,16 @@
                 </div>
             `;
         }
-
-        function renderStep1() {
-            const cardClasses = 'bg-white shadow-xl shadow-indigo-100/50';
+        function renderStep1() { 
+             const cardClasses = 'bg-white shadow-xl shadow-indigo-100/50';
 
             const slotHTML = state.slots.map(slot => {
                 const isFull = slot.isFull;
-                
                 const remainingA = slot.remainingA;
                 const remainingD = slot.remainingD;
                 
                 const getBatchButton = (batch, remaining) => {
-                    const disabled = isFull || state.isRegistered;
-                    
+                    const disabled = isFull || remaining === 0 || state.isRegistered;
                     const isSelected = state.selectedSlot.timeId === slot.id && state.selectedSlot.batch === `Batch ${batch}`;
                     
                     const classes = disabled 
@@ -549,9 +446,7 @@
             const loadingHTML = `
                 <div class="text-center py-8" id="slots-loading">
                     <div class="w-6 h-6 border-4 border-indigo-500 border-t-transparent border-solid rounded-full animate-spin mx-auto mb-3"></div>
-                    <p class="text-indigo-500 font-medium">
-                        Fetching available slots...
-                    </p>
+                    <p class="text-indigo-500 font-medium">Fetching available slots...</p>
                 </div>
             `;
 
@@ -560,14 +455,10 @@
                     <header class="mb-8 text-center">
                         <div class="flex items-center justify-center space-x-3 mb-2 text-indigo-600">
                             <span class="medical-cross-icon text-3xl"></span>
-                            <h1 class="text-3xl font-black tracking-tighter uppercase">
-                                SUTURING WORKSHOP
-                            </h1>
+                            <h1 class="text-3xl font-black tracking-tighter uppercase">SUTURING WORKSHOP</h1>
                         </div>
                         ${renderStepIndicator('step_1')}
-                        <h2 class="text-2xl font-bold text-gray-800">
-                            Select Time & Batch
-                        </h2>
+                        <h2 class="text-2xl font-bold text-gray-800">Select Time & Batch</h2>
                         <p class="text-sm font-light text-gray-500 mt-2">
                             A maximum of 15 slots are available for Batch A and 15 for Batch D per time slot.
                         </p>
@@ -580,30 +471,25 @@
                     `}
                     
                     ${state.isRegistered ? `
-                        <p class="text-center text-sm text-green-600 font-semibold mb-4 p-2 bg-green-100 rounded-lg">
-                            You are already registered.
-                        </p>
+                        <p class="text-center text-sm text-green-600 font-semibold mb-4 p-2 bg-green-100 rounded-lg">You are already registered.</p>
                     ` : ''}
                     
                     ${createPrimaryButtonHTML(
                         'Continue to Details →', 
                         'button', 
-                        !state.selectedSlot.timeId || state.isRegistered, 
+                        !state.selectedSlot.timeId || state.isRegistered || state.isSlotsLoading, 
                         'mt-6', 
                         'navigateTo:step_2'
                     )}
                 </div>
             `;
         }
-
         function renderStep2(fullRender = true) {
             const cardClasses = 'bg-white shadow-xl shadow-indigo-100/50';
-
             const { paymentSlip } = state.formData;
             const fileUploadLabelClasses = paymentSlip 
                 ? 'border-green-500 text-green-500 bg-green-50' 
                 : 'border-indigo-400 text-indigo-600';
-            
             const fileUploadText = paymentSlip 
                 ? `Slip Attached: ${paymentSlip.name}`
                 : 'Click to Upload Payment Slip (Required)';
@@ -613,41 +499,22 @@
                 { id: 'rollNumber', type: 'number', label: 'Roll Number' }
             ].map(field => `
                 <div class="relative">
-                    <label for="${field.id}" class="block text-sm font-medium text-gray-700 mb-1 capitalize">
-                        ${field.label}
-                    </label>
-                    <input
-                        type="${field.type}"
-                        id="${field.id}"
-                        name="${field.id}"
-                        value="${state.formData[field.id] || ''}"
-                        data-action="textChange"
-                        required
-                        placeholder="Enter your ${field.label.toLowerCase()}"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200"
-                        ${field.id === 'rollNumber' ? 'min="1"' : ''}
-                        ${state.isRegistered ? 'disabled' : ''}
-                    />
+                    <label for="${field.id}" class="block text-sm font-medium text-gray-700 mb-1 capitalize">${field.label}</label>
+                    <input type="${field.type}" id="${field.id}" name="${field.id}" value="${state.formData[field.id] || ''}" data-action="textChange" required placeholder="Enter your ${field.label.toLowerCase()}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200" ${field.id === 'rollNumber' ? 'min="1"' : ''} ${state.isRegistered ? 'disabled' : ''}/>
                 </div>
             `).join('');
 
-            const selectedText = state.selectedSlot.timeLabel 
-                ? `${state.selectedSlot.timeLabel} (${state.selectedSlot.batch})` 
-                : 'No slot selected.';
+            const selectedText = state.selectedSlot.timeLabel ? `${state.selectedSlot.timeLabel} (${state.selectedSlot.batch})` : 'No slot selected.';
 
             const registrationContent = `
                 <div id="registration-card" class="w-full max-w-lg p-6 md:p-10 rounded-3xl transition-shadow duration-500 z-10 ${cardClasses}">
                     <header class="mb-8 text-center">
                         <div class="flex items-center justify-center space-x-3 mb-2 text-indigo-600">
                             <span class="medical-cross-icon text-3xl"></span>
-                            <h1 class="text-3xl font-black tracking-tighter uppercase">
-                                SUTURING WORKSHOP
-                            </h1>
+                            <h1 class="text-3xl font-black tracking-tighter uppercase">SUTURING WORKSHOP</h1>
                         </div>
                         ${renderStepIndicator('step_2')}
-                        <h2 class="text-2xl font-bold text-gray-800">
-                            Personal & Payment Details
-                        </h2>
+                        <h2 class="text-2xl font-bold text-gray-800">Personal & Payment Details</h2>
                         <p class="text-md font-light text-gray-500 mt-2">
                             Selected Slot: <span class="font-bold text-indigo-600">${selectedText}</span>
                         </p>
@@ -659,31 +526,17 @@
                             ${formInputs}
 
                             <div class="relative">
-                                <label for="selectBatch" class="block text-sm font-medium text-gray-700 mb-1">
-                                    Your Batch (A, B, C, or D)
-                                </label>
-                                <select
-                                    id="selectBatch"
-                                    name="selectBatch"
-                                    data-action="textChange"
-                                    required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200 appearance-none"
-                                    ${state.isRegistered ? 'disabled' : ''}
-                                >
+                                <label for="selectBatch" class="block text-sm font-medium text-gray-700 mb-1">Your Batch (A, B, C, or D)</label>
+                                <select id="selectBatch" name="selectBatch" data-action="textChange" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200 appearance-none" ${state.isRegistered ? 'disabled' : ''}>
                                     <option value="">Select Your Batch...</option>
-                                    ${BATCH_OPTIONS.map(batch => `
-                                        <option value="${batch}" ${state.formData.selectBatch === batch ? 'selected' : ''}>Batch ${batch}</option>
-                                    `).join('')}
+                                    ${BATCH_OPTIONS.map(batch => `<option value="${batch}" ${state.formData.selectBatch === batch ? 'selected' : ''}>Batch ${batch}</option>`).join('')}
                                 </select>
                                 <svg class="w-5 h-5 absolute right-3 top-10 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                             </div>
                         </div>
 
                         <div class="mt-8 border-t pt-6 border-indigo-200">
-                            <h3 class="text-lg font-bold text-green-600 mb-4 text-center">
-                                Payment Required: ${PAYMENT_AMOUNT}
-                            </h3>
-                            
+                            <h3 class="text-lg font-bold text-green-600 mb-4 text-center">Payment Required: ${PAYMENT_AMOUNT}</h3>
                             <div class="p-4 rounded-xl bg-green-50 text-gray-800 mb-6 border border-green-300 shadow-inner">
                                 <p class="font-semibold mb-2">Transfer **${PAYMENT_AMOUNT}** to:</p>
                                 <ul class="text-sm space-y-1 ml-4 list-disc font-mono">
@@ -694,31 +547,17 @@
                             </div>
 
                             <div class="relative">
-                                <label for="paymentSlip" class="file-upload-label ${fileUploadLabelClasses}">
-                                    <span class="text-lg font-bold">
-                                        ${fileUploadText}
-                                    </span>
-                                    <span class="block text-xs font-medium mt-1">
-                                        (Image or PDF files only)
-                                    </span>
+                                <label for="paymentSlip" class="file-upload-label ${fileUploadLabelClasses}" data-action="triggerFileInput">
+                                    <span class="text-lg font-bold">${fileUploadText}</span>
+                                    <span class="block text-xs font-medium mt-1">(Image or PDF files only)</span>
                                 </label>
-                                <input
-                                    type="file"
-                                    id="paymentSlip"
-                                    name="paymentSlip"
-                                    required
-                                    class="sr-only"
-                                    accept="image/*,.pdf"
-                                    ${state.isRegistered ? 'disabled' : ''}
-                                />
+                                <input type="file" id="paymentSlip" name="paymentSlip" required class="sr-only" accept="image/*,.pdf" ${state.isRegistered ? 'disabled' : ''}/>
                             </div>
                         </div>
                         
                         <div class="mt-8">
                             ${createPrimaryButtonHTML(
-                                state.loading ? 
-                                '<span class="flex items-center justify-center"><div class="w-5 h-5 border-2 border-white border-t-transparent border-solid rounded-full animate-spin mr-2"></div>Securing Slot...</span>' : 
-                                'Submit Registration & Payment Slip',
+                                state.loading ? '<span class="flex items-center justify-center"><div class="w-5 h-5 border-2 border-white border-t-transparent border-solid rounded-full animate-spin mr-2"></div>Securing Slot...</span>' : 'Submit Registration & Payment Slip',
                                 'submit', 
                                 true, 
                                 'bg-indigo-600', 
@@ -736,17 +575,13 @@
             
             if (fullRender) {
                 appRoot.innerHTML = registrationContent;
-                // --- Re-attach event listeners after a full render ---
                 const form = document.getElementById('registration-form');
                 if (form) {
                     form.addEventListener('submit', handleSubmit);
-                }
-                const fileInput = document.getElementById('paymentSlip');
-                if (fileInput) {
-                    fileInput.addEventListener('change', handleFileChange);
+                    const fileInput = document.getElementById('paymentSlip');
+                    if (fileInput) { fileInput.addEventListener('change', handleFileChange); }
                 }
             } else {
-                // Partial render update (for file label and button state)
                 const card = document.getElementById('registration-card');
                 if (card) {
                     const fileLabel = card.querySelector('.file-upload-label');
@@ -761,7 +596,6 @@
 
         function renderApp() {
             if (!appRoot) return;
-
             appRoot.className = 'min-h-screen p-4 flex items-center justify-center bg-blue-50 text-gray-900';
             
             if (state.currentPage === 'step_1') {
@@ -771,19 +605,16 @@
             } else if (state.currentPage === 'success') {
                 appRoot.innerHTML = renderSuccessPage();
             }
-            
             showModal(state.modal);
         }
 
+        // --- Initialization and Event Listeners ---
         document.addEventListener('DOMContentLoaded', () => {
             appRoot = document.getElementById('app-root');
             
-            const modalContainer = document.getElementById('feedback-modal-container');
-            if (!modalContainer) {
-                 const newModalContainer = document.createElement('div');
-                 newModalContainer.id = 'feedback-modal-container';
-                 document.body.appendChild(newModalContainer);
-            }
+            const modalContainer = document.createElement('div');
+            modalContainer.id = 'feedback-modal-container';
+            document.body.appendChild(modalContainer);
 
             const registrationFlag = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (registrationFlag === 'true') {
@@ -792,38 +623,27 @@
             }
 
             fetchSlots();
-            // Check for new registrations every 5 seconds to keep the count updated
+            // Poll for slot updates every 5 seconds
             setInterval(fetchSlots, 5000); 
 
             renderApp();
 
-            // --- Centralized Click Handler for navigation and selection ---
             document.body.addEventListener('click', (e) => {
                 let target = e.target;
-                while (target && !target.dataset.action && target !== document.body) {
-                    target = target.parentElement;
-                }
+                while (target && !target.dataset.action && target !== document.body) { target = target.parentElement; }
 
                 if (target && target.dataset.action) {
                     const [action, ...values] = target.dataset.action.split(':');
                     
-                    if (action === 'navigateTo') {
-                        navigateTo(values[0]);
-                    } else if (action === 'selectBatchSlot') {
-                        handleBatchSlotSelect(values[0], values[1]);
-                    } else if (action === 'closeModal') {
-                        showModal({ show: false });
-                        renderApp(); 
-                    } 
-                    // No need for 'triggerFileInput' handler anymore as file input is a standard element
+                    if (action === 'navigateTo') { navigateTo(values[0]); } 
+                    else if (action === 'selectBatchSlot') { handleBatchSlotSelect(values[0], values[1]); } 
+                    else if (action === 'closeModal') { showModal({ show: false }); renderApp(); } 
+                    else if (action === 'triggerFileInput') { e.preventDefault(); const fileInput = document.getElementById('paymentSlip'); if (fileInput) { fileInput.click(); } }
                 }
             });
             
-            // --- Centralized Input Handler for form fields ---
             document.body.addEventListener('input', (e) => {
-                if (e.target.dataset.action === 'textChange') {
-                    handleTextChange(e);
-                }
+                if (e.target.dataset.action === 'textChange') { handleTextChange(e); }
             });
         });
         
