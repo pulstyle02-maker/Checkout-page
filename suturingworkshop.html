@@ -250,8 +250,13 @@
                 
             } catch (e) {
                 console.error("Error fetching slots from SheetDB:", e);
+                // Modified error message for 429 to be more informative
+                const errorMessage = e.message.includes('429') 
+                    ? "SheetDB API Limit Reached (429 Error). Slots may be temporarily outdated." 
+                    : "Could not retrieve slot data from SheetDB. **Please ensure your Google Sheet headers are correct.** Error: " + e.message;
+
                 if (state.isSlotsLoading) {
-                    showModal({ show: true, title: "API Connection Error", message: "Could not retrieve slot data from SheetDB. **Please ensure your Google Sheet headers are correct.** Error: " + e.message, type: 'error' });
+                    showModal({ show: true, title: "API Connection Error", message: errorMessage, type: 'error' });
                 }
             } finally {
                 if (state.isSlotsLoading) { updateState({ isSlotsLoading: false }); }
@@ -368,7 +373,7 @@
                         document.getElementById('registration-form').reset();
                         state.formData = { name: '', rollNumber: '', selectBatch: '', paymentSlip: null };
                         
-                        // --- INSTANT SLOT REFRESH: Ensures the new count is immediately visible ---
+                        // --- INSTANT SLOT REFRESH (Added to update slots for the next user) ---
                         fetchSlots(); 
 
                     } else {
@@ -532,7 +537,7 @@
                             <h1 class="text-3xl font-black tracking-tighter uppercase">SUTURING WORKSHOP</h1>
                         </div>
                         ${renderStepIndicator('step_2')}
-                        <h2 class="text-2xl font-bold text-gray-800">Personal & Payment Details</h2>
+                        <h2 class="2xl font-bold text-gray-800">Personal & Payment Details</h2>
                         <p class="text-md font-light text-gray-500 mt-2">
                             Selected Slot: <span class="font-bold text-indigo-600">${selectedText}</span>
                         </p>
@@ -643,8 +648,8 @@
             }
 
             fetchSlots();
-            // Poll for slot updates every 5 seconds
-            setInterval(fetchSlots, 5000); 
+            // 🚨 FIX FOR 429 ERROR: Reduced slot update frequency from 5s to 30s.
+            setInterval(fetchSlots, 30000); 
 
             renderApp();
 
