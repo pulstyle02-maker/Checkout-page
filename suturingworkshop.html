@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Suturing Workshop Registration</title>
-    <!-- Load Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Configure Inter font as requested */
@@ -62,33 +61,38 @@
         .file-upload-label:hover {
             border-style: solid;
         }
+        /* Style for the green submit button */
+        #submit-button.valid-form:not(:disabled) {
+            background-color: #10B981; /* bg-green-500 */
+            --tw-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.5), 0 4px 6px -2px rgba(16, 185, 129, 0.5); /* shadow-lg shadow-green-500/50 */
+            box-shadow: var(--tw-shadow);
+        }
     </style>
 </head>
-<body>
+<body class="bg-gray-100">
 
-    <!-- Main Container - Everything rendered here -->
-    <div id="app-root" class="min-h-screen p-4 flex items-center justify-center transition-colors duration-500 bg-cover bg-center dark bg-gray-900 text-gray-100" 
-         style="background-image: url('https://i.imgur.com/rD2GSFj.jpeg');">
-        <!-- Overlay and Content will be inserted by JavaScript -->
-    </div>
+    <div id="app-root" class="min-h-screen p-4 flex items-center justify-center bg-blue-50 text-gray-900">
+        </div>
 
     <script>
         // --- Configuration ---
-        // NOTE: THIS URL MUST POINT TO YOUR OWN ACTIVE GOOGLE SCRIPT WEB APP ENDPOINT!
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxPIqaGbegXeO4qDXMqEQG5Wiyh5HQC09LzPWwnPKqkrXP92I7inOivCqp4YH5mm7d9/exec';
-        const MAX_CAPACITY = 25; 
+        // !!! UPDATED with your new URL !!!
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzepPEaG6o2zuPMUT-rFsJywribc6_-m3ajv6vwJjcbkczgVi3go7e3KHIHk0en56V4/exec';
+        
+        const MAX_CAPACITY = 30; 
+        const BATCH_CAPACITY = 15; 
+        const BATCH_OPTIONS = ['A', 'B', 'C', 'D'];
 
         // Payment and Email Configuration
         const PAYMENT_AMOUNT = '150 RS';
         const RECIPIENT_NAME = 'Hamza Masood Gondal';
         const RECIPIENT_NUMBER = '03328483843';
         const RECIPIENT_METHODS = 'JazzCash / EasyPaisa';
-        // NOTE: THIS EMAIL MUST BE CONFIRMED WITH FORMSUBMIT!
+        
         const FORMSUBMIT_EMAIL = 'hasnainmughal4200@gmail.com';
         const FORMSUBMIT_URL = `https://formsubmit.co/ajax/${FORMSUBMIT_EMAIL}`;
         const LOCAL_STORAGE_KEY = 'workshopRegistrationStatus';
 
-        // Initial slot definition
         const initialSlots = [
             { id: 'slot_12_1', time: '12:00 PM - 1:00 PM', registeredCount: 0, maxCapacity: MAX_CAPACITY, isFull: false },
             { id: 'slot_1_2', time: '1:00 PM - 2:00 PM', registeredCount: 0, maxCapacity: MAX_CAPACITY, isFull: false },
@@ -96,39 +100,40 @@
 
         // --- Global State Management ---
         const state = {
-            theme: 'dark',
-            slots: JSON.parse(JSON.stringify(initialSlots)), // Deep copy
-            selectedSlotId: null,
+            slots: JSON.parse(JSON.stringify(initialSlots)), 
+            selectedSlot: { 
+                timeId: null,      
+                batch: null,       
+                timeLabel: null    
+            },
             isRegistered: false,
             isSlotsLoading: true,
-            currentPage: 'home',
-            formData: { name: '', rollNumber: '', batch: '', paymentSlip: null },
+            currentPage: 'step_1', 
+            formData: { 
+                name: '', 
+                rollNumber: '', 
+                selectBatch: '', 
+                paymentSlip: null 
+            }, 
             loading: false,
             modal: { show: false, title: '', message: '', type: 'info' }
         };
 
-        // DOM element references
         let appRoot;
         
-        /**
-         * Utility to update state and trigger a re-render.
-         * @param {object} newState - Partial state object to merge.
-         */
         function updateState(newState) {
             Object.assign(state, newState);
             renderApp(); 
         }
 
-        /**
-         * Creates a Primary Button HTML string.
-         */
-        function createPrimaryButtonHTML(text, type, disabled, className = '', onClick = '') {
-            const disabledClass = 'bg-gray-400 cursor-not-allowed';
+        function createPrimaryButtonHTML(text, type, disabled, className = '', onClick = '', id = '') {
+            const disabledClass = 'bg-gray-400 cursor-not-allowed shadow-none';
             const enabledClass = 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-lg shadow-indigo-500/50';
             
             return `
                 <button
                     type="${type}"
+                    id="${id}"
                     data-action="${onClick}"
                     ${disabled ? 'disabled' : ''}
                     class="w-full py-3 rounded-xl font-extrabold text-white transition-all duration-300 transform 
@@ -138,41 +143,66 @@
                 </button>
             `;
         }
+        
+        function renderStepIndicator(currentStep) {
+            const steps = [
+                { id: 'step_1', label: 'Time & Batch' },
+                { id: 'step_2', label: 'Details & Payment' }
+            ];
+            
+            return `
+                <div class="flex justify-between items-center mb-6">
+                    ${steps.map((step, index) => {
+                        const isActive = currentStep === step.id;
+                        const isComplete = index < steps.findIndex(s => s.id === currentStep);
+                        const baseClasses = 'flex flex-col items-center flex-1';
+                        const dotClasses = `w-8 h-8 rounded-full flex items-center justify-center font-bold text-white transition-all duration-300 ${
+                            isComplete ? 'bg-green-500' : isActive ? 'bg-indigo-600' : 'bg-gray-300 text-gray-700'
+                        }`;
+                        const labelClasses = `text-xs mt-2 transition-colors ${isActive ? 'text-indigo-600 font-semibold' : 'text-gray-500'}`;
+                        
+                        return `
+                            <div class="${baseClasses}" style="z-index: 10;">
+                                <div class="${dotClasses}">
+                                    ${index + 1}
+                                </div>
+                                <div class="${labelClasses}">
+                                    ${step.label}
+                                </div>
+                            </div>
+                            ${index < steps.length - 1 ? `<div class="w-full h-0.5 ${isComplete ? 'bg-green-500' : 'bg-gray-300'} -mt-7 mx-2 z-0"></div>` : ''}
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
 
-        /**
-         * Renders and controls the feedback modal.
-         * @param {boolean} show
-         * @param {string} title
-         * @param {string} message
-         * @param {string} type
-         */
         function showModal({ show, title, message, type = 'success' }) {
             const typeClasses = {
                 success: 'bg-green-500',
                 error: 'bg-red-500',
-                info: 'bg-blue-500',
+                info: 'bg-indigo-500',
             };
-            const titleColor = typeClasses[type] || 'bg-blue-500';
+            const titleColor = typeClasses[type] || 'bg-indigo-500';
 
             const modalContainer = document.getElementById('feedback-modal-container');
             if (!modalContainer) return;
 
-            // Update state without immediately calling renderApp() to avoid infinite loop
             state.modal = { show, title, message, type };
 
             if (show) {
                 modalContainer.innerHTML = `
                     <div id="feedback-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
+                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
                             <div class="p-4 rounded-t-xl text-white ${titleColor} flex justify-between items-center">
                                 <h3 class="text-xl font-bold">${title}</h3>
                                 <button data-action="closeModal" class="text-white hover:text-gray-200 transition">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
-                            <div class="p-6 text-gray-800 dark:text-gray-200">
+                            <div class="p-6 text-gray-800">
                                 <p class="mb-6 whitespace-pre-wrap">${message.replace(/\n/g, '<br/>')}</p>
-                                ${createPrimaryButtonHTML('Close', 'button', false, '', 'closeModal')}
+                                ${createPrimaryButtonHTML('Close', 'button', false, 'bg-gray-500 hover:bg-gray-600', 'closeModal')}
                             </div>
                         </div>
                     </div>
@@ -182,56 +212,53 @@
             }
         }
 
-        /**
-         * Checks the form state to determine if the submit button should be enabled/disabled.
-         */
         function checkFormValidity() {
-            const submitButton = document.querySelector('button[type="submit"]');
+            const submitButton = document.getElementById('submit-button');
+            
+            const { name, rollNumber, selectBatch, paymentSlip } = state.formData;
+            const isFormComplete = name && rollNumber && selectBatch && paymentSlip;
+            const isSlotSelected = state.selectedSlot.timeId && state.selectedSlot.batch;
+
+            const isSubmitDisabled = state.loading || state.isRegistered || !isSlotSelected || !isFormComplete;
+            
             if (submitButton) {
-                const { name, rollNumber, batch, paymentSlip } = state.formData;
-                const isFormComplete = name && rollNumber && batch && paymentSlip;
-                const isSubmitDisabled = state.loading || state.isRegistered || !state.selectedSlotId || state.isSlotsLoading || !isFormComplete;
                 submitButton.disabled = isSubmitDisabled;
+                
+                if (!isSubmitDisabled) {
+                    submitButton.classList.add('valid-form');
+                    submitButton.classList.remove('bg-indigo-600');
+                } else {
+                     submitButton.classList.remove('valid-form');
+                     if (state.loading) {
+                        submitButton.classList.add('bg-indigo-600');
+                     }
+                }
             }
         }
 
-        // --- Event Handlers (Called directly by event listeners) ---
-
-        function toggleTheme() {
-            const newTheme = state.theme === 'light' ? 'dark' : 'light';
-            updateState({ theme: newTheme });
-            appRoot.classList.toggle('dark', newTheme === 'dark');
-            appRoot.classList.toggle('bg-gray-900', newTheme === 'dark');
-            appRoot.classList.toggle('text-gray-100', newTheme === 'dark');
-            appRoot.classList.toggle('bg-gray-50', newTheme === 'light');
-            appRoot.classList.toggle('text-gray-900', newTheme === 'light');
-        }
-
-        function handleSlotSelect(slotId) {
+        function handleBatchSlotSelect(timeId, batch) {
             if (state.isRegistered || state.isSlotsLoading) return;
-            // Check if the slot is full based on the current state before selecting
-            const selected = state.slots.find(s => s.id === slotId);
-            if (selected && selected.isFull) {
-                showModal({ show: true, title: "Slot Full", message: "This slot is at maximum capacity. Please choose another one.", type: 'info' });
+            
+            const selectedTime = state.slots.find(s => s.id === timeId);
+            if (selectedTime && selectedTime.isFull) {
+                showModal({ show: true, title: "Slot Full", message: "This entire time slot is at maximum capacity (30/30). Please choose another one.", type: 'info' });
                 return;
             }
-            updateState({ selectedSlotId: slotId });
+            
+            updateState({ 
+                selectedSlot: { timeId, batch, timeLabel: selectedTime.time },
+                currentPage: 'step_2'
+            });
             checkFormValidity();
         }
-        
-        /**
-         * Handles input changes for all text/number fields.
-         */
+
         function handleTextChange(event) {
             const { name, value } = event.target;
-            state.formData[name] = value;
+            state.formData[name] = value; 
+            renderRegistrationPage(false); 
             checkFormValidity();
         }
         
-        /**
-         * HANDLES FILE INPUT CHANGE (The core file capture logic).
-         * This function is explicitly attached to the file input's 'change' event.
-         */
         function handleFileChange(event) {
             const { files } = event.target;
             
@@ -241,17 +268,14 @@
                 state.formData.paymentSlip = null;
             }
             
-            // Force a minor re-render to update the file upload label text (e.g., show file name)
             renderRegistrationPage(false); 
-            
-            // Check form validity to enable/disable submit button
             checkFormValidity();
         }
         
         function navigateTo(page) {
              updateState({ currentPage: page });
         }
-
+        
         async function handleSubmit(e) {
             e.preventDefault();
             
@@ -260,17 +284,14 @@
                 return;
             }
 
-            if (!state.selectedSlotId) {
-                 showModal({ show: true, title: "Attention", message: "Please select one of the available time slots to register.", type: 'info' });
-                return;
-            }
-
-            const { name, rollNumber, batch, paymentSlip } = state.formData;
-            if (!name || !rollNumber || !batch || !paymentSlip) {
+            const { name, rollNumber, selectBatch, paymentSlip } = state.formData;
+            const { timeId, batch, timeLabel } = state.selectedSlot;
+            
+            if (!timeId || !batch || !name || !rollNumber || !selectBatch || !paymentSlip) {
                 showModal({ 
                     show: true, 
                     title: "Missing Information", 
-                    message: "Please fill in all required fields (Name, Roll Number, Batch) AND upload the payment slip.", 
+                    message: "Please fill in all required fields and upload the payment slip.", 
                     type: 'info' 
                 });
                 return;
@@ -278,24 +299,25 @@
 
             updateState({ loading: true });
 
-            const selectedSlot = state.slots.find(s => s.id === state.selectedSlotId);
-            if (!selectedSlot || selectedSlot.isFull) {
+            const selectedTimeSlot = state.slots.find(s => s.id === timeId);
+            if (!selectedTimeSlot || selectedTimeSlot.isFull) {
                  updateState({ loading: false });
-                 showModal({ show: true, title: "Full Capacity", message: "The selected slot is now full. Please choose the other slot.", type: 'error' });
+                 showModal({ show: true, title: "Full Capacity", message: "The selected time slot is now full. Please go back and choose the other slot.", type: 'error' });
                  return;
             }
             
             let registrationSuccessful = false;
             
-            // 1. Reserve Slot and Log Registration via Google Script API
+            // 1. Reserve Slot and Log Registration via Google Script API (Handles capacity and duplicate check)
             try {
                 const apiPayload = {
                     action: 'register',
                     name,
                     rollNumber,
-                    batch,
-                    slotId: state.selectedSlotId,
-                    slotTime: selectedSlot.time,
+                    batch: selectBatch, 
+                    batchSelection: batch, 
+                    slotId: timeId,
+                    slotTime: timeLabel,
                     paymentAmount: PAYMENT_AMOUNT,
                 };
 
@@ -311,7 +333,7 @@
                 if (apiResult.success) {
                     registrationSuccessful = true;
                 } else {
-                    // Check for common error from Google Script: duplicate/full
+                    // Display error message from the Google Script
                     throw new Error(apiResult.message || "Unknown error during registration via Google Sheet.");
                 }
 
@@ -320,13 +342,15 @@
                 updateState({ loading: false });
                 showModal({ 
                     show: true, 
-                    title: "Registration Failed (Step 1)", 
-                    message: error.message.includes("full") 
-                        ? `The selected slot is now full. Please try again or select the other slot.`
-                        : `An error occurred while communicating with the registration sheet. This usually means the Google Script URL is incorrect or inaccessible. Error: ${error.message}`, 
+                    title: "Registration Failed", 
+                    message: error.message.includes("Roll Number is already registered")
+                        ? error.message 
+                        : error.message.includes("full") 
+                            ? `The selected slot is now full. Please go back and try again.`
+                            : `An error occurred while reserving your slot. Error: ${error.message}`, 
                     type: 'error' 
                 });
-                fetchSlots(); // Re-fetch slots to update capacity display
+                fetchSlots(); 
                 return;
             }
             
@@ -334,66 +358,52 @@
             if (registrationSuccessful) {
                 try {
                     const formSubmitData = new FormData();
-                    formSubmitData.append('_subject', `Suturing Workshop Registration: ${name} (${selectedSlot.time})`);
+                    formSubmitData.append('_subject', `Suturing Workshop Registration: ${name} (${timeLabel}) [${batch}]`);
                     formSubmitData.append('_replyto', `${rollNumber}@student.com`); 
                     
                     formSubmitData.append('Name', name);
                     formSubmitData.append('Roll_Number', rollNumber);
-                    formSubmitData.append('Batch', batch);
-                    formSubmitData.append('Slot_Time', selectedSlot.time);
+                    formSubmitData.append('User_Batch', selectBatch);
+                    formSubmitData.append('Slot_Time', timeLabel);
+                    formSubmitData.append('Slot_Batch_Selected', batch);
                     formSubmitData.append('Payment_Amount', PAYMENT_AMOUNT);
-                    // Append the actual File object here
                     formSubmitData.append('Payment_Slip', paymentSlip, paymentSlip.name);
 
                     const response = await fetch(FORMSUBMIT_URL, {
                         method: 'POST',
                         body: formSubmitData,
-                        headers: {
-                             'Accept': 'application/json'
-                        }
+                        headers: { 'Accept': 'application/json' }
                     });
 
                     if (response.ok) {
-                        updateState({ isRegistered: true, loading: false });
+                        updateState({ isRegistered: true, loading: false, currentPage: 'success' });
                         localStorage.setItem(LOCAL_STORAGE_KEY, 'true'); 
-                        // UX improvement: Clear form fields
                         document.getElementById('registration-form').reset();
-                        state.formData = { name: '', rollNumber: '', batch: '', paymentSlip: null };
+                        state.formData = { name: '', rollNumber: '', selectBatch: '', paymentSlip: null };
 
-                        showModal({ 
-                            show: true, 
-                            title: "Registration Complete!", 
-                            message: `You are successfully registered for the ${selectedSlot.time} slot and your details are logged in the sheet.\n\nYour payment slip has been sent for verification.`, 
-                            type: 'success' 
-                        });
                     } else {
-                         updateState({ loading: false });
+                         updateState({ loading: false, currentPage: 'step_2' }); 
                          showModal({ 
                             show: true, 
-                            title: "Email Submission Failed (Step 2)", 
-                            message: `Your slot is RESERVED in the Google Sheet, but the payment slip could not be emailed automatically. This is usually due to FormSubmit's file limits or confirmation requirements. Please send the slip manually to **${FORMSUBMIT_EMAIL}** to complete verification.`, 
+                            title: "Email Submission Failed", 
+                            message: `Your slot is **RESERVED** in the Google Sheet, but the payment slip could not be emailed automatically. Please send the slip manually to **${FORMSUBMIT_EMAIL}** to complete verification.`, 
                             type: 'error' 
                         });
                     }
 
                 } catch (error) {
                     console.error("FormSubmit/Fetch failed:", error);
-                    updateState({ loading: false });
+                    updateState({ loading: false, currentPage: 'step_2' }); 
                     showModal({ 
                         show: true, 
-                        title: "Submission Error (Step 2)", 
-                        message: `An unexpected error occurred while sending the payment slip. Your slot is RESERVED in the Google Sheet, but please send the slip manually to **${FORMSUBMIT_EMAIL}** to complete verification.`, 
+                        title: "Submission Error", 
+                        message: `An unexpected error occurred while sending the payment slip. Your slot is **RESERVED** in the Google Sheet, but please send the slip manually to **${FORMSUBMIT_EMAIL}** to complete verification.`, 
                         type: 'error' 
                     });
                 }
             }
         }
-
-        // --- API Handlers ---
-
-        /**
-         * Fetches current slot capacities from the Google Script.
-         */
+        
         async function fetchSlots() {
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getSlots`, {
@@ -401,10 +411,7 @@
                     mode: 'cors',
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
                 
                 if (data.success && Array.isArray(data.slots)) {
@@ -412,17 +419,20 @@
                         const apiSlot = data.slots.find(s => s.id === initial.id);
                         if (apiSlot) {
                             const registeredCount = apiSlot.registeredCount || 0;
-                            const maxCapacity = apiSlot.maxCapacity || MAX_CAPACITY;
+                            const maxCapacity = MAX_CAPACITY; 
                             return {
                                 ...initial,
                                 registeredCount,
                                 maxCapacity,
                                 isFull: registeredCount >= maxCapacity,
+                                // SIMULATED BATCH SLOTS FOR DISPLAY
+                                // This assumes the registeredCount is split equally/alternately between A and D
+                                remainingA: Math.max(0, BATCH_CAPACITY - Math.floor(registeredCount / 2)),
+                                remainingD: Math.max(0, BATCH_CAPACITY - Math.ceil(registeredCount / 2))
                             };
                         }
                         return initial;
                     });
-                    // Only update state and re-render if slot data has changed
                     const slotsChanged = JSON.stringify(state.slots) !== JSON.stringify(updatedSlots);
                     if (slotsChanged) {
                          updateState({ slots: updatedSlots });
@@ -432,7 +442,6 @@
                 }
             } catch (e) {
                 console.error("Error fetching slots:", e);
-                // If fetching fails, we keep the old slots but ensure loading is false
             } finally {
                 if (state.isSlotsLoading) {
                     updateState({ isSlotsLoading: false });
@@ -440,262 +449,265 @@
             }
         }
 
-        // --- Rendering Functions ---
 
-        /**
-         * Renders the landing page HTML.
-         */
-        function renderLandingPage() {
-            const features = [
-                "Hands-on Practical Session",
-                "Live Demonstration by Surgical Experts",
-                "Printed Certificates of Participation",
-                "UHS oriented CFRC skill practice"
-            ];
-            
-            const cardClasses = state.theme === 'dark' 
-                ? 'bg-gray-800 shadow-2xl shadow-indigo-500/30' 
-                : 'bg-white shadow-xl shadow-gray-300/50';
+        function renderSuccessPage() {
+            const cardClasses = 'bg-white shadow-2xl shadow-green-200/50';
 
             return `
-                <div class="absolute inset-0 bg-black opacity-70"></div>
-                
-                <div class="absolute top-4 right-4 z-20">
-                    <button id="theme-toggle" data-action="toggleTheme" class="p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-md hover:scale-105 transition-transform" aria-label="Toggle dark and light theme">
-                        ${state.theme === 'dark' ? `
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        ` : `
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                        `}
-                    </button>
-                </div>
-                
-                <div class="w-full max-w-lg p-6 md:p-10 rounded-3xl z-10 text-center ${cardClasses} bg-opacity-90 dark:bg-opacity-90 backdrop-blur-sm">
-                     <header class="mb-8">
-                        <div class="flex items-center justify-center space-x-3 mb-4 text-indigo-500 dark:text-indigo-400">
-                            <span class="medical-cross-icon text-5xl"></span>
-                            <h1 class="text-5xl md:text-6xl font-black tracking-tighter uppercase transition-colors duration-500 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-400 dark:to-purple-400">
-                                SUTURING
-                            </h1>
-                            <span class="medical-cross-icon text-5xl transform rotate-45"></span>
-                        </div>
-                         <h2 class="text-3xl font-extrabold italic text-gray-800 dark:text-gray-200 mb-2">
-                            Get Hands-On Skills
-                        </h2>
-                        <p class="text-lg font-semibold text-indigo-600 dark:text-indigo-300 border-t border-b py-2 border-indigo-500/20">
-                            Presented by Batch A & D
-                        </p>
-                    </header>
+                <div class="w-full max-w-lg p-6 md:p-10 rounded-3xl z-10 text-center ${cardClasses}">
+                    <svg class="w-20 h-20 text-green-500 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    
+                    <h1 class="text-3xl font-black text-gray-800 mb-4">
+                        REGISTRATION COMPLETE!
+                    </h1>
+                    
+                    <p class="text-xl font-semibold text-green-600 mb-8">
+                        Thank you for registering. Your spot is secured.
+                    </p>
+                    
+                    <p class="text-lg text-gray-700 mb-10">
+                        Regards, **BR DBR Batch A & D**<br>
+                        We look forward to a great workshop!
+                    </p>
 
-                    <main class="mb-8 text-left">
-                        <h3 class="text-xl font-bold mb-3 text-gray-700 dark:text-gray-300 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                            Workshop Highlights
-                        </h3>
-                        <ul class="space-y-3">
-                            ${features.map(feature => `
-                                <li class="flex items-start text-lg font-medium text-gray-700 dark:text-gray-300">
-                                    <svg class="w-6 h-6 mr-3 mt-1 flex-shrink-0 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    ${feature}
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </main>
-
-                    ${createPrimaryButtonHTML('Register Now', 'button', false, 'mt-6 text-xl', 'navigateTo:register')}
+                    ${createPrimaryButtonHTML('Close', 'button', false, 'mt-6 bg-gray-500 hover:bg-gray-600', 'closeModal')}
                 </div>
             `;
         }
-        
-        /**
-         * Renders the slot selection and registration form.
-         * @param {boolean} fullRender - If true, replaces all HTML. If false, only updates form details.
-         */
-        function renderRegistrationPage(fullRender = true) {
-            const cardClasses = state.theme === 'dark' 
-                ? 'bg-gray-800 shadow-2xl shadow-indigo-500/30' 
-                : 'bg-white shadow-xl shadow-gray-300/50';
 
-            const isSlotSelectionDisabled = state.isRegistered || state.isSlotsLoading;
-            
-            // Check if all form fields and a slot are selected
-            const { paymentSlip } = state.formData;
-            const fileUploadLabelClasses = paymentSlip 
-                ? 'border-green-500 dark:border-green-400 text-green-500 dark:text-green-400 bg-green-50 dark:bg-green-900/30' 
-                : 'border-indigo-400 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400';
-            
-            const fileUploadText = paymentSlip 
-                ? `Slip Attached: ${paymentSlip.name}`
-                : 'Click to Upload Payment Slip (Required)';
-                
-            const formInputs = ['name', 'rollNumber', 'batch'].map(field => `
-                <div class="relative">
-                    <label for="${field}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 capitalize">
-                        ${field.replace(/([A-Z])/g, ' $1').trim()}
-                    </label>
-                    <input
-                        type="${field === 'rollNumber' ? 'number' : 'text'}"
-                        id="${field}"
-                        name="${field}"
-                        value="${state.formData[field] || ''}"
-                        data-action="textChange"
-                        required
-                        placeholder="Enter your ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}"
-                        class="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition duration-200"
-                        ${field === 'rollNumber' ? 'min="1"' : ''}
-                        ${state.isRegistered ? 'disabled' : ''}
-                    />
-                </div>
-            `).join('');
+        function renderStep1() {
+            const cardClasses = 'bg-white shadow-xl shadow-indigo-100/50';
 
             const slotHTML = state.slots.map(slot => {
                 const isFull = slot.isFull;
-                const isSelected = state.selectedSlotId === slot.id;
-                const isRegisteredSlot = state.isRegistered && isSelected;
                 
-                const classes = isFull 
-                    ? 'border-red-600 bg-red-100 dark:bg-red-900/50 text-red-600 cursor-not-allowed opacity-70'
-                    : isRegisteredSlot
-                        ? 'border-green-600 bg-green-100 dark:bg-green-800/50 text-green-600 cursor-default shadow-lg' 
-                        : (isSelected
-                            ? 'border-indigo-600 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 shadow-lg shadow-indigo-500/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500');
+                const remainingA = slot.remainingA;
+                const remainingD = slot.remainingD;
+                
+                const getBatchButton = (batch, remaining) => {
+                    const disabled = isFull || state.isRegistered;
+                    
+                    const isSelected = state.selectedSlot.timeId === slot.id && state.selectedSlot.batch === `Batch ${batch}`;
+                    
+                    const classes = disabled 
+                        ? 'border-red-400 bg-red-50 text-red-600 cursor-not-allowed opacity-70'
+                        : isSelected
+                            ? 'border-indigo-600 bg-indigo-100 text-indigo-700 shadow-md shadow-indigo-200'
+                            : 'border-gray-300 hover:border-indigo-500 hover:bg-indigo-50 active:bg-indigo-100';
 
-                const buttonDisabled = isFull || isSlotSelectionDisabled ? 'disabled' : '';
+                    const countText = remaining === 0 && !isFull ? 'FULL' : `${remaining}/${BATCH_CAPACITY}`;
+                    const countClasses = remaining === 0 && !isFull ? 'bg-orange-500' : 'bg-indigo-500 text-white';
+
+                    return `
+                        <button type="button" data-action="selectBatchSlot:${slot.id}:Batch ${batch}" ${disabled ? 'disabled' : ''}
+                            class="w-full p-3 rounded-xl border-2 transition-all duration-300 text-center relative ${classes}">
+                            <div class="flex flex-col items-center">
+                                <div class="font-extrabold text-sm">BATCH ${batch}</div>
+                                <div class="mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${countClasses}">
+                                    ${countText}
+                                </div>
+                            </div>
+                        </button>
+                    `;
+                };
 
                 return `
-                    <button type="button" data-action="selectSlot:${slot.id}" ${buttonDisabled}
-                        class="w-full p-4 rounded-xl border-4 transition-all duration-300 text-left relative ${classes}">
-                        <div class="flex justify-between items-center">
-                            <div class="font-extrabold text-lg">${slot.time}</div>
-                            <div class="text-sm font-semibold px-3 py-1 rounded-full ${isFull ? 'bg-red-600 text-white' : 'bg-indigo-500 text-white dark:bg-indigo-400 dark:text-gray-900'}">
-                                ${isFull ? 'FULL' : `${slot.maxCapacity - slot.registeredCount} spots left`}
-                            </div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 class="text-xl font-extrabold text-indigo-700 mb-4 text-center border-b pb-2">
+                            ${slot.time}
+                        </h3>
+                        <div class="flex space-x-3">
+                            ${getBatchButton('A', remainingA)}
+                            ${getBatchButton('D', remainingD)}
                         </div>
-                        ${isRegisteredSlot ? '<div class="absolute top-1/2 right-4 transform -translate-y-1/2 text-green-600 font-bold">REGISTERED</div>' : ''}
-                    </button>
+                        ${isFull ? '<p class="text-center text-sm text-red-600 mt-2 font-semibold">Time slot is completely full (30/30).</p>' : ''}
+                    </div>
                 `;
             }).join('');
             
             const loadingHTML = `
                 <div class="text-center py-8" id="slots-loading">
                     <div class="w-6 h-6 border-4 border-indigo-500 border-t-transparent border-solid rounded-full animate-spin mx-auto mb-3"></div>
-                    <p class="text-indigo-500 dark:text-indigo-400 font-medium">
-                        Connecting to Registration System...
+                    <p class="text-indigo-500 font-medium">
+                        Fetching available slots...
                     </p>
                 </div>
             `;
-            
-            
-            const isSubmitDisabled = state.loading || state.isRegistered || !state.selectedSlotId || state.isSlotsLoading || !(state.formData.name && state.formData.rollNumber && state.formData.batch && state.formData.paymentSlip);
 
-            const registrationContent = `
-                <div class="absolute inset-0 bg-black opacity-70"></div>
-
-                <div class="absolute top-4 right-4 z-20">
-                    <button id="theme-toggle" data-action="toggleTheme" class="p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-md hover:scale-105 transition-transform" aria-label="Toggle dark and light theme">
-                        ${state.theme === 'dark' ? `
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        ` : `
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                        `}
-                    </button>
-                </div>
-
+            return `
                 <div id="registration-card" class="w-full max-w-lg p-6 md:p-10 rounded-3xl transition-shadow duration-500 z-10 ${cardClasses}">
                     <header class="mb-8 text-center">
-                        <div class="flex items-center justify-center space-x-3 mb-2 text-indigo-500 dark:text-indigo-400">
-                            <span class="medical-cross-icon text-4xl"></span>
-                            <h1 class="text-3xl font-black tracking-tighter uppercase transition-colors duration-500 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-400 dark:to-purple-400">
+                        <div class="flex items-center justify-center space-x-3 mb-2 text-indigo-600">
+                            <span class="medical-cross-icon text-3xl"></span>
+                            <h1 class="text-3xl font-black tracking-tighter uppercase">
                                 SUTURING WORKSHOP
                             </h1>
-                            <span class="medical-cross-icon text-4xl transform rotate-45"></span>
                         </div>
-                        <p class="text-md font-light italic text-gray-500 dark:text-gray-400 mb-4">
-                            Complete your registration below.
+                        ${renderStepIndicator('step_1')}
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            Select Time & Batch
+                        </h2>
+                        <p class="text-sm font-light text-gray-500 mt-2">
+                            A maximum of 15 slots are available for Batch A and 15 for Batch D per time slot.
                         </p>
                     </header>
-
+                    
                     ${state.isSlotsLoading ? loadingHTML : `
-                        <!-- Slot Selection -->
-                        <h2 class="text-xl font-bold mb-4 text-center text-indigo-500 dark:text-indigo-300 uppercase tracking-wider">
-                            Select Your Time Slot
-                        </h2>
-                        
                         <div id="slots-container" class="space-y-4 mb-6">
                             ${slotHTML}
                         </div>
-                        
-                        ${state.isRegistered ? `
-                            <p class="text-center text-sm text-green-600 dark:text-green-400 font-semibold mb-4 p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                                You are already registered and cannot select another slot.
-                            </p>
-                        ` : ''}
-
-                        <!-- Registration Form with Payment -->
-                        ${!state.isRegistered ? `
-                            <form id="registration-form">
-                                <h2 class="text-xl font-bold mb-4 text-center text-indigo-500 dark:text-indigo-300 uppercase tracking-wider border-t pt-6 border-indigo-500/20">
-                                    Registration Details
-                                </h2>
-                                
-                                <div class="space-y-4">
-                                    ${formInputs}
-                                </div>
-
-                                <!-- --- Payment Section --- -->
-                                <div class="mt-8 border-t pt-6 border-indigo-500/20">
-                                    <h2 class="text-xl font-bold mb-4 text-center text-green-600 dark:text-green-400 uppercase tracking-wider">
-                                        Payment Required: ${PAYMENT_AMOUNT}
-                                    </h2>
-                                    
-                                    <div class="p-4 rounded-xl bg-green-100 dark:bg-green-900/40 text-gray-800 dark:text-gray-200 mb-6 border border-green-300 dark:border-green-700">
-                                        <p class="font-semibold mb-2">Transfer **${PAYMENT_AMOUNT}** to:</p>
-                                        <ul class="text-sm space-y-1 ml-4 list-disc">
-                                            <li>**Recipient:** ${RECIPIENT_NAME}</li>
-                                            <li>**Number:** ${RECIPIENT_NUMBER}</li>
-                                            <li>**Method:** ${RECIPIENT_METHODS}</li>
-                                        </ul>
-                                    </div>
-
-                                    <!-- Payment Slip Upload - FIXED -->
-                                    <div class="relative">
-                                        <label for="paymentSlip" class="file-upload-label ${fileUploadLabelClasses}" data-action="triggerFileInput">
-                                            <span class="text-lg font-bold">
-                                                ${fileUploadText}
-                                            </span>
-                                            <span class="block text-xs font-medium mt-1">
-                                                (Image or PDF files only)
-                                            </span>
-                                        </label>
-                                        <input
-                                            type="file"
-                                            id="paymentSlip"
-                                            name="paymentSlip"
-                                            required
-                                            class="sr-only"
-                                            accept="image/*,.pdf"
-                                        />
-                                    </div>
-                                </div>
-                                <!-- --- End Payment Section --- -->
-                                
-                                <div class="mt-8">
-                                    ${createPrimaryButtonHTML(
-                                        state.loading ? 
-                                        '<span class="flex items-center justify-center"><div class="w-5 h-5 border-2 border-white border-t-transparent border-solid rounded-full animate-spin mr-2"></div>Securing Slot & Sending Slip...</span>' : 
-                                        'Submit Registration & Payment Slip',
-                                        'submit', 
-                                        isSubmitDisabled
-                                    )}
-                                </div>
-                            </form>
-                        ` : ''}
                     `}
+                    
+                    ${state.isRegistered ? `
+                        <p class="text-center text-sm text-green-600 font-semibold mb-4 p-2 bg-green-100 rounded-lg">
+                            You are already registered.
+                        </p>
+                    ` : ''}
+                    
+                    ${createPrimaryButtonHTML(
+                        'Continue to Details →', 
+                        'button', 
+                        !state.selectedSlot.timeId || state.isRegistered, 
+                        'mt-6', 
+                        'navigateTo:step_2'
+                    )}
+                </div>
+            `;
+        }
 
+        function renderStep2(fullRender = true) {
+            const cardClasses = 'bg-white shadow-xl shadow-indigo-100/50';
 
-                    <!-- User Info Footer (Removed previous text, kept back button) -->
-                    <button data-action="navigateTo:home" class="mt-8 w-full text-sm text-indigo-400 dark:text-indigo-300 hover:underline transition-colors">
-                        ← Back to Home Page
+            const { paymentSlip } = state.formData;
+            const fileUploadLabelClasses = paymentSlip 
+                ? 'border-green-500 text-green-500 bg-green-50' 
+                : 'border-indigo-400 text-indigo-600';
+            
+            const fileUploadText = paymentSlip 
+                ? `Slip Attached: ${paymentSlip.name}`
+                : 'Click to Upload Payment Slip (Required)';
+                
+            const formInputs = [
+                { id: 'name', type: 'text', label: 'Name' },
+                { id: 'rollNumber', type: 'number', label: 'Roll Number' }
+            ].map(field => `
+                <div class="relative">
+                    <label for="${field.id}" class="block text-sm font-medium text-gray-700 mb-1 capitalize">
+                        ${field.label}
+                    </label>
+                    <input
+                        type="${field.type}"
+                        id="${field.id}"
+                        name="${field.id}"
+                        value="${state.formData[field.id] || ''}"
+                        data-action="textChange"
+                        required
+                        placeholder="Enter your ${field.label.toLowerCase()}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200"
+                        ${field.id === 'rollNumber' ? 'min="1"' : ''}
+                        ${state.isRegistered ? 'disabled' : ''}
+                    />
+                </div>
+            `).join('');
+
+            const selectedText = state.selectedSlot.timeLabel 
+                ? `${state.selectedSlot.timeLabel} (${state.selectedSlot.batch})` 
+                : 'No slot selected.';
+
+            const registrationContent = `
+                <div id="registration-card" class="w-full max-w-lg p-6 md:p-10 rounded-3xl transition-shadow duration-500 z-10 ${cardClasses}">
+                    <header class="mb-8 text-center">
+                        <div class="flex items-center justify-center space-x-3 mb-2 text-indigo-600">
+                            <span class="medical-cross-icon text-3xl"></span>
+                            <h1 class="text-3xl font-black tracking-tighter uppercase">
+                                SUTURING WORKSHOP
+                            </h1>
+                        </div>
+                        ${renderStepIndicator('step_2')}
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            Personal & Payment Details
+                        </h2>
+                        <p class="text-md font-light text-gray-500 mt-2">
+                            Selected Slot: <span class="font-bold text-indigo-600">${selectedText}</span>
+                        </p>
+                    </header>
+
+                    <form id="registration-form">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Your Information</h3>
+                        <div class="space-y-4 mb-6">
+                            ${formInputs}
+
+                            <div class="relative">
+                                <label for="selectBatch" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Your Batch (A, B, C, or D)
+                                </label>
+                                <select
+                                    id="selectBatch"
+                                    name="selectBatch"
+                                    data-action="textChange"
+                                    required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 transition duration-200 appearance-none"
+                                    ${state.isRegistered ? 'disabled' : ''}
+                                >
+                                    <option value="">Select Your Batch...</option>
+                                    ${BATCH_OPTIONS.map(batch => `
+                                        <option value="${batch}" ${state.formData.selectBatch === batch ? 'selected' : ''}>Batch ${batch}</option>
+                                    `).join('')}
+                                </select>
+                                <svg class="w-5 h-5 absolute right-3 top-10 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 border-t pt-6 border-indigo-200">
+                            <h3 class="text-lg font-bold text-green-600 mb-4 text-center">
+                                Payment Required: ${PAYMENT_AMOUNT}
+                            </h3>
+                            
+                            <div class="p-4 rounded-xl bg-green-50 text-gray-800 mb-6 border border-green-300 shadow-inner">
+                                <p class="font-semibold mb-2">Transfer **${PAYMENT_AMOUNT}** to:</p>
+                                <ul class="text-sm space-y-1 ml-4 list-disc font-mono">
+                                    <li>**Recipient:** ${RECIPIENT_NAME}</li>
+                                    <li>**Number:** ${RECIPIENT_NUMBER}</li>
+                                    <li>**Method:** ${RECIPIENT_METHODS}</li>
+                                </ul>
+                            </div>
+
+                            <div class="relative">
+                                <label for="paymentSlip" class="file-upload-label ${fileUploadLabelClasses}" data-action="triggerFileInput">
+                                    <span class="text-lg font-bold">
+                                        ${fileUploadText}
+                                    </span>
+                                    <span class="block text-xs font-medium mt-1">
+                                        (Image or PDF files only)
+                                    </span>
+                                </label>
+                                <input
+                                    type="file"
+                                    id="paymentSlip"
+                                    name="paymentSlip"
+                                    required
+                                    class="sr-only"
+                                    accept="image/*,.pdf"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div class="mt-8">
+                            ${createPrimaryButtonHTML(
+                                state.loading ? 
+                                '<span class="flex items-center justify-center"><div class="w-5 h-5 border-2 border-white border-t-transparent border-solid rounded-full animate-spin mr-2"></div>Securing Slot...</span>' : 
+                                'Submit Registration & Payment Slip',
+                                'submit', 
+                                true, 
+                                'bg-indigo-600', 
+                                '',
+                                'submit-button'
+                            )}
+                        </div>
+                    </form>
+
+                    <button data-action="navigateTo:step_1" class="mt-8 w-full text-sm text-indigo-600 hover:underline transition-colors">
+                        ← Back to Time & Batch Selection
                     </button>
                 </div>
             `;
@@ -707,17 +719,14 @@
                 if (form) {
                     form.addEventListener('submit', handleSubmit);
                     
-                    // Explicitly attach the CHANGE listener to the hidden file input
                     const fileInput = document.getElementById('paymentSlip');
                     if (fileInput) {
                         fileInput.addEventListener('change', handleFileChange);
                     }
                 }
             } else {
-                // Targeted update for non-full renders (like input change)
                 const card = document.getElementById('registration-card');
                 if (card) {
-                    // Find and update the file label specifically
                     const fileLabel = card.querySelector('.file-upload-label');
                     if (fileLabel) {
                          fileLabel.className = `file-upload-label ${fileUploadLabelClasses}`;
@@ -725,80 +734,61 @@
                     }
                 }
             }
+            checkFormValidity();
         }
-        
-        /**
-         * Main render loop based on currentPage.
-         */
+
         function renderApp() {
             if (!appRoot) return;
 
-            // Apply theme classes to the root
-            const themeClasses = state.theme === 'dark' 
-                ? 'dark bg-gray-900 text-gray-100' 
-                : 'bg-gray-50 text-gray-900';
-            appRoot.className = `min-h-screen p-4 flex items-center justify-center transition-colors duration-500 bg-cover bg-center ${themeClasses}`;
-            appRoot.style.backgroundImage = `url('https://i.imgur.com/rD2GSFj.jpeg')`;
-            appRoot.setAttribute('data-theme', state.theme);
+            appRoot.className = 'min-h-screen p-4 flex items-center justify-center bg-blue-50 text-gray-900';
             
-            // Render the appropriate page
-            if (state.currentPage === 'home') {
-                appRoot.innerHTML = renderLandingPage();
-            } else if (state.currentPage === 'register') {
-                // Always do a full render when navigating to the page
-                renderRegistrationPage(true);
+            if (state.currentPage === 'step_1') {
+                appRoot.innerHTML = renderStep1();
+            } else if (state.currentPage === 'step_2') {
+                renderStep2(true);
+            } else if (state.currentPage === 'success') {
+                appRoot.innerHTML = renderSuccessPage();
             }
             
-            // Ensure modal is rendered (it lives outside the main page content)
             showModal(state.modal);
         }
-
-        // --- Initialization and Event Delegation ---
 
         document.addEventListener('DOMContentLoaded', () => {
             appRoot = document.getElementById('app-root');
             
-            // Create a dedicated container for the modal to live outside the main app content
             const modalContainer = document.createElement('div');
             modalContainer.id = 'feedback-modal-container';
             document.body.appendChild(modalContainer);
 
-            // 1. Initial Auth Check (Replaced with localStorage check)
             const registrationFlag = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (registrationFlag === 'true') {
-                // Do not show modal on initial load if already registered, just update state
                 state.isRegistered = true;
+                state.currentPage = 'success';
             }
 
-            // 2. Initial Data Fetch and Polling
             fetchSlots();
-            setInterval(fetchSlots, 5000);
+            // Check for new registrations every 5 seconds to keep the count updated
+            setInterval(fetchSlots, 5000); 
 
-            // 3. Initial Render
             renderApp();
 
-            // 4. Global Event Delegation for all interactive elements
             document.body.addEventListener('click', (e) => {
                 let target = e.target;
-                // Traverse up to find the closest element with a data-action attribute
                 while (target && !target.dataset.action && target !== document.body) {
                     target = target.parentElement;
                 }
 
                 if (target && target.dataset.action) {
-                    const [action, value] = target.dataset.action.split(':');
+                    const [action, ...values] = target.dataset.action.split(':');
                     
-                    if (action === 'toggleTheme') {
-                        toggleTheme();
-                    } else if (action === 'navigateTo') {
-                        navigateTo(value);
-                    } else if (action === 'selectSlot') {
-                        handleSlotSelect(value);
+                    if (action === 'navigateTo') {
+                        navigateTo(values[0]);
+                    } else if (action === 'selectBatchSlot') {
+                        handleBatchSlotSelect(values[0], values[1]);
                     } else if (action === 'closeModal') {
                         showModal({ show: false });
-                        renderApp(); // Force a re-render after closing modal to ensure state consistency
+                        renderApp(); 
                     } else if (action === 'triggerFileInput') {
-                        // *** THE RELIABLE FIX: Manually click the hidden input ***
                         e.preventDefault(); 
                         const fileInput = document.getElementById('paymentSlip');
                         if (fileInput) {
@@ -808,19 +798,13 @@
                 }
             });
             
-            // Global Event Delegation for text inputs
             document.body.addEventListener('input', (e) => {
-                // Check if the target is one of our managed inputs for text (uses data-action="textChange")
                 if (e.target.dataset.action === 'textChange') {
                     handleTextChange(e);
                 }
             });
-            
-            // The file input listener is now attached explicitly to the element 
-            // inside the renderRegistrationPage function after the HTML is added.
         });
         
     </script>
 </body>
 </html>
-
