@@ -128,11 +128,11 @@
                     <!-- Form Fields -->
                     <div>
                         <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
-                        <input type="text" id="name" name="name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
+                        <input type="text" id="name" name="Name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
                     </div>
                     <div>
                         <label for="roll-number" class="block text-sm font-medium text-gray-700">Roll Number</label>
-                        <input type="text" id="roll-number" name="roll_number" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
+                        <input type="text" id="roll-number" name="RollNumber" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
                     </div>
                     
                     <!-- File input for payment slip -->
@@ -190,15 +190,14 @@
     <script>
         // --- CONFIGURATION ---
         // !!! IMPORTANT !!! REPLACE THIS PLACEHOLDER KEY WITH YOUR JSONBIN MASTER KEY 
-        // IF YOU WANT SLOTS TO ACTUALLY UPDATE.
         const JSON_API_KEY = "$2a$10$lNnY7Irt8/dx/9/aYstApuBdcwDWQQMdQxVPIRd6aLvb4dTc8IFXi"; 
         const JSON_BIN_ID = "68e868e2ae596e708f0ca3d7";
-        // JSONBin V3 Read/Write Endpoint
         const JSON_BIN_URL = `https://api.jsonbin.io/v3/b/${JSON_BIN_ID}`; 
         
-        // FormSubmit URL for AJAX submission (Email: hasnainmughal4200@gmail.com)
+        // --- FORMSUBMIT CONFIGURATION ---
+        // Using FormSubmit endpoint for the specified email
         const FORMSUBMIT_URL = "https://formsubmit.co/hasnainmughal4200@gmail.com";
-        // ---------------------
+        // --------------------------------
         
         // Application State
         window.state = {
@@ -244,7 +243,6 @@
          * Reads the current slot counts from the external JSON API.
          */
         async function fetchSlotCounts() {
-            // Show loading spinner while fetching
             ui.loading.classList.remove('hidden');
 
             try {
@@ -260,15 +258,12 @@
                     const errorBody = await response.text();
                     console.error("JSONBin GET Error: Status", response.status, response.statusText);
                     console.error("JSONBin GET Response Body:", errorBody);
-                    // Critical failure to read data. Use default state but warn user.
                     showError(`Failed to read current slot availability (Status: ${response.status}). Check Console for API error.`);
-                    // We still render options using the default state so the user can proceed for debugging
                     renderSlotOptions();
                     return;
                 }
                 
                 const data = await response.json();
-                
                 const slots = data.record || data; 
                 
                 window.state.availableSlots = {
@@ -290,7 +285,6 @@
 
         /**
          * Writes the updated slot counts back to the external JSON API.
-         * @param {object} updatedSlots The new object containing all slot counts.
          */
         async function updateSlotCounts(updatedSlots) {
             console.log("Attempting JSONBin PUT with payload:", updatedSlots);
@@ -298,7 +292,6 @@
                 const response = await fetch(JSON_BIN_URL, {
                     method: 'PUT',
                     headers: {
-                        // THIS MUST BE THE MASTER KEY FOR WRITE ACCESS
                         'X-Master-Key': JSON_API_KEY,
                         'Content-Type': 'application/json',
                         'X-Bin-Versioning': 'false' 
@@ -328,19 +321,13 @@
          * Handles the form submission: decrements slot via API write and then sends data via FormSubmit AJAX.
          */
         async function handleRegistrationSubmit(event) {
-            event.preventDefault(); // Stop default form submit (NO REDIRECTION)
+            event.preventDefault();
 
-            // Capture form data
             window.state.name = document.getElementById('name').value.trim();
             window.state.rollNumber = document.getElementById('roll-number').value.trim();
             
-            // Basic validation
-            if (!window.state.name || !window.state.rollNumber) {
-                 showError("Please fill in your full name and roll number.");
-                 return;
-            }
-            if (document.getElementById('payment-slip').files.length === 0) {
-                 showError("Please upload your payment slip (proof of payment).");
+            if (!window.state.name || !window.state.rollNumber || document.getElementById('payment-slip').files.length === 0) {
+                 showError("Please fill in all details and upload your payment slip.");
                  return;
             }
 
@@ -348,14 +335,8 @@
             ui.submitButton.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Securing Slot...';
 
             const slotKey = window.state.selectedSlotKey;
-            
-            if (!slotKey) {
-                showError("Application state is invalid. Please restart the registration process.");
-                return;
-            }
-
-            // 1. Check Availability (Local Check)
             const currentCount = window.state.availableSlots[slotKey];
+            
             if (currentCount <= 0) {
                 showError("No more slots available for this time slot. Please choose another one.");
                 ui.submitButton.disabled = false;
@@ -363,13 +344,13 @@
                 return;
             }
 
-            // 2. Decrement Slot Count (JSONBin PUT)
+            // 1. Decrement Slot Count (JSONBin PUT)
             const updatedSlots = { ...window.state.availableSlots };
             updatedSlots[slotKey] = currentCount - 1;
 
             const updateSuccess = await updateSlotCounts(updatedSlots);
 
-            // CRITICAL CHECK: If slot update fails, we halt here.
+            // Halt if slot update fails (JSONBin issue)
             if (!updateSuccess) {
                 showError("Slot reservation failed due to a server error. Check Console for JSONBin error status (likely 401/403 Key Issue).");
                 ui.submitButton.disabled = false;
@@ -377,30 +358,35 @@
                 return;
             }
 
-            // 3. Send Form Data and File via FormSubmit AJAX (NO REDIRECTION)
+            // 2. Send Form Data and File via FormSubmit AJAX (No Redirection)
             console.log("JSONBin update successful. Proceeding to FormSubmit (Email)...");
             
             const formData = new FormData(ui.form);
-            // Append essential hidden fields for FormSubmit and context
-            formData.append('_subject', `Workshop Registration: Batch ${window.state.selectedBatch} Slot ${window.state.selectedSlotTime}`);
-            formData.append('Batch', window.state.selectedBatch);
-            formData.append('SlotTime', window.state.selectedSlotTime);
             
-            // Use fetch for AJAX submission to prevent browser redirection
+            // Append FormSubmit specific fields for configuration
+            formData.append('_subject', `Workshop Registration: Batch ${window.state.selectedBatch} Slot ${window.state.selectedSlotTime}`);
+            formData.append('Batch', window.state.selectedBatch); // Include this info in the email body
+            formData.append('SlotTime', window.state.selectedSlotTime); // Include this info in the email body
+            formData.append('_captcha', 'false'); // Disable FormSubmit's captcha for a seamless AJAX experience
+            // NOTE: We rely on FormSubmit's AJAX behavior to prevent redirection without a _next field
+            
             try {
-                // FormSubmit may return non-success status in an AJAX context but still send the email.
-                // We log the attempt and proceed, as the slot is already reserved.
+                // Use fetch for AJAX submission to prevent browser redirection
                 const formSubmitResponse = await fetch(FORMSUBMIT_URL, {
                     method: 'POST',
                     body: formData
                 });
-                console.log(`FormSubmit Fetch Attempted. Response status: ${formSubmitResponse.status}. (If you do not receive the email, ensure hasnainmughal4200@gmail.com is verified with FormSubmit.)`);
+                
+                // FormSubmit often returns status 302 or similar on success, even in fetch.
+                // We log the attempt and proceed, as the slot is already reserved.
+                console.log(`FormSubmit Fetch Attempted. Response status: ${formSubmitResponse.status}. (Check your email for the submission.)`);
             } catch (error) {
                 console.error("FormSubmit AJAX failed (Network Error or CORS):", error);
                 // Log the error but proceed to confirmation, as the slot is secured.
+                showError("Email submission failed due to a network error. Your slot is reserved, but please contact the organizer with your slip.");
             }
 
-            // 4. SUCCESS: Show Confirmation Screen
+            // 3. SUCCESS: Show Confirmation Screen
             showStep(4);
         }
 
@@ -444,12 +430,9 @@
         }
 
         function showError(message) {
+            // Ensure error message is highly visible
             ui.loading.classList.add('hidden');
             ui.stepsIndicator.classList.add('hidden');
-            ui.step1.classList.add('hidden');
-            ui.step2.classList.add('hidden');
-            ui.step3.classList.add('hidden');
-            ui.step4.classList.add('hidden');
             ui.errorText.textContent = message;
             ui.error.classList.remove('hidden');
         }
@@ -490,34 +473,22 @@
         }
         
         // --- Utility Function: Copy to Clipboard ---
-
-        /**
-         * Copies text from a specified element ID to the clipboard.
-         */
         function copyToClipboard(elementId, button) {
             const copyText = document.getElementById(elementId).textContent.trim();
             const originalText = button.innerHTML;
-
-            // Use temporary input element for execCommand fallback
             const tempInput = document.createElement('input');
             tempInput.value = copyText;
             document.body.appendChild(tempInput);
             tempInput.select();
             
             try {
-                // Execute copy command
                 document.execCommand('copy');
-                
-                // Provide visual feedback
                 button.innerHTML = '<span class="text-green-600">Copied!</span>';
                 button.disabled = true;
-
-                // Reset button state after a delay
                 setTimeout(() => {
                     button.innerHTML = originalText;
                     button.disabled = false;
                 }, 2000);
-
             } catch (err) {
                 console.error('Failed to copy text: ', err);
                 button.innerHTML = '<span class="text-red-600">Failed</span>';
@@ -534,7 +505,6 @@
         window.selectBatch = function(batch) {
             window.state.selectedBatch = batch;
             ui.selectedBatchDisplay.textContent = batch;
-            // Fetch slot counts immediately on batch selection to get the latest data
             fetchSlotCounts(); 
             showStep(2);
         }
@@ -543,7 +513,6 @@
             window.state.selectedSlotKey = key;
             window.state.selectedSlotTime = time;
 
-            // Update step 3 summary
             ui.summaryBatch.textContent = window.state.selectedBatch;
             ui.summarySlot.textContent = time;
             
@@ -559,13 +528,11 @@
             if (step === 2) {
                 window.state.selectedSlotKey = null;
                 window.state.selectedSlotTime = null;
-                // Re-fetch slots in case other users registered while on step 3
                 fetchSlotCounts();
             }
             showStep(step);
         }
         
-
         // Event Listeners
         ui.form.addEventListener('submit', handleRegistrationSubmit);
 
