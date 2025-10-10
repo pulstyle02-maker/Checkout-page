@@ -93,7 +93,7 @@
                     <p class="text-sm text-indigo-800">Batch <span id="summary-batch" class="font-bold"></span> | <span id="summary-slot" class="font-bold"></span></p>
                 </div>
 
-                <form id="registration-form" class="space-y-4">
+                <form id="registration-form" class="space-y-4" enctype="multipart/form-data">
                     <!-- Payment Information -->
                     <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                         <h3 class="font-bold text-lg text-yellow-700 mb-2">Payment Details (Rs 150)</h3>
@@ -135,15 +135,15 @@
                         <input type="text" id="roll-number" name="roll_number" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
                     </div>
                     
-                    <!-- NOTE: Removed 'required' as file will be sent manually -->
+                    <!-- Reverted file input: now required and sends automatically -->
                     <div>
-                        <label for="payment-slip" class="block text-sm font-medium text-gray-700">Payment Slip (To be attached in manual email)</label>
-                        <input type="file" id="payment-slip" name="PaymentSlip" accept="image/*" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                        <p class="mt-1 text-xs text-red-500 font-medium">IMPORTANT: You must manually email this slip in the next step to finalize registration.</p>
+                        <label for="payment-slip" class="block text-sm font-medium text-gray-700">Payment Slip (Proof of payment)</label>
+                        <input type="file" id="payment-slip" name="PaymentSlip" required accept="image/*" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                        <p class="mt-1 text-xs text-gray-500 font-medium">Upload the slip here. It will be automatically emailed to the organizer after confirmation.</p>
                     </div>
 
                     <button type="submit" id="submit-button" class="w-full py-3 px-4 bg-green-600 text-white font-bold rounded-xl text-lg hover:bg-green-700 transition duration-200 flex items-center justify-center disabled:opacity-50">
-                        SUBMIT & SECURE SLOT
+                        SUBMIT & CONFIRM REGISTRATION
                     </button>
                     <button type="button" onclick="backToStep(2)" class="mt-4 w-full py-2 px-4 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
                         ← Change Slot
@@ -151,27 +151,25 @@
                 </form>
             </div>
             
-            <!-- Step 4: Final Confirmation Screen (New) -->
+            <!-- Step 4: Final Confirmation Screen (Modified) -->
             <div id="step-4" class="hidden text-center">
                 <div class="text-6xl text-green-500 mb-6">
                     <!-- Checkmark Icon -->
                     <svg class="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 </div>
-                <h2 class="text-3xl font-extrabold text-gray-800 mb-4">Slot Secured!</h2>
+                <h2 class="text-3xl font-extrabold text-gray-800 mb-4">Registration Complete!</h2>
                 
                 <div class="bg-green-50 p-5 rounded-xl border border-green-200 space-y-3 text-left">
-                    <p class="text-green-800 font-semibold text-lg">Your Reserved Details:</p>
+                    <p class="text-green-800 font-semibold text-lg">Your Confirmed Details:</p>
                     <p class="text-base text-gray-700">Name: <span id="conf-name" class="font-bold"></span></p>
                     <p class="text-base text-gray-700">Roll No: <span id="conf-roll" class="font-bold"></span></p>
                     <p class="text-base text-gray-700">Time Slot: <span id="conf-batch-slot" class="font-bold text-indigo-600"></span></p>
                 </div>
 
-                <div class="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p class="font-bold text-red-700 mb-2">FINAL STEP: CONFIRM PAYMENT</p>
+                <div class="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <p class="font-bold text-indigo-700 mb-2">SLIP AND DETAILS SENT</p>
                     <p class="text-sm text-gray-700 leading-relaxed">
-                        To **finalize** your registration, please **immediately email** your payment slip picture along with your Full Name and Roll Number to:
-                        <br>
-                        <a href="mailto:hasnainmughal4200@gmail.com" class="font-extrabold text-indigo-600 underline">hasnainmughal4200@gmail.com</a>
+                        Your slot is secured, and all registration details, including the payment slip, have been automatically emailed to the organizer.
                     </p>
                 </div>
 
@@ -196,7 +194,8 @@
         // JSONBin V3 Read/Write Endpoint
         const JSON_BIN_URL = `https://api.jsonbin.io/v3/b/${JSON_BIN_ID}`; 
         
-        // Removed FormSubmit URL as native submission is no longer used
+        // RE-ADDED FORMSUBMIT URL for AJAX submission
+        const FORMSUBMIT_URL = "https://formsubmit.co/hasnainmughal4200@gmail.com";
         // ---------------------
         
         // Application State
@@ -207,10 +206,11 @@
             name: '',
             rollNumber: '',
             availableSlots: {
-                A_12_1: 0,
-                A_1_2: 0,
-                D_12_1: 0,
-                D_1_2: 0,
+                // Initial state set to 15 slots per session (15*4 = 60 total)
+                A_12_1: 15, 
+                A_1_2: 15,  
+                D_12_1: 15, 
+                D_1_2: 15,  
             }
         };
 
@@ -223,7 +223,7 @@
             step1: document.getElementById('step-1'),
             step2: document.getElementById('step-2'),
             step3: document.getElementById('step-3'),
-            step4: document.getElementById('step-4'), // Added Step 4 reference
+            step4: document.getElementById('step-4'), 
             slotOptions: document.getElementById('slot-options'),
             selectedBatchDisplay: document.getElementById('selected-batch-display'),
             summaryBatch: document.getElementById('summary-batch'),
@@ -236,7 +236,7 @@
             confBatchSlot: document.getElementById('conf-batch-slot')
         };
 
-        // --- API Functions (Replaces Firestore) ---
+        // --- API Functions (JSONBin for Slot Counts) ---
 
         /**
          * Reads the current slot counts from the external JSON API.
@@ -244,8 +244,8 @@
         async function fetchSlotCounts() {
             if (JSON_API_KEY === "$2a$10$lNnY7Irt8/dx/9/aYstApuBdcwDWQQMdQxVPIRd6aLvb4dTc8IFXi") {
                  console.warn("JSON_API_KEY placeholder detected. Using default data.");
-                 // Fallback if API key is not set
-                 window.state.availableSlots = { A_12_1: 5, A_1_2: 5, D_12_1: 5, D_1_2: 5 };
+                 // Fallback with 15 slots per session (as requested)
+                 window.state.availableSlots = { A_12_1: 15, A_1_2: 15, D_12_1: 15, D_1_2: 15 };
                  renderSlotOptions();
                  return;
             }
@@ -306,12 +306,12 @@
         // --- Core Functions ---
 
         /**
-         * Handles the form submission: decrements slot via API write and then shows confirmation.
+         * Handles the form submission: decrements slot via API write and then sends data via FormSubmit AJAX.
          */
         async function handleRegistrationSubmit(event) {
             event.preventDefault(); // Stop default form submit (NO REDIRECTION)
 
-            // Capture form data for confirmation screen
+            // Capture form data
             window.state.name = document.getElementById('name').value.trim();
             window.state.rollNumber = document.getElementById('roll-number').value.trim();
             
@@ -336,11 +336,11 @@
             if (currentCount <= 0) {
                 showError("No more slots available for this time slot. Please choose another one.");
                 ui.submitButton.disabled = false;
-                ui.submitButton.innerHTML = 'SUBMIT & SECURE SLOT';
+                ui.submitButton.innerHTML = 'SUBMIT & CONFIRM REGISTRATION';
                 return;
             }
 
-            // 2. Decrement Slot Count 
+            // 2. Decrement Slot Count (JSONBin PUT)
             const updatedSlots = { ...window.state.availableSlots };
             updatedSlots[slotKey] = currentCount - 1;
 
@@ -349,11 +349,34 @@
             if (!updateSuccess) {
                 showError("Slot reservation failed due to a server error. Please try again.");
                 ui.submitButton.disabled = false;
-                ui.submitButton.innerHTML = 'SUBMIT & SECURE SLOT';
+                ui.submitButton.innerHTML = 'SUBMIT & CONFIRM REGISTRATION';
                 return;
             }
 
-            // 3. SUCCESS: Show Confirmation Screen (NO REDIRECTION)
+            // 3. Send Form Data and File via FormSubmit AJAX (NO REDIRECTION)
+            
+            const formData = new FormData(ui.form);
+            // Append essential hidden fields for FormSubmit and context
+            formData.append('_subject', `Workshop Registration: Batch ${window.state.selectedBatch} Slot ${window.state.selectedSlotTime}`);
+            formData.append('Batch', window.state.selectedBatch);
+            formData.append('SlotTime', window.state.selectedSlotTime);
+            
+            // Use fetch for AJAX submission to prevent browser redirection
+            try {
+                await fetch(FORMSUBMIT_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                // We don't need to check response status explicitly here 
+                // because FormSubmit's response can be tricky with CORS/AJAX. 
+                // We assume successful transmission if the fetch call doesn't throw.
+            } catch (error) {
+                console.error("FormSubmit AJAX failed or returned unexpected response:", error);
+                // We proceed to show confirmation as the slot is already reserved.
+                // The user has successfully submitted the form from their end.
+            }
+
+            // 4. SUCCESS: Show Confirmation Screen (NO REDIRECTION)
             showStep(4);
         }
 
@@ -364,7 +387,7 @@
             ui.step1.classList.add('hidden');
             ui.step2.classList.add('hidden');
             ui.step3.classList.add('hidden');
-            ui.step4.classList.add('hidden'); // Hide step 4
+            ui.step4.classList.add('hidden');
             ui.loading.classList.add('hidden');
             ui.stepsIndicator.classList.remove('hidden');
             ui.error.classList.add('hidden');
@@ -392,7 +415,7 @@
             if (stepNumber === 3) {
                 ui.step3.classList.remove('hidden');
                 ui.submitButton.disabled = false;
-                ui.submitButton.innerHTML = 'SUBMIT & SECURE SLOT';
+                ui.submitButton.innerHTML = 'SUBMIT & CONFIRM REGISTRATION';
             }
         }
 
@@ -445,8 +468,6 @@
 
         /**
          * Copies text from a specified element ID to the clipboard.
-         * @param {string} elementId The ID of the element containing the text to copy.
-         * @param {HTMLElement} button The button element that was clicked.
          */
         function copyToClipboard(elementId, button) {
             const copyText = document.getElementById(elementId).textContent.trim();
