@@ -135,7 +135,7 @@
                         <input type="text" id="roll-number" name="roll_number" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
                     </div>
                     
-                    <!-- Reverted file input: now required and sends automatically -->
+                    <!-- File input for payment slip -->
                     <div>
                         <label for="payment-slip" class="block text-sm font-medium text-gray-700">Payment Slip (Proof of payment)</label>
                         <input type="file" id="payment-slip" name="PaymentSlip" required accept="image/*" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -189,12 +189,14 @@
 
     <script>
         // --- CONFIGURATION ---
+        // !!! IMPORTANT !!! REPLACE THIS PLACEHOLDER KEY WITH YOUR JSONBIN MASTER KEY 
+        // IF YOU WANT SLOTS TO ACTUALLY UPDATE.
         const JSON_API_KEY = "$2a$10$lNnY7Irt8/dx/9/aYstApuBdcwDWQQMdQxVPIRd6aLvb4dTc8IFXi"; 
         const JSON_BIN_ID = "68e868e2ae596e708f0ca3d7";
         // JSONBin V3 Read/Write Endpoint
         const JSON_BIN_URL = `https://api.jsonbin.io/v3/b/${JSON_BIN_ID}`; 
         
-        // RE-ADDED FORMSUBMIT URL for AJAX submission
+        // FormSubmit URL for AJAX submission (Email: hasnainmughal4200@gmail.com)
         const FORMSUBMIT_URL = "https://formsubmit.co/hasnainmughal4200@gmail.com";
         // ---------------------
         
@@ -206,7 +208,7 @@
             name: '',
             rollNumber: '',
             availableSlots: {
-                // Initial state set to 15 slots per session (15*4 = 60 total)
+                // Initial state set to 15 slots per session (15*4 = 60 total) - Fallback data
                 A_12_1: 15, 
                 A_1_2: 15,  
                 D_12_1: 15, 
@@ -242,13 +244,9 @@
          * Reads the current slot counts from the external JSON API.
          */
         async function fetchSlotCounts() {
-            if (JSON_API_KEY === "$2a$10$lNnY7Irt8/dx/9/aYstApuBdcwDWQQMdQxVPIRd6aLvb4dTc8IFXi") {
-                 console.warn("JSON_API_KEY placeholder detected. Using default data.");
-                 // Fallback with 15 slots per session (as requested)
-                 window.state.availableSlots = { A_12_1: 15, A_1_2: 15, D_12_1: 15, D_1_2: 15 };
-                 renderSlotOptions();
-                 return;
-            }
+            // Show loading spinner while fetching
+            ui.loading.classList.remove('hidden');
+
             try {
                 const response = await fetch(JSON_BIN_URL, {
                     method: 'GET',
@@ -257,9 +255,18 @@
                         'Content-Type': 'application/json'
                     }
                 });
+
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch slot status. Status: ${response.status}`);
+                    const errorBody = await response.text();
+                    console.error("JSONBin GET Error: Status", response.status, response.statusText);
+                    console.error("JSONBin GET Response Body:", errorBody);
+                    // Critical failure to read data. Use default state but warn user.
+                    showError(`Failed to read current slot availability (Status: ${response.status}). Check Console for API error.`);
+                    // We still render options using the default state so the user can proceed for debugging
+                    renderSlotOptions();
+                    return;
                 }
+                
                 const data = await response.json();
                 
                 const slots = data.record || data; 
@@ -270,11 +277,14 @@
                     D_12_1: slots.D_12_1 || 0,
                     D_1_2: slots.D_1_2 || 0,
                 };
-                renderSlotOptions();
+                console.log("JSONBin GET Success. Current Slots:", window.state.availableSlots);
                 
             } catch (e) {
-                console.error("API Fetch Error:", e);
-                showError("Failed to load slot availability. Check JSONBin URL/API Key.");
+                console.error("API Fetch Error (GET - Network/CORS/JSON):", e);
+                showError("A network or server error occurred while loading slots. Check Console.");
+            } finally {
+                 ui.loading.classList.add('hidden');
+                 renderSlotOptions();
             }
         }
 
@@ -283,22 +293,31 @@
          * @param {object} updatedSlots The new object containing all slot counts.
          */
         async function updateSlotCounts(updatedSlots) {
+            console.log("Attempting JSONBin PUT with payload:", updatedSlots);
             try {
                 const response = await fetch(JSON_BIN_URL, {
                     method: 'PUT',
                     headers: {
+                        // THIS MUST BE THE MASTER KEY FOR WRITE ACCESS
                         'X-Master-Key': JSON_API_KEY,
                         'Content-Type': 'application/json',
                         'X-Bin-Versioning': 'false' 
                     },
                     body: JSON.stringify(updatedSlots)
                 });
+
                 if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("JSONBin PUT Error: Status", response.status, response.statusText);
+                    console.error("JSONBin PUT Error Body:", errorBody);
                     throw new Error(`Failed to update slot status. Status: ${response.status}`);
                 }
+                
+                const responseData = await response.json();
+                console.log("JSONBin PUT Success. New Slots:", responseData.record);
                 return true;
             } catch (e) {
-                console.error("API Update Error:", e);
+                console.error("API Update Error (PUT):", e);
                 return false;
             }
         }
@@ -318,6 +337,10 @@
             // Basic validation
             if (!window.state.name || !window.state.rollNumber) {
                  showError("Please fill in your full name and roll number.");
+                 return;
+            }
+            if (document.getElementById('payment-slip').files.length === 0) {
+                 showError("Please upload your payment slip (proof of payment).");
                  return;
             }
 
@@ -346,14 +369,16 @@
 
             const updateSuccess = await updateSlotCounts(updatedSlots);
 
+            // CRITICAL CHECK: If slot update fails, we halt here.
             if (!updateSuccess) {
-                showError("Slot reservation failed due to a server error. Please try again.");
+                showError("Slot reservation failed due to a server error. Check Console for JSONBin error status (likely 401/403 Key Issue).");
                 ui.submitButton.disabled = false;
                 ui.submitButton.innerHTML = 'SUBMIT & CONFIRM REGISTRATION';
                 return;
             }
 
             // 3. Send Form Data and File via FormSubmit AJAX (NO REDIRECTION)
+            console.log("JSONBin update successful. Proceeding to FormSubmit (Email)...");
             
             const formData = new FormData(ui.form);
             // Append essential hidden fields for FormSubmit and context
@@ -363,20 +388,19 @@
             
             // Use fetch for AJAX submission to prevent browser redirection
             try {
-                await fetch(FORMSUBMIT_URL, {
+                // FormSubmit may return non-success status in an AJAX context but still send the email.
+                // We log the attempt and proceed, as the slot is already reserved.
+                const formSubmitResponse = await fetch(FORMSUBMIT_URL, {
                     method: 'POST',
                     body: formData
                 });
-                // We don't need to check response status explicitly here 
-                // because FormSubmit's response can be tricky with CORS/AJAX. 
-                // We assume successful transmission if the fetch call doesn't throw.
+                console.log(`FormSubmit Fetch Attempted. Response status: ${formSubmitResponse.status}. (If you do not receive the email, ensure hasnainmughal4200@gmail.com is verified with FormSubmit.)`);
             } catch (error) {
-                console.error("FormSubmit AJAX failed or returned unexpected response:", error);
-                // We proceed to show confirmation as the slot is already reserved.
-                // The user has successfully submitted the form from their end.
+                console.error("FormSubmit AJAX failed (Network Error or CORS):", error);
+                // Log the error but proceed to confirmation, as the slot is secured.
             }
 
-            // 4. SUCCESS: Show Confirmation Screen (NO REDIRECTION)
+            // 4. SUCCESS: Show Confirmation Screen
             showStep(4);
         }
 
@@ -437,6 +461,7 @@
             const slots = window.state.availableSlots;
             ui.slotOptions.innerHTML = ''; // Clear previous buttons
 
+            // Map keys in state to display times
             const slotMap = {
                 '12-1pm': slots[`${batch}_12_1`],
                 '1-2pm': slots[`${batch}_1_2`],
@@ -509,6 +534,7 @@
         window.selectBatch = function(batch) {
             window.state.selectedBatch = batch;
             ui.selectedBatchDisplay.textContent = batch;
+            // Fetch slot counts immediately on batch selection to get the latest data
             fetchSlotCounts(); 
             showStep(2);
         }
@@ -533,6 +559,7 @@
             if (step === 2) {
                 window.state.selectedSlotKey = null;
                 window.state.selectedSlotTime = null;
+                // Re-fetch slots in case other users registered while on step 3
                 fetchSlotCounts();
             }
             showStep(step);
