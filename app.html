@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuroanatomy Study Hub (React/Firebase Simulation)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-900">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Import React, { useState, useEffect, useMemo, useCallback } from 'react';
+        const { useState, useEffect, useMemo, useCallback } = React;
+        
+        // Firebase Imports - Replace with dummy implementations or mock
+        const initializeApp = () => ({});
+        const getAuth = () => ({});
+        const getFirestore = () => ({});
+
+        // Mock Firebase Auth functions for local run
+        const signInAnonymously = (auth) => new Promise(resolve => resolve());
+        const signInWithCustomToken = (auth, token) => new Promise(resolve => resolve());
+        const onAuthStateChanged = (auth, callback) => {
+            // Simulate a user login after a short delay
+            setTimeout(() => {
+                callback({ uid: 'local-anon-user' });
+            }, 100); 
+            return () => {};
+        };
+        
+        // Mock Firestore functions for local run
+        const doc = (db, ...pathSegments) => ({ ref: pathSegments.join('/') });
+        const setDoc = (docRef, data, options) => new Promise(resolve => {
+            // Mock console log for persistence simulation
+            // console.log("MOCK Firestore: Setting document", docRef.ref, data);
+            resolve();
+        });
+        const updateDoc = (docRef, data) => new Promise(resolve => {
+            // Mock console log for persistence simulation
+            // console.log("MOCK Firestore: Updating document", docRef.ref, data);
+            resolve();
+        });
+        const onSnapshot = (docRef, onNext, onError) => {
+            // Mock initial snapshot load from local storage or mock data
+            const storedProgress = localStorage.getItem('neuroanatomyProgress');
+            const initialData = storedProgress ? JSON.parse(storedProgress) : null;
+
+            if (initialData) {
+                onNext({ exists: () => true, data: () => initialData });
+            } else {
+                onNext({ exists: () => false }); // Triggers setDoc for initialization
+            }
+
+            // Mock saving to local storage for persistence
+            window.addEventListener('beforeunload', () => {
+                // In a real app, this would be handled by the updateDoc/setDoc promises
+            });
+            
+            // Return unsubscribe mock
+            return () => {};
+        };
+        
+        // --- MOCK DATA BASED ON SNELL'S NEUROANATOMY STRUCTURE (ULTRA DETAILED) ---
+        const mockNeuroData = {
+          spinalCord: {
+            title: "Spinal Cord Structure, Meninges, and Blood Supply",
+            notes: [
+              {
+                id: 'sc-1',
+                title: "Gross Anatomy, Segmentation, and Anchoring",
+                content: `
+**I. Structure and Termination**
+## General Anatomy
+- **Location:** Extends from the Foramen Magnum to the **L1/L2 vertebral level** in adults.
+- **Rootlets vs. Nerves:**
+  - Spinal **rootlets** emerge from the cord.
+  - Spinal **nerves** are formed by the union of dorsal and ventral rootlets.
+- **Nerve Exit:**
+  - In the cervical region, nerves exit **above** their corresponding vertebrae (C1-C7).
+  - From C8 downward, nerves exit **below** their corresponding vertebrae.
+## Spinal Enlargements (Motor Supply)
+- **Cervical Enlargement (C4–T1):** Contains the cell bodies for the **Brachial Plexus** (Upper Limbs).
+- **Lumbar Enlargement (L1–S3):** Contains the cell bodies for the **Lumbosacral Plexus** (Lower Limbs).
+## Inferior Termination and Anchoring
+- **Conus Medullaris:** The conical, tapered end of the cord (ends L1/L2).
+- **Cauda Equina:** Collective name for the descending nerve roots below the conus.
+- **Filum Terminale:**
+  - **Internum:** Extension of **Pia Mater** from the conus to the dural sac.
+  - **Externum:** Extension of **Dura and Pia** from the dural sac to the coccyx (anchoring the cord inferiorly).
+        `,
+                clinicals: `
+**Lumbar Puncture (LP) and Cistern:**
+- **Purpose:** Sample Cerebrospinal Fluid (CSF).
+- **Needle Site:** Safely inserted below the conus, usually at the **L3/L4 or L4/L5 interspace**.
+- **Lumbar Cistern:** Enlarged Subarachnoid space below the conus, containing CSF and the Cauda Equina (minimal injury risk).
+        `,
+                image: "",
+              },
+              {
+                id: 'sc-2',
+                title: "Spinal Meninges and Spaces",
+                content: `
+**II. Meningeal Layers (Outer to Inner)**
+## Dura Mater
+- **Structure:** Tough, fibrous outermost layer.
+- **Termination:** Forms the **Dural Sac**, which terminates at the level of the **S2 vertebra**.
+## Arachnoid Mater
+- **Structure:** Delicate, avascular middle layer.
+- **Trabeculae:** Connects the Arachnoid to the Pia mater.
+## Pia Mater
+- **Structure:** Highly vascular innermost layer, tightly adherent to the cord surface.
+- **Anchoring Extensions:**
+  - **Denticulate Ligaments:** 21 pairs of lateral, sawtooth-like extensions that anchor the cord to the inner surface of the Dura.
+  - **Filum Terminale:** Anchors the cord inferiorly.
+## Functional Spaces
+- **Epidural Space:**
+  - **Location:** Between the Dura and the vertebral canal's periosteum.
+  - **Contents:** **Adipose tissue** and the internal **Vertebral Venous Plexus** (Batson's Plexus).
+  - **Clinical Site:** **Site for Epidural Anesthesia.**
+- **Subdural Space:** A potential space between the Dura and Arachnoid.
+- **Subarachnoid Space:**
+  - **Location:** Between the Arachnoid and Pia.
+  - **Contents:** **Cerebrospinal Fluid (CSF)** and the major spinal blood vessels.
+        `,
+                clinicals: `
+**Spinal Epidural Hematoma:**
+- **Location:** Bleeding into the Epidural space, often from trauma or spontaneous in anticoagulated patients.
+- **Effect:** Can rapidly compress the cord, causing neurological emergency.
+
+**Meningitis:**
+- **Definition:** Inflammation of the Arachnoid and Pia mater.
+- **CSF Analysis:** Shows characteristic changes (e.g., increased WBCs, protein) depending on the cause (bacterial vs. viral).
+        `,
+                image: "[attachment_0](attachment)",
+              },
+              {
+                id: 'sc-3',
+                title: "Grey Matter Organization and Blood Supply",
+                content: `
+**III. Grey Matter and Laminae**
+## Grey Matter Composition
+- Consists of nerve cell bodies, dendrites, glial cells, and unmyelinated axons.
+- Organized into **Rexed Laminae (I to X)**.
+## Posterior (Dorsal) Horn (Sensory)
+- **Lamina I (Posterior Marginal Nucleus):** Receives pain, temperature, and touch fibers.
+- **Lamina II (Substantia Gelatinosa):** Major site for modulation and synapse of **pain and temperature** fibers.
+- **Lamina III & IV (Nucleus Proprius):** Relays touch and pressure information.
+- **Lamina VII (Intermediate Zone):**
+  - **Nucleus Dorsalis (Clarke's Column):** Cells give rise to the **Posterior Spinocerebellar Tract** (C8/T1 to L2/L3).
+  - **Intermediolateral Cell Column:** Contains **Preganglionic Sympathetic** neurons (T1-L2).
+  - **Intermediomedial Nucleus:** Contains **Preganglionic Parasympathetic** neurons (S2-S4).
+## Anterior (Ventral) Horn (Motor)
+- **Lamina IX:** Clusters of **Lower Motor Neuron (LMN) cell bodies** (Alpha and Gamma neurons) that innervate skeletal muscle.
+  - **Medial Groups:** Innervate axial musculature.
+  - **Lateral Groups:** Innervate limb musculature (present only in enlargements).
+## Arterial Blood Supply
+- **Anterior Spinal Artery (Single):** Formed by vertebral artery branches. Supplies the **anterior 2/3** of the cord (motor and spinothalamic tracts).
+- **Posterior Spinal Arteries (Paired):** Supplies the **posterior 1/3** of the cord (Dorsal Columns).
+- **Segmental Arteries:** Reinforce the longitudinal arteries; the largest is the **Artery of Adamkiewicz** (usually T9-T12).
+- **Watershed Areas:** Vulnerable mid-thoracic region (T4-T8) where segmental supply is often sparse.
+        `,
+                clinicals: `
+**Anterior Spinal Artery Syndrome:**
+- **Cause:** Ischemia/occlusion of the Anterior Spinal Artery.
+- **Deficits:** Flaccid paralysis (LMN), loss of pain/temperature, and crude touch **Bilateral** (anterior 2/3 damage).
+- **Sparing:** Sensation in the **Dorsal Columns** (fine touch, vibration, proprioception) is preserved.
+
+**Syringomyelia:**
+- **Pathology:** Cyst (syrinx) near the central canal.
+- **Damage:** Destroys the **crossing spinothalamic fibers** in the Anterior White Commissure.
+- **Presentation:** Bilateral, segmental loss of pain and temperature in a **'cape-like'** distribution.
+        `,
+                image: "[attachment_1](attachment)",
+              }
+            ],
+            mcqs: [
+              { id: 'q-sc-1', question: "Which Rexed Lamina is the major site for modulation of incoming nociceptive (pain) signals?", options: ["Lamina I (Posterior Marginal)", "Lamina II (Substantia Gelatinosa)", "Lamina VII (Nucleus Dorsalis)", "Lamina IX (Motor Nuclei)"], answer: "Lamina II (Substantia Gelatinosa)", explanation: "Lamina II is the primary site of first synapse and modulation for pain and temperature fibers." },
+              { id: 'q-sc-2', question: "The spinal cord enlargement that supplies the upper limbs via the brachial plexus extends across which spinal segments?", options: ["T1-T6", "C1-C4", "C4-T1", "L2-S2"], answer: "C4-T1", explanation: "The Cervical Enlargement spans C4 to T1 and contains the high density of LMNs for the upper limb." },
+              { id: 'q-sc-3', question: "A characteristic finding in Anterior Spinal Artery Syndrome is the sparing of which sensory pathway?", options: ["Lateral Spinothalamic Tract", "Anterior Corticospinal Tract", "Dorsal Column-Medial Lemniscus", "Lateral Spinocerebellar Tract"], answer: "Dorsal Column-Medial Lemniscus", explanation: "The DCML tract is in the posterior third, supplied by the paired posterior spinal arteries, thus it is spared in anterior spinal artery occlusion." },
+              { id: 'q-sc-4', question: "The Dural Sac containing the Cauda Equina and CSF typically terminates at which vertebral level?", options: ["L1", "L5", "S2", "Coccyx"], answer: "S2", explanation: "The dural sac extends down to the S2 vertebra, which is why the subarachnoid space (lumbar cistern) is available for LP below L2." },
+              { id: 'q-sc-5', question: "Which structure anchors the spinal cord laterally to the dura mater, preventing displacement?", options: ["Filum Terminale", "Cauda Equina", "Ligamentum Flavum", "Denticulate Ligaments"], answer: "Denticulate Ligaments", explanation: "Denticulate ligaments are 21 pairs of pial projections that anchor the cord laterally." },
+              { id: 'q-sc-6', question: "The cell bodies of the preganglionic sympathetic neurons are located in the spinal cord at which specific region/lamina?", options: ["Posterior Horn (Lamina IV)", "Anterior Horn (Lamina IX)", "Intermediolateral Cell Column (Lamina VII, T1-L2)", "Nucleus Dorsalis (Lamina VII, C8-L2)"], answer: "Intermediolateral Cell Column (Lamina VII, T1-L2)", explanation: "The IML column, part of Lamina VII in the T1-L2 segments, houses the sympathetic preganglionic neurons." },
+              { id: 'q-sc-7', question: "The Artery of Adamkiewicz is crucial because it significantly reinforces the blood supply to the lower two-thirds of the spinal cord via which vessel?", options: ["Posterior Spinal Arteries", "Anterior Spinal Artery", "Aorta", "Vertebral Arteries"], answer: "Anterior Spinal Artery", explanation: "This large radicular artery joins the single anterior spinal artery, making it vital for the thoracolumbar segments." },
+              { id: 'q-sc-8', question: "The conus medullaris ends at the L1/L2 level in adults, but in infants (birth), it typically ends at which level?", options: ["T10", "L3", "S1", "C7"], answer: "L3", explanation: "Due to slower vertebral column growth compared to the spinal cord, the conus is lower in infants (around L3) and ascends to L1/L2 by adulthood." },
+              { id: 'q-sc-9', question: "Which major tract has its cells of origin in the Nucleus Dorsalis (Clarke's Column) in Lamina VII?", options: ["Lateral Corticospinal Tract", "Anterior Spinothalamic Tract", "Posterior Spinocerebellar Tract", "Rubrospinal Tract"], answer: "Posterior Spinocerebellar Tract", explanation: "Clarke's Column (C8/T1-L2/L3) is the second-order neuron for the posterior spinocerebellar tract." },
+              { id: 'q-sc-10', question: "The epidural space contains fat and which venous structure that is a potential route for cancer metastasis to the spine?", options: ["External Vertebral Venous Plexus", "Internal Jugular Vein", "Batson's Plexus (Internal Vertebral Venous Plexus)", "Azygos Vein"], answer: "Batson's Plexus (Internal Vertebral Venous Plexus)", explanation: "Batson's plexus lacks valves and allows bidirectional flow, a pathway for metastases." },
+              { id: 'q-sc-11', question: "The great majority of lower motor neuron (LMN) cell bodies that innervate skeletal muscle are located in which lamina?", options: ["Lamina V", "Lamina VII", "Lamina IX", "Lamina X"], answer: "Lamina IX", explanation: "Lamina IX contains the clusters of alpha and gamma motor neurons (LMNs)." },
+              { id: 'q-sc-12', question: "Which layer of the meninges gives rise to the Filum Terminale?", options: ["Dura Mater only", "Arachnoid Mater only", "Pia Mater only", "Both Dura and Pia Mater"], answer: "Pia Mater only", explanation: "The Filum Terminale is an extension of the Pia Mater, although it gains a dural sheath (Filum Terminale Externum) later." },
+              { id: 'q-sc-13', question: "The condition Syringomyelia damages which structure, causing a 'cape-like' distribution of sensory loss?", options: ["Lateral Corticospinal Tract", "Posterior Funiculus", "Anterior White Commissure", "Intermediolateral Cell Column"], answer: "Anterior White Commissure", explanation: "The syrinx expands centrally, damaging the crossing second-order spinothalamic fibers." },
+              { id: 'q-sc-14', question: "Which area of the spinal cord is most vulnerable to ischemia due to sparse segmental arterial supply (watershed area)?", options: ["Cervical enlargement", "Lumbar enlargement", "Mid-thoracic region (T4-T8)", "Conus Medullaris"], answer: "Mid-thoracic region (T4-T8)", explanation: "The mid-thoracic region is a 'watershed' area between the cervical and major thoracolumbar feeders." },
+              { id: 'q-sc-15', question: "The cervical enlargement provides LMN cell bodies for which neural structure?", options: ["Cervical Plexus", "Brachial Plexus", "Lumbar Plexus", "Sacral Plexus"], answer: "Brachial Plexus", explanation: "The cervical enlargement is dedicated to innervating the upper limb muscles via the brachial plexus." },
+              { id: 'q-sc-16', question: "What is the primary content of the Subarachnoid Space?", options: ["Adipose Tissue", "Venous Plexus", "Lymphatic Vessels", "Cerebrospinal Fluid (CSF) and major vessels"], answer: "Cerebrospinal Fluid (CSF) and major vessels", explanation: "The Subarachnoid space is filled with CSF and contains the major arteries and veins supplying the cord." },
+              { id: 'q-sc-17', question: "Sensory rootlets enter the spinal cord via which aspect?", options: ["Ventral (Anterior) aspect", "Dorsal (Posterior) aspect", "Lateral Funiculus", "Anterior White Commissure"], answer: "Dorsal (Posterior) aspect", explanation: "Sensory (afferent) information enters via the dorsal rootlets and dorsal horn." },
+              { id: 'q-sc-18', question: "Which spinal structure contains the descending nerve roots below L1/L2 and is traversed during a lumbar puncture?", options: ["Nucleus Pulposus", "Filum Terminale", "Cauda Equina", "Ligamentum Nuchae"], answer: "Cauda Equina", explanation: "The Cauda Equina roots float in the CSF of the lumbar cistern." },
+              { id: 'q-sc-19', question: "The lateral group of LMN cell bodies in Lamina IX is responsible for innervating which group of muscles?", options: ["Axial (Trunk) Muscles", "Intercostal Muscles", "Limb Muscles", "Facial Muscles"], answer: "Limb Muscles", explanation: "The lateral column is present only at the enlargements and innervates the distal limb musculature." },
+              { id: 'q-sc-20', question: "Where does the spinal cord become continuous superiorly with the Medulla Oblongata?", options: ["Level of C1 vertebra", "Tentorium Cerebelli", "Foramen Magnum", "Mid-cervical level"], answer: "Foramen Magnum", explanation: "The cord transitions into the brainstem at the brainstem at the level of the Foramen Magnum." }
+            ],
+            flashcards: [
+              { id: 'fc-sc-1', front: "The spinal cord ends conically at L1/L2, a region called the?", back: "Conus Medullaris" },
+              { id: 'fc-sc-2', front: "Which large radicular artery reinforces the blood supply to the anterior spinal artery in the thoracolumbar region?", back: "Artery of Adamkiewicz" },
+              { id: 'fc-sc-3', front: "The cell bodies for preganglionic sympathetic neurons are located in which spinal column?", back: "Intermediolateral Cell Column (T1-L2)" },
+              { id: 'fc-sc-4', front: "What is the specific Rexed Lamina that is the primary synapse site for incoming pain and temperature fibers?", back: "Lamina II (Substantia Gelatinosa)" },
+              { id: 'fc-sc-5', front: "Flaccid paralysis and loss of pain/temperature sensation with preserved proprioception suggests occlusion of which vessel?", back: "Anterior Spinal Artery" },
+              { id: 'fc-sc-6', front: "What is the main content of the Subarachnoid Space, particularly in the Lumbar Cistern?", back: "Cerebrospinal Fluid (CSF)" },
+              { id: 'fc-sc-7', front: "A lumbar puncture needle is safely inserted at or below which vertebral interspace?", back: "L3/L4 or L4/L5" },
+              { id: 'fc-sc-8', front: "What is the fibrous extension of the pia mater that anchors the cord to the coccyx?", back: "Filum Terminale" },
+              { id: 'fc-sc-9', front: "The spinal cord nerve roots that exit the canal below the conus medullaris are collectively called the?", back: "Cauda Equina" },
+              { id: 'fc-sc-10', front: "Which type of anesthesia is delivered into the space containing adipose tissue and Batson's plexus?", back: "Epidural Anesthesia (Epidural Space)" },
+              { id: 'fc-sc-11', front: "The Lateral Funiculus of the white matter contains which crucial descending motor pathway?", back: "Lateral Corticospinal Tract" },
+              { id: 'fc-sc-12', front: "Bilateral, segmental loss of pain/temperature in a 'cape' distribution is a classic sign of which pathology?", back: "Syringomyelia" },
+              { id: 'fc-sc-13', front: "The Nucleus Dorsalis (Clarke's Column) is the origin of which unconscious proprioception tract?", back: "Posterior Spinocerebellar Tract" },
+              { id: 'fc-sc-14', front: "What are the two fasciculi of the Dorsal Column in the spinal cord?", back: "Fasciculus Gracilis (medial) and Fasciculus Cuneatus (lateral)" },
+              { id: 'fc-sc-15', front: "The LMN cell bodies for limb muscles are concentrated in the lateral clusters of which lamina?", back: "Lamina IX" },
+              { id: 'fc-sc-16', front: "The dura mater continues downward to form a sac that ends at which sacral level?", back: "S2 Vertebra" },
+              { id: 'fc-sc-17', front: "The thin, vascular layer of meninges tightly attached to the cord is the?", back: "Pia Mater" },
+              { id: 'fc-sc-18', front: "The phenomenon where the cord's superior termination is lower in infants (L3) than adults (L1/L2) is due to?", back: "Differential growth rates (Vertebral column grows faster)" },
+              { id: 'fc-sc-19', front: "Motor (efferent) information leaves the cord via which rootlets?", back: "Ventral (Anterior) Rootlets" },
+              { id: 'fc-sc-20', front: "The cervical spinal nerves C1-C7 exit the vertebral canal in which relationship to their named vertebra?", back: "Above the corresponding vertebra" },
+            ]
+          },
+          tracts: {
+            title: "Major Ascending and Descending Tracts",
+            notes: [
+              {
+                id: 'tr-1',
+                title: "Dorsal Column-Medial Lemniscus (DCML) System",
+                content: `
+**I. Discriminative Sensory Pathway**
+## Sensation Transmitted
+- **Discriminative Touch:** Fine touch, two-point discrimination.
+- **Vibration:** Perception of vibratory stimuli.
+- **Conscious Proprioception:** Sense of body and limb position.
+## Pathway Summary (Three Neurons)
+- **1st Order Neuron (DRG):**
+  - **Origin:** Dorsal Root Ganglia (DRG).
+  - **Ascent (Ipsilateral):** Travels in the Posterior Funiculus.
+    - **Fasciculus Gracilis:** Fibers from the lower body (medial).
+    - **Fasciculus Cuneatus:** Fibers from the upper body (lateral, C1-T6 only).
+  - **Synapse:** Nuclei Gracilis/Cuneatus in the **Caudal Medulla**.
+- **2nd Order Neuron (Decussation):**
+  - **Crossing:** Axons cross the midline in the caudal medulla as **Internal Arcuate Fibers**.
+  - **Ascent:** Forms the **Medial Lemniscus** (Contralateral).
+  - **Synapse:** **VPL (Ventral Posterior Lateral)** nucleus of the Thalamus.
+- **3rd Order Neuron:**
+  - **Projection:** Ascends through the Posterior Limb of the Internal Capsule to the Primary Somatosensory Cortex (Postcentral Gyrus).
+        `,
+                clinicals: `
+**Tabes Dorsalis (Neurosyphilis):**
+- **Pathology:** Degeneration of the posterior columns and dorsal roots.
+- **Presentation:** Severe loss of proprioception and vibratory sense, resulting in **Sensory Ataxia** (unstable gait worsened by closing eyes) and areflexia.
+
+**Subacute Combined Degeneration (B12 Deficiency):**
+- **Pathology:** Demyelination affecting the **DCML** (ataxia) and the **Lateral Corticospinal** tracts (spasticity).
+        `,
+                image: "",
+              },
+              {
+                id: 'tr-2',
+                title: "Anterolateral System (Spinothalamic Tracts)",
+                content: `
+**II. Crude/Protective Sensory Pathway**
+## Sensation Transmitted
+- **Lateral Spinothalamic:** Pain and Temperature.
+- **Anterior Spinothalamic:** Crude Touch and Pressure.
+## Pathway Summary (Three Neurons)
+- **1st Order Neuron (DRG):**
+  - **Origin:** Dorsal Root Ganglia (DRG).
+  - **Entry/Ascent:** Enters dorsal horn, ascends/descends 1-2 segments in the **Lissauer's Tract**.
+  - **Synapse:** Synapses in the **Substantia Gelatinosa (Lamina II)**.
+- **2nd Order Neuron (Immediate Decussation):**
+  - **Crossing:** Crosses the midline via the **Anterior White Commissure** at the segment of entry (or 1-2 segments above).
+  - **Ascent:** Forms the **Lateral Spinothalamic Tract** in the lateral funiculus (Contralateral).
+  - **Synapse:** **VPL nucleus** of the Thalamus.
+- **3rd Order Neuron:** Projects to the Primary Somatosensory Cortex.
+        `,
+                clinicals: `
+**Brown-Séquard Syndrome (Spinal Cord Hemisection):**
+- **Ipsilateral Deficit (Lesion Side):** Loss of **Proprioception/Fine Touch** (DCML) and UMN/LMN signs at and below the lesion.
+- **Contralateral Deficit (Opposite Side):** Loss of **Pain/Temperature** (Spinothalamic) starting 1-2 segments **below** the lesion.
+
+**Trigeminal Pathways (Face Equivalent):**
+- **Touch/Pressure:** Travels via the Chief Sensory Nucleus (pons).
+- **Pain/Temperature:** Travels via the **Spinal Nucleus of CN V** (pons/medulla).
+        `,
+                image: "[attachment_2](attachment)",
+              },
+              {
+                id: 'tr-3',
+                title: "Corticospinal Tract (Pyramidal System)",
+                content: `
+**III. Voluntary Motor Pathway (UMN)**
+## Function
+- Primary tract for **Voluntary, skilled, fractionated movement** (especially of the distal limbs).
+- Controls Lower Motor Neurons (LMNs).
+## Pathway Summary (Two Neurons: UMN & LMN)
+- **Upper Motor Neuron (UMN):**
+  - **Origin:** Primary Motor Cortex (Precentral Gyrus), Premotor, and Somatosensory Cortices.
+  - **Descent (Forebrain):** Passes through the **Posterior Limb of the Internal Capsule**.
+  - **Descent (Brainstem):** Passes through the **Crus Cerebri** (Midbrain) and **Basilar Pons**.
+  - **Decussation:**
+    - **Lateral Corticospinal Tract (90%):** Crosses the midline at the **Pyramidal Decussation** (caudal Medulla).
+    - **Anterior Corticospinal Tract (10%):** Remains uncrossed and crosses segmentally via the Anterior White Commissure.
+  - **Synapse:** On LMNs (Lamina IX) and interneurons (Contralateral).
+        `,
+                clinicals: `
+**UMN Lesions (Above Pyramidal Decussation):**
+- **Signs (Contralateral):** **Spastic Paralysis**, Hyperreflexia, Hypertonia, Clonus, Positive **Babinski Sign**.
+
+**LMN Lesions (Anterior Horn/Nerve Root):**
+- **Signs (Ipsilateral):** **Flaccid Paralysis**, Hyporeflexia/Areflexia, Hypo-tonia, Muscle Atrophy (fasciculations).
+        `,
+                image: "[attachment_3](attachment)",
+              },
+              {
+                id: 'tr-4',
+                title: "Other Descending (Extrapyramidal) and Cerebellar Tracts",
+                content: `
+**IV. Accessory Motor and Cerebellar Pathways**
+## Extrapyramidal Tracts (Modulatory Motor)
+- **Rubrospinal Tract:** Originates in the **Red Nucleus** (midbrain). Facilitates flexors; largely superseded by the Corticospinal Tract in humans.
+- **Reticulospinal Tracts (Pontine & Medullary):** Modulate posture, crude movement, and muscle tone.
+- **Vestibulospinal Tracts:** Essential for balance, posture, and head position.
+## Spinocerebellar Tracts (Unconscious Proprioception)
+- **Destination:** Cerebellum (for motor coordination/error correction).
+- **Posterior Spinocerebellar (Lower Limb):**
+  - **Origin:** Nucleus Dorsalis (C8/T1-L2/L3).
+  - **Decussation:** None (Ipsilateral ascent).
+  - **Entry:** **Inferior Cerebellar Peduncle (ICP)**.
+- **Cuneocerebellar (Upper Limb):**
+  - **Origin:** Accessory Cuneate Nucleus (Medulla).
+  - **Decussation:** None (Ipsilateral ascent).
+  - **Entry:** **Inferior Cerebellar Peduncle (ICP)**.
+- **Anterior Spinocerebellar (Lower Limb):**
+  - **Decussation:** **Double Decussation** (crosses in the cord, then crosses back in the midbrain/pons).
+  - **Entry:** **Superior Cerebellar Peduncle (SCP)**.
+        `,
+                clinicals: `
+**Cerebellar Lesions:**
+- **Signs (Ipsilateral):** Ataxia, Dysmetria (overshooting/undershooting), Intention Tremor. Proprioception (DCML) is often intact.
+
+**Lesion in Internal Capsule (e.g., Stroke):**
+- Massive damage to both sensory (thalamocortical) and motor (corticospinal) fibers, leading to contralateral sensory loss and spastic hemiparesis.
+        `,
+                image: "",
+              },
+            ],
+            mcqs: [
+              { id: 'q-tr-1', question: "Which tract is responsible for controlling voluntary, skilled, and fractionated movements of the distal extremities?", options: ["Reticulospinal Tract", "Rubrospinal Tract", "Lateral Corticospinal Tract", "Anterior Spinothalamic Tract"], answer: "Lateral Corticospinal Tract", explanation: "The Lateral Corticospinal Tract is the primary pathway for fine, voluntary control of distal muscles." },
+              { id: 'q-tr-2', question: "The second-order neurons of the Dorsal Column-Medial Lemniscus (DCML) system cross the midline in the caudal medulla via which fibers?", options: ["Anterior White Commissure", "Pontine Nuclei Axons", "Internal Arcuate Fibers", "Lissauer's Tract"], answer: "Internal Arcuate Fibers", explanation: "These fibers originate from the Nuclei Gracilis and Cuneatus and cross to form the medial lemniscus." },
+              { id: 'q-tr-3', question: "Loss of pain and temperature sensation starting 1-2 segments below the lesion, along with ipsilateral loss of proprioception, is the classic presentation of:", options: ["Syringomyelia", "Anterior Spinal Artery Syndrome", "Tabes Dorsalis", "Brown-Séquard Syndrome"], answer: "Brown-Séquard Syndrome", explanation: "Spinal cord hemisection (Brown-Séquard) results in crossed sensory deficits because the spinothalamic tract crosses immediately, while the DCML tract ascends uncrossed." },
+              { id: 'q-tr-4', question: "The majority (90%) of corticospinal fibers cross the midline at the level of the:", options: ["Pons (Middle Cerebellar Peduncle)", "Midbrain (Crus Cerebri)", "Caudal Medulla (Pyramidal Decussation)", "Cervical Spinal Cord"], answer: "Caudal Medulla (Pyramidal Decussation)", explanation: "The crossing of the pyramids marks the formation of the Lateral Corticospinal Tract." },
+              { id: 'q-tr-5', question: "Which sensory modality is carried by the Fasciculus Cuneatus, but NOT the Fasciculus Gracilis?", options: ["Pain Sensation", "Vibration from the lower leg", "Conscious Proprioception from the Upper Limb", "Crude Touch"], answer: "Conscious Proprioception from the Upper Limb", explanation: "Fasciculus Cuneatus carries information from the upper body (T6 up), which is necessary for upper limb proprioception and fine touch." },
+              { id: 'q-tr-6', question: "The tract that exhibits a 'double decussation' before entering the cerebellum is the:", options: ["Posterior Spinocerebellar Tract", "Cuneocerebellar Tract", "Anterior Spinocerebellar Tract", "Spino-olivary Tract"], answer: "Anterior Spinocerebellar Tract", explanation: "It crosses in the spinal cord, ascends, and crosses back in the pons/midbrain to enter the Superior Cerebellar Peduncle (SCP)." },
+              { id: 'q-tr-7', question: "An upper motor neuron (UMN) lesion above the pyramidal decussation typically results in which set of signs?", options: ["Flaccid paralysis, atrophy, areflexia", "Spasticity, hyperreflexia, positive Babinski sign", "Sensory ataxia, areflexia", "Bilateral loss of pain/temp sensation"], answer: "Spasticity, hyperreflexia, positive Babinski sign", explanation: "These are the classic signs of damage to the Corticospinal tract." },
+              { id: 'q-tr-8', question: "The tract that facilitates flexor motor neurons and originates in the Red Nucleus of the midbrain is the:", options: ["Vestibulospinal Tract", "Reticulospinal Tract", "Rubrospinal Tract", "Tectospinal Tract"], answer: "Rubrospinal Tract", explanation: "The rubrospinal tract originates in the Red Nucleus and contributes to motor control, particularly of the upper limbs." },
+              { id: 'q-tr-9', question: "Sensory ataxia that is dramatically worsened when the patient closes their eyes (positive Romberg's sign) is a key finding in degeneration of the:", options: ["Anterolateral System", "Cerebellum", "Dorsal Column-Medial Lemniscus", "Corticospinal Tract"], answer: "Dorsal Column-Medial Lemniscus", explanation: "Sensory ataxia is caused by loss of proprioception (DCML), requiring visual input for compensation." },
+              { id: 'q-tr-10', question: "The third-order neurons for both the DCML and Spinothalamic tracts project from the thalamus to the:", options: ["Primary Motor Cortex", "Primary Visual Cortex", "Primary Auditory Cortex", "Primary Somatosensory Cortex (Postcentral Gyrus)"], answer: "Primary Somatosensory Cortex (Postcentral Gyrus)", explanation: "Sensory pathways terminate in the postcentral gyrus." },
+              { id: 'q-tr-11', question: "Which bundle carries the first-order spinothalamic fibers up or down 1-2 segments before they synapse in the dorsal horn?", options: ["Anterior Funiculus", "Medial Lemniscus", "Lissauer's Tract", "Medial Longitudinal Fasciculus (MLF)"], answer: "Lissauer's Tract", explanation: "Lissauer's tract allows primary nociceptive afferents to ascend/descend before synapsing in Laminae I and II." },
+              { id: 'q-tr-12', question: "The Spinal Nucleus of the Trigeminal Nerve (CN V) carries which specific facial sensation?", options: ["Fine Touch", "Conscious Proprioception", "Pain and Temperature", "Motor Function"], answer: "Pain and Temperature", explanation: "The spinal nucleus and tract of V are the face's equivalent of the Lateral Spinothalamic Tract." },
+              { id: 'q-tr-13', question: "Damage to the spinal cord's Anterior White Commissure, such as in Syringomyelia, selectively affects the crossing fibers of which tract?", options: ["Lateral Corticospinal Tract", "Anterior Spinothalamic Tract", "Posterior Spinocerebellar Tract", "Fasciculus Gracilis"], answer: "Anterior Spinothalamic Tract", explanation: "The second-order neurons for pain/temperature cross here before ascending." },
+              { id: 'q-tr-14', question: "The Posterior Spinocerebellar Tract enters the cerebellum via which peduncle?", options: ["Superior Cerebellar Peduncle (SCP)", "Middle Cerebellar Peduncle (MCP)", "Inferior Cerebellar Peduncle (ICP)", "Brachium Pontis"], answer: "Inferior Cerebellar Peduncle (ICP)", explanation: "The Posterior Spinocerebellar and Cuneocerebellar tracts enter via the ICP (mostly ipsilateral input)." },
+              { id: 'q-tr-15', question: "In the forebrain, the UMNs of the corticospinal tract pass through which structure before reaching the brainstem?", options: ["Anterior Limb of Internal Capsule", "Genu of Internal Capsule", "Posterior Limb of Internal Capsule", "External Capsule"], answer: "Posterior Limb of Internal Capsule", explanation: "The posterior limb carries the motor corticospinal and sensory thalamocortical fibers." },
+              { id: 'q-tr-16', question: "A lower motor neuron (LMN) lesion is indicated by:", options: ["Clonus and Spasticity", "Hypertonia and Babinski sign", "Flaccid Paralysis and Fasciculations", "Contralateral Hemiparesis"], answer: "Flaccid Paralysis and Fasciculations", explanation: "Fasciculations (involuntary twitches) and flaccid weakness are classic LMN signs." },
+              { id: 'q-tr-17', question: "The Cuneocerebellar tract is the unconscious proprioception equivalent for which part of the body?", options: ["Lower Limbs", "Trunk Muscles", "Neck and Head", "Upper Limbs (T6 and above)"], answer: "Upper Limbs (T6 and above)", explanation: "It arises from the Accessory Cuneate Nucleus in the medulla, which relays T6 and above input." },
+              { id: 'q-tr-18', question: "Which sensory relay nucleus in the thalamus receives input from the DCML and Spinothalamic systems?", options: ["Ventral Posterior Medial (VPM)", "Ventral Lateral (VL)", "Medial Geniculate Nucleus (MGN)", "Ventral Posterior Lateral (VPL)"], answer: "Ventral Posterior Lateral (VPL)", explanation: "VPL receives body sensation; VPM receives face sensation (Trigeminal system)." },
+              { id: 'q-tr-19', question: "The Anterior Corticospinal Tract (approximately 10%) descends uncrossed in the spinal cord and decussates where?", options: ["Pyramidal Decussation", "Anterior White Commissure (Segmentally)", "Superior Cerebellar Peduncle", "Caudal Medial Lemniscus"], answer: "Anterior White Commissure (Segmentally)", explanation: "These fibers cross at the level they exit to innervate axial muscles bilaterally." },
+              { id: 'q-tr-20', question: "Subacute Combined Degeneration is caused by a deficiency of which vitamin?", options: ["Vitamin C", "Vitamin D", "Vitamin B1 (Thiamine)", "Vitamin B12 (Cobalamin)"], answer: "Vitamin B12 (Cobalamin)", explanation: "B12 deficiency causes demyelination of the posterior (DCML) and lateral (CST) funiculi." }
+            ],
+            flashcards: [
+              { id: 'fc-tr-1', front: "The Internal Arcuate Fibers are the crossing secondary axons of which sensory pathway?", back: "Dorsal Column-Medial Lemniscus (DCML)" },
+              { id: 'fc-tr-2', front: "Where do the majority of UMN fibers cross the midline?", back: "Pyramidal Decussation (Caudal Medulla)" },
+              { id: 'fc-tr-3', front: "Which pathway is responsible for pain and temperature sensation from the body?", back: "Lateral Spinothalamic Tract" },
+              { id: 'fc-tr-4', front: "What are the three main components of the 'Triad' in an UMN lesion?", back: "Spasticity, Hyperreflexia, Positive Babinski Sign" },
+              { id: 'fc-tr-5', front: "Which cerebellar peduncle is used by the Anterior Spinocerebellar Tract to enter the cerebellum?", back: "Superior Cerebellar Peduncle (SCP)" },
+              { id: 'fc-tr-6', front: "Damage to the posterior columns resulting in sensory ataxia is classically seen in which neurological condition?", back: "Tabes Dorsalis (Neurosyphilis)" },
+              { id: 'fc-tr-7', front: "The somatosensory information from the face is relayed by the VPM nucleus of the thalamus from which major sensory nerve?", back: "Trigeminal Nerve (CN V)" },
+              { id: 'fc-tr-8', front: "Which descending motor tract originates in the Red Nucleus?", back: "Rubrospinal Tract" },
+              { id: 'fc-tr-9', front: "What tract carries unconscious proprioception from the upper limbs and enters the ICP?", back: "Cuneocerebellar Tract" },
+              { id: 'fc-tr-10', front: "The cell bodies for the 2nd order neurons of the DCML pathway are located in which nuclei?", back: "Nuclei Gracilis and Cuneatus" },
+              { id: 'fc-tr-11', front: "In Brown-Séquard syndrome, which sensory loss occurs ipsilaterally below the lesion?", back: "Loss of Proprioception and Fine Touch (DCML)" },
+              { id: 'fc-tr-12', front: "Which thalamic nucleus is the major target of the DCML and Spinothalamic tracts?", back: "Ventral Posterior Lateral (VPL)" },
+              { id: 'fc-tr-13', front: "Where does the 2nd order spinothalamic neuron cross the midline?", back: "Anterior White Commissure (Spinal Cord)" },
+              { id: 'fc-tr-14', front: "Which layer of the dorsal horn contains the 1st synapse for the Lateral Spinothalamic Tract?", back: "Lamina II (Substantia Gelatinosa)" },
+              { id: 'fc-tr-15', front: "What is the collective term for the motor tracts that are NOT the Corticospinal or Corticobulbar tracts?", back: "Extrapyramidal Tracts" },
+              { id: 'fc-tr-16', front: "Spasticity and Hypertonia are signs of a lesion to which motor neuron type?", back: "Upper Motor Neuron (UMN)" },
+              { id: 'fc-tr-17', front: "Which segment of the Internal Capsule carries the corticospinal fibers?", back: "Posterior Limb" },
+              { id: 'fc-tr-18', front: "Damage to the DCML and Lateral Corticospinal tracts is the hallmark of which vitamin deficiency?", back: "Vitamin B12 (Subacute Combined Degeneration)" },
+              { id: 'fc-tr-19', front: "The Cuneocerebellar tract uses which medullary nucleus as its relay?", back: "Accessory Cuneate Nucleus" },
+              { id: 'fc-tr-20', front: "The Fasciculus Gracilis carries DCML information from which parts of the body?", back: "Lower body (below T6)" },
+            ]
+          },
+          brainstem: {
+            title: "Brainstem: Medulla, Pons, and Midbrain Organization",
+            notes: [
+              {
+                id: 'bs-1',
+                title: "Medulla Oblongata: Internal and External Features",
+                content: `
+**I. Medulla Organization**
+## External Features
+- **Pyramids:** Located ventrally, containing the descending **Corticospinal Tracts**.
+- **Pyramidal Decussation:** Where 90% of CST fibers cross in the caudal medulla.
+- **Inferior Olives:** Prominent lateral bulges containing the Inferior Olivary Nuclei (IOC) - a major relay to the cerebellum.
+- **Nucleus Gracilis/Cuneatus:** Dorsal bulges in the caudal medulla where DCML 1st order neurons synapse.
+## Internal Organization: Caudal (Closed) Medulla
+- **Sensory Decussation:** Crossing of the **Internal Arcuate Fibers** (DCML 2nd order neurons) to form the Medial Lemniscus.
+- **Spinal Trigeminal Nucleus/Tract:** Receives pain/temp from the face (lateral position).
+- **CN Nuclei:** CN XII (Hypoglossal) and part of CN X (Vagus).
+## Internal Organization: Rostral (Open) Medulla
+- **Inferior Olivary Nucleus (IOC):** Relay for motor learning/coordination to the cerebellum.
+- **Nucleus Ambiguus:** Contains **Special Visceral Efferent** LMNs for CN IX, X, XI (muscles of the pharynx and larynx - swallowing/speech).
+- **Solitary Nucleus (Medial/Lateral):** Receives **Taste** (CN VII, IX, X) and **Visceral Sensory** (CN IX, X) input.
+        `,
+                clinicals: `
+**Lateral Medullary Syndrome (Wallenberg's Syndrome):**
+- **Cause:** Occlusion of the **PICA (Posterior Inferior Cerebellar Artery)**.
+- **Ipsilateral Deficits:**
+  - **Ataxia:** Damage to Inferior Cerebellar Peduncle.
+  - **Dysphagia/Hoarseness:** Damage to Nucleus Ambiguus.
+  - **Facial Pain/Temp Loss:** Damage to Spinal Trigeminal Nucleus.
+  - **Horner's Syndrome:** Descending Sympathetic fiber damage.
+- **Contralateral Deficits:**
+  - **Body Pain/Temp Loss:** Damage to Lateral Spinothalamic Tract.
+        `,
+                image: "",
+              },
+              {
+                id: 'bs-2',
+                title: "Pons: Organization and Cranial Nerves",
+                content: `
+**II. Pons Organization**
+## Basilar (Ventral) Pons
+- **Pontine Nuclei:** Massive relay station for Cortico-Ponto-Cerebellar pathways.
+- **Transverse Pontine Fibers:** Axons from Pontine Nuclei cross and exit as the **Middle Cerebellar Peduncle (MCP)**.
+- **Fiber Tracts:** Descending Corticospinal, Corticopontine, and Corticobulbar tracts run vertically in bundles.
+## Tegmentum (Dorsal) Pons
+- **Medial Lemniscus:** Ascending DCML fibers (flat, horizontal bundle, located medially).
+- **Medial Longitudinal Fasciculus (MLF):** Essential tract for coordinating conjugate eye movements.
+- **CN Nuclei (V, VI, VII, VIII):**
+  - **Abducens Nucleus (CN VI):** Responsible for lateral gaze.
+  - **Facial Nucleus (CN VII):** Axons loop around CN VI nucleus (internal genu).
+  - **Vestibular and Cochlear Nuclei (CN VIII):** Located laterally.
+        `,
+                clinicals: `
+**Medial Pontine Syndrome:**
+- **Cause:** Occlusion of the Paramedian branches of the Basilar Artery.
+- **Deficits:**
+  - **Ipsilateral:** Abducens palsy (CN VI nucleus/nerve damage).
+  - **Contralateral:** Hemiparesis (Corticospinal damage) and loss of DCML sensation (Medial Lemniscus damage).
+
+**Lateral Pontine Syndrome:**
+- **Cause:** Occlusion of the AICA (Anterior Inferior Cerebellar Artery).
+- **Deficits:** Damage to CN VII (facial weakness) and CN VIII (vertigo, deafness), Spinothalamic tract (contralateral body pain/temp loss), and Middle Cerebellar Peduncle (ataxia).
+        `,
+                image: "[attachment_4](attachment)",
+              },
+              {
+                id: 'bs-3',
+                title: "Midbrain (Mesencephalon): Tectum, Tegmentum, and Basis",
+                content: `
+**III. Midbrain Organization (Three Layers)**
+## Tectum (Dorsal to Aqueduct)
+- **Superior Colliculi (SC):** Center for **Visual Reflexes** (e.g., controlling eye/head movements to visual stimuli).
+- **Inferior Colliculi (IC):** Major relay station in the **Auditory Pathway** (e.g., auditory reflexes).
+## Tegmentum (Middle)
+- **Red Nucleus:** Motor coordination, origin of the Rubrospinal Tract.
+- **Periaqueductal Grey (PAG):** Surrounds the cerebral aqueduct; important for **Pain Modulation**.
+- **CN Nuclei:**
+  - **CN III (Oculomotor):** Edinger-Westphal (parasympathetic) and Somatic Motor nuclei.
+  - **CN IV (Trochlear):** Unique for crossing (decussating) before exiting dorsally.
+- **Substantia Nigra (Pars Compacta/Reticulata):** Located at the junction of the tegmentum and basis; part of the basal ganglia motor loop.
+## Basis (Crus Cerebri/Cerebral Peduncles)
+- Contains the massive descending tracts: **Corticospinal, Corticobulbar, and Corticopontine** fibers.
+- **Somatotopic Organization:** Face/head motor fibers are medial, leg fibers are lateral.
+        `,
+                clinicals: `
+**Weber's Syndrome (Ventral Midbrain):**
+- **Cause:** Branches of Posterior Cerebral Artery occlusion.
+- **Damage:** CN III nerve root + Crus Cerebri (Corticospinal).
+- **Presentation:** **Ipsilateral Oculomotor Palsy** (drooping eyelid, pupil dilation, eye down-and-out) + **Contralateral Hemiparesis**.
+
+**Parinaud Syndrome (Dorsal Midbrain):**
+- **Cause:** Compression (e.g., Pineal Tumor) of the pretectal area.
+- **Presentation:** Paralysis of **Upward Gaze** (vertical gaze center damage).
+        `,
+                image: "[attachment_5](attachment)",
+              }
+            ],
+            mcqs: [
+              { id: 'q-bs-1', question: "Which major tract for motor coordination originates in the Red Nucleus of the midbrain tegmentum?", options: ["Lateral Corticospinal", "Reticulospinal", "Rubrospinal", "Tectospinal"], answer: "Rubrospinal", explanation: "The Rubrospinal Tract originates in the Red Nucleus and contributes to flexor muscle control." },
+              { id: 'q-bs-2', question: "Lateral Medullary Syndrome (Wallenberg's) is caused by occlusion of which artery?", options: ["Basilar Artery", "Anterior Spinal Artery", "Posterior Inferior Cerebellar Artery (PICA)", "Anterior Inferior Cerebellar Artery (AICA)"], answer: "Posterior Inferior Cerebellar Artery (PICA)", explanation: "PICA supplies the lateral medulla, which is damaged in this syndrome." },
+              { id: 'q-bs-3', question: "The Medial Lemniscus fibers, carrying DCML sensation, assume what characteristic position as they ascend through the pons and midbrain?", options: ["Dorsal and lateral", "Ventral and scattered", "Medial, flat, and horizontal", "Lateral and crescent-shaped"], answer: "Medial, flat, and horizontal", explanation: "The ML is a large, flat bundle in the medial brainstem tegmentum, rotating during its ascent." },
+              { id: 'q-bs-4', question: "The Nucleus Ambiguus provides motor innervation for which cranial nerves, primarily controlling swallowing and speech?", options: ["CN VII, IX, X", "CN X, XI, XII", "CN IX, X, XI", "CN V, VII, IX"], answer: "CN IX, X, XI", explanation: "The SVE column (Nucleus Ambiguus) supplies the branchial arch muscles of the pharynx/larynx via these nerves." },
+              { id: 'q-bs-5', question: "The Middle Cerebellar Peduncle (MCP) is primarily composed of fibers originating from which brainstem nuclei?", options: ["Inferior Olivary Nuclei", "Red Nuclei", "Pontine Nuclei", "Vestibular Nuclei"], answer: "Pontine Nuclei", explanation: "Pontine nuclei relay motor planning from the cortex, crossing the midline to enter the opposite cerebellum via the MCP." },
+              { id: 'q-bs-6', question: "Weber's syndrome, characterized by ipsilateral CN III palsy and contralateral hemiparesis, involves damage to the CN III root and which ventral midbrain structure?", options: ["Tectum", "Periaqueductal Grey", "Substantia Nigra", "Crus Cerebri (Cerebral Peduncle)"], answer: "Crus Cerebri (Cerebral Peduncle)", explanation: "The Crus Cerebri contains the descending corticospinal UMNs, causing contralateral hemiparesis." },
+              { id: 'q-bs-7', question: "The Spinal Trigeminal Nucleus and Tract, responsible for facial pain and temperature, is continuous inferiorly with which spinal structure?", options: ["Nucleus Proprius (Lamina III/IV)", "Nucleus Dorsalis (Lamina VII)", "Substantia Gelatinosa (Lamina II)", "Anterior Motor Horn (Lamina IX)"], answer: "Substantia Gelatinosa (Lamina II)", explanation: "The Spinal Trigeminal Nucleus is the brainstem equivalent of the Substantia Gelatinosa for the face." },
+              { id: 'q-bs-8', question: "Which midbrain structure is a major auditory reflex center and a relay for the ascending auditory pathway?", options: ["Superior Colliculus", "Red Nucleus", "Inferior Colliculus", "Substantia Nigra"], answer: "Inferior Colliculus", explanation: "The IC is the main midbrain auditory center; SC is the visual center." },
+              { id: 'q-bs-9', question: "A lesion that causes bilateral paralysis of all limbs and the lower cranial nerves, but spares vertical eye movements and consciousness, is known as:", options: ["Locked-in Syndrome", "Medial Pontine Syndrome", "Wallenberg's Syndrome", "Benedikt's Syndrome"], answer: "Locked-in Syndrome", explanation: "Caused by bilateral damage to the Basilar Pons (Corticospinal/Corticobulbar tracts), sparing the midbrain CN III/IV nuclei." },
+              { id: 'q-bs-10', question: "The Solitary Nucleus receives which types of sensory input from the cranial nerves?", options: ["Proprioception and Pain", "Motor and Parasympathetic", "Taste and Visceral Sensory", "Fine Touch and Vibration"], answer: "Taste and Visceral Sensory", explanation: "Taste via CN VII, IX, X, and visceral sensation (baroreception, chemoreception) via CN IX, X." },
+              { id: 'q-bs-11', question: "Which cranial nerve nucleus is unique because its fibers decussate before exiting the brainstem dorsally?", options: ["CN II (Optic)", "CN IV (Trochlear)", "CN VI (Abducens)", "CN XII (Hypoglossal)"], answer: "CN IV (Trochlear)", explanation: "CN IV is the only CN to exit dorsally and the only one to cross fully." },
+              { id: 'q-bs-12', question: "Parinaud syndrome is associated with a tumor compressing the pretectal area of the dorsal midbrain, leading to paralysis of:", options: ["Downward Gaze", "Lateral Gaze", "Upward Gaze", "Accommodation Reflex"], answer: "Upward Gaze", explanation: "Compression of the pretectal area (near SC) interferes with vertical gaze control." },
+              { id: 'q-bs-13', question: "The major ascending tract carrying unconscious proprioception from the upper limb that enters the Medulla is the:", options: ["Posterior Spinocerebellar", "Cuneocerebellar", "Anterior Spinocerebellar", "Trigeminocerebellar"], answer: "Cuneocerebellar", explanation: "It synapses in the Accessory Cuneate Nucleus (medulla) before entering the ICP." },
+              { id: 'q-bs-14', question: "In the midbrain, the cerebral aqueduct is surrounded by the Periaqueductal Grey (PAG), a region important for:", options: ["Auditory processing", "Pain modulation", "Visual tracking", "Swallowing reflexes"], answer: "Pain modulation", explanation: "The PAG is a critical part of the descending pain control system." },
+              { id: 'q-bs-15', question: "The loss of dopaminergic neurons in which midbrain structure is the underlying pathology in Parkinson's disease?", options: ["Red Nucleus", "Inferior Olive", "Substantia Nigra (Pars Compacta)", "Cerebral Peduncle"], answer: "Substantia Nigra (Pars Compacta)", explanation: "The Substantia Nigra's pars compacta produces dopamine for the striatum." },
+              { id: 'q-bs-16', question: "The Medial Longitudinal Fasciculus (MLF) is essential for integrating which function?", options: ["Conscious Proprioception", "Vertical Gaze Reflexes", "Horizontal Conjugate Eye Movements", "Facial Expression"], answer: "Horizontal Conjugate Eye Movements", explanation: "MLF connects CN VI, IV, and III nuclei, coordinating the eyes to move together." },
+              { id: 'q-bs-17', question: "The Inferior Olivary Nucleus (IOC) has a large influence on which neural structure via the ICP?", options: ["Thalamus", "Basal Ganglia", "Cerebellum (Motor learning)", "Primary Motor Cortex"], answer: "Cerebellum (Motor learning)", explanation: "The IOC is a critical relay for motor learning and error correction, sending climbing fibers to the cerebellum." },
+              { id: 'q-bs-18', question: "The Medial Pontine Syndrome involves ipsilateral CN VI (Abducens) palsy and contralateral hemiparesis, indicating the lesion is most likely in the territory of the:", options: ["PICA", "AICA", "Basilar Artery (Paramedian Branches)", "Superior Cerebellar Artery (SCA)"], answer: "Basilar Artery (Paramedian Branches)", explanation: "This territory supplies the medial structures: CN VI nucleus/nerve and descending CST/ML." },
+              { id: 'q-bs-19', question: "The Somatic Motor Column of CN nuclei in the brainstem (III, IV, VI, XII) is located closest to which landmark?", options: ["Sulcus Limitans (lateral)", "Floor of the Fourth Ventricle (medial)", "Spinal Trigeminal Nucleus", "Middle Cerebellar Peduncle"], answer: "Floor of the Fourth Ventricle (medial)", explanation: "Somatic motor nuclei are generally located medially (closest to the midline)." },
+              { id: 'q-bs-20', question: "Which cerebellar peduncle is composed entirely of efferent fibers (output) from the cerebellum to the red nucleus and thalamus?", options: ["Superior Cerebellar Peduncle (SCP)", "Middle Cerebellar Peduncle (MCP)", "Inferior Cerebellar Peduncle (ICP)", "Vestibulocerebellar Peduncle"], answer: "Superior Cerebellar Peduncle (SCP)", explanation: "SCP is primarily the efferent (output) pathway; ICP and MCP are predominantly afferent (input)." }
+            ],
+            flashcards: [
+              { id: 'fc-bs-1', front: "Which large ventral structures in the medulla contain the descending corticospinal tracts?", back: "Pyramids" },
+              { id: 'fc-bs-2', front: "The Nucleus Ambiguus is the motor center for which three cranial nerves?", back: "CN IX, X, XI (Pharynx and Larynx muscles)" },
+              { id: 'fc-bs-3', front: "What tract connects CN III, IV, and VI nuclei to coordinate horizontal gaze?", back: "Medial Longitudinal Fasciculus (MLF)" },
+              { id: 'fc-bs-4', front: "Wallenberg's syndrome is characterized by ipsilateral facial pain loss due to damage to which nucleus?", back: "Spinal Trigeminal Nucleus" },
+              { id: 'fc-bs-5', front: "The Massive input from the Pontine Nuclei enters the cerebellum via which peduncle?", back: "Middle Cerebellar Peduncle (MCP)" },
+              { id: 'fc-bs-6', front: "Where does the Somatic Motor Nucleus for CN XII (Hypoglossal) reside?", back: "Medulla (Rostral to caudal)" },
+              { id: 'fc-bs-7', front: "Which midbrain structure contains the Red Nucleus and the Substantia Nigra?", back: "Tegmentum" },
+              { id: 'fc-bs-8', front: "What syndrome involves ipsilateral CN III palsy and contralateral hemiparesis?", back: "Weber's Syndrome (Midbrain)" },
+              { id: 'fc-bs-9', front: "The Inferior Colliculi are the brainstem centers for which sensory system?", back: "Auditory (Hearing)" },
+              { id: 'fc-bs-10', front: "The only CN to exit the brainstem dorsally is?", back: "CN IV (Trochlear)" },
+              { id: 'fc-bs-11', front: "Which nucleus receives taste and visceral sensory input from CN VII, IX, and X?", back: "Solitary Nucleus" },
+              { id: 'fc-bs-12', front: "Locked-in syndrome is caused by bilateral damage to which ventral brainstem part?", back: "Basilar Pons" },
+              { id: 'fc-bs-13', front: "The cerebellar peduncle that is predominantly efferent (output) is the?", back: "Superior Cerebellar Peduncle (SCP)" },
+              { id: 'fc-bs-14', front: "What is the function of the Inferior Olivary Nucleus?", back: "Motor learning and relay to the cerebellum" },
+              { id: 'fc-bs-15', front: "Which artery occlusion causes Lateral Pontine Syndrome (affecting CN VII and VIII)?", back: "Anterior Inferior Cerebellar Artery (AICA)" },
+              { id: 'fc-bs-16', front: "The cerebral peduncles (Crus Cerebri) in the midbrain contain which major descending motor tracts?", back: "Corticospinal and Corticobulbar Tracts" },
+              { id: 'fc-bs-17', front: "Degeneration of dopamine neurons in the Substantia Nigra causes what disease?", back: "Parkinson's Disease" },
+              { id: 'fc-bs-18', front: "What are the two major decussation points located in the caudal (closed) medulla?", back: "Pyramidal Decussation (Motor) and Sensory Decussation (DCML)" },
+              { id: 'fc-bs-19', front: "The Superior Colliculi are the center for which type of reflexes?", back: "Visual (Gaze and head orientation)" },
+              { id: 'fc-bs-20', front: "Which brainstem structure is critical for pain modulation, surrounding the cerebral aqueduct?", back: "Periaqueductal Grey (PAG)" },
+            ]
+          }
+        };
+        
+        // --- FIREBASE AND AUTH SETUP ---
+        // Mock data/config for local run
+        const appId = 'default-app-id';
+        const firebaseConfig = {}; // Empty config to trigger local mode
+        
+        let db, auth;
+        // Mock init as the config is empty
+        db = getFirestore();
+        auth = getAuth();
+        
+        const initializeAuth = async () => {
+          // Mock auth for local mode
+          // console.log("MOCK: Initializing Auth (Local Mode)");
+        };
+        
+        // --- CUSTOM HOOKS ---
+        
+        /**
+         * Custom hook for managing Firebase/Auth state and fetching user data.
+         * Mocks Firebase interaction with localStorage for persistence.
+         */
+        const useAppState = () => {
+          const [userId, setUserId] = useState(null);
+          const [isAuthReady, setIsAuthReady] = useState(false);
+          const [userProgress, setUserProgress] = useState(null);
+          const [isLoading, setIsLoading] = useState(true);
+        
+          useEffect(() => {
+            // Local Mode Initialization
+            // console.warn("Firebase config not available. Running in local mode.");
+            setIsAuthReady(true);
+            setUserId('local-user-' + Math.random().toString(36).substring(2, 9));
+            setIsLoading(false);
+          }, []);
+        
+          useEffect(() => {
+            if (!isAuthReady || !userId) return;
+        
+            // MOCK Firestore Listener with localStorage
+            const storedProgress = localStorage.getItem('neuroanatomyProgress');
+            if (storedProgress) {
+                const loadedProgress = JSON.parse(storedProgress);
+                setUserProgress(loadedProgress);
+                // console.log("MOCK: Loaded progress from localStorage:", loadedProgress);
+            } else {
+                const initialProgress = { completedMcqs: {} };
+                setUserProgress(initialProgress);
+                localStorage.setItem('neuroanatomyProgress', JSON.stringify(initialProgress));
+                // console.log("MOCK: Initialized new progress in localStorage.");
+            }
+          }, [isAuthReady, userId]);
+        
+          // Function to save MCQ completion status (MOCK: updates localStorage)
+          const updateMcqProgress = async (topicKey, mcqId, isCorrect) => {
+            if (!userId || !userProgress) return;
+        
+            // Create a path for the specific MCQ state
+            const mcqPath = `completedMcqs.${topicKey}.${mcqId}`;
+            
+            // Only update if the status is changing to correct
+            if (isCorrect && userProgress.completedMcqs[topicKey]?.[mcqId] !== true) {
+              const newProgress = { ...userProgress };
+              newProgress.completedMcqs = {
+                  ...newProgress.completedMcqs,
+                  [topicKey]: {
+                      ...(newProgress.completedMcqs[topicKey] || {}),
+                      [mcqId]: true
+                  }
+              };
+
+              setUserProgress(newProgress);
+              localStorage.setItem('neuroanatomyProgress', JSON.stringify(newProgress));
+              // console.log("MOCK: Updated MCQ progress in localStorage.");
+            }
+          };
+        
+          return { userId, isLoading, userProgress, updateMcqProgress };
+        };
+        
+        // --- REUSABLE COMPONENTS ---
+        
+        // Card component with dynamic theme styling
+        const Card = ({ children, className = '', theme }) => {
+          const baseClasses = 'backdrop-blur-sm p-4 md:p-6 rounded-xl shadow-lg border';
+          const themeClasses = theme === 'dark' 
+            ? 'bg-white/5 border-white/10' 
+            : 'bg-white/70 border-gray-300';
+            
+          return (
+            <div className={`${baseClasses} ${themeClasses} ${className}`}>
+              {children}
+            </div>
+          );
+        };
+        
+        // Icon components
+        const ListIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${className}`}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        );
+        const QuizIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${className}`}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846m0 0l-2.846.813L3 17.937l2.846-.813m0 0l-.813-2.846.813 2.846m0 0l2.846-.813M18 9l-.813 2.846m0 0l-.813 2.846-.813 2.846-2.846-.813m2.846.813l.813 2.846M18 9l-2.846.813m0 0l-.813 2.846m0 0l2.846-.813m2.846-.813l-.813 2.846M18 9l-.813 2.846m0 0l-.813 2.846M18 9l2.846.813m0 0l-.813 2.846m0 0l.813 2.846" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25a8.25 8.25 0 1 0 0-16.5 8.25 8.25 0 0 0 0 16.5Z" />
+          </svg>
+        );
+        const FlashcardIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${className}`}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.72 5.09l-.72.72c-.52.52-1.36.52-1.88 0l-.72-.72M4.5 12.75h15m-.72-5.09l-.72-.72c-.52-.52-1.36-.52-1.88 0l-.72.72M2.25 12.75v5.25m19.5-5.25v5.25" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 18V5.25A2.25 2.25 0 0 1 6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25V18" />
+          </svg>
+        );
+        const ThemeIcon = ({ className }) => (
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 ${className}`}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.636-.386 1.591-1.591M3 12h2.25m.386-6.364 1.591 1.591M12 18A6 6 0 1 0 12 6a6 6 0 0 0 0 12Z" />
+          </svg>
+        );
+        
+        
+        /**
+         * Custom Markdown Renderer for Hierarchical Content
+         */
+        const MarkdownContent = ({ content, theme }) => {
+          const textClasses = theme === 'dark' ? 'text-gray-300' : 'text-gray-800';
+          const subTitleClasses = theme === 'dark' ? 'text-indigo-300' : 'text-indigo-700';
+          
+          const processLine = (line, index) => {
+            // 1. Check for Major Heading (e.g., **I. Structure**)
+            if (line.match(/^\*\*(.+?)\*\*/)) {
+              const text = line.replace(/\*\*/g, '').trim();
+              return <h3 key={index} className={`mt-4 mb-2 text-xl font-bold ${subTitleClasses}`}>{text}</h3>;
+            } 
+            // 2. Check for Minor Heading (e.g., ## Gross Anatomy)
+            else if (line.match(/^##\s*(.+?)/)) {
+              const text = line.replace(/##\s*/, '').trim();
+              return <h4 key={index} className={`mt-3 mb-1 text-lg font-semibold ${theme === 'dark' ? 'text-yellow-300' : 'text-yellow-700'}`}>{text}</h4>;
+            }
+            // 3. Check for Tables (Simple rendering for now)
+            else if (line.trim().startsWith('|')) {
+                return <code key={index} className={`block whitespace-pre overflow-x-auto text-sm ${theme === 'dark' ? 'bg-gray-700 text-yellow-300' : 'bg-gray-200 text-red-700'}`}>{line}</code>;
+            }
+            // 4. Check for List Items (Hyphenated and Indented)
+            else if (line.trim().startsWith('-')) {
+              // Determine nesting level based on indentation (spaces before hyphen)
+              const indentMatch = line.match(/^(\s*)-/);
+              const indentation = indentMatch ? indentMatch[1].length : 0;
+              const level = Math.floor(indentation / 2); 
+              
+              const listItem = line.replace(/^(\s*)-\s*/, '').trim();
+              const bolded = listItem.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+              
+              // Custom Tailwind utility classes would be needed for list-circle/square 
+              // For simplicity in a single HTML file, we'll use disc and simulate indentation/style
+              const listStyle = 'list-disc';
+              
+              return (
+                <li 
+                  key={index} 
+                  className={`ml-4 ${listStyle} ${textClasses}`} 
+                  style={{ paddingLeft: `${level * 10}px`, listStyleType: level === 1 ? 'circle' : (level === 2 ? 'square' : 'disc') }} 
+                  dangerouslySetInnerHTML={{ __html: bolded }}
+                ></li>
+              );
+            }
+            // 5. Default Paragraph (Handle bolding and empty lines)
+            else {
+              if (line.trim().length === 0) return <br key={index} />;
+              
+              const bolded = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+              return <p key={index} className={`mb-1 leading-relaxed ${textClasses}`} dangerouslySetInnerHTML={{ __html: bolded }}></p>;
+            }
+          };
+        
+          return (
+            <div className="whitespace-pre-line">
+              {content.split('\n').map(processLine)}
+            </div>
+          );
+        };
+        
+        
+        // 1. NOTES VIEW
+        const NotesView = ({ topic, setPage, theme }) => {
+          const data = mockNeuroData[topic];
+        
+          const titleColor = theme === 'dark' ? 'text-white border-indigo-400/50' : 'text-gray-900 border-indigo-700/50';
+          const subHeadingColor = theme === 'dark' ? 'text-indigo-300' : 'text-indigo-700';
+          const clinicalBg = theme === 'dark' ? 'bg-red-900/40 border-red-500 text-red-100' : 'bg-red-100/70 border-red-700 text-red-900';
+          const clinicalHeader = theme === 'dark' ? 'text-red-300' : 'text-red-700';
+        
+          return (
+            <div className="space-y-8 p-4">
+              <h2 className={`text-3xl font-extrabold text-center mb-6 border-b-2 pb-2 ${titleColor}`}>
+                {data.title}
+              </h2>
+        
+              {/* Main Notes Section */}
+              <h3 className={`text-2xl font-semibold flex items-center mb-4 ${subHeadingColor}`}>
+                <ListIcon className={`mr-2 w-7 h-7 ${subHeadingColor}`} /> Detailed Anatomy Notes
+              </h3>
+              {data.notes.map((note) => (
+                <Card key={note.id} theme={theme} className="space-y-4">
+                  <h4 className={`text-xl font-bold ${theme === 'dark' ? 'text-indigo-200' : 'text-indigo-800'}`}>{note.title}</h4>
+                  
+                  <MarkdownContent content={note.content} theme={theme} />
+        
+                  {/* Clinical Correlate Box */}
+                  <div className={`p-4 rounded-lg border-l-4 text-sm ${clinicalBg}`}>
+                    <p className={`font-semibold uppercase tracking-wider ${clinicalHeader}`}>Clinical Correlate (Snell's):</p>
+                    <MarkdownContent content={note.clinicals} theme={theme} />
+                  </div>
+                  {note.image && <p className={`text-center text-sm pt-2 ${subHeadingColor}`}>{note.image}</p>}
+                </Card>
+              ))}
+        
+              <button
+                onClick={() => setPage({ name: 'home', topic: null })}
+                className="mt-8 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition duration-200"
+              >
+                Back to Topics
+              </button>
+            </div>
+          );
+        };
+        
+        // 2. MCQ VIEW 
+        const McqView = ({ topic, userProgress, updateMcqProgress, setPage, theme }) => {
+          const data = mockNeuroData[topic];
+          const [currentQIndex, setCurrentQIndex] = useState(0);
+          const [selectedOption, setSelectedOption] = useState(null);
+          const [isSubmitted, setIsSubmitted] = useState(false);
+        
+          const currentQuestion = data.mcqs[currentQIndex];
+          const topicKey = topic;
+          const totalQuestions = data.mcqs.length;
+        
+          const handleSubmit = useCallback(() => {
+            if (!selectedOption) return;
+            setIsSubmitted(true);
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            // Update progress in mock (only registers 'true' status)
+            if (isCorrect) {
+                updateMcqProgress(topicKey, currentQuestion.id, isCorrect);
+            }
+        
+          }, [selectedOption, currentQuestion, topicKey, updateMcqProgress]);
+        
+          const handleNext = () => {
+            setSelectedOption(null);
+            setIsSubmitted(false);
+            if (currentQIndex < data.mcqs.length - 1) {
+              setCurrentQIndex(prev => prev + 1);
+            } else {
+              // Finished quiz (Custom Modal)
+              // Calculate updated totalMastered using the userProgress *state*
+              const currentProgressForTopic = userProgress?.completedMcqs[topicKey] || {};
+              const totalMastered = data.mcqs.filter(q => currentProgressForTopic[q.id] === true).length;
+
+              const finishMessage = `You've completed this set! Keep reviewing to ensure all questions are mastered. (Total mastered: ${totalMastered}/${totalQuestions})`;
+              
+              // Use a custom modal instead of alert()
+              const modal = document.createElement('div');
+              modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50';
+              modal.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm mx-auto border border-indigo-500/50">
+                  <h4 class="text-xl font-bold text-indigo-300 mb-4">Quiz Complete!</h4>
+                  <p class="text-gray-200">${finishMessage}</p>
+                  <button id="close-modal" class="mt-6 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition duration-200">
+                    Continue
+                  </button>
+                </div>
+              `;
+              document.body.appendChild(modal);
+              document.getElementById('close-modal').onclick = () => {
+                document.body.removeChild(modal);
+                setPage({ name: 'home', topic: null });
+              };
+              
+            }
+          };
+        
+          const currentStatusClass = useMemo(() => {
+              if (!isSubmitted) return '';
+              return selectedOption === currentQuestion.answer
+                  ? 'bg-green-600/50 border-green-400'
+                  : 'bg-red-600/50 border-red-400';
+          }, [isSubmitted, selectedOption, currentQuestion.answer]);
+        
+          const textClasses = theme === 'dark' ? 'text-white' : 'text-gray-900';
+          const optionBase = theme === 'dark' ? 'bg-gray-700/50 hover:bg-indigo-700/50 text-gray-200' : 'bg-gray-200/50 hover:bg-indigo-200/70 text-gray-800';
+          const totalMastered = userProgress?.completedMcqs[topicKey] ? Object.values(userProgress.completedMcqs[topicKey]).filter(v => v === true).length : 0;
+        
+          return (
+            <div className="p-4 space-y-6">
+              <h2 className={`text-3xl font-extrabold text-center ${textClasses}`}>MCQ Practice: {data.title}</h2>
+              <p className="text-indigo-300 text-center">
+                Question {currentQIndex + 1} of {totalQuestions} | Mastered: {totalMastered}
+              </p>
+        
+              <Card theme={theme} className={`transition-all duration-300 border-2 ${currentStatusClass}`}>
+                <p className={`text-lg font-medium mb-4 ${textClasses}`}>{currentQuestion.question}</p>
+        
+                <div className="space-y-3">
+                  {currentQuestion.options.map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => !isSubmitted && setSelectedOption(option)}
+                      className={`w-full text-left p-3 rounded-lg transition duration-200 
+                        ${isSubmitted ? 'cursor-not-allowed' : ''}
+                        ${optionBase}
+                        ${selectedOption === option ? 'border-2 border-indigo-400 bg-indigo-800/70' : ''}
+                        ${isSubmitted && option === currentQuestion.answer ? 'bg-green-500/80 font-bold !text-white' : ''}
+                      `}
+                      disabled={isSubmitted}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+        
+                {isSubmitted && (
+                  <div className={`mt-6 p-4 rounded-lg border ${theme === 'dark' ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-400'}`}>
+                    <h4 className={`font-semibold text-lg mb-2 ${theme === 'dark' ? 'text-indigo-300' : 'text-indigo-800'}`}>Explanation:</h4>
+                    <p className={textClasses}>{currentQuestion.explanation}</p>
+                    <p className={`mt-2 font-bold ${selectedOption === currentQuestion.answer ? 'text-green-400' : 'text-red-400'}`}>
+                      Your answer was {selectedOption === currentQuestion.answer ? 'Correct' : 'Incorrect'}.
+                    </p>
+                  </div>
+                )}
+              </Card>
+        
+              <div className="flex justify-between space-x-4">
+                <button
+                  onClick={() => setPage({ name: 'home', topic: null })}
+                  className="flex-1 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-xl transition duration-200"
+                >
+                  Exit Quiz
+                </button>
+                {!isSubmitted ? (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!selectedOption}
+                    className={`flex-1 py-3 font-bold rounded-xl transition duration-200 ${!selectedOption ? 'bg-indigo-400/50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                  >
+                    Submit Answer
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleNext}
+                    className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition duration-200"
+                  >
+                    {currentQIndex < data.mcqs.length - 1 ? 'Next Question' : 'Finish Quiz'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        };
+        
+        // 3. FLASHCARD VIEW
+        const FlashcardView = ({ topic, setPage, theme }) => {
+          const data = mockNeuroData[topic];
+          const [currentCardIndex, setCurrentCardIndex] = useState(0);
+          const [isFlipped, setIsFlipped] = useState(false);
+        
+          const card = data.flashcards[currentCardIndex];
+          const totalCards = data.flashcards.length;
+        
+          const handleFlip = () => setIsFlipped(prev => !prev);
+        
+          const handleNext = () => {
+            setIsFlipped(false);
+            setCurrentCardIndex(prev => (prev + 1) % totalCards);
+          };
+        
+          const handlePrev = () => {
+            setIsFlipped(false);
+            setCurrentCardIndex(prev => (prev - 1 + totalCards) % totalCards);
+          };
+        
+          // Inline styling for 3D flip effect
+          const flipContainerStyle = {
+            perspective: '1000px',
+          };
+        
+          const flipCardStyle = {
+            transition: 'transform 0.6s',
+            transformStyle: 'preserve-3d',
+            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+          };
+        
+          const cardFaceStyle = {
+            backfaceVisibility: 'hidden',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '2rem',
+          };
+        
+          const frontBg = theme === 'dark' ? 'bg-indigo-800/90 hover:shadow-indigo-500/50' : 'bg-indigo-400/90 hover:shadow-indigo-600/50';
+          const backBg = theme === 'dark' ? 'bg-gray-800/90 hover:shadow-gray-500/50' : 'bg-gray-200/90 hover:shadow-gray-400/50';
+          const frontQ = theme === 'dark' ? 'text-yellow-300' : 'text-yellow-100';
+          const frontT = theme === 'dark' ? 'text-white' : 'text-gray-900';
+          const backA = theme === 'dark' ? 'text-green-300' : 'text-green-700';
+          const backT = theme === 'dark' ? 'text-white' : 'text-gray-900';
+        
+          return (
+            <div className="p-4 space-y-6">
+              <h2 className={`text-3xl font-extrabold text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                Flashcards: {data.title}
+              </h2>
+              <p className="text-indigo-300 text-center">
+                Card {currentCardIndex + 1} of {totalCards}
+              </p>
+        
+              <div style={flipContainerStyle} className="w-full h-80 max-h-96">
+                <div style={flipCardStyle} className="relative w-full h-full">
+                  {/* Front of the card (Question/Prompt) */}
+                  <div
+                    onClick={handleFlip}
+                    className={`${frontBg} rounded-2xl shadow-2xl cursor-pointer transition duration-300`}
+                    style={cardFaceStyle}
+                  >
+                    <div className="p-4">
+                      <p className={`text-xl font-semibold mb-2 ${frontQ}`}>Question (Click to Flip)</p>
+                      <h3 className={`text-3xl font-bold ${frontT}`}>{card.front}</h3>
+                    </div>
+                  </div>
+        
+                  {/* Back of the card (Answer) */}
+                  <div
+                    onClick={handleFlip}
+                    className={`${backBg} rounded-2xl shadow-2xl cursor-pointer transition duration-300`}
+                    style={{ ...cardFaceStyle, transform: 'rotateY(180deg)' }}
+                  >
+                    <div className="p-4">
+                      <p className={`text-xl font-semibold mb-2 ${backA}`}>Answer</p>
+                      <h3 className={`text-3xl font-bold ${backT}`}>{card.back}</h3>
+                    </div>
+                  </div>
+                </div>
+              </div>
+        
+              <div className="flex justify-between space-x-4 mt-6">
+                <button
+                  onClick={handlePrev}
+                  className="flex-1 py-3 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-md transition duration-200"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-1 py-3 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-md transition duration-200"
+                >
+                  Next
+                </button>
+              </div>
+        
+              <button
+                onClick={() => setPage({ name: 'home', topic: null })}
+                className="w-full py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-xl transition duration-200"
+              >
+                Exit Flashcards
+              </button>
+            </div>
+          );
+        };
+        
+        // 4. HOME/TOPIC SELECTION VIEW
+        const HomeView = ({ setPage, userId, toggleTheme, theme }) => {
+          const topics = Object.entries(mockNeuroData).map(([key, data]) => ({
+            key,
+            title: data.title,
+            notesCount: data.notes.length,
+            mcqsCount: data.mcqs.length,
+            flashcardsCount: data.flashcards.length,
+          }));
+        
+          const NavButton = ({ icon, text, onClick }) => (
+            <button
+              onClick={onClick}
+              className={`flex flex-col items-center justify-center p-4 h-28 text-white rounded-xl shadow-lg transition duration-200 active:scale-95 border
+                ${theme === 'dark' 
+                  ? 'bg-indigo-700/50 hover:bg-indigo-600/70 border-indigo-500/50' 
+                  : 'bg-indigo-500/80 hover:bg-indigo-600/90 border-indigo-400'
+                }
+              `}
+            >
+              {icon}
+              <span className="mt-2 text-sm font-semibold">{text}</span>
+            </button>
+          );
+        
+          const headerText = theme === 'dark' ? 'text-white' : 'text-gray-900';
+          const subHeaderText = theme === 'dark' ? 'text-indigo-300' : 'text-indigo-700';
+          const cardBg = theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-white/70 border-gray-300';
+          const cardTitle = theme === 'dark' ? 'text-indigo-200' : 'text-indigo-800';
+        
+          return (
+            <div className="p-4 md:p-8 space-y-8">
+              <h1 className={`text-4xl font-extrabold text-center ${headerText}`}>Neuroanatomy Study Hub</h1>
+              <p className={`text-center ${subHeaderText}`}>
+                Based on ultra-detailed Snell's Neuroanatomy structure and clinical correlates.
+              </p>
+              <div className={`text-xs text-center truncate ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>User ID: {userId} (Private Data Store - LocalStorage Mock)</div>
+        
+              <div className="space-y-6">
+                {topics.map((topic) => (
+                  <Card key={topic.key} theme={theme} className={`p-4 ${cardBg}`}>
+                    <h2 className={`text-2xl font-bold mb-4 border-b pb-2 ${cardTitle} ${theme === 'dark' ? 'border-indigo-500/50' : 'border-indigo-700/50'}`}>{topic.title}</h2>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Notes Button */}
+                      <NavButton
+                        icon={<ListIcon className="w-7 h-7" />}
+                        text={`Notes (${topic.notesCount})`}
+                        onClick={() => setPage({ name: 'notes', topic: topic.key })}
+                      />
+                      {/* MCQs Button */}
+                      <NavButton
+                        icon={<QuizIcon className="w-7 h-7" />}
+                        text={`MCQs (${topic.mcqsCount})`}
+                        onClick={() => setPage({ name: 'mcq', topic: topic.key })}
+                      />
+                      {/* Flashcards Button */}
+                      <NavButton
+                        icon={<FlashcardIcon className="w-7 h-7" />}
+                        text={`Flashcards (${topic.flashcardsCount})`}
+                        onClick={() => setPage({ name: 'flashcard', topic: topic.key })}
+                      />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          );
+        };
+        
+        
+        // --- MAIN APP COMPONENT ---
+        
+        const App = () => {
+          const [currentPage, setCurrentPage] = useState({ name: 'home', topic: null });
+          const [theme, setTheme] = useState('dark'); // 'dark' or 'light'
+          const { userId, isLoading, userProgress, updateMcqProgress } = useAppState();
+        
+          const setPage = (page) => {
+            if (page.name !== currentPage.name) {
+              window.scrollTo(0, 0);
+            }
+            setCurrentPage(page);
+          };
+        
+          const toggleTheme = () => {
+            setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+          };
+          
+          // Apply background class to body
+          useEffect(() => {
+              document.body.className = theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50';
+          }, [theme]);
+
+
+          const themeBgClass = theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50';
+          const headerBgClass = theme === 'dark' ? 'bg-gray-800/80 shadow-xl' : 'bg-white/80 shadow-lg';
+          const headerTextClass = theme === 'dark' ? 'text-indigo-400' : 'text-indigo-700';
+        
+          const renderContent = () => {
+            if (isLoading || !userProgress) {
+              return (
+                <div className="flex items-center justify-center h-screen text-indigo-300">
+                  <p className="text-xl">Loading Neuroanatomy Hub...</p>
+                </div>
+              );
+            }
+        
+            switch (currentPage.name) {
+              case 'notes':
+                return <NotesView topic={currentPage.topic} setPage={setPage} theme={theme} />;
+              case 'mcq':
+                return (
+                  <McqView
+                    topic={currentPage.topic}
+                    userProgress={userProgress}
+                    updateMcqProgress={updateMcqProgress}
+                    setPage={setPage}
+                    theme={theme}
+                  />
+                );
+              case 'flashcard':
+                return <FlashcardView topic={currentPage.topic} setPage={setPage} theme={theme} />;
+              case 'home':
+              default:
+                return <HomeView setPage={setPage} userId={userId} toggleTheme={toggleTheme} theme={theme} />;
+            }
+          };
+        
+          return (
+            <div className={`min-h-screen font-sans ${themeBgClass}`}>
+              <header className={`${headerBgClass} backdrop-blur-sm p-4 sticky top-0 z-10 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="max-w-4xl mx-auto flex justify-between items-center">
+                  
+                  {/* LEFT LOGO */}
+                  <img src="https://i.imgur.com/gUpXRLZ.png" alt="Brain Logo" className="h-8 md:h-10 w-auto" />
+
+                  {/* TITLE - flex-1 for spacing */}
+                  <h1 className={`text-2xl font-extrabold uppercase tracking-widest ${headerTextClass} mx-4 flex-1 text-center md:text-left`}>
+                    Neuro Study
+                  </h1>
+                  
+                  {/* RIGHT LOGO & THEME BUTTON */}
+                  <div className="flex items-center space-x-4">
+                    <img src="https://i.imgur.com/7N0uvNL.png" alt="Neuron Logo" className="h-8 md:h-10 w-auto hidden sm:block" />
+                    <button
+                      onClick={toggleTheme}
+                      className={`p-2 rounded-full transition duration-300 ${theme === 'dark' ? 'bg-gray-700 text-yellow-300 hover:bg-gray-600' : 'bg-gray-200 text-indigo-700 hover:bg-gray-300'}`}
+                      title="Toggle Theme"
+                    >
+                      <ThemeIcon className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+              </header>
+        
+              <main className="max-w-4xl mx-auto pb-12">
+                {renderContent()}
+              </main>
+              
+              {/* Scroll-to-top button */}
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="fixed bottom-4 right-4 p-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full shadow-lg transition duration-300 z-20"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                </svg>
+              </button>
+            </div>
+          );
+        };
+        
+        // --- REACT RENDER CALL ---
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+    </script>
+</body>
+</html>
