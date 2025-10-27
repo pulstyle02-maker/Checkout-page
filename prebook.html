@@ -264,6 +264,23 @@
         margin-top: 10px;
     }
 
+    /* --- MOBILE OPTIMIZATION --- */
+    @media (max-width: 640px) {
+        .checkout-container {
+            padding: 20px; /* Reduce container padding */
+            margin: 10px auto; /* Reduce top/bottom margin */
+        }
+        h2 {
+            font-size: 1.5rem; /* Make main title smaller */
+            margin-bottom: 20px; /* Reduce margin below title */
+        }
+        button {
+            padding: 12px 20px; /* Slightly smaller button padding */
+            font-size: 16px; /* Slightly smaller button font */
+        }
+    }
+    /* --- END MOBILE OPTIMIZATION --- */
+
 </style>
 </head>
 <body>
@@ -292,7 +309,6 @@
             <label for="fullName">Full Name</label>
             <input type="text" id="fullName" placeholder="e.g., Ayesha Khan" required>
             
-            <!-- Button uses class for listener attachment -->
             <button type="button" class="js-next">Next: Select College</button>
         </div>
 
@@ -337,7 +353,6 @@
             </select>
 
             <div class="button-group">
-                <!-- Button uses class for listener attachment -->
                 <button type="button" class="js-prev">Previous</button>
                 <button type="button" class="js-next">Next: Notification Preference</button>
             </div>
@@ -364,7 +379,6 @@
             </div>
 
             <div class="button-group">
-                <!-- Button uses class for listener attachment -->
                 <button type="button" class="js-prev">Previous</button>
                 <button type="button" class="js-next">Next: Review & Confirm</button>
             </div>
@@ -380,7 +394,6 @@
             <p class="discount-highlight">Your 15% Launch Discount is now RESERVED!</p>
             
             <div class="button-group">
-                <!-- Button uses class for listener attachment -->
                 <button type="button" class="js-prev">Previous</button>
                 <button type="button" class="js-next">Confirm Pre-Order & Avail 15% OFF</button>
             </div>
@@ -399,53 +412,43 @@
     </form>
 </div>
 
-<!-- SCRIPT: Core Logic -->
+<!-- SCRIPT: Core Logic with FormSubmit Integration -->
 <script>
+
+(function() { // Wrap in IIFE for scope isolation
+
 let currentStep = 1;
 const totalSteps = 5;
-// Data object to store all form inputs before submission
 const preOrderDetails = {}; 
+const FORM_SUBMIT_EMAIL = 'modmedicalis@gmail.com'; // Target email
 
 // --- Utility Functions ---
 
-/**
- * Displays a validation message to the user.
- */
 function alertUser(message) {
     const box = document.getElementById('messageBox');
     box.innerText = message;
     box.classList.add('show');
-    // Hide message after 4 seconds
     setTimeout(() => {
         box.classList.remove('show');
     }, 4000);
 }
 
-/**
- * Updates the visual progress bar and circles based on the current step.
- */
 function updateProgress() {
     const progress = document.getElementById('progress');
     const circles = document.querySelectorAll('.circle');
     
-    // Update circle active states
     circles.forEach((circle, idx) => {
-        // Step numbers are 1-based, index is 0-based
         if (idx < currentStep) circle.classList.add('active');
         else circle.classList.remove('active');
     });
 
-    // Update progress bar width
     if (currentStep <= totalSteps) {
-        // We use 4 active steps (1-4) leading up to the success step (5)
         progress.style.width = ((currentStep - 1) / (totalSteps - 1)) * 100 + '%';
     }
 }
 
 /**
- * Toggles the visibility and required status of WhatsApp and Email fields
- * based on the user's notification preference.
- * NOTE: This is attached to the window object to be called from inline 'onchange'.
+ * Toggles the visibility and required status of contact fields.
  */
 window.toggleContactInput = function(method) {
     const emailField = document.getElementById('emailField');
@@ -453,7 +456,7 @@ window.toggleContactInput = function(method) {
     const whatsappField = document.getElementById('whatsappField');
     const contactInput = document.getElementById('contact');
 
-    // Reset all fields
+    // Reset all
     emailField.classList.remove('visible');
     emailInput.removeAttribute('required');
     whatsappField.classList.remove('visible');
@@ -473,7 +476,6 @@ window.toggleContactInput = function(method) {
  */
 function displayPreOrderDetails() {
     let detailsDiv = document.getElementById('preOrderDetails');
-    // Clear previous content
     detailsDiv.innerHTML = ""; 
     
     const details = preOrderDetails;
@@ -507,13 +509,12 @@ function prevStep() {
 }
 
 
-// --- Main Navigation Logic ---
+// --- Main Navigation Logic (now async to handle form submission) ---
 
 /**
- * Handles forward navigation and validation for each step.
- * NOTE: Now fully synchronous, as database/email calls are removed.
+ * Handles forward navigation, validation, and submission.
  */
-function nextStep() { 
+async function nextStep() { 
     let isValid = true;
     const currentStepElement = document.querySelector(`.step-${currentStep}`);
 
@@ -552,46 +553,78 @@ function nextStep() {
             }
             preOrderDetails.notificationMethod = method;
             preOrderDetails.email = email;
-            preOrderDetails.contact = ''; // Clear other contact type
+            preOrderDetails.contact = ''; 
         } else if (method === 'WhatsApp') {
-            // Very basic contact validation (presence only)
             if (!contact) {
                 alertUser("Please provide your contact number for WhatsApp notification.");
                 isValid = false;
             }
             preOrderDetails.notificationMethod = method;
             preOrderDetails.contact = contact;
-            preOrderDetails.email = ''; // Clear other contact type
+            preOrderDetails.email = '';
         }
 
     } else if (currentStep === 4) {
-        // Step 4: Confirm Pre-Order -> MOCK SUBMISSION
+        // Step 4: Confirm Pre-Order -> SUBMIT to FormSubmit
         
-        // 1. Prepare final order object (for console logging)
+        // Prepare final order object for FormSubmit
         const finalPreOrderData = {
-            ...preOrderDetails,
-            book: 'MIND YOUR MINORS BLOCK 6',
-            discount: '15%',
-            status: 'Pre-Order Confirmed (Data Captured)',
-            timestamp: new Date().toLocaleString(),
+            _subject: 'MIND YOUR MINORS Pre-Order Confirmed!',
+            _template: 'table',
+            _cc: FORM_SUBMIT_EMAIL,
+            
+            // Custom fields for the email body
+            'Full Name': preOrderDetails.fullName,
+            'College': preOrderDetails.college,
+            'Notification Method': preOrderDetails.notificationMethod,
+            'Contact (WhatsApp)': preOrderDetails.contact || 'N/A', 
+            'Email Address': preOrderDetails.email || 'N/A', 
+            'Book': 'MIND YOUR MINORS BLOCK 6',
+            'Discount': '15% Secured',
+            'Timestamp': new Date().toLocaleString(),
         };
 
-        // 2. Log the data instead of saving to a database
-        console.log("--- MOCK SUBMISSION SUCCESS ---");
-        console.log("If this were a live form, the following data would be submitted/saved:");
-        console.log(finalPreOrderData);
+        const formSubmitUrl = `https://formsubmit.co/ajax/${FORM_SUBMIT_EMAIL}`; // Use AJAX endpoint
+        const referenceId = `WEB-${Date.now()}`; // Generate a unique reference ID
         
-        // 3. Generate a mock order ID
-        const mockDocId = `MOCK-${Date.now()}`;
-        
-        // 4. Update the success screen elements
-        document.getElementById('orderNumber').innerText = mockDocId; 
-        document.getElementById('confirmationContact').innerText = preOrderDetails.notificationMethod === 'WhatsApp' ? 
-                                                            `WhatsApp at ${preOrderDetails.contact}` : 
-                                                            `Email at ${preOrderDetails.email}`;
+        // Show submitting state
+        document.getElementById('orderNumber').innerText = 'Submitting...';
+        document.getElementById('confirmationContact').innerText = '...';
 
-        // Always proceed to the final step since we have removed the backend calls
-        isValid = true;
+        try {
+            const response = await fetch(formSubmitUrl, {
+                method: 'POST',
+                // Crucial for non-redirecting AJAX submission
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, 
+                body: JSON.stringify(finalPreOrderData)
+            });
+
+            if (response.ok) {
+                console.log("Form submission successful via FormSubmit.");
+            } else {
+                // FormSubmit fails if the target email hasn't been verified yet, 
+                // but we should still proceed locally for the user experience.
+                console.warn("FormSubmit Email failed (Status:", response.status, "). The pre-order data was logged to the console.");
+                alertUser("Pre-order submitted, but email notification may have failed. Please check console for details.");
+            }
+            
+            // Log final data regardless of email success
+            console.log("--- FINAL PRE-ORDER DATA ---");
+            console.log(finalPreOrderData);
+            
+        } catch (error) {
+            console.error("Error during form submission (FormSubmit):", error);
+            alertUser("A network error occurred while confirming the order. Please try again.");
+            isValid = false; // Stop navigation if submission fails due to network error
+        }
+
+        if (isValid) {
+            // Submission (or failure handling) complete. Update success screen.
+            document.getElementById('orderNumber').innerText = referenceId; 
+            document.getElementById('confirmationContact').innerText = preOrderDetails.notificationMethod === 'WhatsApp' ? 
+                                                                `WhatsApp at ${preOrderDetails.contact}` : 
+                                                                `Email at ${preOrderDetails.email}`;
+        }
     }
     
     // 2. Transition logic (only if valid)
@@ -622,12 +655,13 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('click', prevStep);
     });
 
-    // Initialize progress bar on load
+    // Initialize progress bar and contact fields on load
     updateProgress();
-    
-    // Ensure contact fields are hidden initially
     window.toggleContactInput(document.getElementById('notificationMethod').value);
 });
+
+})(); // End of IIFE
+
 </script>
 
 </body>
