@@ -399,61 +399,18 @@
     </form>
 </div>
 
-<!-- SCRIPT: Firebase Initialization and Logic -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, addDoc, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-// --- Global Setup ---
-// Use provided global variables for environment setup
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-// Init Firebase Services
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-setLogLevel('debug'); // Enable detailed logging for debugging
-
-let userId = null;
-let isAuthReady = false;
+<!-- SCRIPT: Core Logic -->
+<script>
 let currentStep = 1;
 const totalSteps = 5;
-
 // Data object to store all form inputs before submission
 const preOrderDetails = {}; 
 
-
-// --- Firebase Authentication ---
-async function initAuth() {
-    try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
-            console.log("Firebase: Signed in with custom token.");
-        } else {
-            await signInAnonymously(auth);
-            console.log("Firebase: Signed in anonymously.");
-        }
-        // User ID is crucial for the private Firestore path
-        userId = auth.currentUser.uid;
-        console.log('Firebase: Auth Initialized. User ID:', userId);
-    } catch (error) {
-        console.error("Firebase: Authentication failed:", error);
-        // Fallback to random ID if auth fails
-        userId = auth.currentUser?.uid || crypto.randomUUID();
-        alertUser("Error connecting to user services. Pre-order may not save.");
-    } finally {
-        isAuthReady = true;
-        console.log('Firebase: Auth Ready State is now TRUE.');
-    }
-}
-
-initAuth();
-
-
 // --- Utility Functions ---
 
+/**
+ * Displays a validation message to the user.
+ */
 function alertUser(message) {
     const box = document.getElementById('messageBox');
     box.innerText = message;
@@ -464,13 +421,16 @@ function alertUser(message) {
     }, 4000);
 }
 
+/**
+ * Updates the visual progress bar and circles based on the current step.
+ */
 function updateProgress() {
     const progress = document.getElementById('progress');
     const circles = document.querySelectorAll('.circle');
     
     // Update circle active states
     circles.forEach((circle, idx) => {
-        // Step 5 is the success screen, so it's the last active state for the circle indices
+        // Step numbers are 1-based, index is 0-based
         if (idx < currentStep) circle.classList.add('active');
         else circle.classList.remove('active');
     });
@@ -485,7 +445,7 @@ function updateProgress() {
 /**
  * Toggles the visibility and required status of WhatsApp and Email fields
  * based on the user's notification preference.
- * NOTE: This function is EXPOSED to the global window scope to work with the inline onchange event.
+ * NOTE: This is attached to the window object to be called from inline 'onchange'.
  */
 window.toggleContactInput = function(method) {
     const emailField = document.getElementById('emailField');
@@ -493,7 +453,7 @@ window.toggleContactInput = function(method) {
     const whatsappField = document.getElementById('whatsappField');
     const contactInput = document.getElementById('contact');
 
-    // Reset all
+    // Reset all fields
     emailField.classList.remove('visible');
     emailInput.removeAttribute('required');
     whatsappField.classList.remove('visible');
@@ -508,12 +468,14 @@ window.toggleContactInput = function(method) {
     }
 }
 
-
+/**
+ * Populates the summary card with captured pre-order details.
+ */
 function displayPreOrderDetails() {
     let detailsDiv = document.getElementById('preOrderDetails');
-    detailsDiv.innerHTML = "";
+    // Clear previous content
+    detailsDiv.innerHTML = ""; 
     
-    // Use the stored data
     const details = preOrderDetails;
 
     detailsDiv.innerHTML += `<p><strong>Name:</strong> ${details.fullName}</p>`;
@@ -524,74 +486,6 @@ function displayPreOrderDetails() {
         detailsDiv.innerHTML += `<p><strong>Email Address:</strong> ${details.email}</p>`;
     } else if (details.notificationMethod === 'WhatsApp' && details.contact) {
         detailsDiv.innerHTML += `<p><strong>WhatsApp Contact:</strong> ${details.contact}</p>`;
-    }
-}
-
-/**
- * Saves the finalized pre-order data to the user's private Firestore collection.
- */
-async function addPreOrderToFirestore(preOrderData) {
-    if (!isAuthReady || !userId) {
-        console.error("Firestore Error: Authentication not ready. Cannot save pre-order.");
-        return null;
-    }
-
-    // Define the private collection path for the current user 
-    const ordersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/preOrders`);
-
-    try {
-        document.getElementById('orderNumber').innerText = 'Processing...'; 
-
-        const docRef = await addDoc(ordersCollectionRef, preOrderData);
-        console.log("Firestore Success: Pre-Order saved successfully with ID:", docRef.id);
-        return docRef.id;
-    } catch (e) {
-        console.error("Firestore Error: Failed to add document: ", e);
-        alertUser("Pre-order submission failed due to a database error. Check console for details.");
-        return null;
-    }
-}
-
-/**
- * Sends a non-blocking email notification using FormSubmit.
- */
-async function sendEmailNotification(docId) {
-    
-    const data = {
-        // FormSubmit special fields
-        _subject: `MIND YOUR MINORS Pre-Order! (ID: ${docId})`,
-        _template: 'table',
-        _cc: 'modmedicalis@gmail.com', // Explicitly set the recipient
-        // Order Details for Email Body
-        Pre_Order_ID: docId,
-        Book_Title: "MIND YOUR MINORS BLOCK 6",
-        Full_Name: preOrderDetails.fullName,
-        College: preOrderDetails.college,
-        Contact_Number: preOrderDetails.contact || 'N/A', // Now conditional
-        Email_Address_If_Selected: preOrderDetails.email || 'N/A', // Now conditional
-        Notification_Method: preOrderDetails.notificationMethod,
-        Discount_Secured: "15% OFF",
-        Timestamp: new Date().toLocaleString(),
-    };
-    
-    // NOTE: The FormSubmit endpoint must be set to the target email
-    const url = 'https://formsubmit.co/modmedicalis@gmail.com'; 
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            // Crucial for non-redirecting AJAX submission
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, 
-            body: JSON.stringify(data)
-        });
-
-        if (response.ok) {
-            console.log("Email notification sent successfully via FormSubmit.");
-        } else {
-            console.warn("FormSubmit Email failed (Status:", response.status, "). Check console for FormSubmit response.");
-        }
-    } catch (error) {
-        console.error("Error sending email notification:", error);
     }
 }
 
@@ -615,12 +509,16 @@ function prevStep() {
 
 // --- Main Navigation Logic ---
 
-async function nextStep() { 
+/**
+ * Handles forward navigation and validation for each step.
+ * NOTE: Now fully synchronous, as database/email calls are removed.
+ */
+function nextStep() { 
     let isValid = true;
     const currentStepElement = document.querySelector(`.step-${currentStep}`);
 
+    // 1. Validation and Data Capture
     if (currentStep === 1) {
-        // Step 1: Personal Details validation (only fullName)
         const fullName = document.getElementById('fullName').value.trim();
 
         if (!fullName) {
@@ -631,7 +529,6 @@ async function nextStep() {
         }
 
     } else if (currentStep === 2) {
-        // Step 2: College Selection validation
         const college = document.getElementById('college').value;
         if (!college) {
             alertUser("Please select your medical college from the list.");
@@ -641,7 +538,6 @@ async function nextStep() {
         }
 
     } else if (currentStep === 3) {
-        // Step 3: Notification Preference validation and data capture
         const method = document.getElementById('notificationMethod').value;
         const email = document.getElementById('email').value.trim();
         const contact = document.getElementById('contact').value.trim();
@@ -658,6 +554,7 @@ async function nextStep() {
             preOrderDetails.email = email;
             preOrderDetails.contact = ''; // Clear other contact type
         } else if (method === 'WhatsApp') {
+            // Very basic contact validation (presence only)
             if (!contact) {
                 alertUser("Please provide your contact number for WhatsApp notification.");
                 isValid = false;
@@ -666,46 +563,36 @@ async function nextStep() {
             preOrderDetails.contact = contact;
             preOrderDetails.email = ''; // Clear other contact type
         }
-        
 
     } else if (currentStep === 4) {
-        // Step 4: Confirm Pre-Order -> SUBMIT to Firestore and Email
+        // Step 4: Confirm Pre-Order -> MOCK SUBMISSION
         
-        if (!isAuthReady) {
-            alertUser("Database connection not ready. Please wait a moment and click 'Confirm' again.");
-            console.warn("Attempted submission before Firebase Auth was ready.");
-            isValid = false;
-        } else {
-            // Prepare final order object for database
-            const finalPreOrderData = {
-                ...preOrderDetails,
-                book: 'MIND YOUR MINORS BLOCK 6',
-                discount: '15%',
-                status: 'Pre-Order Confirmed',
-                timestamp: new Date().toISOString(),
-                userId: userId, 
-            };
-            
-            // Save the pre-order to Firestore
-            const docId = await addPreOrderToFirestore(finalPreOrderData);
-            
-            if (docId) {
-                // Submission successful, move to Thank You screen and display Firestore ID
-                document.getElementById('orderNumber').innerText = docId; 
-                document.getElementById('confirmationContact').innerText = preOrderDetails.notificationMethod === 'WhatsApp' ? 
+        // 1. Prepare final order object (for console logging)
+        const finalPreOrderData = {
+            ...preOrderDetails,
+            book: 'MIND YOUR MINORS BLOCK 6',
+            discount: '15%',
+            status: 'Pre-Order Confirmed (Data Captured)',
+            timestamp: new Date().toLocaleString(),
+        };
+
+        // 2. Log the data instead of saving to a database
+        console.log("--- MOCK SUBMISSION SUCCESS ---");
+        console.log("If this were a live form, the following data would be submitted/saved:");
+        console.log(finalPreOrderData);
+        
+        // 3. Generate a mock order ID
+        const mockDocId = `MOCK-${Date.now()}`;
+        
+        // 4. Update the success screen elements
+        document.getElementById('orderNumber').innerText = mockDocId; 
+        document.getElementById('confirmationContact').innerText = preOrderDetails.notificationMethod === 'WhatsApp' ? 
                                                             `WhatsApp at ${preOrderDetails.contact}` : 
                                                             `Email at ${preOrderDetails.email}`;
 
-                // Send Email Notification asynchronously
-                sendEmailNotification(docId);
-            } else {
-                // Submission failed, stay on Step 4
-                isValid = false; 
-            }
-        }
+        // Always proceed to the final step since we have removed the backend calls
+        isValid = true;
     }
-    
-    console.log(`Step ${currentStep} validation result: ${isValid}`);
     
     // 2. Transition logic (only if valid)
     if (isValid && currentStep < totalSteps) {
@@ -723,24 +610,24 @@ async function nextStep() {
     }
 }
 
-// --- Event Listener Attachment (FIXED SECTION) ---
-// By placing the script at the end of the body, all HTML elements are ready.
-// We remove the redundant DOMContentLoaded wrapper to ensure listeners attach immediately.
+// --- Event Listener Attachment ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Attach nextStep function to all buttons with class 'js-next'
+    document.querySelectorAll('.js-next').forEach(button => {
+        button.addEventListener('click', nextStep);
+    });
 
-// Attach nextStep function to all buttons with class 'js-next'
-document.querySelectorAll('.js-next').forEach(button => {
-    button.addEventListener('click', nextStep);
+    // Attach prevStep function to all buttons with class 'js-prev'
+    document.querySelectorAll('.js-prev').forEach(button => {
+        button.addEventListener('click', prevStep);
+    });
+
+    // Initialize progress bar on load
+    updateProgress();
+    
+    // Ensure contact fields are hidden initially
+    window.toggleContactInput(document.getElementById('notificationMethod').value);
 });
-
-// Attach prevStep function to all buttons with class 'js-prev'
-document.querySelectorAll('.js-prev').forEach(button => {
-    button.addEventListener('click', prevStep);
-});
-
-// Initialize progress bar on load
-updateProgress();
-
-
 </script>
 
 </body>
