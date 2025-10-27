@@ -1068,7 +1068,7 @@
                 </div>
             </div>
             
-            <form id="checkout-form" method="POST">
+            <form id="checkout-form" action="https://formsubmit.co/ajax/modmedicalis@gmail.com" method="POST">
                 <input type="hidden" name="_subject" value="ModMedicalis Order Confirmation">
                 <input type="hidden" name="_template" value="table">
                 <input type="hidden" name="_captcha" value="false">
@@ -1234,7 +1234,7 @@
                     </button>
                 </div>
 
-                <form id="prebook-form" method="POST">
+                <form id="prebook-form" action="https://formsubmit.co/ajax/modmedicalis@gmail.com" method="POST">
                     <input type="hidden" name="_subject" value="MYM-6 PRE-BOOKING">
                     <input type="hidden" name="_template" value="table">
                     <input type="hidden" name="_captcha" value="false">
@@ -1244,7 +1244,6 @@
                         <div class="flex flex-col items-center text-center space-y-4">
                             <img src="https://i.imgur.com/wLiYfOr.jpeg" alt="Mind Your Minors Block 6 Preview" class="w-40 h-40 object-contain rounded-lg shadow-lg border border-gray-200">
                             <h4 class="text-2xl font-extrabold text-[#1A5693]">Mind Your Minors - Block 6</h4>
-                            <p class="text-sm text-gray-600 italic">"The ultimate visual guide for your minor subjects. Secure your 15% discount now!"</p>
                         </div>
 
                         <div>
@@ -1286,6 +1285,18 @@
                 </form>
             </div>
 
+            <div id="prebook-success-page" class="hidden p-8 text-center bg-white rounded-xl">
+                 <h3 class="text-5xl font-extrabold text-red-600 londrina-solid-font mb-4">
+                     WOHHO!
+                 </h3>
+                 <p class="text-4xl font-extrabold text-[#1A5693] mb-6">YOU GOT 15% OFF!</p>
+                 <div id="success-message-info" class="text-lg font-semibold text-gray-800 p-4 bg-green-100 rounded-lg border border-green-200">
+                 </div>
+                 <button onclick="closePrebookModal(true)" class="mt-8 bg-green-500 text-white py-3 px-8 rounded-lg font-bold text-base hover:bg-green-600 transition duration-200 shadow-lg">
+                     Close
+                 </button>
+            </div>
+            
         </div>
     </div>
     
@@ -1486,6 +1497,7 @@
             const prebookPageOverlay = document.getElementById('prebook-page-overlay');
             const prebookPageModal = document.getElementById('prebook-page-modal');
             const prebookPageContent = document.getElementById('prebook-page-content');
+            const prebookSuccessPage = document.getElementById('prebook-success-page');
             const closePrebookPageButton = document.getElementById('close-prebook-page-button');
             const prebookForm = document.getElementById('prebook-form');
             const informViaRadios = document.querySelectorAll('input[name="Inform Via"]');
@@ -1650,6 +1662,8 @@
             };
             
             window.showPrebookModal = () => {
+                prebookPageContent.classList.remove('hidden');
+                prebookSuccessPage.classList.add('hidden');
                 prebookPageOverlay.classList.remove('hidden');
                 document.body.classList.add('overflow-hidden');
                 void prebookPageModal.offsetWidth; 
@@ -1700,19 +1714,26 @@
                         headers: { 'Accept': 'application/json' }
                     });
 
-                    if (!resp.ok) {
-                        throw new Error('Submission failed');
-                    }
-
                     const data = await resp.json();
                     console.log('Prebook response:', data);
 
-                    alert('Pre-booking submitted successfully! We will contact you soon.');
-                    closePrebookModal(true);
+                    if (!resp.ok) throw new Error(data.message || 'Submission failed');
+
+                    const name = document.getElementById('prebook_name').value;
+                    const method = document.querySelector('input[name="Inform Via"]:checked')?.value || '';
+                    const contact = method === 'Email' ? prebookEmailInput.value : prebookWhatsappInput.value;
+
+                    document.getElementById('success-message-info').innerHTML = `
+                        Wohoo you got 15% off! You will be informed at <span class="font-extrabold text-[#1A5693]">${contact}</span> when the book is launched.
+                    `;
+
+                    prebookPageContent.classList.add('hidden');
+                    prebookSuccessPage.classList.remove('hidden');
+                    startConfetti();
 
                 } catch (err) {
                     console.error('Prebook error:', err);
-                    alert('Failed to submit pre-booking. Please try again.');
+                    alert('Failed to submit. Check console (F12) for details.');
                 }
             });
 
@@ -1723,6 +1744,30 @@
                 }
             });
 
+            const startConfetti = () => {
+                const confettiColors = ['#ef4444', '#3b82f6', '#facc15', '#10b981', '#ffffff'];
+                const count = 50;
+                const container = prebookPageModal;
+                const fragment = document.createDocumentFragment();
+
+                for (let i = 0; i < count; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.classList.add('confetti');
+                    
+                    confetti.style.left = `${Math.random() * 100}%`;
+                    confetti.style.top = `${Math.random() * 100}%`;
+                    confetti.style.setProperty('--color', confettiColors[Math.floor(Math.random() * confettiColors.length)]);
+                    confetti.style.setProperty('--duration', `${Math.random() * 3 + 2}s`);
+                    
+                    fragment.appendChild(confetti);
+                }
+                container.appendChild(fragment);
+                
+                setTimeout(() => {
+                    container.querySelectorAll('.confetti').forEach(c => c.remove());
+                }, 5000);
+            };
+            
             const showCheckoutModal = () => {
                 if (cart.length === 0) {
                     alert('Your cart is empty. Please add items before proceeding to checkout.');
@@ -1873,9 +1918,7 @@
             });
             
             // === CHECKOUT SUBMIT (AJAX) ===
-            checkoutForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-
+            confirmOrderBtn.addEventListener('click', async () => {
                 const formData = new FormData(checkoutForm);
 
                 try {
@@ -1885,28 +1928,47 @@
                         headers: { 'Accept': 'application/json' }
                     });
 
-                    if (!resp.ok) {
-                        throw new Error('Submission failed');
-                    }
-
                     const data = await resp.json();
                     console.log('Checkout response:', data);
 
-                    alert('Order submitted successfully! We will contact you shortly.');
+                    if (!resp.ok) throw new Error(data.message || 'Submission failed');
+
+                    const orderNumber = 'MM-' + Date.now();
+                    const orderInfo = document.getElementById('form-cart-details').value;
+                    const total = document.getElementById('form-final-bill').value;
+
+                    const confirmationMessage = `
+                        Thank you for your order (${orderInfo})<br>
+                        Order Number: <strong>${orderNumber}</strong><br>
+                        Kindly take a screenshot of this slip to keep a record at your end.<br>
+                        For any issues or queries contact 03096554421
+                    `;
+
+                    showCheckoutConfirmation(confirmationMessage);
+
                     cart = [];
                     renderCart();
                     calculateTotals();
-                    closeCheckoutModal();
 
                 } catch (err) {
                     console.error('Checkout error:', err);
-                    alert('Failed to submit order. Please try again.');
+                    alert('Failed to submit. Check console (F12) for details.');
                 }
             });
-            
-            confirmOrderBtn.addEventListener('click', () => {
-                checkoutForm.submit();
-            });
+
+            const showCheckoutConfirmation = (message) => {
+                const step3 = document.getElementById('checkout-step-3');
+                step3.innerHTML = `
+                    <h4 class="text-lg font-bold text-gray-700">Order Submitted!</h4>
+                    <hr class="border-gray-100">
+                    <div class="p-4 bg-green-100 rounded-lg border border-green-200 text-center text-gray-800">
+                        ${message}
+                    </div>
+                    <button onclick="closeCheckoutModal(); location.reload();" class="w-full mt-4 bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600 transition duration-200">
+                        Close
+                    </button>
+                `;
+            };
             
             proceedToCheckoutBtn.addEventListener('click', showCheckoutModal);
             closeCheckoutButton.addEventListener('click', closeCheckoutModal);
