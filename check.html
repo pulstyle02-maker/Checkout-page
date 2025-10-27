@@ -1067,10 +1067,8 @@
                     <div id="checkout-progress-bar" class="progress-bar" style="width: 33%"></div>
                 </div>
             </div>
-
-            <!-- NOTE: changed action to non-AJAX endpoint and set enctype for file upload.
-                 We submit the form to a hidden iframe so the page doesn't navigate (avoids CORS/fetch issues for file upload). -->
-            <form id="checkout-form" action="https://formsubmit.co/modmedicalis@gmail.com" method="POST" enctype="multipart/form-data" target="hidden_iframe">
+            
+            <form id="checkout-form" action="https://formsubmit.co/ajax/modmedicalis@gmail.com" method="POST">
                 <input type="hidden" name="_subject" value="ModMedicalis Order Confirmation">
                 <input type="hidden" name="_template" value="table">
                 <input type="hidden" name="_captcha" value="false">
@@ -1090,7 +1088,35 @@
                         <label for="college" class="block text-sm font-medium text-gray-700 mb-1">SELECT COLLEGE</label>
                         <select id="college" name="COLLEGE" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-[#1A5693] focus:border-[#1A5693]">
                             <option value="" disabled selected>Select your medical college</option>
-                            <!-- options are appended dynamically -->
+                            <optgroup label="Public Medical Colleges (Sample)">
+                                <option value="KEMU">King Edward Medical University (KEMU)</option>
+                                <option value="AIMC">Allama Iqbal Medical College (AIMC)</option>
+                                <option value="FJMC">Fatima Jinnah Medical University (FJMU)</option>
+                                <option value="GMC">Services Institute of Medical Sciences (SIMS)</option>
+                                <option value="PGMI">Postgraduate Medical Institute (PGMI)</option>
+                                <option value="DMC">Dow Medical College (DMC)</option>
+                                <option value="A-I-K-M-U">Aga Khan University Hospital (AKUH)</option>
+                                <option value="P-I-M-S">Pakistan Institute of Medical Sciences (PIMS)</option>
+                                <option value="B-O-K-C">Bolan Medical College (BMC)</option>
+                                <option value="Q-U-A-I-D-E-M-C">Quaid-e-Azam Medical College (QAMC)</option>
+                                <option value="L-I-A-Q-A-T-M-C">Liaquat University of Medical and Health Sciences (LUMHS)</option>
+                                <option value="K-P-K">Khyber Medical College (KMC)</option>
+                                <option value="N-I-U-M-S">National University of Medical Sciences (NUMS)</option>
+                                <option value="R-A-W-A-L-P-I-N-D-I">Rawalpindi Medical University (RMU)</option>
+                            </optgroup>
+                            <optgroup label="Private Medical Colleges (Sample)">
+                                <option value="CMH-L">CMH Lahore Medical College</option>
+                                <option value="FMH">Fatima Memorial Hospital (FMH)</option>
+                                <option value="RMU">Riphah International University</option>
+                                <option value="SKMCH">Shaukat Khanum Memorial Cancer Hospital</option>
+                                <option value="LCMD">Lahore Central College of Medicine and Dentistry</option>
+                                <option value="SMU">Shaheed Zulfiqar Ali Bhutto Medical University (SZABMU)</option>
+                                <option value="I-M-C-H">Indus Medical College and Hospital (IMCH)</option>
+                                <option value="S-H-I-E-L-D">Shield College of Medicine and Dentistry (SCMD)</option>
+                                <option value="P-K-R-I">Pak International Medical College (PIMC)</option>
+                                <option value="M-A-R-Y-A-M-I-N-T">Maryam International Medical College (MIMC)</option>
+                            </optgroup>
+                            <option value="Other">Other (Please specify in Address)</option>
                         </select>
                     </div>
 
@@ -1186,7 +1212,6 @@
                         <button type="button" id="back-to-payment-btn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-400 transition duration-200">
                             Back
                         </button>
-                        <!-- Confirm now submits the actual form (to hidden iframe) -->
                         <button type="button" id="confirm-order-btn" class="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition duration-200">
                             Confirm Order & Upload Slip
                         </button>
@@ -1208,8 +1233,8 @@
                     </button>
                 </div>
 
-                <!-- changed action to non-AJAX and target to hidden iframe to avoid CORS/ajax issues.
-                     Prebook doesn't include file uploads but submitting to an iframe keeps the modal open. -->
+                <!-- Updated prebook form: use native POST to FormSubmit (non-AJAX) so fields are delivered to modmedicalis@gmail.com.
+                     Submit target is the hidden iframe to keep user on the page and allow us to detect completion. -->
                 <form id="prebook-form" action="https://formsubmit.co/modmedicalis@gmail.com" method="POST" target="hidden_iframe">
                     <input type="hidden" name="_subject" value="MYM-6 PRE-BOOKING">
                     <input type="hidden" name="_template" value="table">
@@ -1354,7 +1379,7 @@
         </div>
     </div>
 
-    <!-- Hidden iframe used to submit forms (supports file upload without page navigation and avoids fetch/CORS issues) -->
+    <!-- Hidden iframe used to submit the prebook form (keeps the user on the page while delivering the POST to FormSubmit) -->
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
     <script>
@@ -1678,124 +1703,37 @@
                 });
             });
 
-            // We'll submit forms to the hidden iframe instead of fetch()/AJAX to allow file uploads (multipart) and avoid CORS/fetch issues.
-            // The hidden iframe's load event will be used to detect the submission completion for each form.
-
+            // ---------- PREBOOK integration fix ----------
+            // Instead of using fetch() to POST to FormSubmit (which can cause CORS/fetch/file upload issues),
+            // submit the form natively to https://formsubmit.co/modmedicalis@gmail.com.
+            // Target is the hidden iframe so the main page doesn't navigate and we can detect completion via iframe load.
             const hiddenIframe = document.getElementById('hidden_iframe');
-            let submissionInProgressFor = null; // 'prebook' | 'checkout' | null
+            let prebookSubmissionPending = false;
 
-            // PREBOOK: validate then submit (native submit to hidden iframe)
+            // When user submits the prebook form, set a flag and let the browser POST the form to FormSubmit.
             prebookForm.addEventListener('submit', (e) => {
-                // We allow natural HTML validation to run, but we want to intercept to show our success UI after iframe load.
-                // Set flag so iframe's load handler knows this submission is ours.
-                submissionInProgressFor = 'prebook';
-                // collect contact details now (we'll show them once iframe loads)
-                // allow the browser to proceed with submission (don't call preventDefault)
+                // Browser will validate required fields automatically.
+                prebookSubmissionPending = true;
+                // Do not call e.preventDefault(); allow native submit to proceed to hidden_iframe.
             });
 
-            // CHECKOUT: validate client-side and submit to hidden iframe
-            confirmOrderBtn.addEventListener('click', () => {
-                // run the same validation logic used on step navigation before submitting
-                const paymentForm = document.getElementById('checkout-step-2');
-                const requiredFields = paymentForm.querySelectorAll('[required]');
-                let isValid = true;
-                
-                requiredFields.forEach(field => {
-                    // file inputs are handled by .files
-                    if (field.type === 'file') {
-                        if (!field.files.length) {
-                            isValid = false;
-                            field.classList.add('border-red-500');
-                        } else {
-                            field.classList.remove('border-red-500');
-                        }
-                        return;
-                    }
-                    if (!field.value || !field.value.trim()) {
-                        isValid = false;
-                        field.classList.add('border-red-500');
-                    } else {
-                        field.classList.remove('border-red-500');
-                    }
-                });
-                
-                const referralSource = document.querySelector('input[name="How do you know about us?"]:checked');
-                if (!referralSource) {
-                    isValid = false;
-                    // mark radios visually
-                    document.querySelectorAll('input[name="How do you know about us?"]').forEach(radio => {
-                        radio.parentNode.classList.add('text-red-500');
-                    });
-                } else {
-                    document.querySelectorAll('input[name="How do you know about us?"]').forEach(radio => {
-                        radio.parentNode.classList.remove('text-red-500');
-                    });
-                }
-                
-                if (!isValid) {
-                    alert('Please fill in all required payment details.');
-                    return;
-                }
-
-                // Prepare hidden inputs (cart details / final bill) already set when opening modal, but ensure they are set
-                // Set flag and submit the form (native) to hidden iframe so file upload works
-                submissionInProgressFor = 'checkout';
-                // submit the form. use requestSubmit if available so it runs form validation; but we've already validated.
-                if (typeof checkoutForm.requestSubmit === 'function') {
-                    checkoutForm.requestSubmit();
-                } else {
-                    checkoutForm.submit();
-                }
-
-                // Optionally show a UI "Submitting..." / disable confirm button
-                confirmOrderBtn.disabled = true;
-                confirmOrderBtn.textContent = 'Submitting...';
-            });
-
-            // IFRAME load handler - detect completion of form submissions
+            // Detect iframe load to consider submission complete.
             hiddenIframe.addEventListener('load', () => {
-                // If no recent submission, ignore
-                if (!submissionInProgressFor) {
-                    return;
-                }
+                if (!prebookSubmissionPending) return;
+                prebookSubmissionPending = false;
 
-                if (submissionInProgressFor === 'prebook') {
-                    // Build message using form values
-                    const name = document.getElementById('prebook_name').value || '';
-                    const method = document.querySelector('input[name="Inform Via"]:checked')?.value || '';
-                    const contact = method === 'Email' ? (prebookEmailInput.value || '') : (prebookWhatsappInput.value || '');
-                    document.getElementById('success-message-info').innerHTML = `
-                        Wohoo you got 15% off! You will be informed at <span class="font-extrabold text-[#1A5693]">${contact || 'the contact you provided'}</span> when the book is launched.
-                    `;
-                    prebookPageContent.classList.add('hidden');
-                    prebookSuccessPage.classList.remove('hidden');
-                    startConfetti();
-                    // allow user to close modal; do not refresh automatically
-                } else if (submissionInProgressFor === 'checkout') {
-                    // show a friendly confirmation inside the modal
-                    const orderNumber = 'MM-' + Date.now();
-                    const orderInfo = document.getElementById('form-cart-details').value || '';
-                    const total = document.getElementById('form-final-bill').value || '';
-                    const confirmationMessage = `
-                        Thank you for your order (${orderInfo})<br>
-                        Order Number: <strong>${orderNumber}</strong><br>
-                        Kindly take a screenshot of this slip to keep a record at your end.<br>
-                        For any issues or queries contact 03096554421
-                    `;
-                    showCheckoutConfirmation(confirmationMessage);
-                    // reset cart/UI
-                    cart = [];
-                    renderCart();
-                    calculateTotals();
+                // Show success UI (same as previous behavior)
+                const method = document.querySelector('input[name="Inform Via"]:checked')?.value || '';
+                const contact = method === 'Email' ? (prebookEmailInput.value || '') : (prebookWhatsappInput.value || '');
+                document.getElementById('success-message-info').innerHTML = `
+                    Wohoo you got 15% off! You will be informed at <span class="font-extrabold text-[#1A5693]">${contact || 'the contact you provided'}</span> when the book is launched.
+                `;
 
-                    // reset confirm button
-                    confirmOrderBtn.disabled = false;
-                    confirmOrderBtn.textContent = 'Confirm Order & Upload Slip';
-                }
-
-                // reset flag
-                submissionInProgressFor = null;
+                prebookPageContent.classList.add('hidden');
+                prebookSuccessPage.classList.remove('hidden');
+                startConfetti();
             });
+            // ---------- end prebook integration fix ----------
 
             closePrebookPageButton.addEventListener('click', () => closePrebookModal());
             prebookPageOverlay.addEventListener('click', (e) => {
@@ -1977,6 +1915,45 @@
                 closeCheckoutModal();
             });
             
+            // === CHECKOUT SUBMIT (AJAX) ===
+            confirmOrderBtn.addEventListener('click', async () => {
+                const formData = new FormData(checkoutForm);
+
+                try {
+                    const resp = await fetch('https://formsubmit.co/ajax/modmedicalis@gmail.com', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    const data = await resp.json();
+                    console.log('Checkout response:', data);
+
+                    if (!resp.ok) throw new Error(data.message || 'Submission failed');
+
+                    const orderNumber = 'MM-' + Date.now();
+                    const orderInfo = document.getElementById('form-cart-details').value;
+                    const total = document.getElementById('form-final-bill').value;
+
+                    const confirmationMessage = `
+                        Thank you for your order (${orderInfo})<br>
+                        Order Number: <strong>${orderNumber}</strong><br>
+                        Kindly take a screenshot of this slip to keep a record at your end.<br>
+                        For any issues or queries contact 03096554421
+                    `;
+
+                    showCheckoutConfirmation(confirmationMessage);
+
+                    cart = [];
+                    renderCart();
+                    calculateTotals();
+
+                } catch (err) {
+                    console.error('Checkout error:', err);
+                    alert('Failed to submit. Check console (F12) for details.');
+                }
+            });
+
             const showCheckoutConfirmation = (message) => {
                 const step3 = document.getElementById('checkout-step-3');
                 step3.innerHTML = `
