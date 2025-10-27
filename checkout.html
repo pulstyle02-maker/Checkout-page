@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Checkout | MedStore</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+<!-- STYLES -->
+<style>
+    body {
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: repeating-linear-gradient(
+            45deg,
+            #ffe6e6,
+            #ffe6e6 40px,
+            #ffffff 40px,
+            #ffffff 80px
+        );
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
+
+    .checkout-container {
+        width: 95%;
+        max-width: 600px; /* Reduced max-width for better mobile focus */
+        margin: 20px auto;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        padding: 30px;
+        box-sizing: border-box;
+    }
+
+    h2 {
+        text-align: center;
+        color: #b30000;
+        font-weight: 700;
+        margin-bottom: 30px;
+    }
+
+    /* Progress Bar */
+    .progress-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        margin: 30px 0 40px 0;
+    }
+    .progress-bar::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        width: 100%;
+        height: 4px;
+        background: #f0c4c4;
+        z-index: 1;
+        border-radius: 2px;
+    }
+    .progress {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        height: 4px;
+        background: #d9534f;
+        width: 0%;
+        z-index: 2;
+        transition: width 0.4s ease-in-out;
+        border-radius: 2px;
+    }
+    .circle {
+        background: #fff;
+        border: 3px solid #f0c4c4;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        z-index: 3;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.4s ease;
+    }
+    .circle.active {
+        border-color: #d9534f;
+        background: #d9534f;
+        color: #fff;
+        box-shadow: 0 0 0 3px rgba(217, 83, 79, 0.3);
+    }
+
+    /* Form */
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    label {
+        font-weight: 500;
+        display: block;
+        margin-bottom: 5px;
+        color: #555;
+    }
+
+    input, select {
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 15px;
+        transition: border-color 0.3s;
+    }
+
+    input:focus, select:focus {
+        border-color: #d9534f;
+        outline: none;
+        box-shadow: 0 0 5px rgba(217, 83, 79, 0.2);
+    }
+
+    input[type="file"] {
+        border: 1px solid #ddd;
+        background-color: #f9f9f9;
+    }
+
+    button {
+        background-color: #d9534f;
+        color: white;
+        border: none;
+        padding: 14px 25px;
+        font-size: 17px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.3s ease, transform 0.1s;
+        margin-top: 15px;
+        box-shadow: 0 4px 10px rgba(217, 83, 79, 0.4);
+    }
+
+    button:hover {
+        background-color: #b52b27;
+        box-shadow: 0 6px 12px rgba(217, 83, 79, 0.5);
+    }
+    button:active {
+        transform: translateY(1px);
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .thankyou {
+        text-align: center;
+        color: #333;
+    }
+
+    .thankyou h3 {
+        color: #d9534f;
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+    .thankyou #orderNumber {
+        font-weight: 700;
+        color: #b30000;
+        font-size: 1.1em;
+        display: block;
+        margin: 5px 0 15px 0;
+    }
+
+    .order-summary {
+        background: #fff3f3;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px dashed #f0c4c4;
+    }
+    .order-summary p {
+        margin: 5px 0;
+        font-size: 15px;
+    }
+    
+    #orderDetails {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 10px;
+    }
+    
+    #orderTotal {
+        font-weight: 700;
+        font-size: 1.2em;
+        color: #333;
+    }
+
+    /* Message Box for validation errors (replacing alert()) */
+    #messageBox {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 500;
+        transition: opacity 0.3s ease;
+        opacity: 0;
+        pointer-events: none;
+        box-sizing: border-box;
+    }
+    #messageBox.show {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+</style>
+</head>
+<body>
+
+<div class="checkout-container">
+    <h2>Secure Order Checkout</h2>
+
+    <!-- Validation Message Box -->
+    <div id="messageBox"></div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+        <div class="circle active">1</div>
+        <div class="circle">2</div>
+        <div class="circle">3</div>
+        <div class="circle">4</div>
+        <div class="circle">5</div>
+    </div>
+
+    <!-- Checkout Form -->
+    <form id="checkoutForm" onsubmit="return false;">
+
+        <div class="step step-1">
+            <label for="fullName">Full Name</label>
+            <input type="text" id="fullName" placeholder="e.g., Ayesha Khan" required>
+
+            <label for="address">Shipping Address</label>
+            <input type="text" id="address" placeholder="Full address including city" required>
+
+            <label for="contact">Contact Number (WhatsApp preferred)</label>
+            <input type="tel" id="contact" placeholder="e.g., 03XX-XXXXXXX" required>
+
+            <button type="button" onclick="nextStep()">Next: Select College</button>
+        </div>
+
+        <div class="step step-2 hidden">
+            <label for="college">Please select your college</label>
+            <select id="college" required>
+                <option value="">-- Select Medical College --</option>
+                <optgroup label="Public Colleges">
+                    <option>King Edward Medical University, Lahore</option>
+                    <option>Allama Iqbal Medical College, Lahore</option>
+                    <option>Services Institute of Medical Sciences, Lahore</option>
+                    <option>Fatima Jinnah Medical University, Lahore</option>
+                    <option>Nishtar Medical University, Multan</option>
+                    <option>Rawalpindi Medical University, Rawalpindi</option>
+                    <option>Punjab Medical College, Faisalabad</option>
+                    <option>Quaid-e-Azam Medical College, Bahawalpur</option>
+                    <option>Gujranwala Medical College, Gujranwala</option>
+                    <option>DG Khan Medical College</option>
+                </optgroup>
+                <optgroup label="Private Colleges">
+                    <option>FMH College of Medicine and Dentistry, Lahore</option>
+                    <option>CMH Lahore Medical College</option>
+                    <option>Sharif Medical and Dental College, Lahore</option>
+                    <option>Rashid Latif Medical College, Lahore</option>
+                    <option>Akhtar Saeed Medical College, Lahore</option>
+                    <option>University College of Medicine and Dentistry, Lahore</option>
+                    <option>Multan Medical and Dental College</option>
+                    <option>Islam Medical College, Sialkot</option>
+                    <option>Independent Medical College, Faisalabad</option>
+                </optgroup>
+            </select>
+
+            <button type="button" onclick="nextStep()">Next: Payment Instructions</button>
+        </div>
+
+        <div class="step step-3 hidden">
+            <h4>Payment Instructions</h4>
+            <p><strong>Note:</strong> We currently accept payment via Easypaisa or Bank Transfer only. Your delivery charges will be collected by the rider upon delivery.</p>
+            <div class="order-summary">
+                <p>💰 <strong>Easypaisa Name:</strong> Muhammad Hasnain</p>
+                <p>📱 <strong>Easypaisa/JazzCash Number:</strong> 0309-6554421</p>
+                <p>🚚 <strong>Delivery Charges:</strong> Rs.100 (Lahore) / Rs.200 (Outside Lahore)</p>
+            </div>
+
+            <label for="slip">Upload Payment Slip Image (Mandatory)</label>
+            <input type="file" id="slip" accept="image/*" required>
+
+            <button type="button" onclick="nextStep()">Next: Review Order</button>
+        </div>
+
+        <div class="step step-4 hidden">
+            <h4>Review Your Order Details</h4>
+            <div id="orderDetails" class="order-summary">
+                <!-- Order items will be populated here by displayOrder() -->
+            </div>
+            <h3 id="orderTotal"></h3>
+            <button type="button" onclick="nextStep()">Confirm and Place Order</button>
+        </div>
+
+        <div class="step step-5 hidden thankyou">
+            <h3>🎉 Order Placed!</h3>
+            <p>We've received your order and payment slip. We will verify it shortly.</p>
+            <p><strong>Secure Order ID (For Reference):</strong> <span id="orderNumber">...</span></p>
+            <p>Your order will be shipped within 24 hours and delivered in 3–4 working days.</p>
+            <p>For any queries regarding your order, contact us on WhatsApp at <strong>0309-6554421</strong>.</p>
+        </div>
+    </form>
+</div>
+
+<!-- SCRIPT: Firebase Initialization and Logic -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, addDoc, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// --- Global Setup ---
+// Use provided global variables for environment setup
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+// Init Firebase Services
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+setLogLevel('debug'); // Enable detailed logging for debugging
+
+let userId = null;
+let isAuthReady = false;
+let currentStep = 1;
+const totalSteps = 5;
+
+// Data object to store all form inputs before submission
+window.orderDetails = {};
+window.orderTotal = 0;
+// Global array to hold cart items loaded from localStorage for submission
+window.cartItems = []; 
+
+
+// --- Firebase Authentication ---
+async function initAuth() {
+    try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+            console.log("Firebase: Signed in with custom token.");
+        } else {
+            await signInAnonymously(auth);
+            console.log("Firebase: Signed in anonymously.");
+        }
+        // User ID is crucial for the private Firestore path
+        userId = auth.currentUser.uid;
+        console.log('Firebase: Auth Initialized. User ID:', userId);
+    } catch (error) {
+        console.error("Firebase: Authentication failed:", error);
+        // Fallback to random ID if auth fails
+        userId = auth.currentUser?.uid || crypto.randomUUID();
+        alertUser("Error connecting to user services. Order may not save.");
+    } finally {
+        isAuthReady = true;
+        console.log('Firebase: Auth Ready State is now TRUE.');
+    }
+}
+
+initAuth();
+
+
+// --- Utility Functions ---
+
+function alertUser(message) {
+    const box = document.getElementById('messageBox');
+    box.innerText = message;
+    box.classList.add('show');
+    // Hide message after 4 seconds
+    setTimeout(() => {
+        box.classList.remove('show');
+    }, 4000);
+}
+
+function updateProgress() {
+    const progress = document.getElementById('progress');
+    const circles = document.querySelectorAll('.circle');
+    
+    // Update circle active states
+    circles.forEach((circle, idx) => {
+        if (idx < currentStep) circle.classList.add('active');
+        else circle.classList.remove('active');
+    });
+
+    // Update progress bar width
+    if (currentStep <= totalSteps) {
+        progress.style.width = ((currentStep - 1) / (totalSteps - 1)) * 100 + '%';
+    }
+}
+
+/**
+ * Safely retrieves and parses the cart data from localStorage.
+ * Assumes cart items have { name, price, quantity }.
+ * @returns {Array} The cart items array or an empty array on failure.
+ */
+function getCartItems() {
+    const cartString = localStorage.getItem('cart');
+    if (!cartString) {
+        return [];
+    }
+    try {
+        const items = JSON.parse(cartString);
+        return Array.isArray(items) ? items : [];
+    } catch (e) {
+        console.error("Error parsing cart from localStorage:", e);
+        return [];
+    }
+}
+
+
+function displayOrder() {
+    // Retrieve the latest cart data and store it globally for submission
+    window.cartItems = getCartItems();
+    
+    let orderDiv = document.getElementById('orderDetails');
+    let total = 0;
+    orderDiv.innerHTML = "";
+    
+    if (window.cartItems.length === 0) {
+        orderDiv.innerHTML = "<p style='color: red; font-weight: bold;'>Your cart is empty. Please ensure you have added items before checkout.</p>";
+        document.getElementById('orderTotal').innerText = `Total Amount to Pay: Rs.0`;
+        window.orderTotal = 0;
+        return;
+    }
+
+    // Display items from the retrieved cart
+    window.cartItems.forEach(item => {
+        // Default quantity to 1 if missing for safety
+        const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+        const itemTotal = item.price * quantity; 
+        orderDiv.innerHTML += `<p><strong>${item.name}</strong> (x${quantity}) - Rs.${itemTotal.toLocaleString('en-PK')}</p>`;
+        total += itemTotal;
+    });
+    
+    // Display collected user details for review
+    orderDiv.innerHTML += `<hr style="margin: 10px 0; border: 0; border-top: 1px dashed #f0c4c4;">`;
+    orderDiv.innerHTML += `<p><strong>Shipping to:</strong> ${window.orderDetails.fullName}<br>${window.orderDetails.address}</p>`;
+    orderDiv.innerHTML += `<p><strong>College:</strong> ${window.orderDetails.college}</p>`;
+
+
+    document.getElementById('orderTotal').innerText = `Total Amount to Pay: Rs.${total.toLocaleString('en-PK')}`;
+    window.orderTotal = total;
+}
+
+/**
+ * Saves the finalized order data to the user's private Firestore collection.
+ * @param {Object} orderData - The complete data object for the order.
+ * @returns {Promise<string|null>} The document ID if successful, otherwise null.
+ */
+async function addOrderToFirestore(orderData) {
+    if (!isAuthReady || !userId) {
+        console.error("Firestore Error: Authentication not ready. Cannot save order.");
+        return null;
+    }
+
+    // Define the private collection path for the current user
+    const ordersCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/orders`);
+
+    try {
+        document.getElementById('orderNumber').innerText = 'Processing...'; 
+
+        const docRef = await addDoc(ordersCollectionRef, orderData);
+        console.log("Firestore Success: Order saved successfully with ID:", docRef.id);
+        return docRef.id;
+    } catch (e) {
+        console.error("Firestore Error: Failed to add document: ", e);
+        alertUser("Order submission failed due to a database error. Check console for details.");
+        return null;
+    }
+}
+
+/**
+ * Sends a non-blocking email notification using FormSubmit.
+ * @param {string} docId - The Firestore document ID for reference.
+ */
+async function sendEmailNotification(docId) {
+    const paymentSlipName = window.orderDetails.paymentSlip ? window.orderDetails.paymentSlip.name : "N/A (No file selected)";
+    
+    const data = {
+        // FormSubmit special fields
+        _subject: `New MedStore Order Received! (ID: ${docId})`,
+        _template: 'table', // Optional: Use FormSubmit's table template for cleaner data
+        _cc: 'modmedicalis@gmail.com', // Explicitly set the recipient
+        // Order Details for Email Body
+        Order_ID: docId,
+        Full_Name: window.orderDetails.fullName,
+        Contact: window.orderDetails.contact,
+        Shipping_Address: window.orderDetails.address,
+        College: window.orderDetails.college,
+        Order_Total: `Rs.${window.orderTotal.toLocaleString('en-PK')}`,
+        Payment_Slip_Status: `File uploaded to checkout but requires manual check: ${paymentSlipName}`,
+        // Detailed product list (stringified)
+        Products_JSON: JSON.stringify(window.cartItems, null, 2), 
+    };
+    
+    // NOTE: The FormSubmit endpoint must be set to the target email
+    const url = 'https://formsubmit.co/modmedicalis@gmail.com'; 
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            // Crucial for non-redirecting AJAX submission
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, 
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            console.log("Email notification sent successfully via FormSubmit.");
+        } else {
+            console.warn("FormSubmit Email failed (Status:", response.status, "). Check console for FormSubmit response.");
+        }
+    } catch (error) {
+        console.error("Error sending email notification:", error);
+    }
+}
+
+
+// --- Main Navigation Logic ---
+
+window.nextStep = async function() { // Make it a global function
+    // 1. Validation & Data Collection for current step
+    let isValid = true;
+    const currentStepElement = document.querySelector(`.step-${currentStep}`);
+
+    if (currentStep === 1) {
+        // Step 1: Personal Details validation
+        const fullName = document.getElementById('fullName').value.trim();
+        const address = document.getElementById('address').value.trim();
+        const contact = document.getElementById('contact').value.trim();
+
+        if (!fullName || !address || !contact) {
+            alertUser("Please fill in all personal and shipping details (Full Name, Address, Contact).");
+            isValid = false;
+        } else {
+            window.orderDetails = { fullName, address, contact };
+        }
+
+    } else if (currentStep === 2) {
+        // Step 2: College Selection validation
+        const college = document.getElementById('college').value;
+        if (!college) {
+            alertUser("Please select your medical college.");
+            isValid = false;
+        } else {
+            window.orderDetails.college = college;
+        }
+
+    } else if (currentStep === 3) {
+        // Step 3: Payment Slip validation
+        const slipFile = document.getElementById('slip').files[0];
+        if (!slipFile) {
+            alertUser("Please upload your payment slip image to confirm payment.");
+            isValid = false;
+        } else {
+            // Note: In a production app, the file would be uploaded to Firebase Storage
+            window.orderDetails.paymentSlip = { 
+                name: slipFile.name, 
+                size: slipFile.size,
+                type: slipFile.type,
+                note: "File reference only. Must be manually uploaded to Storage in a full app."
+            };
+        }
+
+    } else if (currentStep === 4) {
+        // Step 4: Confirm Order -> SUBMIT to Firestore and Email
+        
+        // Load cart one last time for safety before submission
+        window.cartItems = getCartItems();
+        
+        if (window.cartItems.length === 0) {
+            alertUser("Cannot place order: Your cart is empty. Please ensure you have added products before checkout.");
+            isValid = false;
+        } else if (!isAuthReady) {
+            alertUser("Database connection not ready. Please wait a moment and click 'Confirm' again.");
+            console.warn("Attempted submission before Firebase Auth was ready.");
+            isValid = false;
+        } else {
+            // Prepare final order object for database
+            const finalOrderData = {
+                ...window.orderDetails,
+                // Use the dynamically loaded cart items
+                items: window.cartItems, 
+                orderTotal: window.orderTotal,
+                status: 'Pending Verification',
+                timestamp: new Date().toISOString(),
+                userId: userId, // Store the user ID for querying
+            };
+            
+            // Save the order to Firestore
+            const docId = await addOrderToFirestore(finalOrderData);
+            
+            if (docId) {
+                // Submission successful, move to Thank You screen and display Firestore ID
+                document.getElementById('orderNumber').innerText = docId; 
+                
+                // --- NEW: Send Email Notification asynchronously ---
+                sendEmailNotification(docId);
+                // --------------------------------------------------
+            } else {
+                // Submission failed, stay on Step 4
+                isValid = false; 
+            }
+        }
+    }
+    
+    console.log(`Step ${currentStep} validation result: ${isValid}`);
+    
+    // 2. Transition logic (only if valid)
+    if (isValid && currentStep < totalSteps) {
+        currentStepElement.classList.add('hidden');
+        currentStep++;
+        updateProgress();
+        
+        const nextStepElement = document.querySelector(`.step-${currentStep}`);
+        if (nextStepElement) {
+            nextStepElement.classList.remove('hidden');
+        }
+
+        // 3. Post-transition actions
+        if (currentStep === 4) displayOrder();
+    }
+}
+
+// Initialize progress bar on load
+updateProgress();
+
+</script>
+
+</body>
+</html>
+
