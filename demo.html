@@ -1270,6 +1270,7 @@
         
         const isLahoreCollege = (collegeName) => {
             if (!collegeName) return false;
+            // Use includes to check if the college name contains any of the Lahore keywords
             return LAHORE_COLLEGE_KEYWORDS.some(keyword => collegeName.includes(keyword));
         };
 
@@ -1342,7 +1343,7 @@
         
         // --- ROLL NUMBER MANAGEMENT ---
         const AVAILABLE_AIMC_ROLL_NUMBERS = (function() {
-            // Keep the original logic
+            // Roll numbers 1 to 337, excluding a few
             const excluded = new Set([
                 176, 114, 188, 279, 60, 282, 112, 108, 203, 304, 147, 174, 280, 177, 79, 292, 151, 135, 121, 167, 275, 227, 289, 156, 187, 297, 131, 126, 199, 242, 154, 91, 117, 306, 208, 58, 18, 62, 328, 22
             ]);
@@ -1359,8 +1360,11 @@
 
         function getUsedRollNumbers() {
             try {
+                // IMPORTANT: In a real app, this data would come from a secure backend (Firestore/DB)
+                // Using localStorage here to simulate usage tracking for the Canvas environment.
                 const stored = localStorage.getItem(USED_ROLL_NUMBERS_KEY);
-                return stored ? new Set(JSON.parse(stored)) : new Set();
+                // Ensure array contains numbers, not strings
+                return stored ? new Set(JSON.parse(stored).map(Number)) : new Set();
             } catch (e) {
                 console.error("Error retrieving used roll numbers from localStorage:", e);
                 return new Set();
@@ -1369,8 +1373,12 @@
 
         function markRollNumberAsUsed(rollNumber) {
             try {
+                const num = parseInt(rollNumber);
+                if (isNaN(num)) return; 
+                
                 const used = getUsedRollNumbers();
-                used.add(parseInt(rollNumber));
+                used.add(num);
+                // Convert Set back to an array for storage
                 localStorage.setItem(USED_ROLL_NUMBERS_KEY, JSON.stringify(Array.from(used)));
             } catch (e) {
                 console.error("Error saving roll number to localStorage:", e);
@@ -1379,9 +1387,12 @@
 
         function isRollNumberAvailable(rollNumber) {
             const num = parseInt(rollNumber);
-            const isAvailable = AVAILABLE_AIMC_ROLL_NUMBERS.includes(num);
+            if (isNaN(num) || num < 1 || num > 337) return false;
+            
+            const isAvailableInList = AVAILABLE_AIMC_ROLL_NUMBERS.includes(num);
             const isUsed = getUsedRollNumbers().has(num);
-            return isAvailable and !isUsed;
+            
+            return isAvailableInList && !isUsed;
         }
 
         // --- END ROLL NUMBER MANAGEMENT ---
@@ -1507,8 +1518,8 @@
                 
                 const searchLower = searchTerm.toLowerCase();
                 const matchingProducts = products.filter(product => 
-                    product.name.toLowerCase().includes(searchLower) or 
-                    (product.description and product.description.toLowerCase().includes(searchLower))
+                    product.name.toLowerCase().includes(searchLower) || 
+                    (product.description && product.description.toLowerCase().includes(searchLower))
                 );
                 
                 dropdownElement.innerHTML = matchingProducts.length > 0 ? '' : '<div class="search-dropdown-item text-gray-500">No products found</div>';
@@ -1529,22 +1540,22 @@
                 dropdownElement.classList.remove('hidden');
             };
             
-            if (searchInput and searchDropdown) {
+            if (searchInput && searchDropdown) {
                 searchInput.addEventListener('input', () => performSearch(searchInput.value, searchDropdown));
                 searchInput.addEventListener('focus', () => { if (searchInput.value.trim()) performSearch(searchInput.value, searchDropdown); });
-                document.addEventListener('click', (e) => { if (!searchInput.contains(e.target) and !searchDropdown.contains(e.target)) searchDropdown.classList.add('hidden'); });
+                document.addEventListener('click', (e) => { if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) searchDropdown.classList.add('hidden'); });
             }
             
-            if (mobileSearchInput and mobileSearchDropdown) {
+            if (mobileSearchInput && mobileSearchDropdown) {
                 mobileSearchInput.addEventListener('input', () => performSearch(mobileSearchInput.value, mobileSearchDropdown));
                 mobileSearchInput.addEventListener('focus', () => { if (mobileSearchInput.value.trim()) performSearch(mobileSearchInput.value, mobileSearchDropdown); });
-                document.addEventListener('click', (e) => { if (!mobileSearchInput.contains(e.target) and !mobileSearchDropdown.contains(e.target)) mobileSearchDropdown.classList.add('hidden'); });
+                document.addEventListener('click', (e) => { if (!mobileSearchInput.contains(e.target) && !mobileSearchDropdown.contains(e.target)) mobileSearchDropdown.classList.add('hidden'); });
             }
             
             const updateCheckoutProgress = (step) => {
                 stepIndicators.forEach((indicator, index) => {
-                    const stepNumber = indicator.dataset.step;
-                    indicator.classList.toggle('active', stepNumber == step);
+                    const stepNumber = parseInt(indicator.dataset.step);
+                    indicator.classList.toggle('active', stepNumber === step);
                     indicator.classList.toggle('completed', stepNumber < step);
                 });
                 const progressPercentage = ((step - 1) / (stepIndicators.length - 1)) * 100;
@@ -1564,7 +1575,7 @@
             // --- AIMC PROMO/ROLL NO. LOGIC ---
             const toggleAimcPromo = () => {
                 const isAimcSelected = checkoutCollegeSelect.value.includes('Allama Iqbal Medical College (AIMC), Lahore');
-                const showPromo = isAimcSelected and isBlock6InCart();
+                const showPromo = isAimcSelected && isBlock6InCart();
                 aimcPromoSection.classList.toggle('hidden', !showPromo);
                 
                 // Reset fields if section is hidden
@@ -1572,6 +1583,7 @@
                     promoCodeInput.value = '';
                     rollNumberEntry.classList.add('hidden');
                     rollNumberInput.value = '';
+                    rollNumberInput.removeAttribute('required');
                     rollNumberFeedback.textContent = '';
                     formRollNumber.value = '';
                 }
@@ -1584,17 +1596,19 @@
             
             promoCodeInput.addEventListener('input', () => {
                 const code = promoCodeInput.value.toUpperCase();
+                const rollInputFeedback = document.getElementById('roll-number-feedback');
+                
                 if (code === 'AIMC28') {
                     rollNumberEntry.classList.remove('hidden');
                     rollNumberInput.setAttribute('required', 'required');
-                    rollNumberFeedback.textContent = 'Promo code accepted. Please enter your Roll Number.';
-                    rollNumberFeedback.className = 'text-xs mt-2 font-semibold text-green-600';
+                    rollInputFeedback.textContent = 'Promo code accepted. Please enter your Roll Number.';
+                    rollInputFeedback.className = 'text-xs mt-2 font-semibold text-green-600';
                 } else {
                     rollNumberEntry.classList.add('hidden');
                     rollNumberInput.removeAttribute('required');
                     rollNumberInput.value = '';
-                    rollNumberFeedback.textContent = 'Enter the correct code to proceed with the discount.';
-                    rollNumberFeedback.className = 'text-xs mt-2 font-semibold text-gray-500';
+                    rollInputFeedback.textContent = 'Enter the correct code to proceed with the discount.';
+                    rollInputFeedback.className = 'text-xs mt-2 font-semibold text-gray-500';
                 }
                 formRollNumber.value = ''; // Always clear hidden field until confirmation
                 updateCheckoutTotals();
@@ -1609,7 +1623,7 @@
                         rollInputFeedback.textContent = 'Roll Number is valid and available for promo discount.';
                         rollInputFeedback.className = 'text-xs mt-2 font-semibold text-green-600';
                     } else {
-                        rollInputFeedback.textContent = 'Error: Roll Number is either invalid, outside the range, or has already been used.';
+                        rollInputFeedback.textContent = 'Error: Roll Number is either invalid, outside the range (1-337), or has already been used.';
                         rollInputFeedback.className = 'text-xs mt-2 font-semibold text-red-600';
                     }
                 } else {
@@ -1622,16 +1636,16 @@
             // --- END AIMC PROMO/ROLL NO. LOGIC ---
             
             
-            const calculateDiscount = (total) => {
+            const calculateDiscount = () => {
                 // Discount applies 15% off Block 6 price (Point 8)
                 const isBlock6Present = isBlock6InCart();
                 const isAimcSelected = checkoutCollegeSelect.value.includes('Allama Iqbal Medical College (AIMC), Lahore');
-                const isPromoActive = isAimcSelected and isBlock6Present and promoCodeInput.value.toUpperCase() === 'AIMC28';
+                const isPromoCodeCorrect = promoCodeInput.value.toUpperCase() === 'AIMC28';
                 
-                if (isPromoActive) {
+                if (isBlock6Present && isAimcSelected && isPromoCodeCorrect) {
                     const roll = rollNumberInput.value.trim();
-                    if (roll.length > 0 and isRollNumberAvailable(roll)) {
-                        // Apply 15% discount for Block 6 (700 * 0.15 = 105 discount, final price = 595)
+                    if (roll.length > 0 && isRollNumberAvailable(roll)) {
+                        // Apply 15% discount for Block 6 (700 * 0.15 = 105 discount)
                         const block6Item = cart.find(item => item.productId === 3);
                         if(block6Item) {
                             return block6Item.price * block6Item.quantity * 0.15; // 15% off
@@ -1643,21 +1657,21 @@
             
             const updateCheckoutTotals = () => {
                 let itemsTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-                const discount = calculateDiscount(itemsTotal);
+                const discount = calculateDiscount();
                 
                 const college = checkoutCollegeSelect.value;
                 // Delivery charge logic (Point 3)
-                const deliveryCharge = cart.length > 0 ? calculateDeliveryCharge(college) : 0;
-                const cityStatus = isLahoreCollege(college) ? 'Lahore' : 'Out of Lahore';
+                const deliveryCharge = cart.length > 0 && college ? calculateDeliveryCharge(college) : 0;
+                const cityStatus = college && isLahoreCollege(college) ? 'Lahore' : 'Out of Lahore (OLL)';
                 
                 const productSubtotalAfterDiscount = itemsTotal - discount;
                 const finalTotal = productSubtotalAfterDiscount + deliveryCharge;
                 
                 // Update Step 2 (Payment) total: Product total only
-                paymentAmount.textContent = `Rs. ${productSubtotalAfterDiscount.toLocaleString('en-PK')}`;
+                paymentAmount.textContent = `Rs. ${Math.max(0, productSubtotalAfterDiscount).toLocaleString('en-PK')}`;
                 
                 // Update Step 3 (Confirmation) total: Product and Delivery
-                checkoutFinalTotal.textContent = `Rs. ${finalTotal.toLocaleString('en-PK')}`; 
+                checkoutFinalTotal.textContent = `Rs. ${Math.max(0, finalTotal).toLocaleString('en-PK')}`; 
                 
                 // Update Step 3 Delivery Note (Point 3)
                 const deliveryNoteDiv = document.getElementById('checkout-delivery-note');
@@ -1667,7 +1681,7 @@
                          <p class="text-sm">
                              Delivery charges of <strong>Rs. ${deliveryCharge.toLocaleString('en-PK')}</strong> (${cityStatus}) 
                              <span class="font-extrabold underline">MUST BE PAID IN CASH TO THE RIDER</span> upon delivery. 
-                             The total amount you paid online (Rs. ${productSubtotalAfterDiscount.toLocaleString('en-PK')}) is for products only.
+                             The total amount you pay online (Rs. ${Math.max(0, productSubtotalAfterDiscount).toLocaleString('en-PK')}) is for products only.
                          </p>
                      `;
                 }
@@ -1698,31 +1712,48 @@
                 }
                 
                 document.getElementById('form-cart-details').value = cartSummary.join('; ');
-                document.getElementById('form-final-bill').value = `Rs. ${finalTotal.toLocaleString('en-PK')}`;
-            }
+                document.getElementById('form-final-bill').value = `Rs. ${Math.max(0, productSubtotalAfterDiscount).toLocaleString('en-PK')}`; // Only the amount to be paid online
+            };
 
             const validateStep = (stepNumber) => {
                 const stepDiv = document.getElementById(`checkout-step-${stepNumber}`);
                 const inputs = stepDiv.querySelectorAll('[required]');
+                let isValid = true;
+                
+                // Native form validation check
+                Array.from(inputs).forEach(input => {
+                    if (!input.checkValidity()) {
+                        isValid = false;
+                        // Trigger native UI message
+                        input.reportValidity();
+                    }
+                    if (input.type === 'radio' && !stepDiv.querySelector(`input[name="${input.name}"]:checked`)) {
+                        isValid = false;
+                    }
+                });
                 
                 if (stepNumber === 1) {
                     // Custom validation for AIMC promo fields
-                    if (!aimcPromoSection.classList.contains('hidden') and promoCodeInput.value.toUpperCase() === 'AIMC28') {
+                    const isAimcSelected = checkoutCollegeSelect.value.includes('Allama Iqbal Medical College (AIMC), Lahore');
+                    if (!aimcPromoSection.classList.contains('hidden') && isAimcSelected && promoCodeInput.value.toUpperCase() === 'AIMC28') {
                         const roll = rollNumberInput.value.trim();
-                        if (!roll or !isRollNumberAvailable(roll)) {
+                        if (!roll || !isRollNumberAvailable(roll)) {
                             displayCustomAlert('Please enter a valid, unused AIMC roll number to claim the promo code.');
-                            return false;
+                            isValid = false;
                         }
                     }
                 }
                 
-                return Array.from(inputs).every(input => {
-                    if (input.type === 'radio') {
-                        const name = input.name;
-                        return stepDiv.querySelector(`input[name="${name}"]:checked`);
+                if (stepNumber === 2) {
+                    // Custom validation for file input (sometimes required attribute is insufficient)
+                    const paymentSlip = document.getElementById('payment_slip');
+                    if (paymentSlip && !paymentSlip.files.length) {
+                        displayCustomAlert('Please upload the payment slip to proceed.');
+                        isValid = false;
                     }
-                    return input.checkValidity();
-                });
+                }
+                
+                return isValid;
             };
 
             const showCheckoutModal = () => {
@@ -1767,6 +1798,7 @@
                     checkoutSuccessPage.classList.add('hidden');
                     checkoutForm.reset();
                     rollNumberEntry.classList.add('hidden');
+                    rollNumberInput.removeAttribute('required');
                     rollNumberFeedback.textContent = '';
                     formRollNumber.value = '';
                     showCheckoutStep(1);
@@ -1776,16 +1808,13 @@
             nextToPaymentBtn.addEventListener('click', () => {
                 if (validateStep(1)) {
                     // If promo code is successfully verified, capture the roll number for later use
-                    if (promoCodeInput.value.toUpperCase() === 'AIMC28' and rollNumberInput.value.trim() and isRollNumberAvailable(rollNumberInput.value.trim())) {
+                    if (promoCodeInput.value.toUpperCase() === 'AIMC28' && rollNumberInput.value.trim() && isRollNumberAvailable(rollNumberInput.value.trim())) {
                         formRollNumber.value = rollNumberInput.value.trim();
                     } else {
                         formRollNumber.value = '';
                     }
                     updateCheckoutTotals(); // Re-calculate in case promo status changed
                     showCheckoutStep(2);
-                } else {
-                    // Trigger native browser validation messages
-                    Array.from(document.getElementById('checkout-step-1').querySelectorAll('[required]')).forEach(el => el.reportValidity());
                 }
             });
             backToShippingBtn.addEventListener('click', () => showCheckoutStep(1));
@@ -1793,19 +1822,15 @@
                 if (validateStep(2)) {
                     updateCheckoutTotals(); // Final check before confirmation
                     showCheckoutStep(3);
-                } else {
-                    displayCustomAlert('Please fill in all required payment details and upload the payment slip.');
-                    // Trigger native browser validation messages
-                    Array.from(document.getElementById('checkout-step-2').querySelectorAll('[required]')).forEach(el => el.reportValidity());
-                }
+                } 
             });
             backToPaymentBtn.addEventListener('click', () => showCheckoutStep(2));
             cancelCheckoutBtn.addEventListener('click', closeCheckoutModal);
             
             checkoutForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                if (!validateStep(1) or !validateStep(2)) {
-                    displayCustomAlert('Please complete all previous steps correctly.');
+                if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+                    displayCustomAlert('Please complete all previous steps correctly before confirming the order.');
                     return;
                 }
 
@@ -1815,10 +1840,11 @@
                 submitButton.textContent = 'Placing Order...';
 
                 // --- DYNAMIC FORM ACTION LOGIC ---
-                const isBlock6Checkout = isBlock6InCart() and cart.length === 1;
+                // Block 6 check is to ensure the correct FormBold form is used
+                const isBlock6Checkout = isBlock6InCart();
                 const formActionUrl = isBlock6Checkout ? BLOCK6_FORM_URL : PRODUCTS_FORM_URL;
                 
-                const orderId = `MOD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                const orderId = `MOD-${Date.now()}-${Math.floor(Math.random() * 90000) + 10000}`; // 5 digit random
                 document.getElementById('form-order-id').value = orderId;
                 const formData = new FormData(checkoutForm);
                 const userName = formData.get('Full Name');
@@ -1828,18 +1854,24 @@
                     markRollNumberAsUsed(formRollNumber.value.trim());
                     formData.set('Roll Number Used', formRollNumber.value.trim());
                 } else {
-                    formData.set('Roll Number Used', 'N/A (No Promo)');
+                    formData.set('Roll Number Used', 'N/A (No Promo/Other College)');
                 }
                 
                 // Add discount breakdown if applicable
-                const discountValue = calculateDiscount(cart.reduce((acc, item) => acc + item.price * item.quantity, 0));
+                const discountValue = calculateDiscount();
                 if (discountValue > 0) {
                     formData.set('Discount Applied', `Rs. ${discountValue.toLocaleString('en-PK')}`);
                 }
 
+                // Append the calculated delivery charge for backend info
+                const college = checkoutCollegeSelect.value;
+                const deliveryCharge = cart.length > 0 && college ? calculateDeliveryCharge(college) : 0;
+                formData.set('Delivery Charge (Cash to Rider)', `Rs. ${deliveryCharge.toLocaleString('en-PK')}`);
 
                 fetch(formActionUrl, { method: 'POST', body: formData })
                 .then(response => {
+                    // FormBold often redirects or gives status 200 even on an error, 
+                    // but since this is a simulation, we assume success if fetch completes.
                     if (response.ok) {
                         checkoutStepsContainer.classList.add('hidden');
                         checkoutSuccessPage.classList.remove('hidden');
@@ -1922,7 +1954,7 @@
                 let subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
                 let totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
                 cartSubtotalElement.textContent = `Rs. ${subtotal.toLocaleString('en-PK')}`;
-                cartTotalElement.textContent = `Rs. ${subtotal.toLocaleString('en-PK')}`;
+                cartTotalElement.textContent = `Rs. ${subtotal.toLocaleString('en-PK')}`; // Cart modal doesn't show discount
                 cartCountElements.forEach(el => el.textContent = totalItems);
             };
 
@@ -1934,15 +1966,15 @@
                 cart.forEach(item => {
                     const itemHtml = `
                         <div class="flex items-center space-x-3 p-2 cart-item-card rounded-xl">
-                            <div class="flex-shrink-0 w-10 h-10 bg-gray-200 rounded-lg overflow-hidden"><img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover"></div>
+                            <div class="flex-shrink-0 w-10 h-10 bg-gray-200 rounded-lg overflow-hidden"><img src="${item.image}" alt="${item.name}" class="w-full h-full object-contain"></div>
                             <div class="flex-grow">
                                 <p class="text-xs font-semibold text-gray-800">${item.name}</p>
                                 <p class="text-[0.65rem] text-red-500 font-bold">Rs. ${item.price.toLocaleString('en-PK')}</p>
                             </div>
                             <div class="flex items-center space-x-1">
-                                <button data-id="${item.productId}" data-delta="-1" class="quantity-btn w-5 h-5 bg-red-100 rounded-full text-xs font-bold text-red-700 hover:bg-red-200 transition">-</button>
+                                <button data-id="${item.productId}" data-delta="-1" class="quantity-btn w-5 h-5 bg-red-100 rounded-full text-xs font-bold text-red-700 hover:bg-red-200 transition touch-manipulation">-</button>
                                 <span class="w-3 text-center text-xs font-semibold">${item.quantity}</span>
-                                <button data-id="${item.productId}" data-delta="1" class="quantity-btn w-5 h-5 bg-blue-100 rounded-full text-xs font-bold text-blue-700 hover:bg-blue-200 transition">+</button>
+                                <button data-id="${item.productId}" data-delta="1" class="quantity-btn w-5 h-5 bg-blue-100 rounded-full text-xs font-bold text-blue-700 hover:bg-blue-200 transition touch-manipulation">+</button>
                             </div>
                             <div class="text-right w-12"><p class="text-xs font-bold text-[#1A5693]">Rs. ${(item.price * item.quantity).toLocaleString('en-PK')}</p></div>
                         </div>`;
@@ -1978,6 +2010,7 @@
             };
 
             const handleQuantityChange = (e) => {
+                e.preventDefault(); // Prevent accidental form submission or scrolling on mobile
                 const productId = parseInt(e.currentTarget.dataset.id);
                 const delta = parseInt(e.currentTarget.dataset.delta);
                 const itemIndex = cart.findIndex(item => item.productId === productId);
@@ -1986,6 +2019,8 @@
                     if (cart[itemIndex].quantity <= 0) cart.splice(itemIndex, 1);
                 }
                 renderCart();
+                // Ensure checkout validation states are updated if we are on step 1
+                if (currentCheckoutStep === 1) toggleAimcPromo(); 
             };
 
             mobileMenuButton.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
@@ -2002,7 +2037,7 @@
                     btn.style.color = isActive ? 'white' : '#d1d5db';
                 });
                 productCards.forEach(card => {
-                    const isVisible = targetYear === 'all' or card.dataset.year === targetYear;
+                    const isVisible = targetYear === 'all' || card.dataset.year === targetYear;
                     card.classList.toggle('hidden', !isVisible);
                     if (isVisible) {
                         card.classList.remove('product-slide-up');
@@ -2025,3 +2060,4 @@
     </script>
 </body>
 </html>
+
