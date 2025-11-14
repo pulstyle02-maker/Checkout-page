@@ -1071,62 +1071,92 @@
         ].sort();
         
         // --- BACKEND ROLL NUMBER MANAGEMENT ---
-        const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/69169c6dae596e708f58089e';
-        const JSONBIN_API_KEY = '$2a$10$lNnY7Irt8/dx/9/aYstApuBdcwDWQQMdQxVPIRd6aLvb4dTc8IFXi';
-        let availableRollsFromBackend = [];
+        const BIN_ID = '6916abbf43b1c97be9ac64e8';
+        const READ_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+        const WRITE_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        const API_KEY = '$2a$10$c2jwTEMgLn/n1ZXEL5qWiOTw4f6Mqr1r1Qd0ah0khbqTrChXEog8u'; // <-- NEW API KEY
+
+        let rollNumberDataFromBackend = {};
         let isBackendReady = false;
 
-        async function fetchAvailableRollNumbers() {
+        async function fetchRollNumberData() {
             try {
-                const response = await fetch(`${JSONBIN_URL}/latest`);
+                const response = await fetch(READ_URL); 
                 if (!response.ok) throw new Error(`Backend responded with status: ${response.status}`);
+                
                 const data = await response.json();
-                if (data.record && data.record.available_roll_nos && Array.isArray(data.record.available_roll_nos)) {
-                    availableRollsFromBackend = data.record.available_roll_nos;
+
+                if (data.record && data.record.available_rolls && data.record.blocked_rolls && data.record.used_rolls) {
+                    rollNumberDataFromBackend = data.record;
                     isBackendReady = true;
-                    console.log('Successfully fetched available roll numbers from backend.');
+                    console.log('Successfully fetched roll number data from backend.');
                 } else {
                     throw new Error('Unexpected data structure from backend.');
                 }
             } catch (error) {
-                console.error('CRITICAL ERROR fetching roll numbers:', error);
+                console.error('CRITICAL ERROR fetching roll number data:', error);
                 isBackendReady = false;
             }
         }
-
-        function isRollNumberAvailable(rollNumber) {
+        
+        function getRollNumberStatus(rollNumber) {
             const num = parseInt(rollNumber);
-            if (isNaN(num)) return false;
-            return availableRollsFromBackend.includes(num);
+            if (isNaN(num)) return { isValid: false, message: "Please enter a valid number." };
+            
+            // Ensure the data has been loaded before checking
+            if (!isBackendReady || !rollNumberDataFromBackend.blocked_rolls) {
+                return { isValid: false, message: "Verification server is not ready. Please try again." };
+            }
+
+            if (rollNumberDataFromBackend.blocked_rolls.includes(num)) {
+                return { isValid: false, message: "This roll number is not eligible for the promo." };
+            }
+            if (rollNumberDataFromBackend.used_rolls.includes(num)) {
+                return { isValid: false, message: "Sorry, it looks like you have already pre-ordered the book." };
+            }
+            if (!rollNumberDataFromBackend.available_rolls.includes(num)) {
+                return { isValid: false, message: "This roll number is invalid or not on the list." };
+            }
+
+            return { isValid: true, message: "Roll Number is valid and available for promo discount." };
         }
+
 
         async function updateBackendWithUsedRollNumber(usedRollNumber) {
             const numToRemove = parseInt(usedRollNumber);
-            if (isNaN(numToRemove)) return;
+            if (isNaN(numToRemove) || !isBackendReady) return;
 
-            const updatedRolls = availableRollsFromBackend.filter(roll => roll !== numToRemove);
-            const payload = { available_roll_nos: updatedRolls };
+            // Create new lists based on the current state
+            const newAvailableRolls = rollNumberDataFromBackend.available_rolls.filter(roll => roll !== numToRemove);
+            const newUsedRolls = [...rollNumberDataFromBackend.used_rolls, numToRemove];
+
+            const payload = { 
+                ...rollNumberDataFromBackend, // Keep other properties like blocked_rolls
+                available_rolls: newAvailableRolls,
+                used_rolls: newUsedRolls
+            };
 
             try {
-                const response = await fetch(JSONBIN_URL, {
+                const response = await fetch(WRITE_URL, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Master-Key': JSONBIN_API_KEY,
-                        'X-Bin-Versioning': 'false'
+                        'X-Master-Key': API_KEY,
+                        'X-Bin-Versioning': 'false' 
                     },
                     body: JSON.stringify(payload)
                 });
                 if (!response.ok) throw new Error(`Backend update failed with status: ${response.status}`);
                 console.log(`Successfully removed roll number ${usedRollNumber} from backend.`);
-                availableRollsFromBackend = updatedRolls;
+                // Update local state to match what was sent
+                rollNumberDataFromBackend = payload;
             } catch (error) {
                 console.error('CRITICAL ERROR updating backend with used roll number:', error);
             }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            fetchAvailableRollNumbers();
+            fetchRollNumberData();
 
             const mainContent = document.querySelector('main');
             const header = document.querySelector('header');
@@ -1330,13 +1360,9 @@
                 }
 
                 if (roll.length > 0) {
-                    if (isRollNumberAvailable(roll)) {
-                        rollNumberFeedback.textContent = 'Roll Number is valid and available for promo discount.';
-                        rollNumberFeedback.className = 'text-xs mt-2 font-semibold text-green-600';
-                    } else {
-                        rollNumberFeedback.textContent = 'Sorry, it looks like you have already pre-ordered the book.';
-                        rollNumberFeedback.className = 'text-xs mt-2 font-semibold text-red-600';
-                    }
+                    const status = getRollNumberStatus(roll);
+                    rollNumberFeedback.textContent = status.message;
+                    rollNumberFeedback.className = `text-xs mt-2 font-semibold ${status.isValid ? 'text-green-600' : 'text-red-600'}`;
                 } else {
                      rollNumberFeedback.textContent = 'Please enter your Roll Number for verification.';
                      rollNumberFeedback.className = 'text-xs mt-2 font-semibold text-gray-500';
@@ -1352,7 +1378,7 @@
                 
                 if (isBlock6Present && isAimcSelected && isPromoCodeCorrect) {
                     const roll = rollNumberInput.value.trim();
-                    if (roll.length > 0 && isRollNumberAvailable(roll)) {
+                    if (roll.length > 0 && getRollNumberStatus(roll).isValid) {
                         const block6Item = cart.find(item => item.productId === 3);
                         if(block6Item) {
                             const fixedDiscountPerItem = 100;
@@ -1429,7 +1455,8 @@
                             isValid = false;
                         } else {
                             const roll = rollNumberInput.value.trim();
-                            if (!roll || !isRollNumberAvailable(roll)) {
+                            const status = getRollNumberStatus(roll);
+                            if (!status.isValid) {
                                 displayCustomAlert('Please enter a valid, unused AIMC roll number to claim the promo code.');
                                 isValid = false;
                             }
@@ -1478,7 +1505,8 @@
 
             nextToPaymentBtn.addEventListener('click', () => {
                 if (validateStep(1)) {
-                    if (promoCodeInput.value.toUpperCase() === 'AIMC28' && rollNumberInput.value.trim() && isRollNumberAvailable(rollNumberInput.value.trim())) {
+                    const rollStatus = getRollNumberStatus(rollNumberInput.value.trim());
+                    if (promoCodeInput.value.toUpperCase() === 'AIMC28' && rollStatus.isValid) {
                         formRollNumber.value = rollNumberInput.value.trim();
                     } else {
                         formRollNumber.value = '';
@@ -1523,7 +1551,7 @@
                 
                 const discountValue = calculateDiscount();
                 if (discountValue > 0) {
-                    formData.set('Discount Applied', `Rs. ${discountValue.toLocaleString('en-PK')} (Fixed 100/item, displayed as 15% off)`);
+                    formData.set('Discount Applied', `Rs. ${discountValue.toLocaleString('en-PK')} (Fixed 100/item)`);
                 }
 
                 const college = checkoutCollegeSelect.value;
