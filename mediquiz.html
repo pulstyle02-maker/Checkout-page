@@ -3,665 +3,384 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEDIQUIZ by modmedicalis x batch D</title>
+    <title>MEDIQUIZ by modmedicalis</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400&family=Inter:wght@100..900&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* Custom styles for professional, clean UI */
+        /* Custom Theme & Fonts */
+        :root {
+            /* New Palette */
+            --color-primary: #5B2C6F; /* Deep Purple */
+            --color-secondary: #F4D03F; /* Vibrant Yellow */
+            --color-accent: #C39BD3; /* Soft Lavender */
+            --color-background: #F5F5F5; /* Light Gray */
+            --color-text-on-primary: #ffffff;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            /* Dark Blue Background */
-            background-color: #0f172a; /* Slate-900 or Navy */
-            color: #f8fafc; /* White text for contrast */
-            /* White dot pattern overlay for advanced aesthetic */
-            background-image: radial-gradient(circle, #3b82f6 1px, transparent 1px);
-            background-size: 30px 30px;
+            background-color: var(--color-background);
+            color: #1f2937;
+        }
+
+        .shadow-app {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        .shadow-cta {
+             /* Custom shadow using the Vibrant Yellow */
+             box-shadow: 0 5px 15px -3px rgba(244, 208, 63, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Responsive Layout for the main content */
+        .app-container {
+            max-width: 640px; /* Max width for mobile feel */
+            min-height: calc(100vh - 80px); /* Account for bottom nav */
+            padding-bottom: 80px; /* Space for fixed bottom navigation */
         }
         
-        /* Apply Londrina Solid to MEDIQUIZ */
-        #main-title {
-            font-family: 'Londrina Solid', cursive;
-        }
-
-        .quiz-container {
-            /* Light surface for the main content card */
-            background-color: #ffffff;
-            color: #1e293b; /* Dark text */
-            box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.4); /* Soft shadow for mobile */
-            transition: all 0.3s ease;
-            max-width: 98%; /* Maximize width on small screens */
-            margin: 0 auto; /* Center the container */
-        }
-
-        /* 1) UPDATED: Apply Londrina Solid to Selection Buttons, now fully rounded and ensures text is white */
-        .select-mode-btn {
-            /* Changed rounded-xl to rounded-full */
-            @apply w-full p-4 rounded-full font-extrabold text-white text-lg transition duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl;
-            background-image: linear-gradient(135deg, var(--tw-gradient-stops));
-            font-family: 'Londrina Solid', cursive;
-            letter-spacing: 0.05em;
-        }
-        
-        /* Top Navigation Bar */
-        .top-nav {
-            background-color: #1d4ed8; /* Blue-700 */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Style for choices - made buttons slightly bigger for touch targets */
-        .choice-btn {
-            transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
-            border-left-width: 4px;
-            @apply border-gray-200 hover:bg-gray-50 text-gray-800 p-3 sm:p-4; /* Increased mobile padding */
-        }
-        .choice-btn:disabled {
-            cursor: default;
-        }
-
-        /* States for instant feedback */
-        .choice-btn.correct {
-            background-color: #dcfce7; /* Green-100 */
-            border-color: #10b981; /* Green-500 */
-            @apply font-bold text-green-800;
-        }
-        .choice-btn.incorrect {
-            background-color: #fee2e2; /* Red-100 */
-            border-color: #ef4444; /* Red-500 */
-            @apply font-bold text-red-800;
-        }
-        .explanation-box {
-            @apply bg-blue-50 border-blue-400 text-blue-800 p-4 border-l-4 rounded-lg shadow-inner mt-6;
-        }
-        
-        /* Mobile-First Layout Adjustments (To fit question card fully) */
-        #app-content {
-            flex-grow: 1;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding: 8px;
-        }
-
-        /* Make quiz container virtually full screen on mobile, allowing its content to scroll if needed */
-        #quiz-screen {
-            min-height: calc(100vh - 120px);
-            @apply w-full rounded-none max-w-3xl p-4 sm:rounded-2xl sm:p-10;
-        }
-        #selection-screen {
-            @apply w-full max-w-xl p-4 sm:p-8 rounded-2xl;
+        /* Custom gradient for the hero section */
+        .hero-gradient {
+            background: linear-gradient(135deg, #5B2C6F 0%, #4a215b 100%);
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center">
+<body class="bg-gray-50 min-h-screen">
 
-    <button id="floating-home-button" class="fixed top-4 right-4 z-[100] p-3 bg-indigo-600 text-white rounded-full shadow-2xl hover:bg-indigo-700 transition duration-150 active:scale-[0.95] hidden" onclick="showScreen('selection-screen')" aria-label="Go to Quiz Selection">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-    </button>
-    
-    <nav class="top-nav w-full sticky top-0 z-50 p-4 flex justify-between items-center">
-        <div class="flex items-center space-x-2">
-            <img src="https://i.imgur.com/mte1qeH.png" alt="Logo 1" class="h-6 w-6 sm:h-8 sm:w-8">
-            <h1 id="main-title" class="text-2xl sm:text-3xl font-extrabold text-white tracking-wider">
-                MEDIQUIZ
-            </h1>
-            <img src="https://i.imgur.com/eliPf3q.png" alt="Logo 2" class="h-6 w-6 sm:h-8 sm:w-8">
+    <div id="app" class="mx-auto app-container bg-white shadow-lg overflow-y-auto">
+        <!-- Main content will be rendered here -->
+    </div>
+
+    <!-- Fixed Bottom Navigation Bar -->
+    <nav id="bottom-nav" class="fixed inset-x-0 bottom-0 bg-white border-t border-gray-200 shadow-xl z-50 max-w-lg mx-auto">
+        <div class="flex justify-around items-center h-16">
+            <!-- Navigation Item: Home (Active) -->
+            <button onclick="renderApp('home')" class="flex flex-col items-center justify-center text-[#5B2C6F] font-semibold transition duration-150 ease-in-out transform scale-105">
+                <!-- Home Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span class="text-xs mt-1">Home</span>
+            </button>
+            <!-- Navigation Item: Past Papers -->
+            <button onclick="showPlaceholder('Past Papers')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
+                <!-- File Text Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h3"/></svg>
+                <span class="text-xs mt-1">Past Papers</span>
+            </button>
+            <!-- Navigation Item: Flashcards -->
+            <button onclick="showPlaceholder('Flashcards')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
+                <!-- Album Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M11 3v18"/><path d="M3 12h18"/></svg>
+                <span class="text-xs mt-1">Flashcards</span>
+            </button>
+            <!-- Navigation Item: Review -->
+            <button onclick="showPlaceholder('Review')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
+                <!-- Clock Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span class="text-xs mt-1">Review</span>
+            </button>
         </div>
-
-        <span class="text-white text-xs sm:text-sm font-normal ml-auto mr-2 md:mr-4">by modmedicalis x batch D</span>
-
     </nav>
 
-    <div id="app-content" class="w-full flex-grow flex justify-center py-4 sm:py-8 px-2">
-        <div id="selection-screen" class="quiz-container w-full max-w-xl rounded-2xl p-4 sm:p-8 space-y-6 sm:space-y-8">
-            
-            <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-6 text-center">
-                NEUROANATOMY
-            </h2>
-
-            <section>
-                <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-4 border-b pb-2">Organize by Difficulty (60 Q each)</h3>
-                <div class="grid grid-cols-1 gap-4">
-                    <button class="select-mode-btn from-green-500 to-green-600" data-mode="Easy" onclick="prepareQuiz('Easy')">
-                        Easy
-                    </button>
-                    <button class="select-mode-btn from-yellow-500 to-yellow-600" data-mode="Medium" onclick="prepareQuiz('Medium')">
-                        Medium
-                    </button>
-                    <button class="select-mode-btn from-red-600 to-red-700" data-mode="Hard" onclick="prepareQuiz('Hard')">
-                        Difficult
-                    </button>
-                </div>
-            </section>
-
-            <section>
-                <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-4 border-b pb-2">Organize by Section (60 Q each)</h3>
-                <div class="grid grid-cols-1 gap-4">
-                    <button class="select-mode-btn from-indigo-500 to-indigo-700" data-mode="Conceptual MCQs" onclick="prepareQuiz('Conceptual MCQs')">
-                        Conceptual Scenarios
-                    </button>
-                    <button class="select-mode-btn from-purple-500 to-purple-700" data-mode="Clinical Scenario MCQs" onclick="prepareQuiz('Clinical Scenario MCQs')">
-                        Clinical Scenarios
-                    </button>
-                </div>
-            </section>
-        </div>
-
-        <div id="quiz-screen" class="quiz-container w-full max-w-3xl rounded-2xl p-4 sm:p-10 hidden">
-
-            <header class="mb-6">
-                <div class="flex justify-between items-center text-sm font-medium text-gray-600 mb-2">
-                    <span id="quiz-title" class="text-indigo-600 font-semibold text-base sm:text-lg">Loading...</span>
-                    <span id="score-text" class="text-gray-800">Score: 0/0</span>
-                </div>
-
-                <div class="h-2 bg-gray-200 rounded-full">
-                    <div id="progress-bar" class="h-full bg-indigo-500 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-            </header>
-
-            <main id="main-quiz-area" class="pb-6">
-                <p id="question-number" class="text-sm font-medium text-gray-500 mb-3"></p>
-                <h2 id="question-text" class="text-lg md:text-2xl font-bold text-gray-900 mb-6 leading-relaxed"></h2>
-
-                <div id="choices-container" class="space-y-3 sm:space-y-4">
-                    </div>
-
-                <div id="explanation-box" class="explanation-box hidden">
-                    <p class="font-bold mb-1">Explanation:</p>
-                    <p id="explanation-text" class="text-sm"></p>
-                </div>
-            </main>
-
-            <footer class="pt-6 border-t mt-6 flex flex-col sm:flex-row justify-between gap-3">
-                <button id="prev-button" class="next-prev-btn w-full md:w-auto px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition duration-150 active:scale-[0.98]" disabled>
-                    &larr; Previous
-                </button>
-                <button id="next-button" class="next-prev-btn w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150 active:scale-[0.98]" disabled>
-                    Next Question &rarr;
-                </button>
-            </footer>
-        </div>
-
-        <div id="finish-screen" class="quiz-container w-full max-w-xl rounded-2xl p-4 sm:p-8 hidden text-center">
-            <svg class="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mt-4">Quiz Complete!</h2>
-            <p class="text-lg sm:text-xl text-gray-600 mt-2">You scored: <span id="final-score" class="font-extrabold text-indigo-600">0/120</span></p>
-            <button onclick="showScreen('selection-screen')" class="mt-6 px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition duration-150 active:scale-[0.98]">
-                Go to Selection Screen
+    <!-- Global Message Modal (replaces alert/confirm) -->
+    <div id="message-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-40" onclick="document.getElementById('message-modal').classList.add('hidden')">
+        <div class="bg-white rounded-xl p-6 w-full max-w-xs shadow-2xl" onclick="event.stopPropagation()">
+            <h3 id="modal-title" class="text-xl font-bold text-[#5B2C6F] mb-3">Notice</h3>
+            <p id="modal-message" class="text-gray-700">This is a placeholder message.</p>
+            <button onclick="document.getElementById('message-modal').classList.add('hidden')" class="mt-4 w-full bg-[#F4D03F] text-[#5B2C6F] py-2 rounded-lg font-semibold hover:bg-yellow-500 transition duration-200">
+                OK
             </button>
         </div>
     </div>
 
-    <footer class="w-full p-4 text-center mt-auto">
-        <p class="text-xs text-gray-400 font-mono">
-            Developed by 
-            <span class="text-yellow-300 font-extrabold text-sm tracking-widest uppercase">HASNAIN</span>
-        </p>
-    </footer>
 
     <script>
-        // --- QUIZ DATA: 120 MCQs based on Snell's Neuroanatomy Topics (Unchanged structure) ---
-        const quizDataStructure = {
-            "Conceptual MCQs": {
-                "Easy": [
-                    { q: "The spinal cord typically ends at which vertebral level in adults?", c: ["L3-L4 interspace", "L1-L2 interspace", "S1 vertebra", "T12 vertebra"], a: "L1-L2 interspace", e: "The conus medullaris, the terminal end of the spinal cord proper, typically terminates between the L1 and L2 vertebrae in adults. " },
-                    { q: "Which meningeal layer is the deepest and adheres directly to the neural tissue?", c: ["Dura Mater", "Arachnoid Mater", "Pia Mater", "Filum Terminale"], a: "Pia Mater", e: "The Pia Mater is delicate and closely follows the contours of the brain and spinal cord, serving as the innermost layer." },
-                    { q: "The Corticospinal Tract decussates (crosses) primarily in which structure?", c: ["Pons", "Midbrain", "Caudal Medulla", "Internal Capsule"], a: "Caudal Medulla", e: "The crossing fibers of the Lateral Corticospinal Tract form the pyramidal decussation in the caudal part of the medulla oblongata." },
-                    { q: "The main blood supply to the anterior two-thirds of the spinal cord is provided by which artery?", c: ["Posterior spinal arteries", "Segmental radicular arteries", "Anterior spinal artery", "Vertebral artery"], a: "Anterior spinal artery", e: "The single Anterior Spinal Artery, formed by the union of branches from the vertebral arteries, supplies the vast majority of the spinal cord's gray matter and anterior white matter." },
-                    { q: "Which part of the brainstem contains the Cerebral Peduncles on its ventral surface?", c: ["Medulla", "Pons", "Midbrain", "Diencephalon"], a: "Midbrain", e: "The Cerebral Peduncles (Crus Cerebri) are the massive fiber bundles located on the ventral aspect of the midbrain, carrying corticospinal, corticopontine, and corticobulbar tracts." },
-                    { q: "The Subarachnoid Space contains:", c: ["CSF and Nerve Roots", "CSF and Spinal Arteries", "CSF and Arachnoid Trabeculae", "All of the above"], a: "All of the above", e: "The subarachnoid space is filled with Cerebrospinal Fluid (CSF), spanned by delicate arachnoid trabeculae, and contains blood vessels and nerve roots." },
-                    { q: "The Pons is located between which two parts of the brainstem?", c: ["Diencephalon and Midbrain", "Midbrain and Medulla", "Medulla and Spinal Cord", "Cerebellum and Medulla"], a: "Midbrain and Medulla", e: "The Pons is the middle part of the brainstem, superior to the medulla and inferior to the midbrain." },
-                    { q: "The Dorsal Columns (Fasciculus Gracilis and Cuneatus) carry sensory information for:", c: ["Pain and Temperature", "Crude Touch", "Fine Touch and Proprioception", "Motor Command"], a: "Fine Touch and Proprioception", e: "The dorsal column-medial lemniscus pathway is responsible for conscious proprioception, two-point discrimination, and vibration sense." },
-                    { q: "The Inferior Olivary Nucleus is a prominent structure in the:", c: ["Pons", "Midbrain", "Medulla Oblongata", "Spinal Cord"], a: "Medulla Oblongata", e: "The Olive is a large bulge on the ventrolateral aspect of the medulla, overlying the inferior olivary nucleus." },
-                    { q: "The primary sensory nucleus for the face, the Main Sensory Nucleus of V, is located in the:", c: ["Medulla", "Pons", "Midbrain", "Spinal Cord"], a: "Pons", e: "This nucleus is primarily responsible for processing discriminative touch and proprioception from the face." },
-                    { q: "Which structure connects the third and fourth ventricles?", c: ["Foramen of Monro", "Cerebral Aqueduct", "Central Canal", "Interventricular Septum"], a: "Cerebral Aqueduct", e: "The Cerebral Aqueduct (of Sylvius) passes through the midbrain, connecting the third ventricle above to the fourth ventricle below." },
-                    { q: "The largest segment of the Trigeminal Nerve (CN V) nucleus is the:", c: ["Mesencephalic nucleus", "Main sensory nucleus", "Spinal nucleus", "Motor nucleus"], a: "Spinal nucleus", e: "The Spinal Nucleus of the Trigeminal nerve extends from the pons down into the spinal cord, responsible for pain and temperature sensation." },
-                    { q: "Which meningeal layer forms the Tentorium Cerebelli?", c: ["Pia Mater", "Arachnoid Mater", "Dura Mater", "Epidural Sheath"], a: "Dura Mater", e: "The Tentorium Cerebelli is a horizontal dural fold that separates the cerebrum from the cerebellum." },
-                    { q: "The Nucleus Gracilis and Nucleus Cuneatus are located in the:", c: ["Spinal Cord Gray Matter", "Midbrain Tectum", "Caudal Medulla", "Pons Tegmentum"], a: "Caudal Medulla", e: "These nuclei are the sites where the primary afferent fibers of the dorsal columns synapse with second-order neurons." },
-                    { q: "The blood supply to the midbrain is primarily from branches of the:", c: ["Anterior Cerebral Artery", "Posterior Cerebral Artery", "Middle Meningeal Artery", "Anterior Communicating Artery"], a: "Posterior Cerebral Artery", e: "Paramedian and short circumferential branches of the Posterior Cerebral Artery and Superior Cerebellar Artery supply the midbrain." },
-                    { q: "The Red Nucleus is an important motor control center found in the:", c: ["Cerebellum", "Thalamus", "Midbrain Tegmentum", "Pons Base"], a: "Midbrain Tegmentum", e: "The Red Nucleus receives input from the cerebellum and cortex and contributes to motor control via the rubrospinal tract." },
-                    { q: "The largest opening in the dura mater, through which the brainstem passes, is the:", c: ["Foramen Magnum", "Internal Acoustic Meatus", "Foramen Ovale", "Jugular Foramen"], a: "Foramen Magnum", e: "The Foramen Magnum allows the brainstem (medulla) to transition into the spinal cord." },
-                    { q: "Which tract is primarily involved in unconscious proprioception to the cerebellum?", c: ["Lateral Spinothalamic Tract", "Anterior Spinocerebellar Tract", "Corticospinal Tract", "Dorsal Columns"], a: "Anterior Spinocerebellar Tract", e: "The spinocerebellar tracts carry proprioceptive information that the cerebellum uses to regulate posture and movement." },
-                    { q: "The Anterior Horns of the spinal cord gray matter contain primarily:", c: ["Sensory Neurons", "Motor Neuron Cell Bodies", "Interneurons", "Ascending Tract Fibers"], a: "Motor Neuron Cell Bodies", e: "The anterior (ventral) horns contain the cell bodies of lower motor neurons that innervate skeletal muscle." },
-                    { q: "The Abducens Nerve (CN VI) nucleus is located in the:", c: ["Medulla", "Pons", "Midbrain", "Cerebellum"], a: "Pons", e: "The Abducens nucleus is located beneath the floor of the fourth ventricle in the caudal pons." }
-                ],
-                "Medium": [
-                    { q: "Compression of the Artery of Adamkiewicz (Great Radicular Artery) most commonly results in ischemia to which spinal cord region?", c: ["Cervical segments C1-C4", "Thoracic segments T1-T5", "Lumbosacral enlargement", "Upper thoracic region"], a: "Lumbosacral enlargement", e: "The Artery of Adamkiewicz is the largest anterior segmental medullary artery, typically arising on the left between T9-L2, and is crucial for the blood supply of the lower thoracic and lumbar cord, leading to the syndrome of the Anterior Spinal Artery if occluded." },
-                    { q: "In the internal capsule, fibers destined for the leg and foot of the corticospinal tract travel through the:", c: ["Anterior limb", "Genu", "Posterior limb", "Retrolenticular part"], a: "Posterior limb", e: "The Posterior Limb of the internal capsule contains the somatotopically organized corticospinal tract, with the fibers for the lower limbs located posteriorly." },
-                    { q: "What is the key functional difference between the Internal Arcuate Fibers and the External Arcuate Fibers in the medulla?", c: ["Internal fibers are motor, external are sensory", "Internal fibers cross, external fibers do not cross", "Internal fibers are from Dorsal Columns, external are from the Spinal Cord", "They are functionally the same, only location differs"], a: "Internal fibers cross, external fibers do not cross", e: "Internal arcuate fibers are formed by second-order neurons from the Nucleus Gracilis and Cuneatus, which immediately cross the midline to form the Medial Lemniscus." },
-                    { q: "Lesions in the Periaqueductal Gray (PAG) area of the midbrain are associated with loss of:", c: ["Pain sensation in the face", "Descending pain control", "Fine motor coordination", "Eye movement initiation"], a: "Descending pain control", e: "The PAG is a critical part of the intrinsic pain control system, sending projections to the raphe nuclei and locus coeruleus to modulate incoming pain signals." },
-                    { q: "Which cranial nerve has its nucleus located in the rostral medulla and caudal pons, making it susceptible to lesions in this transition zone?", c: ["CN IX", "CN X", "CN XI", "CN XII"], a: "CN XII", e: "The Hypoglossal Nucleus (CN XII) is located in the caudal medulla, responsible for tongue motor function. The glossopharyngeal (IX) and vagus (X) nuclei extend into the upper medulla." },
-                    { q: "The major input fibers to the cerebellum that originate in the pontine nuclei are called:", c: ["Climbing fibers", "Mossy fibers", "Parallel fibers", "Purkinje axons"], a: "Mossy fibers", e: "Pontine nuclei axons cross the midline and enter the cerebellum via the middle cerebellar peduncle as mossy fibers, conveying information from the cerebral cortex." },
-                    { q: "The Lateral Spinothalamic Tract terminates in which part of the thalamus?", c: ["Ventral Posterior Medial (VPM)", "Ventral Lateral (VL)", "Ventral Posterior Lateral (VPL)", "Medial Dorsal (MD)"], a: "Ventral Posterior Lateral (VPL)", e: "The VPL nucleus of the thalamus is the relay station for somatosensory information (pain, temperature, crude touch, vibration) from the body (contralateral side)." },
-                    { q: "Which dural fold creates the midline division between the two cerebral hemispheres?", c: ["Tentorium Cerebelli", "Diaphragma Sellae", "Falx Cerebri", "Falx Cerebelli"], a: "Falx Cerebri", e: "The Falx Cerebri is a large, sickle-shaped fold of dura mater located in the longitudinal fissure." },
-                    { q: "The vascular territory of the Posterior Inferior Cerebellar Artery (PICA) is associated with which brainstem syndrome?", c: ["Weber's Syndrome", "Medial Medullary Syndrome", "Lateral Medullary Syndrome (Wallenberg's)", "Benedikt's Syndrome"], a: "Lateral Medullary Syndrome (Wallenberg's)", e: "PICA occlusion leads to ischemia of the lateral part of the medulla, classically affecting the vestibular nuclei, spinal trigeminal nucleus, nucleus ambiguus, and spinothalamic tract." },
-                    { q: "Preganglionic parasympathetic neurons of the Oculomotor Nerve (CN III) are located in the:", c: ["Nucleus of Edinger-Westphal", "Chief motor nucleus", "Trochlear nucleus", "Abducens nucleus"], a: "Nucleus of Edinger-Westphal", e: "This nucleus controls the smooth muscles of the eye (ciliary muscle for accommodation and sphincter pupillae for pupillary constriction)." },
-                    { q: "The Tectum of the midbrain is primarily composed of the:", c: ["Substantia Nigra and Red Nucleus", "Inferior and Superior Colliculi", "Crus Cerebri", "Tegmentum"], a: "Inferior and Superior Colliculi", e: "The Tectum is the roof of the midbrain, featuring the Superior Colliculi (visual reflexes) and Inferior Colliculi (auditory reflexes)." },
-                    { q: "A lesion in the Cervical Enlargement (C5-T1) of the spinal cord is most likely to affect the function of the:", c: ["Bladder and Bowel", "Muscles of the Leg", "Muscles of the Arm and Hand", "Respiratory Diaphragm"], a: "Muscles of the Arm and Hand", e: "The cervical enlargement accommodates the increased number of motor neurons and sensory fibers required to innervate the upper limbs." },
-                    { q: "The Motor Nucleus of the Trigeminal Nerve (CN V) is responsible for innervating which group of muscles?", c: ["Muscles of facial expression", "Muscles of mastication", "Muscles of the pharynx", "Extrinsic eye muscles"], a: "Muscles of mastication", e: "The motor nucleus of V controls the masseter, temporalis, medial and lateral pterygoid muscles." },
-                    { q: "The Arcuate Fasciculus is a key white matter tract linking:", c: ["Motor cortex and Sensory cortex", "Broca's area and Wernicke's area", "Thalamus and Cerebellum", "Basal Ganglia and Brainstem"], a: "Broca's area and Wernicke's area", e: "It is a major association pathway essential for language processing, connecting the receptive (Wernicke's) and expressive (Broca's) language areas." },
-                    { q: "Which part of the spinal cord gray matter contains the Clarke's Nucleus (Nucleus Dorsalis)?", c: ["Anterior Horn", "Posterior Horn", "Intermediate Gray Matter (T1-L2/3)", "Central Canal"], a: "Intermediate Gray Matter (T1-L2/3)", e: "Clarke's nucleus is the origin of the Posterior Spinocerebellar Tract, crucial for unconscious proprioception from the lower half of the body." },
-                    { q: "The main source of Cerebrospinal Fluid (CSF) production is the:", c: ["Arachnoid Granulations", "Ependymal Lining", "Choroid Plexus", "Subarachnoid Space"], a: "Choroid Plexus", e: "This vascular structure, found in the ventricles, actively secretes CSF." },
-                    { q: "The Nucleus Ambiguus in the medulla contains the motor neurons for which cranial nerves?", c: ["CN VII and CN XII", "CN IX, X, and XI (Cranial part)", "CN III and CN IV", "CN V and CN VII"], a: "CN IX, X, and XI (Cranial part)", e: "The Nucleus Ambiguus provides motor fibers to muscles of the pharynx, larynx, and upper esophagus via the Glossopharyngeal, Vagus, and Accessory nerves." },
-                    { q: "Damage to the Transverse Pontine Fibers would disrupt communication between:", c: ["Cortex and Thalamus", "Cerebellum and Spinal Cord", "Cerebral Cortex and Contralateral Cerebellum", "Hypothalamus and Pituitary"], a: "Cerebral Cortex and Contralateral Cerebellum", e: "These fibers originate in the pontine nuclei, cross the midline, and enter the cerebellum via the Middle Cerebellar Peduncle." },
-                    { q: "The Anterior Medullary Velum is a structure associated with the roof of the:", c: ["Third Ventricle", "Lateral Ventricle", "Fourth Ventricle (Superior part)", "Cerebral Aqueduct"], a: "Fourth Ventricle (Superior part)", e: "It forms the roof of the upper part of the fourth ventricle, spanning between the superior cerebellar peduncles." },
-                    { q: "The superior continuation of the Dorsal Lateral Sulcus of the spinal cord is found adjacent to which brainstem structure?", c: ["Pyramid", "Inferior Cerebellar Peduncle", "Cerebral Peduncle", "Medial Lemniscus"], a: "Inferior Cerebellar Peduncle", e: "The inferior cerebellar peduncle is located where the dorsal lateral aspect of the spinal cord (and afferent fibers like the posterior spinocerebellar tract) enters the brainstem." }
-                ],
-                "Hard": [
-                    { q: "Which artery is most vulnerable to compression, leading to ischemia of the dorsal horn and posterior column in the upper thoracic region?", c: ["Anterior spinal artery", "Artery of Adamkiewicz", "Posterior spinal arteries", "PICA"], a: "Posterior spinal arteries", e: "While the anterior spinal artery supplies the bulk, the posterior spinal arteries are often less robust and have poorer anastomoses, making the dorsal column/horn territory vulnerable, especially in the upper thoracic cord (watershed area)." },
-                    { q: "The Substantia Gelatinosa (Rexed Lamina II) of the posterior horn is crucial in modulating which specific sensation?", c: ["Proprioception", "Vibration sense", "Pain and Temperature", "Motor output"], a: "Pain and Temperature", e: "The Substantia Gelatinosa receives input from unmyelinated and small myelinated afferent fibers and is a key site in the 'gate control' mechanism of pain." },
-                    { q: "What is the primary function of the Reticulospinal Tracts?", c: ["Initiation of fine motor movement", "Regulation of muscle tone and posture", "Coordination of head and eye movements", "Conscious perception of vibration"], a: "Regulation of muscle tone and posture", e: "These tracts, originating in the reticular formation, modulate reflex activity and muscle tone in response to gravitational forces." },
-                    { q: "A lesion transecting the Medial Longitudinal Fasciculus (MLF) in the midbrain would specifically cause:", c: ["Hemiplegia", "Internuclear Ophthalmoplegia (INO)", "Ipsilateral facial paralysis", "Horizontal gaze palsy"], a: "Internuclear Ophthalmoplegia (INO)", e: "The MLF links the CN III, IV, and VI nuclei and controls conjugate gaze. Damage prevents the ipsilateral medial rectus muscle from contracting upon attempted contralateral gaze." },
-                    { q: "The Cuneocerebellar Tract transmits unconscious proprioception from the upper limb and neck, entering the cerebellum via the:", c: ["Superior Cerebellar Peduncle", "Middle Cerebellar Peduncle", "Inferior Cerebellar Peduncle", "Superior Colliculus"], a: "Inferior Cerebellar Peduncle", e: "This is the upper limb equivalent of the posterior spinocerebellar tract. Its second-order neurons originate in the Accessory Cuneate Nucleus (lateral to the Cuneate Nucleus) and enter the cerebellum uncrossed." },
-                    { q: "Which part of the brainstem contains the Substantia Nigra?", c: ["Pons Tegmentum", "Midbrain Tegmentum", "Caudal Medulla", "Base of Pons"], a: "Midbrain Tegmentum", e: "The Substantia Nigra is a pigmented layer of neurons crucial for basal ganglia function, situated between the Crus Cerebri and the Tegmentum of the midbrain." },
-                    { q: "The dural venous sinus that empties primarily into the Internal Jugular Vein is the:", c: ["Superior Sagittal Sinus", "Cavernous Sinus", "Transverse Sinus", "Sigmoid Sinus"], a: "Sigmoid Sinus", e: "The Sigmoid Sinus receives blood from the Transverse Sinus and drains directly into the Internal Jugular Vein at the Jugular Foramen." },
-                    { q: "The Nucleus Solitarius receives taste afferents carried by which combination of cranial nerves?", c: ["CN V and VII", "CN VII, IX, and X", "CN IX, X, and XII", "CN III and V"], a: "CN VII, IX, and X", e: "The Nucleus Solitarius (specifically its rostral part, the Gustatory Nucleus) processes taste from the facial (VII), glossopharyngeal (IX), and vagus (X) nerves." },
-                    { q: "A large arachnoid granulation would most likely drain CSF into the:", c: ["Basal Cisterns", "Central Canal", "Superior Sagittal Sinus", "Third Ventricle"], a: "Superior Sagittal Sinus", e: "Arachnoid granulations (villi) are the structures responsible for the reabsorption of CSF into the dural venous sinuses, predominantly the Superior Sagittal Sinus." },
-                    { q: "The ascending pathways for the Spinotectal Tract and Spinoreticular Tract primarily travel in which funiculus of the spinal cord?", c: ["Anterior Funiculus", "Lateral Funiculus", "Posterior Funiculus", "Anterior Gray Horn"], a: "Lateral Funiculus", e: "The spinotectal (to midbrain tectum) and spinoreticular (to reticular formation) tracts travel alongside the lateral spinothalamic tract in the lateral white column." },
-                    { q: "What constitutes the boundary between the Tegmentum and the Base of the Pons?", c: ["Medial Lemniscus", "Substantia Nigra", "Trapezoid Body", "Fourth Ventricle"], a: "Trapezoid Body", e: "The trapezoid body (transverse fibers associated with auditory pathways) marks the ventral limit of the pontine tegmentum." },
-                    { q: "The Accessory Cuneate Nucleus is crucial for proprioception from the upper limb and projects to the cerebellum. What is its location relative to the main Cuneate Nucleus?", c: ["Medial", "Lateral", "Superior", "Inferior"], a: "Lateral", e: "It is situated lateral to the cuneate nucleus in the medulla and is the site of synapse for upper limb proprioceptive fibers." },
-                    { q: "Which of the following is NOT typically a feature of the midbrain at the level of the Inferior Colliculus?", c: ["Trochlear Nucleus (CN IV)", "Substantia Nigra", "Red Nucleus", "Decussation of Superior Cerebellar Peduncles"], a: "Red Nucleus", e: "The Red Nucleus is typically seen at the level of the Superior Colliculus. The Decussation of the Superior Cerebellar Peduncles occurs at the level of the Inferior Colliculus." },
-                    { q: "The primary vascular source for the dura mater covering the temporal fossa is the:", c: ["Internal Carotid Artery", "Anterior Meningeal Artery", "Middle Meningeal Artery", "Ophthalmic Artery"], a: "Middle Meningeal Artery", e: "A branch of the Maxillary Artery, it enters the skull via the Foramen Spinosum and is the largest artery supplying the dura mater." },
-                    { q: "Which cerebellar peduncle is composed almost entirely of efferent fibers?", c: ["Superior", "Middle", "Inferior", "All three are mixed"], a: "Superior", e: "The Superior Cerebellar Peduncle is the main efferent pathway from the cerebellum (primarily carrying fibers from the deep nuclei to the Red Nucleus and Thalamus), though it also contains some afferent fibers (e.g., Anterior Spinocerebellar Tract)." },
-                    { q: "The Posterior Communicating Artery is most critical in linking the vascular territories of the:", c: ["Anterior and Middle Cerebral Arteries", "Middle and Posterior Cerebral Arteries", "Vertebral and Basilar Arteries", "Anterior and Posterior Circulations"], a: "Anterior and Posterior Circulations", e: "It connects the Internal Carotid Artery (anterior circulation) to the Posterior Cerebral Artery (posterior circulation) as part of the Circle of Willis." },
-                    { q: "Which spinal cord tract is involved in reflex turning of the head and neck in response to visual stimuli?", c: ["Rubrospinal Tract", "Lateral Vestibulospinal Tract", "Tectospinal Tract", "Reticulospinal Tract"], a: "Tectospinal Tract", e: "Originating in the Superior Colliculus (part of the Tectum), it mediates reflex movements of the head and eyes in response to visual input." },
-                    { q: "The Denticulate Ligaments are extensions of which meningeal layer?", c: ["Dura Mater", "Arachnoid Mater", "Pia Mater", "Filum Terminale Externum"], a: "Pia Mater", e: "These are tooth-like projections of the pia mater that anchor the spinal cord to the dura mater laterally." },
-                    { q: "In the pons, the Medial Lemniscus is found in which relative position?", c: ["Ventral and Lateral", "Dorsal and Medial", "Ventral and Medial", "Dorsal and Lateral"], a: "Dorsal and Medial", e: "The Medial Lemniscus shifts from a vertical orientation in the medulla to a more horizontal, medial, and dorsal position in the pontine tegmentum." },
-                    { q: "The main clinical distinction between Epidural and Subdural hematomas lies in the bleeding source; Epidural is typically arterial (Middle Meningeal), and Subdural is typically from:", c: ["Aneurysms", "Capillaries of the Pia", "Bridging Veins", "AICA branches"], a: "Bridging Veins", e: "Bridging veins cross the subdural space to drain into the dural sinuses and are torn by rapid acceleration/deceleration forces." }
-                ]
+        const appDiv = document.getElementById('app');
+        const MESSAGE_DURATION = 2000;
+        let currentView = 'home';
+        let currentModule = '';
+
+        // --- Configuration Data ---
+        const MODULE_DATA = {
+            Neurosciences: {
+                // Image URL for Neurosciences icon (Increased size to w-10 h-10)
+                icon: '<img src="https://i.imgur.com/WEY01f0.png" class="w-10 h-10 object-contain" alt="Neurosciences Icon">',
+                totalSubjects: 5,
+                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING"]
             },
-            "Clinical Scenario MCQs": {
-                "Easy": [
-                    { q: "A patient sustains a fracture at the C7 vertebral level. What spinal nerve root is most likely compromised?", c: ["C6", "C7", "C8", "T1"], a: "C8", e: "C8 exits below the C7 vertebra. In the cervical region, nerve roots exit above their corresponding vertebra (C1-C7), but the C8 root exits below C7, and subsequent roots exit below their corresponding vertebra." },
-                    { q: "A stroke resulting in Right-sided Hemiplegia (paralysis) suggests a lesion in which hemisphere's motor cortex or descending tract?", c: ["Ipsilateral (Right) Cerebellum", "Ipsilateral (Right) Motor Cortex", "Contralateral (Left) Motor Cortex", "Bilateral Basal Ganglia"], a: "Contralateral (Left) Motor Cortex", e: "Since the corticospinal tract decussates in the medulla, a lesion above the decussation (like in the cortex or internal capsule) causes contralateral motor deficits." },
-                    { q: "After a head injury, an unconscious patient is diagnosed with a Subdural Hematoma. What is the classic shape seen on CT scan?", c: ["Biconvex (lens shape)", "Crescent (moon shape)", "Stellate (star shape)", "Globular (round shape)"], a: "Crescent (moon shape)", e: "Subdural hematomas are venous and can spread across the entire surface of the brain, conforming to the cranial vault, giving a classic crescent shape." },
-                    { q: "A lesion damaging the entire Left Lateral Spinothalamic Tract at T10 would cause loss of pain and temperature sensation in which region?", c: ["Left Leg and Foot", "Right Leg and Foot", "Left Arm and Hand", "Bilateral Trunk"], a: "Right Leg and Foot", e: "The lateral spinothalamic tract fibers cross immediately upon entry into the spinal cord. Therefore, a lesion at T10 affects the contralateral side below the lesion level (T10)." },
-                    { q: "Occlusion of the Anterior Spinal Artery at the thoracic level would spare which major sensory function?", c: ["Motor function (Corticospinal)", "Pain and Temperature (Spinothalamic)", "Fine Touch and Proprioception (Dorsal Columns)", "Crude Touch"], a: "Fine Touch and Proprioception (Dorsal Columns)", e: "The dorsal columns are supplied by the posterior spinal arteries, which are often spared in anterior spinal artery syndrome. All anterior structures (motor, pain/temp) are affected." },
-                    { q: "Damage to the Hypoglossal Nerve (CN XII) on the left side would cause the tongue to deviate to which side upon protrusion?", c: ["Left (Ipsilateral)", "Right (Contralateral)", "No deviation", "Upwards"], a: "Left (Ipsilateral)", e: "The genioglossus muscle (innervated by CN XII) pushes the tongue out. If the left genioglossus is paralyzed, the strong right genioglossus pushes the tongue towards the paralyzed left side." },
-                    { q: "A patient presents with vertigo, nausea, and nystagmus following a viral infection. Which brainstem nuclei are most likely affected?", c: ["Corticospinal", "Vestibular", "Trigeminal", "Red"], a: "Vestibular", e: "The Vestibular Nuclei (in the pons and medulla) process balance and spatial orientation, and their irritation or damage leads to symptoms of vertigo and imbalance." },
-                    { q: "A lumbar puncture (spinal tap) is typically performed at which level to avoid damage to the spinal cord proper?", c: ["T12-L1", "L1-L2", "L3-L4 or L4-L5", "S1-S2"], a: "L3-L4 or L4-L5", e: "Since the spinal cord ends at L1/L2, the safest place to enter the subarachnoid space is below this level, in the lumbar cistern." },
-                    { q: "A patient presents with difficulty raising the eyelid and dilation of the pupil (mydriasis). Which cranial nerve is likely affected?", c: ["CN II", "CN III", "CN IV", "CN VI"], a: "CN III", e: "The Oculomotor Nerve (CN III) controls most extraocular muscles (lid elevation) and carries parasympathetic fibers (pupillary constriction). Damage leads to ptosis and a 'blown' pupil." },
-                    { q: "Which type of headache is most concerning for potential meningeal irritation (Meningitis or Hemorrhage)?", c: ["Tension Headache", "Migraine", "Thunderclap Headache", "Cluster Headache"], a: "Thunderclap Headache", e: "A 'thunderclap' headache is one that reaches maximum intensity in less than one minute and is a red flag for subarachnoid hemorrhage due to blood irritating the meninges." },
-                    { q: "Damage to the Facial Nerve (CN VII) Nucleus in the pons would cause paralysis of the muscles of facial expression on which side?", c: ["Ipsilateral (Same Side)", "Contralateral (Opposite Side)", "Bilateral (Both Sides)", "Upper half of face only"], a: "Ipsilateral (Same Side)", e: "A lower motor neuron lesion (damage to the nucleus or the nerve itself) causes paralysis of the entire face on the same side." },
-                    { q: "A patient with Hydrocephalus has an excess of CSF due to impaired reabsorption. Which structures are typically malfunctioning?", c: ["Pia Mater", "Subdural Sinuses", "Arachnoid Granulations", "Internal Carotid Artery"], a: "Arachnoid Granulations", e: "The Arachnoid Granulations are responsible for the return of CSF from the subarachnoid space to the venous system." },
-                    { q: "A mass lesion compressing the Medulla on one side would cause motor and sensory deficits on which side of the body, below the neck?", c: ["Ipsilateral motor and contralateral sensory", "Contralateral motor and ipsilateral sensory", "Ipsilateral motor and ipsilateral sensory", "Contralateral motor and contralateral sensory"], a: "Contralateral motor and contralateral sensory", e: "The motor tract (Corticospinal) has already crossed, but the sensory tract (Spinothalamic) has also crossed at the spinal level. Thus, a lateral medullary lesion causes ipsilateral sensory (face) and motor (arm/leg) deficits, but a lesion affecting the Pyramids and Medial Lemniscus causes contralateral deficits." },
-                    { q: "A patient suffers a traumatic injury leading to an Epidural Hematoma. What blood vessel is the most common source of bleeding?", c: ["Anterior Spinal Artery", "Superior Sagittal Sinus", "Middle Meningeal Artery", "Basilar Artery"], a: "Middle Meningeal Artery", e: "The Middle Meningeal Artery runs in the dura and is often torn by trauma to the Pterion region of the skull." },
-                    { q: "The loss of the Corneal Reflex is an early sign of damage to which cranial nerve's sensory function?", c: ["CN III (Oculomotor)", "CN IV (Trochlear)", "CN V (Trigeminal)", "CN VII (Facial)"], a: "CN V (Trigeminal)", e: "The Trigeminal Nerve (CN V, ophthalmic division) carries the afferent (sensory) signal from the cornea." },
-                    { q: "A patient cannot follow a finger laterally with their right eye. This is suggestive of paralysis of the right Lateral Rectus muscle, due to a lesion of which nerve?", c: ["CN III", "CN IV", "CN VI", "CN VII"], a: "CN VI", e: "The Abducens Nerve (CN VI) specifically innervates the Lateral Rectus muscle, which abducts (turns outward) the eye." },
-                    { q: "A tumor compressing the Dorsal Root Ganglion (DRG) at L4 would cause pain and sensory loss in a distribution corresponding to a:", c: ["Peripheral nerve pattern", "Spinal cord tract pattern", "Dermatome", "Myotome"], a: "Dermatome", e: "The DRG contains the cell bodies of sensory neurons, and its compression leads to radicular pain and sensory deficits following the specific dermatome for that level." },
-                    { q: "In the Midbrain, a lesion in the area of the Oculomotor Nucleus (CN III) is most likely to affect the movement of which eyelid muscle?", c: ["Orbicularis Oculi", "Levator Palpebrae Superioris", "Frontalis Muscle", "Tarsal Muscle"], a: "Levator Palpebrae Superioris", e: "The CN III motor nucleus supplies the Levator Palpebrae Superioris, the main muscle for voluntary eyelid elevation, leading to severe ptosis upon damage." },
-                    { q: "A patient with Syringomyelia (a cavity in the spinal cord) typically first presents with loss of pain and temperature sense in the upper limbs. This is due to damage to the:", c: ["Dorsal Columns", "Lateral Corticospinal Tract", "Anterior Horn Cells", "Anterior White Commissure"], a: "Anterior White Commissure", e: "The cavity (syrinx) expands centrally, often destroying the crossing Spinothalamic fibers in the anterior white commissure, leading to a cape-like sensory loss." },
-                    { q: "Which of the following conditions is an inflammation of the meninges surrounding the brain and spinal cord?", c: ["Encephalitis", "Myelitis", "Meningitis", "Neuritis"], a: "Meningitis", e: "Meningitis is the inflammation of the protective membranes (meninges) covering the central nervous system." }
-                ],
-                "Medium": [
-                    { q: "A patient presents with Brown-Séquard Syndrome following a knife injury to the Left side of the spinal cord at T10. What deficit is observed in the Left Leg?", c: ["Loss of pain/temp and motor function", "Loss of fine touch/proprioception only", "Loss of fine touch/proprioception and motor function", "Loss of all sensation and motor function"], a: "Loss of fine touch/proprioception and motor function", e: "The ipsilateral side (Left) below the lesion loses Dorsal Columns (proprioception, fine touch) and the Corticospinal Tract (motor function)." },
-                    { q: "A tumor in the Cerebellopontine Angle (CPA) often presents with dysfunction of which pair of cranial nerves first?", c: ["CN I and II", "CN III and IV", "CN VII and VIII", "CN IX and X"], a: "CN VII and VIII", e: "The Facial (VII) and Vestibulocochlear (VIII) nerves travel close together through the CPA. Tumors (like Acoustic Neuromas) typically compress these first, causing hearing loss, vertigo, and facial weakness." },
-                    { q: "In Wallenberg's Syndrome (Lateral Medullary Syndrome), the dysphagia (difficulty swallowing) is caused by damage to which nucleus?", c: ["Hypoglossal Nucleus", "Nucleus Ambiguus", "Edinger-Westphal Nucleus", "Motor Nucleus of V"], a: "Nucleus Ambiguus", e: "The Nucleus Ambiguus supplies motor fibers to the pharynx and larynx via CN IX and X. Its destruction results in difficulty swallowing and a hoarse voice." },
-                    { q: "Occlusion of a paramedian branch of the Basilar Artery affecting the Medial Pons would result in which classical syndrome?", c: ["Lateral Medullary Syndrome", "Weber's Syndrome", "Locked-in Syndrome (Bilateral Base of Pons)", "Medial Pontine Syndrome"], a: "Medial Pontine Syndrome", e: "This syndrome affects the corticospinal and corticobulbar tracts (contralateral paralysis) and the abducens nerve/nucleus (ipsilateral gaze palsy)." },
-                    { q: "A patient has a traumatic fracture of the Odontoid Process (Dens). This most critically compromises which dural venous sinus, potentially leading to rapid venous congestion?", c: ["Superior Sagittal Sinus", "Cavernous Sinus", "Occipital Sinus/Vertebral Venous Plexus", "Straight Sinus"], a: "Occipital Sinus/Vertebral Venous Plexus", e: "The vertebral venous plexuses and the occipital sinus are closely related to the atlanto-occipital and atlanto-axial joints, making them vulnerable to severe fracture/dislocation." },
-                    { q: "A lesion in the Midbrain Tegmentum at the level of the superior colliculus that involves the Red Nucleus and CN III fibers is known as:", c: ["Millard-Gubler Syndrome", "Weber's Syndrome", "Benedikt's Syndrome", "Lateral Pontine Syndrome"], a: "Benedikt's Syndrome", e: "This involves ipsilateral CN III palsy (ptosis, dilated pupil) combined with contralateral ataxia/tremor (Red Nucleus damage) due to injury to the midbrain tegmentum." },
-                    { q: "A spinal tumor compressing the lower cervical cord (e.g., C6) could present with LMN signs at the level of the lesion (e.g., C6 muscles) and UMN signs below the lesion. This is because:", c: ["Only motor neurons are affected at C6", "The lesion is affecting the Corticospinal Tract descending fibers", "The lesion is affecting the Dorsal Columns ascending fibers", "C6 is a watershed zone"], a: "The lesion is affecting the Corticospinal Tract descending fibers", e: "At the level, the tumor destroys the anterior horn cells (LMNs). Below the level, it compresses the descending Corticospinal Tract (UMNs)." },
-                    { q: "The Epidural Space in the vertebral column contains which primary tissue?", c: ["CSF", "Nerve Roots and CSF", "Adipose tissue and the Internal Vertebral Venous Plexus", "Arachnoid Granulations"], a: "Adipose tissue and the Internal Vertebral Venous Plexus", e: "Unlike the cranial epidural space (potential space), the spinal epidural space is filled with fat and the internal vertebral venous plexus." },
-                    { q: "Compression of the Uncal Herniation (medial temporal lobe) typically impacts which cranial nerve first, leading to a 'blown' pupil?", c: ["CN IV", "CN V", "CN III", "CN VI"], a: "CN III", e: "The parasympathetic fibers (controlling the pupil) travel on the surface of the CN III nerve and are thus highly susceptible to early compression by the herniating uncus." },
-                    { q: "A patient is unable to voluntarily turn their eyes to the right, even though the CN VI and CN III nerves are intact. The lesion is likely in the Pons affecting the:", c: ["Oculomotor Nucleus", "Vestibular Nuclei", "Paramedian Pontine Reticular Formation (PPRF)", "Red Nucleus"], a: "Paramedian Pontine Reticular Formation (PPRF)", e: "The PPRF is the 'gaze center' for horizontal movements. A lesion here causes an inability to initiate movement toward the side of the lesion (right-sided PPRF damage = can't look right)." },
-                    { q: "In Anterior Cord Syndrome due to thrombosis of the anterior spinal artery, which of the following is spared due to blood supply by the posterior arteries?", c: ["Conscious proprioception", "Motor function", "Pain and temperature", "Crude touch"], a: "Conscious proprioception", e: "The Dorsal Columns, which carry conscious proprioception, are supplied by the Posterior Spinal Arteries and are typically spared in Anterior Cord Syndrome." },
-                    { q: "A fracture of the Pterion (thin part of the skull near the temple) is most commonly associated with rupture of the:", c: ["Subarachnoid veins", "Superior sagittal sinus", "Middle meningeal artery", "Internal carotid artery"], a: "Middle Meningeal Artery", e: "The MMA runs deep to the Pterion. Fracture here is the classic cause of an Epidural Hematoma." },
-                    { q: "The loss of the ability to modulate speech volume and emotion (prosody) is typically associated with a lesion in the:", c: ["Dominant Hemisphere (Broca's area)", "Non-dominant Hemisphere (Analogous areas)", "Cerebellum", "Basal Ganglia"], a: "Non-dominant Hemisphere (Analogous areas)", e: "The right (non-dominant) hemisphere is generally responsible for the emotional and melodic aspects of language (prosody), while the left is for content." },
-                    { q: "Which cranial nerve lesion is often characterized by extreme, episodic paroxysmal pain in the distribution of its sensory branches?", c: ["CN IX Palsy", "Bell's Palsy", "Trigeminal Neuralgia", "Glossopharyngeal Neuropathy"], a: "Trigeminal Neuralgia", e: "This is a painful condition of unknown etiology affecting the sensory distribution of the Trigeminal Nerve (CN V)." },
-                    { q: "Damage to the Caudal Midbrain involving the Decussation of the Superior Cerebellar Peduncles would primarily cause:", c: ["Ipsilateral Ataxia", "Contralateral Ataxia", "Paralysis of the Face", "Bilateral Lower Limb Paresis"], a: "Contralateral Ataxia", e: "The Superior Cerebellar Peduncles carry efferent fibers that cross the midline here. Damage above this decussation causes ipsilateral ataxia (standard cerebellar rule), but damage at the decussation or to the descending pathways below it often results in contralateral cerebellar signs." },
-                    { q: "A compression of the Vagus Nerve (CN X) on the right side in the neck would cause the uvula to deviate to which side upon saying 'Ah'?", c: ["Right (Ipsilateral)", "Left (Contralateral)", "No deviation", "Upwards"], a: "Left (Contralateral)", e: "The Vagus nerve controls the muscles that elevate the palate. If the right side is paralyzed, the left-sided muscles pull the uvula toward the healthy (contralateral) side." },
-                    { q: "The presence of Kernig's Sign (inability to extend the knee when the hip is flexed) is a sign of irritation of the:", c: ["Sciatic Nerve", "Meninges and Nerve Roots", "Spinal Cord Proper", "Lumbar Plexus"], a: "Meninges and Nerve Roots", e: "This sign, along with Brudzinski's sign, indicates meningeal irritation, classically seen in meningitis or subarachnoid hemorrhage." },
-                    { q: "A lesion in the Ventral Horns of the spinal cord (e.g., Polio) causes which type of motor neuron damage?", c: ["Upper Motor Neuron (UMN)", "Lower Motor Neuron (LMN)", "Sensory Neuron", "Autonomic Neuron"], a: "Lower Motor Neuron (LMN)", e: "The anterior horn cells are the cell bodies of the LMNs. Damage results in flaccid paralysis, atrophy, and hyporeflexia." },
-                    { q: "The Internal Capsule is a common site for lacunar strokes. Damage to the Anterior Limb is most likely to affect fibers connecting the thalamus and:", c: ["Motor Cortex", "Basal Ganglia", "Prefrontal Cortex", "Parietal Lobe"], a: "Prefrontal Cortex", e: "The anterior limb contains the anterior thalamic radiations, linking the thalamus to the prefrontal cortex, often causing mood and cognitive changes." },
-                    { q: "Loss of consciousness due to a concussion is often attributed to temporary dysfunction of the:", c: ["Cerebellum", "Dorsal Columns", "Reticular Activating System (RAS)", "Medial Lemniscus"], a: "Reticular Activating System (RAS)", e: "The RAS, centered in the brainstem tegmentum, is responsible for maintaining consciousness and arousal." }
-                ],
-                "Hard": [
-                    { q: "A patient presents with Alternating Hypoglossal Hemiplegia (Medial Medullary Syndrome) due to an infarct of the paramedian branches of the vertebral or anterior spinal arteries. The lesion affects which structures?", c: ["Nucleus Ambiguus and Spinothalamic Tract", "Pyramid and CN VII Nucleus", "Pyramid and Hypoglossal Nerve (CN XII)", "Inferior Olive and Nucleus Ambiguus"], a: "Pyramid and Hypoglossal Nerve (CN XII)", e: "The medial medulla contains the Pyramid (contralateral hemiplegia) and the CN XII nerve rootlets/nucleus (ipsilateral tongue paralysis)." },
-                    { q: "In Wallerian Degeneration, the anatomical changes following axonal injury are characterized by degeneration of the axon distal to the injury site. In the dorsal columns of the spinal cord, this would be seen:", c: ["Descending from the DRG", "Ascending from the DRG", "Only at the cell body", "Only at the synapse"], a: "Ascending from the DRG", e: "Dorsal root ganglion (DRG) cells are pseudounipolar. Damage to the peripheral process causes degeneration distally. Damage to the central process (entering the spinal cord) causes degeneration of the ascending tract (dorsal columns) up to the nucleus of termination." },
-                    { q: "A posterior fossa tumor is causing compression of the Superior Cerebellar Peduncle after its decussation. This will likely cause a motor sign (ataxia) on which side of the body?", c: ["Ipsilateral to the tumor", "Contralateral to the tumor", "Bilateral", "No effect on motor control"], a: "Ipsilateral to the tumor", e: "The superior peduncle fibers decussate in the midbrain. Damage before the decussation (cerebellum) causes ipsilateral ataxia. Damage after the decussation (e.g., to the descending fibers in the midbrain/red nucleus) causes contralateral deficits, which ultimately manifest as ipsilateral signs due to subsequent motor pathway crossing (e.g., corticospinal)." },
-                    { q: "A patient with a history of hypertension and a lacunar stroke presents with Pure Motor Hemiparesis. The most likely site of the lesion is the:", c: ["Thalamus", "Caudate Nucleus", "Posterior Limb of the Internal Capsule", "Pons Tegmentum"], a: "Posterior Limb of the Internal Capsule", e: "This structure is a packed bundle of corticospinal and corticobulbar fibers, and a small stroke here can selectively wipe out motor function without affecting sensation or vision." },
-                    { q: "Occlusion of the Anterior Inferior Cerebellar Artery (AICA) in the caudal pons would most classically affect the function of which cranial nerve, in addition to vestibular and cerebellar signs?", c: ["CN III", "CN V (Motor)", "CN VI (Abducens)", "CN VII (Facial)"], a: "CN VII (Facial)", e: "AICA supplies the lateral caudal pons, affecting the vestibular nuclei, spinocerebellar tracts, spinal trigeminal tract, and often the CN VII nucleus/nerve, leading to ipsilateral facial paralysis (Millard-Gubler or similar lateral pontine syndromes)." },
-                    { q: "The syndrome of Locked-in Syndrome results from bilateral infarction of the Ventral Pons. Which structures are characteristically spared, allowing vertical eye movement and blinking?", c: ["Medial Lemniscus and Corticospinal Tracts", "Cranial Nerves IX, X, XII", "Oculomotor/Trochlear Nuclei and Reticular Formation", "CN III, IV, and the Midbrain tegmentum"], a: "CN III, IV, and the Midbrain tegmentum", e: "The lesion destroys the descending motor tracts (pyramidal) and lower brainstem nuclei (CN V-XII) in the base of the pons. The Midbrain (containing CN III/IV nuclei and the MLF for vertical gaze) is spared." },
-                    { q: "A high cervical lesion involving the Spinal Trigeminal Tract and Nucleus (e.g., Syringomyelia extension) would cause loss of pain/temp sensation where?", c: ["Contralateral side of the body", "Ipsilateral side of the face", "Contralateral side of the face", "Bilateral upper limbs"], a: "Ipsilateral side of the face", e: "This nucleus/tract carries pain/temp from the face (CN V, IX, X) and is ipsilateral to the lesion, causing the classic 'onion-skin' pattern of facial sensory loss." },
-                    { q: "The Anterior Spinal Artery Syndrome is characterized by flaccid paralysis at the lesion level (due to LMN damage) and spastic paralysis below the lesion level (due to UMN damage). Which structure is spared?", c: ["Posterior Funiculus (Dorsal Columns)", "Anterior Horn Cells", "Lateral Corticospinal Tract", "Lateral Spinothalamic Tract"], a: "Posterior Funiculus (Dorsal Columns)", e: "The posterior funiculus is in the vascular territory of the posterior spinal arteries, which are usually unaffected by anterior spinal artery occlusion." },
-                    { q: "A dural tear during surgery could lead to a CSF leak. If this continues, it can result in a severe positional headache due to:", c: ["Increased intracranial pressure (ICP)", "Decreased intracranial pressure (ICP)", "Compression of the Cranial Nerves", "Irritation of the Superior Sagittal Sinus"], a: "Decreased intracranial pressure (ICP)", e: "Loss of CSF causes the brain to sag (suck downward), stretching the pain-sensitive dura and cranial nerves, leading to orthostatic (positional) headache." },
-                    { q: "The classic presentation of Horner's Syndrome (ptosis, miosis, anhydrosis) following spinal cord injury is caused by disruption of which descending pathway?", c: ["Corticospinal Tract", "Rubrospinal Tract", "Hypothalamospinal Tract", "Tectospinal Tract"], a: "Hypothalamospinal Tract", e: "This is a descending autonomic (sympathetic) pathway originating in the hypothalamus, passing through the brainstem and lateral spinal cord (to T1-L2), which controls the head and neck sympathetic function." },
-                    { q: "A deep lesion in the pons affecting both the Medial Lemniscus and the Spinothalamic Tract would cause sensory loss on the:", c: ["Contralateral side of the body for all modalities", "Ipsilateral side of the body for all modalities", "Ipsilateral for fine touch, contralateral for pain/temp", "Contralateral for fine touch, ipsilateral for pain/temp"], a: "Contralateral side of the body for all modalities", e: "Both tracts have crossed the midline (ML in medulla, ST in spinal cord) before reaching the pons, so damage affects all ascending sensation from the contralateral side of the body." },
-                    { q: "What is the clinical significance of the Filum Terminale Internum? (Hint: It anchors the cord)", c: ["Connects the cerebellum to the spinal cord", "Anchors the conus medullaris to the coccyx", "Anchors the conus medullaris to the dural sac at S2", "Protects the Cauda Equina"], a: "Anchors the conus medullaris to the dural sac at S2", e: "It is a pial extension that pierces the dura at S2 to form the Filum Terminale Externum, which continues to the coccyx. The internal part anchors it within the dural sac." },
-                    { q: "A patient with Locked-in Syndrome can communicate using only vertical eye movements. This is possible because the nuclei for vertical gaze (CN III, IV) are located in the Midbrain, which receives blood supply primarily from the:", c: ["Anterior Cerebral Arteries", "Middle Cerebral Arterial", "Posterior Cerebral Arteries", "Vertebral Arteries"], a: "Posterior Cerebral Arteries", e: "The base of the pons (site of damage) is supplied by the Basilar Artery. The midbrain (spared) is supplied by the PCA and Superior Cerebellar Artery (SCA)." },
-                    { q: "A compression of the Oculomotor Nerve (CN III) that spares the pupil-constricting fibers is often indicative of a microvascular Ischemic lesion (e.g., Diabetes) because:", c: ["Ischemia affects the outer nerve fibers first", "The parasympathetic fibers are located peripherally", "The motor fibers are located peripherally", "The motor fibers are deeper within the nerve bundle and thus more vulnerable"], a: "The parasympathetic fibers are located peripherally", e: "The parasympathetic (pupil) fibers run on the surface of the nerve and are supplied by pial blood vessels, making them less susceptible to central core ischemia, while the motor fibers (deeper) are more vulnerable." },
-                    { q: "The Lissauer's Tract (Dorsolateral Fasciculus) is formed by fibers from the Posterior Root Ganglion that ascend/descend a few segments before synapsing. What is their primary function?", c: ["Motor coordination", "Reflex arc for stretch reflexes", "Pain and temperature transmission", "Conscious proprioception"], a: "Pain and temperature transmission", e: "Small-diameter, unmyelinated fibers carrying pain and temperature enter the cord and travel up/down in Lissauer's tract before synapsing in the Posterior Horn (Laminae I, II, V)." },
-                    { q: "In Syringomyelia, the early loss of pain and temperature (dissociated sensory loss) in a cape-like distribution is often described as occurring without a loss of fine touch and proprioception because:", c: ["Pain fibers have a separate pathway in the dorsal horn", "Dorsal columns are located peripherally and are spared", "Spinothalamic fibers have thicker myelin", "The lesion only affects LMNs"], a: "Dorsal columns are located peripherally and are spared", e: "The Dorsal Columns (fine touch, proprioception) travel in the posterior funiculus, far from the central syrinx, while the crossing spinothalamic fibers are in the central commissure, making them vulnerable." },
-                    { q: "A posterior fossa tumor compressing the Inferior Cerebellar Peduncle would cause signs of ataxia and disequilibrium on which side?", c: ["Ipsilateral (Same Side)", "Contralateral (Opposite Side)", "Bilateral", "No effect"], a: "Ipsilateral (Same Side)", e: "The inferior peduncle is primarily an afferent pathway, and its functional disruption leads to typical ipsilateral cerebellar signs." },
-                    { q: "A patient with Aphasia (language deficit) due to stroke involving Wernicke's Area would present with what type of language deficit?", c: ["Non-fluent speech, but comprehension is intact", "Fluent but nonsensical speech (word salad), with poor comprehension", "Inability to repeat spoken words, but fluency and comprehension is intact", "Inability to name objects (Anomia) only"], a: "Fluent but nonsensical speech (word salad), with poor comprehension", e: "Wernicke's area is the receptive language center. Damage causes fluent, but meaningless speech (lack of content) and poor understanding." },
-                    { q: "An Epidural Hematoma is most often rapidly progressive and life-threatening because the Middle Meningeal Artery is a high-pressure, Arterial vessel. The hematoma exerts pressure on the brain by dissecting the:", c: ["Pia Mater away from the brain", "Arachnoid Mater away from the Dura", "Dura Mater away from the Inner Skull", "Bone away from the Periosteum"], a: "Dura Mater away from the Inner Skull", e: "The dura mater is tightly attached to the skull, and the arterial pressure separates it from the bone, creating a space for the hematoma to rapidly expand." },
-                    { q: "In the Medulla, a lesion that damages the Medial Lemniscus and the Inferior Olivary Nucleus while sparing the pyramids would most likely be caused by an infarct in the territory of the:", c: ["PICA", "Anterior Spinal Artery (Upper)", "Posterior Spinal Artery", "AICA"], a: "Anterior Spinal Artery (Upper)", e: "The Medial Medullary Syndrome (ASAS) affects the medial structures: ML, Pyramids, and CN XII. While the Inferior Olive is usually more lateral, its medial projections (olivo-cerebellar fibers) can be affected by the medial supply." }
-                ]
+            Inflammation: {
+                // Image URL for Inflammation icon (Increased size to w-10 h-10)
+                icon: '<img src="https://i.imgur.com/8FRJAjp.png" class="w-10 h-10 object-contain" alt="Inflammation Icon">',
+                totalSubjects: 5,
+                subjects: ["IMMUNOLOGY", "MICROBIOLOGY", "BIOCHEMISTRY", "GENETICS", "THERAPEUTICS"]
             }
         };
 
-        // --- 3) NEW: Function to recursively process quiz data and remove '*' ---
-        function cleanQuizData(data) {
-            if (typeof data === 'string') {
-                return data.replace(/\*/g, ''); // Remove all asterisks
+        // --- State for filtering ---
+        let filteredModuleData = MODULE_DATA;
+
+        // --- UI Rendering Functions ---
+
+        /**
+         * Shows a custom, non-blocking modal message (replaces alert/confirm).
+         * @param {string} title
+         * @param {string} message
+         */
+        function showMessage(title, message) {
+            const modal = document.getElementById('message-modal');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            modal.classList.remove('hidden');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, MESSAGE_DURATION);
+        }
+
+        /**
+         * Handler for bottom navigation items without dedicated views.
+         * @param {string} name
+         */
+        function showPlaceholder(name) {
+            showMessage(name, `The "${name}" section is under development! Stay tuned for practice tests and study tools.`);
+        }
+
+        /**
+         * Filters the MODULE_DATA based on a query.
+         * Checks module name and subject names.
+         * @param {string} query
+         * @returns {object} Filtered module data
+         */
+        function filterModules(query) {
+            const normalizedQuery = query.toLowerCase().trim();
+            if (normalizedQuery === '') {
+                return MODULE_DATA;
             }
-            if (Array.isArray(data)) {
-                return data.map(cleanQuizData);
-            }
-            if (typeof data === 'object' && data !== null) {
-                const cleaned = {};
-                for (const key in data) {
-                    if (Object.hasOwnProperty.call(data, key)) {
-                        cleaned[key] = cleanQuizData(data[key]);
-                    }
+
+            const results = {};
+            for (const moduleName in MODULE_DATA) {
+                const module = MODULE_DATA[moduleName];
+
+                // 1. Check if module name matches
+                if (moduleName.toLowerCase().includes(normalizedQuery)) {
+                    results[moduleName] = module;
+                    continue;
                 }
-                return cleaned;
-            }
-            return data;
-        }
-        
-        // Clean the master quiz data immediately upon loading the script
-        const cleanedQuizDataStructure = cleanQuizData(quizDataStructure);
 
-        // Pre-process data to add metadata to each question
-        const allQuestions = [];
-        for (const section in cleanedQuizDataStructure) {
-            for (const difficulty in cleanedQuizDataStructure[section]) {
-                cleanedQuizDataStructure[section][difficulty].forEach(q => {
-                    allQuestions.push({
-                        ...q,
-                        meta: { section, difficulty }
-                    });
-                });
-            }
-        }
+                // 2. Check if any subject name matches
+                const subjectMatch = module.subjects.some(subject =>
+                    subject.toLowerCase().includes(normalizedQuery)
+                );
 
-        // --- GLOBAL STATE (Same as original) ---
-        const state = {
-            currentMode: "", // e.g., 'Easy', 'Conceptual MCQs'
-            currentQuizSet: [],
-            currentQIndex: 0,
-            score: 0,
-            userAnswers: {} // Stores { questionKey: selectedChoice }
-        };
-
-        // --- UTILITY FUNCTIONS (Same as original) ---
-
-        /**
-         * Generates a unique key for the current question to store answers.
-         * @returns {string} Unique key.
-         */
-        function getCurrentQuestionKey() {
-            const q = state.currentQuizSet[state.currentQIndex];
-            if (!q) return null;
-            return `${q.meta.section}_${q.meta.difficulty}_${state.currentQIndex}`;
-        }
-
-        /**
-         * Shows the requested screen and hides all others.
-         * @param {string} screenId - 'selection-screen', 'quiz-screen', or 'finish-screen'
-         */
-        function showScreen(screenId) {
-            document.getElementById('selection-screen').classList.add('hidden');
-            document.getElementById('quiz-screen').classList.add('hidden');
-            document.getElementById('finish-screen').classList.add('hidden');
-            
-            const topNav = document.querySelector('.top-nav');
-            const floatingHomeBtn = document.getElementById('floating-home-button');
-
-            // The nav bar disappears when the quiz is active, and the floating home button appears.
-            if (screenId === 'selection-screen') {
-                // Show the main nav bar and branding on selection screen
-                topNav.classList.remove('hidden');
-                floatingHomeBtn.classList.add('hidden');
-            } else {
-                // Hide the main nav bar and show the floating home button on quiz/finish screens
-                topNav.classList.add('hidden');
-                floatingHomeBtn.classList.remove('hidden');
-            }
-
-            document.getElementById(screenId).classList.remove('hidden');
-        }
-
-        /**
-         * Prepares the quiz set based on the user's selected mode.
-         * @param {string} mode - The filter string (e.g., 'Easy', 'Conceptual MCQs').
-         */
-        function prepareQuiz(mode) {
-            state.currentMode = mode;
-            state.userAnswers = {};
-            state.score = 0;
-            state.currentQIndex = 0;
-
-            let filteredSet = [];
-            const difficultyModes = ['Easy', 'Medium', 'Hard'];
-            const sectionModes = ['Conceptual MCQs', 'Clinical Scenario MCQs'];
-
-            if (difficultyModes.includes(mode)) {
-                // Filter by Difficulty
-                for (const section in cleanedQuizDataStructure) {
-                    filteredSet.push(...cleanedQuizDataStructure[section][mode]);
+                if (subjectMatch) {
+                    results[moduleName] = module;
                 }
-                document.getElementById('quiz-title').textContent = `${mode} Questions (All Sections)`;
-            } else if (sectionModes.includes(mode)) {
-                // Filter by Section
-                for (const difficulty in cleanedQuizDataStructure[mode]) {
-                    filteredSet.push(...cleanedQuizDataStructure[mode][difficulty]);
-                }
-                document.getElementById('quiz-title').textContent = `${mode} (All Difficulties)`;
-            } else {
-                // Should not happen, but fallback to All Questions
-                filteredSet = allQuestions;
-                document.getElementById('quiz-title').textContent = `All ${allQuestions.length} Questions`;
             }
-            
-            // The metadata should already be correct from the initial `allQuestions` setup, but a minor check for safety
-            filteredSet = filteredSet.map(q => ({
-                ...q,
-                meta: q.meta || { section: 'Unknown', difficulty: 'Unknown' } // Ensures metadata is present
-            }));
-
-            state.currentQuizSet = filteredSet;
-            startQuiz();
+            return results;
         }
 
         /**
-         * Initializes the quiz setup after selection.
+         * Handles the search input event, updates filtered data, and re-renders the module list section.
+         * @param {string} query
          */
-        function startQuiz() {
-            if (state.currentQuizSet.length === 0) {
-                console.error("Quiz set is empty.");
-                showScreen('selection-screen');
-                return;
+        function handleSearch(query) {
+            filteredModuleData = filterModules(query);
+
+            // Get the container where the cards are
+            const moduleContainer = document.getElementById('module-list-container');
+            if (moduleContainer) {
+                // Instantly update the list content
+                moduleContainer.innerHTML = generateModuleCards(filteredModuleData);
             }
-            
-            showScreen('quiz-screen');
-            renderQuestion();
         }
 
 
-        // --- RENDER AND EVENT HANDLING (Same as original logic) ---
-
         /**
-         * Renders the current state to the UI.
+         * Generates the HTML for the module cards based on provided data.
+         * @param {object} data - The module data object to render (e.g., filtered data).
+         * @returns {string} HTML string
          */
-        function renderQuestion() {
-            const currentQ = state.currentQuizSet[state.currentQIndex];
-            if (!currentQ) {
-                showFinishScreen();
-                return;
+        function generateModuleCards(data) {
+            let html = '';
+            const modulesToRender = Object.keys(data);
+
+            if (modulesToRender.length === 0) {
+                 return `
+                    <div class="p-6 text-center bg-gray-100 rounded-xl mt-6 border border-gray-200">
+                        <p class="text-lg text-[#5B2C6F] font-semibold">No modules or subjects matched your search.</p>
+                        <p class="text-sm text-gray-500 mt-2">Try searching for a subject like "Pharmacology" or "Immunology".</p>
+                    </div>
+                 `;
             }
 
-            const key = getCurrentQuestionKey();
-            const userAnswer = state.userAnswers[key];
+            modulesToRender.forEach(moduleName => {
+                const module = data[moduleName];
+                const totalCount = module.totalSubjects;
 
-            // 1. Update Header
-            document.getElementById('quiz-title').textContent = `${state.currentMode} | Q: ${currentQ.meta.section.replace(' MCQs', '')} - ${currentQ.meta.difficulty}`;
-
-            // Update Score & Progress
-            const total = state.currentQuizSet.length;
-            const answeredCount = Object.keys(state.userAnswers).filter(k => 
-                state.currentQuizSet.some((q, i) => `${q.meta.section}_${q.meta.difficulty}_${i}` === k)
-            ).length;
-            
-            // Recalculate score based on current answers in case of navigation
-            let calculatedScore = 0;
-            state.currentQuizSet.forEach((q, i) => {
-                const qKey = `${q.meta.section}_${q.meta.difficulty}_${i}`;
-                if (state.userAnswers[qKey] === q.a) {
-                    calculatedScore++;
-                }
+                html += `
+                    <div onclick="renderApp('module', '${moduleName}')"
+                         class="bg-white p-5 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:-translate-y-0.5 cursor-pointer border-2 border-transparent hover:border-[#C39BD3]">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <!-- Module Icon Wrapper -->
+                                <div class="mr-4 flex items-center justify-center">
+                                    ${module.icon}
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-[#5B2C6F]">${moduleName}</h3>
+                                    <p class="text-sm text-gray-500 mt-0.5">${totalCount} Subjects available</p>
+                                </div>
+                            </div>
+                            <!-- Arrow Icon -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B2C6F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60"><path d="m9 18 6-6-6-6"/></svg>
+                        </div>
+                    </div>
+                `;
             });
-            state.score = calculatedScore; // Update the global score state
+            return html;
+        }
 
-            document.getElementById('score-text').textContent = `Score: ${state.score}/${answeredCount}`;
-            document.getElementById('question-number').textContent = `Question ${state.currentQIndex + 1} of ${total}`;
-            const progress = ((state.currentQIndex + 1) / total) * 100;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
+        /**
+         * Renders the subject list for a selected module.
+         * @param {string} moduleName
+         * @returns {string} HTML string
+         */
+        function generateSubjectCards(moduleName) {
+            const moduleInfo = MODULE_DATA[moduleName];
+            if (!moduleInfo) return `<div class="p-6 text-center text-red-500">Module not found.</div>`;
 
+            let html = '';
 
-            // 2. Update Question Text
-            document.getElementById('question-text').textContent = currentQ.q;
+            html += `
+                <!-- Module Header using Primary Purple and Vibrant Yellow -->
+                <div class="bg-[#5B2C6F] text-white p-6 rounded-b-xl shadow-app mb-6">
+                    <button onclick="renderApp('home')" class="text-[#F4D03F] hover:text-yellow-300 flex items-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        <span class="ml-1 text-sm font-medium">Back to Modules</span>
+                    </button>
+                    <h1 class="text-3xl font-extrabold text-[#F4D03F]">${moduleName}</h1>
+                    <p class="text-purple-100 mt-1">Select a subject to start practicing MCQs.</p>
+                </div>
+                <div class="p-4 space-y-3">
+            `;
+
+            moduleInfo.subjects.forEach(subject => {
+                const buttonClass = 'bg-[#F4D03F] hover:bg-yellow-500';
+
+                html += `
+                    <!-- Subject Card using Soft Lavender Accent -->
+                    <div class="p-4 rounded-xl shadow-md bg-white border-l-4 border-[#C39BD3] transition duration-200 hover:shadow-lg">
+                        <h4 class="text-lg font-semibold text-[#5B2C6F]">${subject}</h4>
+                        <p class="text-sm text-gray-600 mt-1">Ready to Start - 5 Quizzes available</p>
+
+                        <div class="flex items-center justify-between mt-3">
+                            <button onclick="showMessage('${subject} Quizzes', 'Static Placeholder: Launching Quiz 1 for ${subject}.')"
+                                    class="px-4 py-2 text-sm font-bold rounded-lg text-[#5B2C6F] ${buttonClass} transition duration-200">
+                                START QUIZ
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            return html;
+        }
+
+        /**
+         * Renders the home page content.
+         * @returns {string} HTML string
+         */
+        function renderHomeView() {
+            // Ensure the initial state is set to all modules when rendering home
+            filteredModuleData = MODULE_DATA;
             
-            // 3. Update Choices
-            const choicesContainer = document.getElementById('choices-container');
-            choicesContainer.innerHTML = '';
-            
-            const isAnswered = !!userAnswer;
-
-            currentQ.c.forEach(choice => {
-                const button = document.createElement('button');
-                button.textContent = choice;
-                button.classList.add('choice-btn', 'w-full', 'p-4', 'text-left', 'border', 'rounded-lg', 'font-medium', 'focus:outline-none', 'shadow-md');
-                button.dataset.choice = choice;
-                button.disabled = isAnswered;
-                button.addEventListener('click', handleChoiceClick);
+            return `
+                <!-- Hero Section / Welcome Banner (Deep Purple and Vibrant Yellow) -->
+                <div class="hero-gradient text-white p-6 rounded-b-xl shadow-app">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h1 class="text-xl font-bold tracking-widest text-[#F4D03F]">MEDIQUIZ</h1>
+                            <h2 class="text-3xl font-extrabold mt-1 text-white">Block 6 MCQ Practice</h2>
+                        </div>
+                        <!-- Logo Insertion - UPDATED to w-40 h-40 (2x bigger) and removed shadow -->
+                        <img src="https://i.imgur.com/zkN7fp9.png" class="w-40 h-40 object-contain" alt="MEDIQUIZ Logo">
+                    </div>
+                    <p class="mt-1 text-[#C39BD3]">
+                        Welcome! Master Block 6 MCQs in Minutes.
+                    </p>
+                </div>
                 
-                // If already answered, apply feedback styles
-                if (isAnswered) {
-                    if (choice === currentQ.a) {
-                        button.classList.add('correct');
-                    }
-                    if (choice === userAnswer && choice !== currentQ.a) {
-                        button.classList.add('incorrect');
-                    }
-                }
+                <div class="p-4">
+                    <!-- Functional Search Bar -->
+                    <div class="-mt-8 mb-6 relative">
+                        <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="Search topics, keywords, or subjects..."
+                               class="w-full py-3 pl-12 pr-4 text-gray-700 bg-white border border-gray-200 rounded-xl shadow-lg focus:outline-none focus:border-[#5B2C6F] focus:ring-1 focus:ring-[#5B2C6F]">
+                        <!-- Search Icon -->
+                        <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </div>
 
-                choicesContainer.appendChild(button);
-            });
+                    <!-- Module Cards Container -->
+                    <h3 class="text-xl font-bold text-gray-700 mb-4 mt-6">Available Modules</h3>
+                    <div class="space-y-3" id="module-list-container">
+                        ${generateModuleCards(filteredModuleData)}
+                    </div>
 
-            // 4. Update Explanation & Navigation Buttons
-            const explanationBox = document.getElementById('explanation-box');
-            const nextButton = document.getElementById('next-button');
-            const prevButton = document.getElementById('prev-button');
+                    <!-- Featured Section / Announcements -->
+                    <div class="mt-8 p-4 bg-[#C39BD3]/20 border-l-4 border-[#5B2C6F] rounded-lg shadow-inner">
+                        <p class="text-sm font-semibold text-[#5B2C6F]">
+                            <span class="font-extrabold mr-1 text-[#F4D03F]">⭐ Update:</span> New MCQs added for Neurosciences. Dive in and secure your knowledge!
+                        </p>
+                    </div>
 
-            if (isAnswered) {
-                explanationBox.classList.remove('hidden');
-                document.getElementById('explanation-text').textContent = currentQ.e;
-                nextButton.disabled = false;
-            } else {
-                explanationBox.classList.add('hidden');
-                document.getElementById('explanation-text').textContent = '';
-                nextButton.disabled = true;
-            }
-            
-            // Navigation
-            prevButton.disabled = state.currentQIndex === 0;
-            
-            if (state.currentQIndex === state.currentQuizSet.length - 1) {
-                nextButton.textContent = isAnswered ? 'Finish Quiz' : 'Answer to Finish →';
-            } else {
-                nextButton.textContent = 'Next Question →';
-            }
+                </div>
+
+                <!-- Footer / Extra Info -->
+                <footer class="p-6 text-center text-xs text-gray-400">
+                    <p>Created by ModMedicalis for dedicated Block 6 preparation.</p>
+                    <p class="mt-1">&copy; 2024 MEDIQUIZ. All rights reserved.</p>
+                </footer>
+            `;
         }
+
 
         /**
-         * Handles choice selection, provides instant feedback, and updates state.
-         * @param {Event} event
+         * Main function to control view rendering.
+         * Simplified as progress loading is removed.
+         * @param {string} view - The view to render ('home' or 'module').
+         * @param {string} [moduleName] - Required if view is 'module'.
          */
-        function handleChoiceClick(event) {
-            const selectedChoice = event.target.dataset.choice;
-            const currentQ = state.currentQuizSet[state.currentQIndex];
-            const key = getCurrentQuestionKey();
+        function renderApp(view, moduleName = '') {
+            currentView = view;
+            currentModule = moduleName;
+            let contentHTML = '';
 
-            if (state.userAnswers[key]) return; // Already answered
-
-            // 1. Record Answer and Update Score
-            state.userAnswers[key] = selectedChoice;
-            const isCorrect = selectedChoice === currentQ.a;
-            
-            // Score is updated in renderQuestion, but update immediately for responsiveness
-            if (isCorrect) {
-                state.score++;
+            switch (view) {
+                case 'home':
+                    contentHTML = renderHomeView();
+                    break;
+                case 'module':
+                    contentHTML = generateSubjectCards(moduleName);
+                    break;
+                default:
+                    contentHTML = `<div class="p-6 text-center text-red-500">Error: Unknown view.</div>`;
             }
-            
-            // 2. Apply Instant Feedback Styles
-            document.querySelectorAll('#choices-container button').forEach(btn => {
-                btn.disabled = true; // Disable all buttons
-                const choice = btn.dataset.choice;
-                if (choice === currentQ.a) {
-                    btn.classList.add('correct');
-                }
-                if (choice === selectedChoice && !isCorrect) {
-                    btn.classList.add('incorrect');
-                }
-                btn.classList.remove('hover:bg-gray-50'); // Remove hover effect after answering
-            });
 
-            // 3. Show Explanation and Enable Next
-            document.getElementById('explanation-text').textContent = currentQ.e;
-            document.getElementById('explanation-box').classList.remove('hidden');
-            document.getElementById('next-button').disabled = false;
-
-            // Re-render score/progress
-            renderQuestion();
+            // Apply transition effects for smoother view change
+            appDiv.style.opacity = '0';
+            setTimeout(() => {
+                appDiv.innerHTML = contentHTML;
+                appDiv.scrollTop = 0; // Scroll to top on new view
+                appDiv.style.transition = 'opacity 0.3s ease-in-out';
+                appDiv.style.opacity = '1';
+            }, 100);
         }
 
-        /**
-         * Event handler for the Next button.
-         */
-        function handleNextClick() {
-            if (state.currentQIndex < state.currentQuizSet.length - 1) {
-                state.currentQIndex++;
-                renderQuestion();
-            } else if (state.currentQIndex === state.currentQuizSet.length - 1 && state.userAnswers[getCurrentQuestionKey()]) {
-                showFinishScreen();
-            }
-        }
-
-        /**
-         * Event handler for the Previous button.
-         */
-        function handlePrevClick() {
-            if (state.currentQIndex > 0) {
-                state.currentQIndex--;
-                renderQuestion();
-            }
-        }
-
-        /**
-         * Displays the final score and completion screen.
-         */
-        function showFinishScreen() {
-            document.getElementById('final-score').textContent = `${state.score}/${state.currentQuizSet.length}`;
-            showScreen('finish-screen');
-        }
-
-        // --- INITIALIZATION ---
-        document.getElementById('next-button').addEventListener('click', handleNextClick);
-        document.getElementById('prev-button').addEventListener('click', handlePrevClick);
-
+        // Initialize the app on load
         window.onload = () => {
-             // Start on the selection screen
-             showScreen('selection-screen');
+            renderApp('home');
         };
     </script>
 </body>
 </html>
+
