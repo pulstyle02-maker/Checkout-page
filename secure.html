@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protected Notes (Anti-Screenshot Demo)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ensures the background noise canvas is always on top of the content for the screenshot to capture */
+        #scrambleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 50; /* High enough to cover content for screenshots */
+            pointer-events: none; /* Allows clicks to pass through to the notes content */
+            display: block;
+            opacity: 0.35; /* *** NEW KEY CHANGE: Increased Opacity (was 0.25) for more disruption *** */
+        }
+        /* Hide text selection for a more "protected" feel */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        /* Custom scrollbar styling for the notes area */
+        #notes::-webkit-scrollbar {
+            width: 8px;
+        }
+        #notes::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 4px;
+        }
+        #notes::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 font-inter text-gray-200" oncontextmenu="return false;">
+
+    <!-- Scrambling Canvas Overlay -->
+    <canvas id="scrambleCanvas"></canvas>
+
+    <!-- Notes Container (Visual Content) -->
+    <div id="notes" class="relative w-full h-screen overflow-y-scroll p-4 sm:p-8 md:p-12 z-10 no-select">
+        
+        <!-- Header and Toggle Button -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-4 border-b border-gray-700">
+            <h1 class="text-4xl font-extrabold text-red-400 mb-4 sm:mb-0">Protected Document (RAF Edition)</h1>
+            <button id="toggleButton" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition duration-200 shadow-md shadow-red-900/50 transform hover:scale-[1.02]">
+                Noise ON (Active)
+            </button>
+        </div>
+
+        <div class="max-w-4xl mx-auto">
+            <p class="text-lg mb-6 leading-relaxed bg-gray-800 p-4 rounded-lg border border-gray-700">
+                ⚠️ **ANTI-SCREENSHOT DEMO:** We are now using the high-precision **`requestAnimationFrame`** for noise updates. This ensures the noise layer redraws synchronized with your display's refresh cycle. **Try taking a screenshot now**—the captured image should be significantly darker and disrupted.
+            </p>
+
+            <h2 class="text-3xl font-semibold mt-10 mb-4 text-red-300">Section I: Theoretical Obfuscation</h2>
+            <p class="mb-4">
+                The method now relies on `requestAnimationFrame` for synchronization. This is often more effective than `setInterval` because it guarantees the noise is drawn *just before* the browser paints the next visible frame, giving the screenshot tool no clean interval to capture.
+            </p>
+
+            <h2 class="text-3xl font-semibold mt-8 mb-4 text-red-300">Section II: Content Placeholder</h2>
+            <p class="mb-4">
+                This area serves as the primary document content. You could embed a full e-book, sensitive internal notes, or proprietary code documentation here. The combination of the noise layer, right-click disabling, and text selection prevention provides layered deterrence against simple content extraction.
+            </p>
+            <ul class="list-disc list-inside space-y-2 ml-4 mb-8">
+                <li><strong class="text-red-300">Layer 1:</strong> High-frequency Canvas Noise (Anti-Screenshot) using `requestAnimationFrame`.</li>
+                <li><strong class="text-red-300">Layer 2:</strong> `contextmenu` Prevention (Disables Right-Click/Inspect/Save).</li>
+                <li><strong class="text-red-300">Layer 3:</strong> `user-select: none` (Disables Text Copy/Highlighting).</li>
+            </ul>
+
+            <h2 class="text-3xl font-semibold mt-8 mb-4 text-red-300">Section III: Next Steps</h2>
+            <p class="mb-12">
+                If this still fails, the next steps involve utilizing specialized techniques like CSS-based mixed-blending or using browser-specific APIs (if available) to detect capture events, though the latter is often restricted for security.
+            </p>
+        </div>
+    </div>
+
+<script>
+    // --- Application State and Initialization ---
+    const canvas = document.getElementById("scrambleCanvas");
+    const ctx = canvas.getContext("2d");
+    const toggleButton = document.getElementById("toggleButton");
+    let isNoiseActive = true;
+    let animationFrameId = null; // Changed from noiseIntervalId to handle RAF
+
+    /**
+     * Resizes the canvas to match the window dimensions.
+     */
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    /**
+     * Draws a random grayscale noise pattern across the canvas.
+     */
+    function drawNoise() {
+        const w = canvas.width;
+        const h = canvas.height;
+        // *** NEW KEY CHANGE: Increased the maximum shade value for darker captured noise ***
+        const darknessLimit = 50; 
+        
+        const imageData = ctx.createImageData(w, h);
+        // Optimize pixel manipulation using Uint32Array buffer
+        const buffer = new Uint32Array(imageData.data.buffer);
+
+        for (let i = 0; i < buffer.length; i++) {
+            // Random grayscale noise
+            const shade = Math.floor(Math.random() * darknessLimit);
+            // ARGB format: A (255 fully opaque) | R | G | B
+            buffer[i] = (255 << 24) | (shade << 16) | (shade << 8) | shade;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    /**
+     * The main animation loop using requestAnimationFrame.
+     * This function is recursively called to redraw the noise synchronized with the display.
+     */
+    function animationLoop() {
+        if (isNoiseActive) {
+            drawNoise();
+            animationFrameId = requestAnimationFrame(animationLoop);
+        }
+    }
+
+    /**
+     * Starts the noise drawing using requestAnimationFrame.
+     */
+    function startNoise() {
+        if (!isNoiseActive) {
+            isNoiseActive = true;
+            canvas.style.display = 'block';
+            toggleButton.textContent = 'Noise ON (Active)';
+            toggleButton.classList.replace('bg-green-600', 'bg-red-600');
+            toggleButton.classList.replace('shadow-green-900/50', 'shadow-red-900/50');
+            animationLoop(); // Start the loop
+        }
+    }
+
+    /**
+     * Stops the noise drawing.
+     */
+    function stopNoise() {
+        if (isNoiseActive) {
+            isNoiseActive = false;
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+            canvas.style.display = 'none';
+            toggleButton.textContent = 'Noise OFF (Preview)';
+            toggleButton.classList.replace('bg-red-600', 'bg-green-600');
+            toggleButton.classList.replace('shadow-red-900/50', 'shadow-green-900/50');
+        }
+    }
+
+    /**
+     * Toggles the noise effect on or off.
+     */
+    function toggleNoise() {
+        if (isNoiseActive) {
+            stopNoise();
+        } else {
+            startNoise();
+        }
+    }
+    
+    // --- Event Listeners and Initial Setup ---
+    
+    // Resize handler
+    window.addEventListener("resize", resizeCanvas);
+    
+    // Toggle button handler
+    toggleButton.addEventListener("click", toggleNoise);
+
+    // Initial setup
+    resizeCanvas();
+    startNoise(); // Start the noise on load
+    
+    // The contextmenu prevention is handled by the 'oncontextmenu="return false;"' on the body tag
+
+</script>
+
+</body>
+</html>
+
