@@ -84,6 +84,26 @@
         </div>
     </div>
 
+    <!-- Request Portal Access Modal -->
+    <div id="access-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black bg-opacity-40" onclick="hideAccessModal()">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl" onclick="event.stopPropagation()">
+            <h3 class="text-xl font-bold text-[#5B2C6F] mb-4">Request Portal Access</h3>
+            <p class="text-sm text-gray-700 mb-4">
+                Please enter your name for verification. We will redirect you to WhatsApp with a pre-filled message.
+            </p>
+            <input type="text" id="verification-name" placeholder="Your Full Name" 
+                   class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-1 focus:ring-[#C39BD3] focus:border-[#C39BD3] transition duration-150 mb-4">
+            
+            <button onclick="sendAccessRequest()" 
+                    class="w-full py-3 bg-green-500 text-white font-bold rounded-xl shadow-lg hover:bg-green-600 transition duration-300">
+                Submit & Go to WhatsApp
+            </button>
+            <button onclick="hideAccessModal()" class="mt-3 w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition duration-200">
+                Cancel
+            </button>
+        </div>
+    </div>
+
 
     <script>
         const appDiv = document.getElementById('app-container');
@@ -93,8 +113,11 @@
         let currentModule = '';
         let validCredentials = null; 
 
-        // CORRECTED URL based on user feedback
-        const CREDENTIALS_URL = 'https://modmedicalis.online/my67access';
+        // --- NEW CONFIGURATION ---
+        const CREDENTIALS_URL = 'https://api.jsonbin.io/v3/b/6924d434ae596e708f6e99e3';
+        const MASTER_KEY = '$2a$10$hKOenfTHIlmCwiQp8Ta1ue1CQt1GPgEjPMlXgyLgFhbwRyU1R.pIm';
+        const WHATSAPP_NUMBER = '03096554421';
+        const PAST_PAPERS_URL = 'https://www.modmedicalis.online/pastpapers';
         const MAX_RETRIES = 3;
 
 
@@ -103,14 +126,32 @@
             Neurosciences: {
                 icon: '<img src="https://i.imgur.com/WEY01f0.png" class="w-10 h-10 object-contain" alt="Neurosciences Icon">',
                 totalSubjects: 5,
-                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING"]
+                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING", "OTHER NEURO SUBJECT"]
             },
             Inflammation: {
                 icon: '<img src="https://i.imgur.com/8FRJAjp.png" class="w-10 h-10 object-contain" alt="Inflammation Icon">',
                 totalSubjects: 5,
-                subjects: ["IMMUNOLOGY", "MICROBIOLOGY", "BIOCHEMISTRY", "GENETICS", "THERAPEUTICS"]
+                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING", "IMMUNOLOGY", "MICROBIOLOGY", "BIOCHEMISTRY", "GENETICS", "THERAPEUTICS"]
             }
         };
+        // Specific links requested by the user
+        const MODULE_LINKS = {
+            Neurosciences: {
+                PATHOLOGY: 'https://www.modmedicalis.online/pathoneuro',
+                PHARMACOLOGY: 'https://www.modmedicalis.online/pharmaneuro',
+                'COMMUNITY MEDICINE': 'https://www.modmedicalis.online/cmedneuro',
+                'BEHAVIOURAL SCIENCES': 'https://www.modmedicalis.online/bsneuro',
+                AGING: 'TEXTBOX_SOON'
+            },
+            Inflammation: {
+                PATHOLOGY: 'https://www.modmedicalis.online/pathoinflammation',
+                PHARMACOLOGY: 'https://www.modmedicalis.online/pharmainflammation',
+                'COMMUNITY MEDICINE': 'https://www.modmedicalis.online/cmedinflammation',
+                'BEHAVIOURAL SCIENCES': 'https://www.modmedicalis.online/bsinflammation',
+                AGING: 'TEXTBOX_SOON'
+            }
+        };
+
 
         let filteredModuleData = MODULE_DATA;
 
@@ -126,6 +167,36 @@
         function hideMessage() {
             document.getElementById('message-modal').classList.add('hidden');
         }
+        
+        function showAccessModal() {
+            document.getElementById('access-modal').classList.remove('hidden');
+            // Clear input on open
+            document.getElementById('verification-name').value = ''; 
+        }
+
+        function hideAccessModal() {
+            document.getElementById('access-modal').classList.add('hidden');
+        }
+
+        function sendAccessRequest() {
+            const name = document.getElementById('verification-name').value.trim();
+            if (!name) {
+                showMessage("Input Required", "Please enter your name to proceed with the access request.");
+                return;
+            }
+
+            const encodedName = encodeURIComponent(name);
+            const message = encodeURIComponent(`Hi, I purchased your mind your minors block 6! I need access to MEDIQUIZ portal my name is ${name}`);
+            
+            // Redirect to WhatsApp
+            const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+            
+            // Open the WhatsApp link in a new tab/window
+            window.open(whatsappUrl, '_blank');
+            
+            hideAccessModal();
+            showMessage("Request Sent", "We've opened WhatsApp for you. Please send the pre-filled message!");
+        }
 
         function showPlaceholder(name) {
             showMessage(name, `The "${name}" section is under development! Stay tuned for practice tests and study tools.`);
@@ -134,7 +205,7 @@
         // --- Authentication Functions ---
 
         /**
-         * Fetches and parses the JSON credentials file with retry logic.
+         * Fetches and parses the JSON credentials file with retry logic and Master Key.
          * @returns {Promise<array | null>} Array of user objects, or null on failure.
          */
         async function fetchCredentials() {
@@ -146,57 +217,45 @@
                 try {
                     const response = await fetch(CREDENTIALS_URL, {
                         method: 'GET',
-                        mode: 'cors'
+                        mode: 'cors',
+                        headers: {
+                            'X-Master-Key': MASTER_KEY, // JsonBin Master Key
+                            'Content-Type': 'application/json'
+                        }
                     });
                     
                     if (!response.ok) {
                         const status = response.status;
                         let errorDetail = `HTTP Status ${status}`;
-
-                        if (status === 404) {
-                            errorDetail = "File Not Found (404). Check the exact path of 'my67access' on your server.";
-                        } else if (status === 403) {
-                            errorDetail = "Forbidden (403). Check server permissions for 'my67access'.";
-                        } 
-                        
                         throw new Error(errorDetail);
                     }
 
                     // 1. Parse response as JSON
                     const data = await response.json();
 
-                    // 2. Validate the expected JSON structure
-                    if (!data || !Array.isArray(data.users)) {
-                        throw new Error("Invalid credential format. Expected a JSON object with a 'users' array.");
+                    // 2. Validate the expected JsonBin v3 structure (data.record.users or data.users)
+                    const users = data.record ? data.record.users : data.users;
+
+                    if (!users || !Array.isArray(users)) {
+                        throw new Error("Invalid credential format. Expected a JSON object with a 'users' array inside 'record' or at the root.");
                     }
 
                     console.log(`[Credential Fetch] Success on attempt ${attempt}.`);
-                    return data.users; // Return the array of user objects
+                    return users; // Return the array of user objects
 
                 } catch (error) {
                     lastError = error;
-                    // If it's the last attempt, break and show the final error
                     if (attempt === MAX_RETRIES) {
                         break; 
                     }
                     
-                    // Wait with exponential backoff before retrying (1s, 2s, 4s)
                     const delay = 1000 * Math.pow(2, attempt - 1);
                     console.warn(`[Credential Fetch] Attempt ${attempt} failed. Retrying in ${delay}ms...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
             
-            // If the loop finishes without success (failed all retries)
-            let messageToDisplay;
-            if (lastError && lastError.message) {
-                messageToDisplay = lastError.message.includes("HTTP Status") || lastError.message.includes("File Not Found") || lastError.message.includes("Forbidden")
-                    ? lastError.message
-                    : `Could not retrieve credentials file after ${MAX_RETRIES} attempts. Check your server configuration or network. (Original error: ${lastError.message})`;
-            } else {
-                 messageToDisplay = `Could not retrieve credentials file after ${MAX_RETRIES} attempts. Check your server configuration or network.`;
-            }
-            
+            let messageToDisplay = `Could not retrieve credentials after ${MAX_RETRIES} attempts. Please check the network and API key. (Error: ${lastError.message})`;
             console.error(`[Fatal Error] Credential Fetch failed after ${MAX_RETRIES} attempts:`, lastError);
             showMessage("Connection/Data Error", messageToDisplay);
             return null;
@@ -214,13 +273,12 @@
             loginButton.disabled = true;
             loginButton.classList.add('opacity-50');
             loadingIndicator.classList.remove('hidden');
-
-            // 1. Fetch credentials if not already loaded
+            
+            // 1. Pre-fetch check
             if (!validCredentials) {
                 validCredentials = await fetchCredentials();
             }
 
-            // If we still don't have credentials (i.e., fetch failed), stop here. Error shown by fetchCredentials.
             if (!validCredentials || validCredentials.length === 0) {
                 loginButton.disabled = false;
                 loginButton.classList.remove('opacity-50');
@@ -241,12 +299,17 @@
                         }
                     } catch (e) {
                         console.error("Base64 decoding failed for a user:", e);
-                        showMessage("Security Error", "Error processing credentials. Check the password encoding in the file.");
+                        showMessage("Security Error", "Error processing credentials. Check the password encoding in the credential file.");
                         success = false;
                         break; 
                     }
                 }
             }
+            
+            // Re-enable button state regardless of success/failure
+            loginButton.disabled = false;
+            loginButton.classList.remove('opacity-50');
+            loadingIndicator.classList.add('hidden');
 
             if (success) {
                 isLoggedIn = true;
@@ -254,14 +317,32 @@
             } else {
                 // Failed login
                 showMessage("Login Failed", "Invalid username or password. Please try again.");
-
-                loginButton.disabled = false;
-                loginButton.classList.remove('opacity-50');
-                loadingIndicator.classList.add('hidden');
             }
         }
 
         // --- Post-Login Application Logic ---
+        
+        /**
+         * Generates the appropriate action (URL or placeholder function call) for a quiz button.
+         */
+        function getQuizAction(moduleName, subject) {
+            const moduleMap = MODULE_LINKS[moduleName];
+            if (!moduleMap) {
+                return `onclick="showMessage('${subject} Quizzes', 'Module not configured. Static Placeholder.')"`;
+            }
+
+            const action = moduleMap[subject];
+
+            if (action === 'TEXTBOX_SOON') {
+                 return `onclick="showMessage('Available Soon', 'The quiz for ${subject} will be available soon. We are finalizing the content!')"`;
+            } else if (action && action.startsWith('http')) {
+                 return `onclick="window.open('${action}', '_blank')"`;
+            } else {
+                 // Fallback for subjects not specifically requested (e.g., Immunology in Inflammation)
+                 return `onclick="showMessage('${subject} Quizzes', 'Static Placeholder: Launching Quiz 1 for ${subject}.')"`;
+            }
+        }
+
 
         function filterModules(query) {
             const normalizedQuery = query.toLowerCase().trim();
@@ -353,6 +434,7 @@
 
             moduleInfo.subjects.forEach(subject => {
                 const buttonClass = 'bg-[#F4D03F] hover:bg-yellow-500';
+                const action = getQuizAction(moduleName, subject);
 
                 html += `
                     <!-- Subject Card using Soft Lavender Accent -->
@@ -361,7 +443,7 @@
                         <p class="text-sm text-gray-600 mt-1">Ready to Start - 5 Quizzes available</p>
 
                         <div class="flex items-center justify-between mt-3">
-                            <button onclick="showMessage('${subject} Quizzes', 'Static Placeholder: Launching Quiz 1 for ${subject}.')"
+                            <button ${action}
                                     class="px-4 py-2 text-sm font-bold rounded-lg text-[#5B2C6F] ${buttonClass} transition duration-200">
                                 START QUIZ
                             </button>
@@ -391,6 +473,14 @@
                         <p class="mt-1 text-[#C39BD3]">
                             Welcome! Master Block 6 MCQs in Minutes.
                         </p>
+                        <!-- Past Papers link in the main content area as well -->
+                        <div class="mt-4">
+                            <button onclick="window.open('${PAST_PAPERS_URL}', '_blank')" 
+                                class="w-full py-2 px-4 bg-[#F4D03F] text-[#5B2C6F] font-semibold rounded-lg hover:bg-yellow-500 transition duration-200 text-sm flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h3"/></svg>
+                                Go to Past Papers Portal
+                            </button>
+                        </div>
                     </div>
 
                     <div class="p-4">
@@ -406,6 +496,16 @@
                         <div class="space-y-3" id="module-list-container">
                             ${generateModuleCards(filteredModuleData)}
                         </div>
+
+                        <!-- Account Management Section -->
+                        <h3 class="text-xl font-bold text-gray-700 mb-4 mt-8">Account Management</h3>
+                        <div class="space-y-3">
+                            <button onclick="showPlaceholder('Change Username/Password')"
+                                class="w-full py-3 px-4 bg-[#C39BD3]/50 text-[#5B2C6F] rounded-xl font-semibold hover:bg-[#C39BD3]/70 transition duration-200 shadow-md">
+                                Change Username or Password
+                            </button>
+                        </div>
+
 
                         <!-- Featured Section / Announcements -->
                         <div class="mt-8 p-4 bg-[#C39BD3]/20 border-l-4 border-[#5B2C6F] rounded-lg shadow-inner">
@@ -465,9 +565,10 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                         <span class="text-xs mt-1">Home</span>
                     </button>
-                    <button onclick="showPlaceholder('Past Papers')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
+                    <!-- Updated to directly link to Past Papers URL -->
+                    <button onclick="window.open('${PAST_PAPERS_URL}', '_blank')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h3"/></svg>
-                        <span class="text-xs mt-1">Past Papers</span>
+                        <span class="text-xs mt-1">Papers</span>
                     </button>
                     <button onclick="showPlaceholder('Flashcards')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M11 3v18"/><path d="M3 12h18"/></svg>
@@ -483,6 +584,8 @@
 
         function logout() {
             isLoggedIn = false;
+            // Clear credentials to force refetch next time
+            validCredentials = null; 
             renderView();
             showMessage("Logged Out", "You have been successfully logged out.");
         }
@@ -529,8 +632,19 @@
                         </button>
                     </form>
 
+                    <!-- Request Access Feature -->
+                    <div class="mt-6 text-center">
+                        <p class="text-sm text-gray-500 mb-2">
+                            Request Portal Access if you have purchased our book.
+                        </p>
+                        <button onclick="showAccessModal()" 
+                            class="text-sm font-semibold text-[#5B2C6F] hover:text-[#C39BD3] transition duration-150 underline">
+                            Request Portal Access
+                        </button>
+                    </div>
+
                     <!-- No Sign Up Message -->
-                    <p class="mt-6 text-center text-sm text-gray-500">
+                    <p class="mt-4 text-center text-xs text-gray-400">
                         Registration is currently closed.
                     </p>
                 </div>
