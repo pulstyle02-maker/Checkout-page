@@ -74,32 +74,13 @@
     </nav>
 
     <!-- Global Message Modal (replaces alert/confirm) -->
-    <div id="message-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-40" onclick="hideMessage()">
-        <div class="bg-white rounded-xl p-6 w-full max-w-xs shadow-2xl" onclick="event.stopPropagation()">
+    <div id="message-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-40" onclick="hideMessage(event)">
+        <div id="modal-content-container" class="bg-white rounded-xl p-6 w-full max-w-xs shadow-2xl" onclick="event.stopPropagation()">
+            <!-- Dynamic Content goes here -->
             <h3 id="modal-title" class="text-xl font-bold text-[#5B2C6F] mb-3">Notice</h3>
-            <p id="modal-message" class="text-gray-700">This is a placeholder message.</p>
-            <button onclick="hideMessage()" class="mt-4 w-full bg-[#F4D03F] text-[#5B2C6F] py-2 rounded-lg font-semibold hover:bg-yellow-500 transition duration-200">
+            <div id="modal-message">This is a placeholder message.</div>
+            <button id="modal-primary-btn" onclick="hideMessage()" class="mt-4 w-full bg-[#F4D03F] text-[#5B2C6F] py-2 rounded-lg font-semibold hover:bg-yellow-500 transition duration-200">
                 OK
-            </button>
-        </div>
-    </div>
-
-    <!-- Request Portal Access Modal -->
-    <div id="access-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black bg-opacity-40" onclick="hideAccessModal()">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl" onclick="event.stopPropagation()">
-            <h3 class="text-xl font-bold text-[#5B2C6F] mb-4">Request Portal Access</h3>
-            <p class="text-sm text-gray-700 mb-4">
-                Please enter your name for verification. We will redirect you to WhatsApp with a pre-filled message.
-            </p>
-            <input type="text" id="verification-name" placeholder="Your Full Name" 
-                   class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-1 focus:ring-[#C39BD3] focus:border-[#C39BD3] transition duration-150 mb-4">
-            
-            <button onclick="sendAccessRequest()" 
-                    class="w-full py-3 bg-green-500 text-white font-bold rounded-xl shadow-lg hover:bg-green-600 transition duration-300">
-                Submit & Go to WhatsApp
-            </button>
-            <button onclick="hideAccessModal()" class="mt-3 w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition duration-200">
-                Cancel
             </button>
         </div>
     </div>
@@ -113,12 +94,13 @@
         let currentModule = '';
         let validCredentials = null; 
 
-        // --- NEW CONFIGURATION ---
-        const CREDENTIALS_URL = 'https://api.jsonbin.io/v3/b/6924d434ae596e708f6e99e3';
+        // --- JSONBin Configuration ---
+        const BIN_URL = 'https://api.jsonbin.io/v3/b/6924d434ae596e708f6e99e3';
+        // Note: Storing the Master Key in client-side code is insecure in a real application. 
+        // We include it here only to fulfill the request for testing the JSONBin integration.
         const MASTER_KEY = '$2a$10$hKOenfTHIlmCwiQp8Ta1ue1CQt1GPgEjPMlXgyLgFhbwRyU1R.pIm';
-        const WHATSAPP_NUMBER = '03096554421';
-        const PAST_PAPERS_URL = 'https://www.modmedicalis.online/pastpapers';
         const MAX_RETRIES = 3;
+        const SESSION_KEY = 'mediquiz_session_token';
 
 
         // --- Configuration & Data (Post-Login App) ---
@@ -126,87 +108,109 @@
             Neurosciences: {
                 icon: '<img src="https://i.imgur.com/WEY01f0.png" class="w-10 h-10 object-contain" alt="Neurosciences Icon">',
                 totalSubjects: 5,
-                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING", "OTHER NEURO SUBJECT"]
+                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING"]
             },
             Inflammation: {
                 icon: '<img src="https://i.imgur.com/8FRJAjp.png" class="w-10 h-10 object-contain" alt="Inflammation Icon">',
                 totalSubjects: 5,
-                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING", "IMMUNOLOGY", "MICROBIOLOGY", "BIOCHEMISTRY", "GENETICS", "THERAPEUTICS"]
+                subjects: ["PATHOLOGY", "PHARMACOLOGY", "COMMUNITY MEDICINE", "BEHAVIOURAL SCIENCES", "AGING"]
             }
         };
-        // Specific links requested by the user
-        const MODULE_LINKS = {
+
+        const QUIZ_URLS = {
             Neurosciences: {
                 PATHOLOGY: 'https://www.modmedicalis.online/pathoneuro',
                 PHARMACOLOGY: 'https://www.modmedicalis.online/pharmaneuro',
-                'COMMUNITY MEDICINE': 'https://www.modmedicalis.online/cmedneuro',
-                'BEHAVIOURAL SCIENCES': 'https://www.modmedicalis.online/bsneuro',
-                AGING: 'TEXTBOX_SOON'
+                COMMUNITY_MEDICINE: 'https://www.modmedicalis.online/cmedneuro',
+                BEHAVIOURAL_SCIENCES: 'https://www.modmedicalis.online/bsneuro',
+                AGING: 'placeholder'
             },
             Inflammation: {
                 PATHOLOGY: 'https://www.modmedicalis.online/pathoinflammation',
                 PHARMACOLOGY: 'https://www.modmedicalis.online/pharmainflammation',
-                'COMMUNITY MEDICINE': 'https://www.modmedicalis.online/cmedinflammation',
-                'BEHAVIOURAL SCIENCES': 'https://www.modmedicalis.online/bsinflammation',
-                AGING: 'TEXTBOX_SOON'
+                COMMUNITY_MEDICINE: 'https://www.modmedicalis.online/cmedinflammation',
+                BEHAVIOURAL_SCIENCES: 'https://www.modmedicalis.online/bsinflammation',
+                AGING: 'placeholder'
             }
         };
+
+        const PAST_PAPERS_URL = 'https://www.modmedicalis.online/pastpapers';
 
 
         let filteredModuleData = MODULE_DATA;
 
-        // --- Core UI Utilities ---
+        // --- Core UI Utilities (Modal functions updated to support custom content) ---
 
-        function showMessage(title, message) {
+        function showMessage(title, message, primaryAction = hideMessage) {
             const modal = document.getElementById('message-modal');
-            document.getElementById('modal-title').textContent = title;
-            document.getElementById('modal-message').textContent = message;
+            const titleEl = document.getElementById('modal-title');
+            const messageEl = document.getElementById('modal-message');
+            const buttonEl = document.getElementById('modal-primary-btn');
+            
+            titleEl.textContent = title;
+            messageEl.innerHTML = `<p class="text-gray-700">${message}</p>`;
+            
+            buttonEl.textContent = 'OK';
+            buttonEl.classList.remove('hidden');
+            buttonEl.onclick = primaryAction;
+
             modal.classList.remove('hidden');
         }
 
-        function hideMessage() {
+        function hideMessage(event) {
+            // Allows closing by clicking the backdrop or the OK button
+            if (event && event.target !== event.currentTarget && event.target.id !== 'modal-primary-btn' && event.target.type !== 'button') return;
             document.getElementById('message-modal').classList.add('hidden');
         }
-        
-        function showAccessModal() {
-            document.getElementById('access-modal').classList.remove('hidden');
-            // Clear input on open
-            document.getElementById('verification-name').value = ''; 
-        }
 
-        function hideAccessModal() {
-            document.getElementById('access-modal').classList.add('hidden');
-        }
+        function showCustomModal(title, contentHTML) {
+            const modal = document.getElementById('message-modal');
+            const titleEl = document.getElementById('modal-title');
+            const messageEl = document.getElementById('modal-message');
+            const buttonEl = document.getElementById('modal-primary-btn');
 
-        function sendAccessRequest() {
-            const name = document.getElementById('verification-name').value.trim();
-            if (!name) {
-                showMessage("Input Required", "Please enter your name to proceed with the access request.");
-                return;
-            }
-
-            const encodedName = encodeURIComponent(name);
-            const message = encodeURIComponent(`Hi, I purchased your mind your minors block 6! I need access to MEDIQUIZ portal my name is ${name}`);
+            titleEl.textContent = title;
+            messageEl.innerHTML = contentHTML;
+            buttonEl.classList.add('hidden'); // Hide default OK button for custom forms
             
-            // Redirect to WhatsApp
-            const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
-            
-            // Open the WhatsApp link in a new tab/window
-            window.open(whatsappUrl, '_blank');
-            
-            hideAccessModal();
-            showMessage("Request Sent", "We've opened WhatsApp for you. Please send the pre-filled message!");
+            modal.classList.remove('hidden');
         }
 
         function showPlaceholder(name) {
             showMessage(name, `The "${name}" section is under development! Stay tuned for practice tests and study tools.`);
         }
+        
+        // --- Session Management Functions ---
+
+        function generateToken() {
+            // Simple token for session tracking in this context
+            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        }
+
+        /**
+         * Checks for a valid session token and redirects to login if missing.
+         * @param {string | null} url - URL to redirect to if session is valid.
+         * @returns {boolean} True if session is valid, false otherwise.
+         */
+        function checkSessionAndRedirect(url = null) {
+            if (sessionStorage.getItem(SESSION_KEY)) {
+                if (url) {
+                    window.location.href = url;
+                }
+                return true;
+            } else {
+                // Not logged in, redirect to login view
+                logout(false); // Clears any stale state and forces login view render without showing logout message
+                showMessage("Session Required", "You must log in to access this feature.");
+                return false;
+            }
+        }
+
 
         // --- Authentication Functions ---
 
         /**
-         * Fetches and parses the JSON credentials file with retry logic and Master Key.
-         * @returns {Promise<array | null>} Array of user objects, or null on failure.
+         * Fetches and parses the JSON credentials file with retry logic from JSONBin.
          */
         async function fetchCredentials() {
             let attempt = 0;
@@ -215,47 +219,41 @@
             while (attempt < MAX_RETRIES) {
                 attempt++;
                 try {
-                    const response = await fetch(CREDENTIALS_URL, {
+                    const response = await fetch(BIN_URL, {
                         method: 'GET',
-                        mode: 'cors',
                         headers: {
-                            'X-Master-Key': MASTER_KEY, // JsonBin Master Key
+                            'X-Master-Key': MASTER_KEY, // Use Master Key for private access
                             'Content-Type': 'application/json'
-                        }
+                        },
+                        mode: 'cors'
                     });
                     
                     if (!response.ok) {
                         const status = response.status;
-                        let errorDetail = `HTTP Status ${status}`;
-                        throw new Error(errorDetail);
+                        throw new Error(`HTTP Status ${status}`);
                     }
 
-                    // 1. Parse response as JSON
+                    // Data structure from JSONBin API is { record: { users: [...] } }
                     const data = await response.json();
 
-                    // 2. Validate the expected JsonBin v3 structure (data.record.users or data.users)
-                    const users = data.record ? data.record.users : data.users;
-
-                    if (!users || !Array.isArray(users)) {
-                        throw new Error("Invalid credential format. Expected a JSON object with a 'users' array inside 'record' or at the root.");
+                    // 2. Validate the expected JSON structure
+                    if (!data || !data.record || !Array.isArray(data.record.users)) {
+                        throw new Error("Invalid credential format. Expected JSONBin structure with 'record.users' array.");
                     }
 
                     console.log(`[Credential Fetch] Success on attempt ${attempt}.`);
-                    return users; // Return the array of user objects
+                    return data.record.users; // Return the array of user objects
 
                 } catch (error) {
                     lastError = error;
-                    if (attempt === MAX_RETRIES) {
-                        break; 
-                    }
-                    
+                    if (attempt === MAX_RETRIES) { break; }
                     const delay = 1000 * Math.pow(2, attempt - 1);
                     console.warn(`[Credential Fetch] Attempt ${attempt} failed. Retrying in ${delay}ms...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
             
-            let messageToDisplay = `Could not retrieve credentials after ${MAX_RETRIES} attempts. Please check the network and API key. (Error: ${lastError.message})`;
+            let messageToDisplay = `Could not retrieve credentials. Check network and JSONBin configuration. (Error: ${lastError ? lastError.message : 'Unknown Error'})`;
             console.error(`[Fatal Error] Credential Fetch failed after ${MAX_RETRIES} attempts:`, lastError);
             showMessage("Connection/Data Error", messageToDisplay);
             return null;
@@ -266,15 +264,14 @@
          */
         async function attemptLogin() {
             const usernameInput = document.getElementById('username').value.trim();
-            const passwordInput = document.getElementById('password').value.trim();
+            const passwordInput = document.getElementById('password').value;
             const loginButton = document.getElementById('login-btn');
             const loadingIndicator = document.getElementById('loading-indicator');
 
             loginButton.disabled = true;
             loginButton.classList.add('opacity-50');
             loadingIndicator.classList.remove('hidden');
-            
-            // 1. Pre-fetch check
+
             if (!validCredentials) {
                 validCredentials = await fetchCredentials();
             }
@@ -286,12 +283,11 @@
                 return;
             }
 
-            // 2. Iterate through the user list and check the username and decoded password
             let success = false;
             for (const user of validCredentials) {
                 if (user.username === usernameInput) {
                     try {
-                        // Decode the Base64 password
+                        // Decode the Base64 password provided in the JSON
                         const decodedPassword = atob(user.password_b64);
                         if (passwordInput === decodedPassword) {
                             success = true;
@@ -299,52 +295,109 @@
                         }
                     } catch (e) {
                         console.error("Base64 decoding failed for a user:", e);
-                        showMessage("Security Error", "Error processing credentials. Check the password encoding in the credential file.");
+                        showMessage("Security Error", "Error processing credentials. Please contact support.");
                         success = false;
                         break; 
                     }
                 }
             }
-            
-            // Re-enable button state regardless of success/failure
-            loginButton.disabled = false;
-            loginButton.classList.remove('opacity-50');
-            loadingIndicator.classList.add('hidden');
 
             if (success) {
                 isLoggedIn = true;
+                // Store session token
+                sessionStorage.setItem(SESSION_KEY, generateToken());
                 renderView();
             } else {
-                // Failed login
                 showMessage("Login Failed", "Invalid username or password. Please try again.");
+                loginButton.disabled = false;
+                loginButton.classList.remove('opacity-50');
+                loadingIndicator.classList.add('hidden');
             }
         }
 
-        // --- Post-Login Application Logic ---
-        
-        /**
-         * Generates the appropriate action (URL or placeholder function call) for a quiz button.
-         */
-        function getQuizAction(moduleName, subject) {
-            const moduleMap = MODULE_LINKS[moduleName];
-            if (!moduleMap) {
-                return `onclick="showMessage('${subject} Quizzes', 'Module not configured. Static Placeholder.')"`;
+        function logout(showConfirmation = true) {
+            sessionStorage.removeItem(SESSION_KEY);
+            isLoggedIn = false;
+            renderView();
+            if (showConfirmation) {
+                showMessage("Logged Out", "You have been successfully logged out.");
+            }
+        }
+
+        // --- Portal Access Request Logic ---
+
+        function showRequestAccessModal() {
+            const content = `
+                <p class="text-gray-700 mb-4">
+                    If you have purchased our book, please enter your name for verification and WhatsApp redirection.
+                </p>
+                <form id="access-request-form" onsubmit="event.preventDefault(); handleRequestAccess(this.querySelector('input').value);">
+                    <label for="verification-name" class="block text-sm font-medium text-gray-700 mb-1">Your Full Name:</label>
+                    <input type="text" id="verification-name" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-inner focus:ring-1 focus:ring-[#C39BD3] focus:border-[#C39BD3]"
+                           placeholder="e.g., John Smith">
+                    <button type="submit" class="mt-4 w-full bg-[#5B2C6F] text-white py-2 rounded-lg font-semibold hover:bg-[#4a215b] transition duration-200">
+                        Continue to WhatsApp
+                    </button>
+                    <button type="button" onclick="hideMessage()" class="mt-2 w-full text-sm text-gray-500 hover:text-gray-700">
+                        Cancel
+                    </button>
+                </form>
+            `;
+            showCustomModal("Request Portal Access", content);
+        }
+
+        function handleRequestAccess(name) {
+            hideMessage();
+            const cleanedName = name.trim();
+            const whatsappNumber = '03096554421';
+            const message = `Hi, I purchased your mind your minors block 6! I need access to MEDIQUIZ portal my name is (${cleanedName})`;
+            const whatsappUrl = `https://wa.me/92${whatsappNumber.substring(1)}?text=${encodeURIComponent(message)}`;
+            
+            // Redirect to WhatsApp
+            window.open(whatsappUrl, '_blank');
+        }
+
+        // --- Change Credentials Logic (Placeholder) ---
+        function showChangeCredentialsModal() {
+            const content = `
+                <p class="text-gray-700 mb-4">
+                    For security, changes to your username or password must be processed manually.
+                    Please contact our support team with your current credentials and requested changes.
+                </p>
+                <button onclick="hideMessage()" class="mt-4 w-full bg-[#F4D03F] text-[#5B2C6F] py-2 rounded-lg font-semibold hover:bg-yellow-500 transition duration-200">
+                    Close
+                </button>
+            `;
+            showCustomModal("Change Credentials", content);
+        }
+
+        // --- Quiz and Past Papers Actions ---
+
+        function handleQuizStart(moduleName, subject) {
+            if (!checkSessionAndRedirect()) {
+                return;
             }
 
-            const action = moduleMap[subject];
+            const normalizedSubject = subject.toUpperCase().replace(/\s/g, '_');
+            const url = QUIZ_URLS[moduleName] ? QUIZ_URLS[moduleName][normalizedSubject] : null;
 
-            if (action === 'TEXTBOX_SOON') {
-                 return `onclick="showMessage('Available Soon', 'The quiz for ${subject} will be available soon. We are finalizing the content!')"`;
-            } else if (action && action.startsWith('http')) {
-                 return `onclick="window.open('${action}', '_blank')"`;
+            if (url === 'placeholder' || !url) {
+                showMessage(subject, `Quizzes for ${subject} will be added soon!`);
             } else {
-                 // Fallback for subjects not specifically requested (e.g., Immunology in Inflammation)
-                 return `onclick="showMessage('${subject} Quizzes', 'Static Placeholder: Launching Quiz 1 for ${subject}.')"`;
+                window.location.href = url;
             }
         }
 
+        function handlePastPapersClick() {
+            checkSessionAndRedirect(PAST_PAPERS_URL);
+        }
+
+
+        // --- Post-Login Application UI ---
 
         function filterModules(query) {
+            // ... (filter logic remains the same)
             const normalizedQuery = query.toLowerCase().trim();
             if (normalizedQuery === '') {
                 return MODULE_DATA;
@@ -376,6 +429,7 @@
         }
 
         function generateModuleCards(data) {
+            // ... (module card rendering remains the same)
             let html = '';
             const modulesToRender = Object.keys(data);
 
@@ -432,9 +486,9 @@
                 <div class="p-4 space-y-3">
             `;
 
+            // Updated to use the session-protected handleQuizStart function
             moduleInfo.subjects.forEach(subject => {
                 const buttonClass = 'bg-[#F4D03F] hover:bg-yellow-500';
-                const action = getQuizAction(moduleName, subject);
 
                 html += `
                     <!-- Subject Card using Soft Lavender Accent -->
@@ -443,7 +497,7 @@
                         <p class="text-sm text-gray-600 mt-1">Ready to Start - 5 Quizzes available</p>
 
                         <div class="flex items-center justify-between mt-3">
-                            <button ${action}
+                            <button onclick="handleQuizStart('${moduleName}', '${subject}')"
                                     class="px-4 py-2 text-sm font-bold rounded-lg text-[#5B2C6F] ${buttonClass} transition duration-200">
                                 START QUIZ
                             </button>
@@ -473,14 +527,6 @@
                         <p class="mt-1 text-[#C39BD3]">
                             Welcome! Master Block 6 MCQs in Minutes.
                         </p>
-                        <!-- Past Papers link in the main content area as well -->
-                        <div class="mt-4">
-                            <button onclick="window.open('${PAST_PAPERS_URL}', '_blank')" 
-                                class="w-full py-2 px-4 bg-[#F4D03F] text-[#5B2C6F] font-semibold rounded-lg hover:bg-yellow-500 transition duration-200 text-sm flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h3"/></svg>
-                                Go to Past Papers Portal
-                            </button>
-                        </div>
                     </div>
 
                     <div class="p-4">
@@ -491,27 +537,44 @@
                             <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                         </div>
 
+                        <!-- User Actions & Access Section -->
+                        <h3 class="text-xl font-bold text-gray-700 mb-4 mt-6">Account & Support</h3>
+                        <div class="space-y-3">
+                            <!-- Change Password/Username Option -->
+                            <div onclick="showChangeCredentialsModal()"
+                                 class="flex items-center justify-between p-4 bg-white rounded-xl shadow-md border-l-4 border-gray-400 cursor-pointer hover:bg-gray-50">
+                                <span class="font-semibold text-gray-700">Change Credentials</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><path d="M11 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </div>
+                            
+                            <!-- Request Portal Access Option -->
+                            <div onclick="showRequestAccessModal()"
+                                 class="p-4 bg-[#C39BD3]/40 rounded-xl shadow-md cursor-pointer transition duration-200 hover:bg-[#C39BD3]/60 border-l-4 border-[#5B2C6F]">
+                                <span class="font-bold text-[#5B2C6F] flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 13v.01"/><path d="M20 18v.01"/></svg>
+                                    Request Portal Access
+                                </span>
+                                <p class="text-xs text-gray-700 mt-1">
+                                    Request portal access if you have purchased our book.
+                                </p>
+                            </div>
+                        </div>
+
+
                         <!-- Module Cards Container -->
                         <h3 class="text-xl font-bold text-gray-700 mb-4 mt-6">Available Modules</h3>
                         <div class="space-y-3" id="module-list-container">
                             ${generateModuleCards(filteredModuleData)}
                         </div>
 
-                        <!-- Account Management Section -->
-                        <h3 class="text-xl font-bold text-gray-700 mb-4 mt-8">Account Management</h3>
-                        <div class="space-y-3">
-                            <button onclick="showPlaceholder('Change Username/Password')"
-                                class="w-full py-3 px-4 bg-[#C39BD3]/50 text-[#5B2C6F] rounded-xl font-semibold hover:bg-[#C39BD3]/70 transition duration-200 shadow-md">
-                                Change Username or Password
+                        <!-- Past Papers Section (Prominent button) -->
+                        <div class="mt-8">
+                             <h3 class="text-xl font-bold text-gray-700 mb-4">Study Resources</h3>
+                             <button onclick="handlePastPapersClick()"
+                                     class="w-full py-3 px-4 bg-[#5B2C6F] text-white rounded-xl font-extrabold shadow-cta hover:bg-[#4a215b] transition duration-200 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h3"/></svg>
+                                PAST PAPERS
                             </button>
-                        </div>
-
-
-                        <!-- Featured Section / Announcements -->
-                        <div class="mt-8 p-4 bg-[#C39BD3]/20 border-l-4 border-[#5B2C6F] rounded-lg shadow-inner">
-                            <p class="text-sm font-semibold text-[#5B2C6F]">
-                                <span class="font-extrabold mr-1 text-[#F4D03F]">⭐ Update:</span> New MCQs added for Neurosciences. Dive in and secure your knowledge!
-                            </p>
                         </div>
 
                         <!-- Logout Button -->
@@ -559,16 +622,17 @@
 
         function renderBottomNav() {
             // Renders the bottom navigation bar based on the current view
+            bottomNav.classList.remove('hidden');
             bottomNav.innerHTML = `
                 <div class="flex justify-around items-center h-16">
                     <button onclick="renderAppView('home')" class="flex flex-col items-center justify-center ${currentView === 'home' ? 'text-[#5B2C6F] font-semibold transition duration-150 ease-in-out transform scale-105' : 'text-gray-500 hover:text-[#5B2C6F] transition duration-150'}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                         <span class="text-xs mt-1">Home</span>
                     </button>
-                    <!-- Updated to directly link to Past Papers URL -->
-                    <button onclick="window.open('${PAST_PAPERS_URL}', '_blank')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
+                    <!-- Uses session protection for redirection -->
+                    <button onclick="handlePastPapersClick()" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/><path d="M9 9h3"/></svg>
-                        <span class="text-xs mt-1">Papers</span>
+                        <span class="text-xs mt-1">Past Papers</span>
                     </button>
                     <button onclick="showPlaceholder('Flashcards')" class="flex flex-col items-center justify-center text-gray-500 hover:text-[#5B2C6F] transition duration-150">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M11 3v18"/><path d="M3 12h18"/></svg>
@@ -580,14 +644,6 @@
                     </button>
                 </div>
             `;
-        }
-
-        function logout() {
-            isLoggedIn = false;
-            // Clear credentials to force refetch next time
-            validCredentials = null; 
-            renderView();
-            showMessage("Logged Out", "You have been successfully logged out.");
         }
 
         // --- Login Screen HTML ---
@@ -632,20 +688,9 @@
                         </button>
                     </form>
 
-                    <!-- Request Access Feature -->
-                    <div class="mt-6 text-center">
-                        <p class="text-sm text-gray-500 mb-2">
-                            Request Portal Access if you have purchased our book.
-                        </p>
-                        <button onclick="showAccessModal()" 
-                            class="text-sm font-semibold text-[#5B2C6F] hover:text-[#C39BD3] transition duration-150 underline">
-                            Request Portal Access
-                        </button>
-                    </div>
-
-                    <!-- No Sign Up Message -->
-                    <p class="mt-4 text-center text-xs text-gray-400">
-                        Registration is currently closed.
+                    <!-- Request Access Link -->
+                    <p class="mt-6 text-center text-sm text-gray-500">
+                        Don't have access? <span onclick="showRequestAccessModal()" class="text-[#5B2C6F] font-semibold cursor-pointer hover:text-[#4a215b]">Request Portal Access</span>
                     </p>
                 </div>
             `;
@@ -663,21 +708,22 @@
             if (isLoggedIn) {
                 // Render the main application
                 appDiv.classList.remove('login-view');
-                bottomNav.classList.remove('hidden');
                 renderAppView('home');
             } else {
                 // Render the login screen
                 appDiv.innerHTML = renderLoginView();
                 // Pre-fetch credentials in the background
                 if (!validCredentials) {
-                    // Start the asynchronous fetch, let attemptLogin handle the await
                     fetchCredentials().then(creds => { validCredentials = creds; });
                 }
             }
         }
 
-        // Initialize the app on load
+        // Initialize the app on load (Check session storage on startup)
         window.onload = () => {
+            if (sessionStorage.getItem(SESSION_KEY)) {
+                isLoggedIn = true;
+            }
             renderView();
         };
     </script>
