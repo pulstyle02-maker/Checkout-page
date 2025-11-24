@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,
+initial-scale=1.0">
+<title>UHS Past Papers - Pathology</title>
+<!-- Load Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Use Inter font family -->
+<style>
+body {
+font-family: 'Inter'
+background-color: #f7f7f7;
+, sans-serif;
+}
+.lo-card {
+border-left: 4px solid #06B6D4;
+}
+/* Custom scrollbar for mobile feel */
+.lo-scroll {
+scrollbar-width: none; /* Firefox */
+}
+.lo-scroll::-webkit-scrollbar {
+display: none; /* Chrome, Safari, Opera */
+}
+.quiz-option:hover {
+transform: translateY(-1px);
+box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px
+-2px rgba(0, 0, 0, 0.1);
+}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<!-- Firebase Imports and Setup (MANDATORY BOILERPLATE) -->
+<script type="module">
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken,
+onAuthStateChanged } from
+"https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, collection, query,
+setLogLevel } from
+"https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+// IMPORTANT: Log level set to debug for firestore diagnostics
+setLogLevel('Debug');
+const appId = typeof
+app
+id !== 'undefined' ?
+app
+__
+_
+__
+_
+'default-app-id';
+const firebaseConfig = typeof
+firebase
+config !==
+__
+_
+'undefined' ? JSON.parse(
+firebase
+config) : null;
+__
+_
+const initialAuthToken = typeof
+initial
+auth
+token !==
+__
+_
+_
+'undefined' ?
+initial
+auth
+token : null;
+id :
+__
+_
+_
+let app, db, auth;
+let userId = null;
+let isAuthReady = false;
+// Function to initialize Firebase and sign in
+async function initializeFirebase() {
+if (!firebaseConfig) {
+console.error("Firebase configuration is missing.
+return;
+");
+initialAuthToken);
+}
+try {
+app = initializeApp(firebaseConfig);
+db = getFirestore(app);
+auth = getAuth(app);
+// Sign in with custom token or anonymously
+if (initialAuthToken) {
+await signInWithCustomToken(auth,
+} else {
+await signInAnonymously(auth);
+}
+userId);
+// Listen for auth state changes
+onAuthStateChanged(auth, (user) => {
+if (user) {
+userId = user.uid;
+console.log("User signed in with ID:"
+,
+} else {
+userId = null;
+console.log("User signed out or anonymous.
+");
+}
+isAuthReady = true;
+if (document.getElementById('user-id-display')) {
+document.getElementById('user-id-display').textContent = userId ||
+'N/A';
+}
+});
+sign-in:"
+} catch (error) {
+console.error("Error initializing Firebase or during
+, error);
+}
+script
+}
+// Run initialization
+if (firebaseConfig) {
+initializeFirebase();
+}
+// Expose necessary variables to the global scope for the main
+window.db = db;
+window.auth = auth;
+window.getFirestore = getFirestore;
+window.collection = collection;
+window.query = query;
+window.onSnapshot = onSnapshot;
+window.doc = doc;
+</script>
+<!-- Main Content -->
+<header class="bg-cyan-700 p-4 shadow-xl text-white sticky top-0
+z-10">
+<h1 class="text-xl font-bold text-center">UHS Past Papers |
+Pathology</h1>
+</header>
+<p class="text-xs text-center opacity-80">by modmedicalis</p>
+<div class="flex-grow flex flex-col p-4">
+<!-- Tab Navigation -->
+<nav class="flex justify-around bg-white rounded-xl shadow-lg
+p-1 mb-4">
+<button id="tab-quiz" onclick="showTab('quiz')"
+class="flex-1 py-2 text-sm font-semibold text-center rounded-lg
+transition duration-200">
+Quiz (Filtered MCQs)
+</button>
+<button id="tab-los" onclick="showTab('los')"
+class="flex-1 py-2 text-sm font-semibold text-center rounded-lg
+transition duration-200">
+Learning Objectives
+</button>
+</nav>
+<!-- User ID Display (MANDATORY for multi-user apps) -->
+<p class="text-xs text-gray-500 mb-2 text-center">
+User ID: <span id="user-id-display" class="font-mono
+text-gray-700 text-[10px] break-all">Loading...</span>
+</p>
+<!-- Quiz Section -->
+<div id="quiz-section" class="tab-content flex-grow flex
+flex-col bg-white p-4 rounded-xl shadow-lg lo-scroll">
+<h2 class="text-lg font-bold text-gray-800 mb-4 border-b
+pb-2">Pathology Quiz</h2>
+<div id="quiz-container" class="flex-grow flex flex-col">
+<!-- Question Card -->
+<div id="question-card" class="mb-4 flex-grow flex
+flex-col">
+<p class="text-gray-500 text-center py-10">Loading
+questions...</p>
+</div>
+<!-- Control Buttons -->
+<div class="flex justify-between items-center mt-4
+pt-4 border-t border-gray-100">
+<button onclick="prevQuestion()" id="prev-btn"
+class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full
+shadow-sm hover:bg-gray-300 transition duration-150
+disabled:opacity-50 disabled:cursor-not-allowed">
+<svg xmlns="http://www.w3.org/2000/svg"
+fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+class="w-4 h-4 inline-block align-middle mr-1">
+<path stroke-linecap="round"
+stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+</svg>
+Previous
+</button>
+<div id="question-index" class="text-sm
+font-medium text-gray-600"></div>
+<button onclick="nextQuestion()" id="next-btn"
+class="bg-cyan-600 text-white font-semibold py-2 px-4 rounded-full
+shadow-md hover:bg-cyan-700 transition duration-150">
+Next
+<svg xmlns="http://www.w3.org/2000/svg"
+fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+class="w-4 h-4 inline-block align-middle ml-1">
+<path stroke-linecap="round"
+stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+</svg>
+</button>
+</div>
+</div>
+<!-- Quiz Results Modal (Hidden initially) -->
+<div id="results-modal" class="hidden fixed inset-0
+bg-black bg-opacity-70 flex items-center justify-center p-4 z-20">
+<div class="bg-white p-6 rounded-xl shadow-2xl w-full
+max-w-sm transform transition duration-300 scale-100">
+<h3 class="text-2xl font-bold text-cyan-700 mb-4
+text-center">Quiz Complete!</h3>
+<p class="text-gray-700 text-lg mb-6
+text-center">Your Score:</p>
+<div class="text-5xl font-extrabold text-teal-600
+text-center mb-8">
+<span id="score-text"></span>
+</div>
+<button onclick="resetQuiz()" class="w-full
+bg-blue-500 text-white font-semibold py-3 rounded-full shadow-md
+hover:bg-blue-600 transition duration-200">
+Restart Quiz
+</button>
+</div>
+</div>
+</div>
+<!-- Learning Objectives Section -->
+<div id="los-section" class="tab-content hidden flex-grow
+bg-white p-4 rounded-xl shadow-lg lo-scroll overflow-y-auto">
+<h2 class="text-lg font-bold text-gray-800 mb-4 border-b
+pb-2">UHS Learning Objectives (Pathology)</h2>
+<div id="los-list" class="space-y-4">
+<!-- LOs injected by JS -->
+</div>
+</div>
+</div>
+<!-- JavaScript Logic -->
+<script>
+const LOs = {
+CVA
+MENINGITIS: "CVA & Meningitis"
+,
+_
+ACUTE
+INFLAMMATION
+1: "Acute Inflammation: Stimuli &
+_
+_
+Components"
+,
+ACUTE
+INFLAMMATION
+2: "Acute Inflammation: Events,
+_
+_
+Transudate/Exudate & Outcomes"
+,
+NECROSIS: "Necrosis: Definition and Types"
+,
+CHEMICAL
+MEDIATORS: "Chemical Mediators of Inflammation"
+_
+,
+CHRONIC
+GRANULOMATOUS: "Chronic & Granulomatous
+_
+Inflammation"
+,
+MYCOBACTERIA: "Mycobacteria: TB & Leprosy"
+,
+REPAIR: "Tissue Repair & Wound Healing Complications"
+};
+// Filtered and adapted MCQs from the provided file snippets
+const questions = [
+{
+lo
+tag: 'NECROSIS'
+,
+_
+question: "A diabetic patient presents with painless
+discoloration of the toe, indicative of an ischemic injury. This
+condition is primarily an example of:"
+,
+options: ["Liquefactive necrosis"
+,
+"Gangrenous
+necrosis (dry)"
+,
+"Fat necrosis"
+,
+"Caseous necrosis"],
+answer: "Gangrenous necrosis (dry)"
+, // Diabetic
+ischemic injury leads to dry gangrene, which is a form of coagulative
+necrosis. (From 'Diabetic patient with painless discoloration of toe
+_
+Ischemic injury'
+- 2022 Key)
+year: "2022"
+},
+{
+lo
+tag: 'MYCOBACTERIA'
+,
+_
+question: "Which type of immunity is primarily
+responsible for defense against intracellular microbes such as
+*Mycobacterium tuberculosis*?"
+,
+options: ["Humoral immunity"
+,
+(CMI)"
+,
+"Immune complex mediated hypersensitivity"
+"Cell mediated immunity
+"Immediate type of
+,
+hypersensitivity"],
+answer: "Cell mediated immunity (CMI)"
+, // Directly
+from file snippet: "Which type of immunity provides us with defense
+against intracellular microbes? B. Cell mediated immunity"
+year: "2018"
+},
+{
+lo
+tag: 'CHEMICAL
+MEDIATORS'
+,
+_
+_
+question: "Following an IV dose of penicillin, a
+patient develops skin rash, breathing difficulty, and hypotension
+(anaphylaxis). This hypersensitivity reaction is most likely mediated
+by:"
+,
+options: ["IgM"
+,
+"IgE"
+,
+"C3b"
+,
+"Prostaglandins"],
+answer: "IgE"
+, // From file snippet: "Following an IV
+dose of penicillin... The hypersensitivity reaction is most likely
+mediated by which of the following? IgE"
+year: "2017"
+},
+{
+lo
+tag: 'ACUTE
+_
+INFLAMMATION
+_
+_
+2'
+,
+question: "Acute inflammatory fluid accumulation that
+is low in protein (specific gravity < 1.012), resulting primarily from
+increased hydrostatic pressure due to reduced venous outflow, is
+termed:"
+,
+options: ["Pus"
+,
+"Transudate"
+,
+"Exudate"
+,
+"Serous
+effusion"],
+answer: "Transudate"
+,
+year: "2023 (Adapted from Transudate/Exudate LO)"
+},
+{
+lo
+tag: 'CHRONIC
+GRANULOMATOUS'
+,
+_
+_
+question: "Granulomatous inflammation is characterized
+by the presence of activated macrophages that develop abundant
+cytoplasm and resemble epithelial cells. These are known as:"
+,
+options: ["Plasma cells"
+,
+"Epithelioid histiocytes"
+,
+"Mast cells"
+,
+"Langhans giant cells"],
+answer: "Epithelioid histiocytes"
+,
+year: "2020 (LO on granulomatous inflammation
+morphology)"
+},
+{
+lo
+tag: 'REPAIR'
+,
+_
+question: "Which term describes the excessive
+proliferation of scar tissue that extends beyond the boundaries of the
+original wound site?"
+,
+options: ["Hypertrophic scar"
+,
+"Contracture"
+,
+"Fibrosis"
+,
+"Keloid"],
+answer: "Keloid"
+,
+year: "2016 (Derived from wound healing complications
+LO)"
+},
+{
+lo
+tag: 'CVA
+MENINGITIS'
+,
+_
+_
+question: "In the pathophysiology of Cerebral Vascular
+Accident (CVA), an ischemic stroke is primarily caused by:"
+,
+options: ["Vascular rupture (hemorrhage)"
+,
+"Arterial
+occlusion (thrombus/embolism)"
+,
+"Systemic hypotension"
+,
+"Increased
+intracranial pressure"],
+answer: "Arterial occlusion (thrombus/embolism)"
+,
+year: "2019 (Pathophysiology of CVA LO)"
+}
+];
+let currentQuestionIndex = 0;
+let userAnswers = new Array(questions.length).fill(null);
+// --- Tab Management ---
+const quizSection = document.getElementById('quiz-section');
+const losSection = document.getElementById('los-section');
+const tabQuizBtn = document.getElementById('tab-quiz');
+const tabLosBtn = document.getElementById('tab-los');
+function showTab(tabId) {
+// Reset styles
+tabQuizBtn.classList.remove('bg-cyan-600'
+tabLosBtn.classList.remove('bg-cyan-600'
+tabQuizBtn.classList.add('text-cyan-600'
+,
+,
+'hover:bg-cyan-50');
+tabLosBtn.classList.add('text-cyan-600'
+,
+'hover:bg-cyan-50');
+,
+'text-white');
+'text-white');
+// Hide all sections
+quizSection.classList.add('hidden');
+losSection.classList.add('hidden');
+// Show selected section and highlight button
+if (tabId === 'quiz') {
+quizSection.classList.remove('hidden');
+tabQuizBtn.classList.add('bg-cyan-600'
+,
+'text-white'
+,
+'shadow-inner');
+tabQuizBtn.classList.remove('text-cyan-600'
+,
+'hover:bg-cyan-50');
+} else if (tabId === 'los') {
+losSection.classList.remove('hidden');
+tabLosBtn.classList.add('bg-cyan-600'
+,
+'text-white'
+,
+'shadow-inner');
+tabLosBtn.classList.remove('text-cyan-600'
+,
+'hover:bg-cyan-50');
+}
+}
+// --- Quiz Logic ---
+function renderQuestion() {
+const container =
+document.getElementById('question-card');
+if (questions.length === 0) {
+container.innerHTML =
+`
+<p class="text-red-500
+text-center py-10 font-medium">No filtered MCQs are currently
+available in the quiz.</p>
+`
+;
+return;
+}
+const qData = questions[currentQuestionIndex];
+const currentAnswer = userAnswers[currentQuestionIndex];
+let optionsHtml = qData.options.map((option, index) => {
+const isSelected = currentAnswer === option;
+const isCorrect = option === qData.answer;
+let classes = 'quiz-option p-3 mb-2 rounded-xl border
+transition duration-150 text-gray-700 shadow-sm';
+// Styling based on selection and correction
+if (currentAnswer !== null) {
+if (isSelected && isCorrect) {
+classes += ' bg-teal-100 border-teal-500
+font-semibold';
+} else if (isSelected && !isCorrect) {
+classes += ' bg-red-100 border-red-500
+font-semibold';
+} else if (isCorrect) {
+classes += ' bg-green-100 border-green-500';
+} else {
+classes += ' border-gray-200 bg-gray-50
+opacity-60';
+}
+} else {
+// Default hover state when not answered
+classes += ' border-gray-200 bg-gray-50
+hover:bg-gray-100 cursor-pointer';
+}
+`
+const clickHandler = currentAnswer === null ?
+selectAnswer('${option.replace(/'/g,
+"\\'")}')`
+: '';
+`
+return
+<div class="${classes}" onclick="${clickHandler}">
+<span class="font-mono text-xs text-cyan-700
+mr-2">${String.fromCharCode(65 + index)}.</span>
+${option}
+${currentAnswer !== null && isCorrect ? '<span
+class="float-right text-teal-600 font-bold text-xl">✓</span>' : ''}
+${currentAnswer !== null && isSelected &&
+!isCorrect ? '<span class="float-right text-red-600 font-bold
+text-xl">✕</span>' : ''}
+</div>
+`
+;
+}).join('');
+container.innerHTML =
+`
+<div class="mb-4 flex flex-wrap gap-2">
+<span class="inline-block bg-cyan-100
+text-cyan-700 text-xs font-semibold px-3 py-1 rounded-full
+shadow-inner">
+<svg xmlns="http://www.w3.org/2000/svg"
+fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+stroke="currentColor" class="w-3 h-3 inline-block align-middle mr-1">
+<path stroke-linecap="round"
+stroke-linejoin="round" d="M6.75 3v13.5M3.75 6.75h17.5M3.75
+16.5h17.5M17.25 3v13.5" />
+</svg>
+Year: ${qData.year}
+</span>
+<span class="inline-block bg-blue-100
+text-blue-700 text-xs font-semibold px-3 py-1 rounded-full
+shadow-inner">
+<svg xmlns="http://www.w3.org/2000/svg"
+fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+stroke="currentColor" class="w-3 h-3 inline-block align-middle mr-1">
+<path stroke-linecap="round"
+stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5
+3h7.5m3-9h7.5m-7.5 3h7.5m-7.5 3h7.5m-7.5 3h7.5m-12-3v-3m0 0v-3m0
+3h-3m3 0h3" />
+</svg>
+Topic: ${LOs[qData.lo
+_
+tag]}
+</span>
+</div>
+<p class="text-xl font-medium text-gray-900
+mb-6">${qData.question}</p>
+<div id="options-container" class="space-y-3
+flex-grow">
+${optionsHtml}
+</div>
+`
+;
+updateControls();
+}
+window.selectAnswer = function(selectedOption) {
+userAnswers[currentQuestionIndex] = selectedOption;
+renderQuestion();
+}
+function updateControls() {
+const nextBtn = document.getElementById('next-btn');
+const prevBtn = document.getElementById('prev-btn');
+const indexDisplay =
+document.getElementById('question-index');
+indexDisplay.textContent =
+`Question
+${currentQuestionIndex + 1} of ${questions.length}`
+;
+// Previous button logic
+prevBtn.disabled = currentQuestionIndex === 0;
+// Next/Submit button logic
+if (currentQuestionIndex === questions.length - 1) {
+nextBtn.textContent = 'Submit Quiz';
+nextBtn.onclick = submitQuiz;
+nextBtn.classList.remove('bg-cyan-600'
+,
+'hover:bg-cyan-700');
+nextBtn.classList.add('bg-teal-500'
+,
+'hover:bg-teal-600');
+nextBtn.innerHTML =
+`Submit Quiz
+<svg xmlns="http://www.w3.org/2000/svg"
+fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+class="w-4 h-4 inline-block align-middle ml-1">
+<path stroke-linecap="round"
+stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18
+0 9 9 0 0118 0z" />
+</svg>
+`
+;
+} else {
+nextBtn.textContent = 'Next';
+nextBtn.onclick = nextQuestion;
+nextBtn.classList.remove('bg-teal-500'
+,
+'hover:bg-teal-600');
+nextBtn.classList.add('bg-cyan-600'
+,
+'hover:bg-cyan-700');
+nextBtn.innerHTML =
+`Next
+<svg xmlns="http://www.w3.org/2000/svg"
+fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+class="w-4 h-4 inline-block align-middle ml-1">
+<path stroke-linecap="round"
+stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+</svg>
+`
+;
+}
+}
+window.nextQuestion = function() {
+if (currentQuestionIndex < questions.length - 1) {
+currentQuestionIndex++;
+renderQuestion();
+}
+}
+window.prevQuestion = function() {
+if (currentQuestionIndex > 0) {
+currentQuestionIndex--;
+renderQuestion();
+}
+}
+function submitQuiz() {
+let correctCount = 0;
+userAnswers.forEach((answer, index) => {
+if (answer === questions[index].answer) {
+correctCount++;
+}
+});
+const scoreText =
+`${correctCount} / ${questions.length}`
+document.getElementById('score-text').textContent =
+;
+scoreText;
+document.getElementById('results-modal').classList.remove('hidden');
+}
+window.resetQuiz = function() {
+userAnswers = new Array(questions.length).fill(null);
+currentQuestionIndex = 0;
+document.getElementById('results-modal').classList.add('hidden');
+renderQuestion();
+}
+// --- LOs Rendering ---
+function renderLOs() {
+const loListContainer =
+document.getElementById('los-list');
+const fullLOs = [
+{ title: "CVA and Meningitis"
+, content: "Discuss the
+pathophysiology of cerebral vascular accident (CVA). Define
+Meningitis. Identify types of meningitis.
+" },
+{ title: "Acute Inflammation: Definition & Stimuli"
+,
+content: "Define acute inflammation. Enlist stimuli for Acute
+Inflammation. Recognize microbes, necrotic cells, and foreign
+substances causing acute inflammation.
+" },
+{ title: "Necrosis"
+, content: "Define necrosis and
+explain its type with example.
+" },
+{ title: "Acute Inflammation: Events & Outcomes"
+,
+content: "Discuss the role of vascular and cellular events in acute
+inflammation. Differentiate between transudate and exudate. Describe
+the different morphological patterns and outcomes of acute
+inflammation.
+" },
+{ title: "Chemical Mediators"
+, content: "Classify
+chemical mediators. Describe the different pathways of synthesis of
+chemical mediators and their role in clinical practice. Discuss the
+role of different chemical mediators in acute inflammation.
+" },
+{ title: "Chronic & Granulomatous Inflammation"
+,
+content: "Define chronic inflammation. Discuss the role of chronic
+inflammatory cells and mediators in chronic inflammation. Discuss the
+causes, pathophysiology and morphology of granulomatous inflammation.
+},
+{ title: "Mycobacteria"
+, content: "Classify
+mycobacteria. Explain the pathogenesis and lab diagnosis of
+*Mycobacterium tuberculosis*
+. Discuss the Runyon classification of
+atypical mycobacteria. Discuss pathogeneses and lab diagnosis of
+leprosy.
+" },
+{ title: "Tissue Repair: Cell Cycle & Growth Factors"
+content: "Discuss the concept of Cell Proliferation, the Cell Cycle
+and Stem Cells in tissue repair. Discuss the role of Growth Factors,
+receptors, signal transduction and extracellular matrix Involved in
+Regeneration and Repair.
+" },
+{ title: "Tissue Repair: Healing & Complications"
+,
+content: "Explain the types of healing along with the steps in scar
+formation. Identify the factors that influence the tissue repair.
+Discuss the complication of wound healing - keloid, Hypertrophy,
+Scarring.
+" }
+];
+loListContainer.innerHTML = fullLOs.map(lo =>
+`
+<div class="lo-card bg-cyan-50 p-3 rounded-xl
+shadow-md border-l-4 border-cyan-600 transition duration-150
+hover:bg-cyan-100">
+<h3 class="font-bold
+text-gray-900">${lo.title}</h3>
+<p class="text-sm text-gray-700
+mt-1">${lo.content}</p>
+</div>
+`).join('');
+"
+,
+}
+// --- Initial Load ---
+window.onload = function() {
+renderLOs();
+renderQuestion();
+showTab('quiz'); // Default to the quiz section
+};
+</script>
+</body>
+</html>
