@@ -628,8 +628,75 @@
 
         // Run
         init();
+        <div id="passcode-screen" class="fixed inset-0 bg-[#1a0b2e] z-50 flex items-center justify-center fade-in">
+    <div class="w-full max-w-md p-8 bg-[#2d1b4e] border border-yellow-500/30 rounded-2xl shadow-2xl text-center">
+        <i class="fa-solid fa-lock text-5xl text-yellow-400 mb-4"></i>
+        <h2 class="text-2xl font-bold mb-2">Access Required</h2>
+        <p class="text-gray-400 mb-6">Enter the security passcode to continue.</p>
+        <input type="password" id="passcode-input" placeholder="Enter Passcode" class="w-full p-3 rounded-lg bg-gray-700/50 border border-gray-600 focus:border-yellow-400 outline-none text-white text-lg mb-4">
+        <button onclick="checkPasscode()" class="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition duration-200">
+            Unlock Content <i class="fa-solid fa-door-open ml-2"></i>
+        </button>
+        <p id="passcode-error" class="text-red-400 mt-4 hidden">Invalid passcode. Please try again.</p>
+    </div>
+</div>
+<script>
+    // --- SECURITY SETUP ---
+    const CORRECT_PASSCODE = "2025med";
+    const PASSCODE_PARAM = "passcode";
+    
+    // Get necessary HTML elements (Note: These must be in the HTML above this script block)
+    const passcodeScreen = document.getElementById('passcode-screen');
+    const passcodeInput = document.getElementById('passcode-input');
+    const passcodeError = document.getElementById('passcode-error');
+    const mainNav = document.getElementById('main-nav');
+    const mainContent = document.getElementById('main-content');
+    const mainFooter = document.getElementById('main-footer');
 
-    </script>
+    function grantAccess() {
+        // Hide the lock screen
+        passcodeScreen.classList.add('hidden');
+        
+        // Show the main content
+        mainNav.classList.remove('hidden');
+        mainContent.classList.remove('hidden');
+        mainFooter.classList.remove('hidden');
+        
+        // Initialize the quiz application
+        init(); 
+    }
+
+    function checkPasscode() {
+        const enteredPasscode = passcodeInput.value.trim();
+        if (enteredPasscode === CORRECT_PASSCODE) {
+            grantAccess();
+        } else {
+            passcodeError.classList.remove('hidden');
+            passcodeInput.value = '';
+            setTimeout(() => passcodeError.classList.add('hidden'), 3000); // Hide error after 3 seconds
+        }
+    }
+
+    function checkURLForBypass() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlPasscode = urlParams.get(PASSCODE_PARAM);
+        
+        if (urlPasscode === CORRECT_PASSCODE) {
+            // Access granted via URL parameter
+            grantAccess();
+            return true;
+        }
+        return false;
+    }
+
+    // --- APPLICATION START CHECK ---
+    // This executes after all the HTML elements are loaded.
+    window.onload = function() {
+        if (!checkURLForBypass()) {
+            // If no valid URL passcode is found, ensure the manual passcode screen is visible
+            passcodeScreen.classList.remove('hidden');
+        }
+    }
+</script>
 </body>
 </html>
-
