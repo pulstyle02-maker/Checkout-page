@@ -33,13 +33,26 @@
              box-shadow: 0 5px 15px -3px rgba(244, 208, 63, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
         }
 
-        /* Responsive Layout for the main content */
+        /* Standard App Container (Mobile View) */
         .app-container {
             max-width: 640px; /* Max width for mobile feel */
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             margin: 0 auto;
+        }
+        
+        /* Quiz Embed View Styling - takes up full fixed screen */
+        .app-container-full {
+             /* This class will be applied dynamically when the quiz embed is active */
+            max-width: none; /* Override max-width for full screen */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0 auto;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
         }
 
         .hero-gradient {
@@ -91,7 +104,7 @@
         const bottomNav = document.getElementById('bottom-nav');
         let isLoggedIn = false;
         let currentView = 'home';
-        let currentModule = '';
+        let currentModule = ''; // Stores the name of the last module visited (e.g., 'Neurosciences')
         let validCredentials = null; 
 
         // --- JSONBin Configuration ---
@@ -195,6 +208,7 @@
         function checkSessionAndRedirect(url = null) {
             if (sessionStorage.getItem(SESSION_KEY)) {
                 if (url) {
+                    // Only used for past papers, where we want a full page redirect
                     window.location.href = url;
                 }
                 return true;
@@ -385,11 +399,14 @@
             if (url === 'placeholder' || !url) {
                 showMessage(subject, `Quizzes for ${subject} will be added soon!`);
             } else {
-                window.location.href = url;
+                // *** MODIFICATION: Use renderAppView to embed the quiz URL ***
+                // We pass the URL as the data parameter
+                renderAppView('quiz_embed', url);
             }
         }
 
         function handlePastPapersClick() {
+            // This is still a full-page redirection
             checkSessionAndRedirect(PAST_PAPERS_URL);
         }
 
@@ -397,7 +414,6 @@
         // --- Post-Login Application UI ---
 
         function filterModules(query) {
-            // ... (filter logic remains the same)
             const normalizedQuery = query.toLowerCase().trim();
             if (normalizedQuery === '') {
                 return MODULE_DATA;
@@ -429,7 +445,6 @@
         }
 
         function generateModuleCards(data) {
-            // ... (module card rendering remains the same)
             let html = '';
             const modulesToRender = Object.keys(data);
 
@@ -509,6 +524,38 @@
             html += `</div>`;
             return html;
         }
+        
+        /**
+         * Renders the quiz URL inside a full-screen iframe.
+         * @param {string} url - The URL of the quiz to embed.
+         * @returns {string} The HTML content for the quiz embed view.
+         */
+        function renderQuizEmbedView(url) {
+            // currentModule must be set by generateSubjectCards before this is called
+            // It allows the user to return to the correct subject list.
+            return `
+                <div id="quiz-embed-container" class="w-full h-full flex flex-col relative bg-gray-100">
+                    <!-- Top Bar with Back Button -->
+                    <div class="bg-[#5B2C6F] p-3 shadow-lg flex items-center justify-between z-10">
+                        <button onclick="renderAppView('module', currentModule)" 
+                                class="text-[#F4D03F] hover:text-yellow-300 flex items-center transition duration-150">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                            <span class="ml-1 text-sm font-bold">Close Quiz</span>
+                        </button>
+                        <h1 class="text-sm font-semibold text-white truncate">${currentModule} Quiz</h1>
+                        <div></div> <!-- spacer -->
+                    </div>
+
+                    <!-- Full-Ratio Iframe Container -->
+                    <iframe src="${url}" 
+                            class="flex-grow w-full h-full border-0 min-h-screen" 
+                            frameborder="0" 
+                            allowfullscreen>
+                    </iframe>
+                </div>
+            `;
+        }
+
 
         function renderHomeView() {
             filteredModuleData = MODULE_DATA;
@@ -592,23 +639,49 @@
             `;
         }
 
-        function renderAppView(view, moduleName = '') {
+        /**
+         * Renders the appropriate view and manages application container styling for quiz embed.
+         * @param {string} view - The view to render ('home', 'module', 'quiz_embed').
+         * @param {string} data - Data specific to the view (moduleName or quiz URL).
+         */
+        function renderAppView(view, data = '') {
             currentView = view;
-            currentModule = moduleName;
-            let contentHTML = '';
+            const isQuizView = view === 'quiz_embed';
 
+            // 1. Handle Module Name Storage
+            if (view === 'module') {
+                currentModule = data; // data is moduleName
+            }
+            
+            // 2. Manage App Container Classes (Full-Screen vs. Standard)
+            if (isQuizView) {
+                // For quiz embed, go full-screen and disable scrolling on the main container
+                appDiv.classList.add('app-container-full', 'bg-gray-100');
+                appDiv.classList.remove('app-container', 'bg-white', 'shadow-lg', 'overflow-y-auto');
+            } else {
+                // For home/module views, revert to mobile-friendly centered container
+                appDiv.classList.add('app-container', 'bg-white', 'shadow-lg', 'overflow-y-auto');
+                appDiv.classList.remove('app-container-full', 'bg-gray-100');
+            }
+
+
+            // 3. Generate HTML Content
+            let contentHTML = '';
             switch (view) {
                 case 'home':
                     contentHTML = renderHomeView();
                     break;
                 case 'module':
-                    contentHTML = generateSubjectCards(moduleName);
+                    contentHTML = generateSubjectCards(data); // data is moduleName
+                    break;
+                case 'quiz_embed':
+                    contentHTML = renderQuizEmbedView(data); // data is the URL
                     break;
                 default:
                     contentHTML = `<div class="p-6 text-center text-red-500">Error: Unknown view.</div>`;
             }
 
-            // Apply transition effects for smoother view change
+            // 4. Apply Transition and Render
             appDiv.style.opacity = '0';
             setTimeout(() => {
                 appDiv.innerHTML = contentHTML;
@@ -616,7 +689,12 @@
                 appDiv.style.transition = 'opacity 0.3s ease-in-out';
                 appDiv.style.opacity = '1';
 
-                renderBottomNav();
+                // 5. Manage Bottom Navigation Visibility
+                if (!isQuizView) {
+                    renderBottomNav();
+                } else {
+                    bottomNav.classList.add('hidden');
+                }
             }, 100);
         }
 
@@ -707,7 +785,6 @@
 
             if (isLoggedIn) {
                 // Render the main application
-                appDiv.classList.remove('login-view');
                 renderAppView('home');
             } else {
                 // Render the login screen
