@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathology Board Review | UWorld Style</title>
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --bg-panel: #2b2b2b;
+            --header-bg: #161616;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-blue: #007bff;
+            --accent-hover: #0056b3;
+            --correct-green: #2e7d32;
+            --wrong-red: #c62828;
+            --border-color: #404040;
+            --option-hover: #3a3a3a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--header-bg);
+            padding: 0 20px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        .header-controls span {
+            margin-left: 20px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar (Question Navigator) */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            background-color: var(--header-bg);
+        }
+
+        .question-grid {
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .grid-item {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .grid-item:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .grid-item.active {
+            background-color: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .grid-item.answered-correct {
+            border-color: var(--correct-green);
+            color: var(--correct-green);
+        }
+
+        .grid-item.answered-wrong {
+            border-color: var(--wrong-red);
+            color: var(--wrong-red);
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column; /* Changed for mobile responsiveness usually, but split for desktop */
+            overflow: hidden;
+        }
+
+        .split-view {
+            display: flex;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .left-panel, .right-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .left-panel {
+            border-right: 1px solid var(--border-color);
+            max-width: 55%;
+        }
+
+        .right-panel {
+            background-color: #252525;
+            display: none; /* Hidden until answered */
+        }
+
+        .right-panel.visible {
+            display: block;
+        }
+
+        /* Question Styles */
+        .question-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .image-placeholder {
+            background-color: #000;
+            border: 1px solid #444;
+            color: #777;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-style: italic;
+        }
+
+        .options-list {
+            list-style: none;
+        }
+
+        .option-item {
+            display: flex;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            align-items: flex-start;
+        }
+
+        .option-item:hover {
+            background-color: var(--option-hover);
+        }
+
+        .option-letter {
+            font-weight: 700;
+            margin-right: 15px;
+            min-width: 25px;
+        }
+
+        /* Feedback States */
+        .option-item.correct {
+            background-color: rgba(46, 125, 50, 0.2);
+            border-color: var(--correct-green);
+        }
+
+        .option-item.incorrect {
+            background-color: rgba(198, 40, 40, 0.2);
+            border-color: var(--wrong-red);
+        }
+
+        .option-item.disabled {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        /* Explanation Styles */
+        .explanation-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent-blue);
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+
+        .explanation-text {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #d1d1d1;
+        }
+
+        .explanation-text strong {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        /* Footer Controls */
+        footer {
+            height: 60px;
+            background-color: var(--bg-panel);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            flex-shrink: 0;
+        }
+
+        .nav-btn {
+            background-color: transparent;
+            border: 1px solid var(--text-secondary);
+            color: var(--text-primary);
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .nav-btn.primary {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .nav-btn.primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .question-id-display {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Toggle Sidebar Button for Mobile */
+        .sidebar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                height: 100%;
+                z-index: 100;
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar-toggle {
+                display: block;
+            }
+            .split-view {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            .left-panel {
+                max-width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                height: auto;
+                flex: none;
+            }
+            .right-panel {
+                height: auto;
+                flex: none;
+            }
+            .content-area {
+                overflow-y: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="logo">PATHOLOGY REVIEW</div>
+    </div>
+    <div class="header-controls">
+        <span>Lab Values</span>
+        <span>Notes</span>
+        <span>Calculator</span>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            Questions (1-47)
+        </div>
+        <div class="question-grid" id="questionGrid">
+            <!-- Grid generated by JS -->
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="split-view">
+            <div class="left-panel">
+                <div id="questionContainer">
+                    <!-- Question injected by JS -->
+                </div>
+            </div>
+            <div class="right-panel" id="explanationPanel">
+                <div class="explanation-header">Explanation</div>
+                <div class="explanation-text" id="explanationText">
+                    <!-- Explanation injected by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <div class="question-id-display" id="questionIdFooter">ID: 1</div>
+    <div style="display: flex; gap: 10px;">
+        <button class="nav-btn" onclick="prevQuestion()">Previous</button>
+        <button class="nav-btn primary" onclick="nextQuestion()">Next</button>
+    </div>
+</footer>
+
+<script>
+    // --- DATA PARSING & STORAGE ---
+    // Structured data based on the provided text
+    const quizData = [
+        {
+            id: 1,
+            text: "An 11-year-old child falls and cuts his hand. The wound becomes infected. Bacteria extend into the extracellular matrix around capillaries. In the inflammatory response to this infection, which of the following cells removes the bacteria?",
+            options: [
+                { id: "A", text: "B lymphocyte" },
+                { id: "B", text: "Fibroblast" },
+                { id: "C", text: "Macrophage" },
+                { id: "D", text: "Mast cell" },
+                { id: "E", text: "T lymphocyte" }
+            ],
+            correct: "C",
+            explanation: "<strong>Macrophages</strong> in tissues derived from circulating blood monocytes are phagocytic cells that respond to a variety of stimuli, and they represent the janitorial crew of the body. The other cells listed are not phagocytes. B cells can differentiate into plasma cells secreting antibodies. Fibroblasts form collagen. Mast cells release inflammatory mediators. T cells are part of cell-mediated immune responses."
+        },
+        {
+            id: 2,
+            text: "Signs include temperature of 37.8° C, pulse 103/min, respirations 25/min, and blood pressure 100/60 mm Hg. On auscultation of the chest, crackles are audible in both lung bases. A chest radiograph shows bilateral patchy pulmonary infiltrates. The microscopic appearance of her lung is shown in the figure. Which of the following inflammatory cell types is most likely to be seen in greatly increased numbers in her sputum specimen?",
+            image: true,
+            options: [
+                { id: "A", text: "Langhans giant cells" },
+                { id: "B", text: "Macrophages" },
+                { id: "C", text: "Mast cells" },
+                { id: "D", text: "Neutrophils" },
+                { id: "E", text: "T lymphocytes" }
+            ],
+            correct: "D",
+            explanation: "These signs and symptoms suggest acute bacterial pneumonia. Such infections induce an acute inflammation dominated by <strong>neutrophils</strong> that fill alveoli and are coughed up, giving sputum its purulent appearance. Langhans cells are seen in granulomas. Macrophages appear later to clean up. Mast cells are involved in allergies. Lymphocytes are features of chronic inflammation."
+        },
+        {
+            id: 3,
+            text: "A 4-year-old child has had a high-volume diarrhea for the past 2 days. On examination she is dehydrated. A stool sample examined by serologic assay is positive for rotavirus. She is treated with intravenous fluids and recovers. Which of the following components is found on intestinal cells and recognizes double-stranded RNA of this virus to signal transcription factors that upregulate interferon production for viral elimination?",
+            options: [
+                { id: "A", text: "Caspase-1" },
+                { id: "B", text: "Complement receptor" },
+                { id: "C", text: "Lectin" },
+                { id: "D", text: "T cell receptor" },
+                { id: "E", text: "Toll-like receptor" }
+            ],
+            correct: "E",
+            explanation: "Nonhuman microbial substances such as double-stranded RNA of viruses can be recognized by <strong>Toll-like receptors (TLRs)</strong> on human cells as part of an innate defense mechanism. Caspase-1 is activated by inflammasomes. Complement receptors recognize complement components. Lectins bind carbohydrates. T cell receptors respond to peptide antigens."
+        },
+        {
+            id: 4,
+            text: "A 72-year-old man with severe emphysema has had worsening right ventricular failure for the past 5 years. For the past 4 days, he has had fever and increasing dyspnea. A chest radiograph shows an accumulation of fluid in the pleural spaces. Fluid obtained by thoracentesis has a specific gravity of 1.030 and contains degenerating neutrophils. The most likely cause of this fluid accumulation is due to changes in which of the following?",
+            options: [
+                { id: "A", text: "Colloid osmotic pressure" },
+                { id: "B", text: "Leukocytic diapedesis" },
+                { id: "C", text: "Lymphatic pressure" },
+                { id: "D", text: "Renal sodium retention" },
+                { id: "E", text: "Vascular permeability" }
+            ],
+            correct: "E",
+            explanation: "The formation of an exudate (high specific gravity, cells, protein) depends on the 'leakiness' of blood vessels, specifically <strong>increased vascular permeability</strong>. This allows protein and cells to escape. Transudates (low protein/cells) are caused by hydrostatic/oncotic pressure changes."
+        },
+        {
+            id: 5,
+            text: "A 35-year-old man has had increasing dyspnea for the past 24 hours. A chest radiograph shows large, bilateral pleural effusions. Thoracentesis yields 500 mL of slightly cloudy yellow fluid from the right pleural cavity. Cytologic examination of the fluid shows many neutrophils, but no lymphocytes or RBCs. Which of the following mechanisms contributes most to the pleural fluid accumulation?",
+            options: [
+                { id: "A", text: "Arteriolar vasoconstriction" },
+                { id: "B", text: "Endothelial contraction" },
+                { id: "C", text: "Inhibition of platelet adherence" },
+                { id: "D", text: "Lymphatic obstruction" },
+                { id: "E", text: "Neutrophil release of lysosomes" }
+            ],
+            correct: "B",
+            explanation: "Exudation of fluid is a key component of acute inflammation. <strong>Endothelial contraction</strong> creates interendothelial gaps, increasing vascular permeability. This is mediated by histamine and leukotrienes."
+        },
+        {
+            id: 6,
+            text: "A 6-year-old child has a history of recurrent infections with pyogenic bacteria, including Staphylococcus aureus and Streptococcus pneumoniae. The infections are accompanied by a neutrophilic leukocytosis. Microscopic examination of a biopsy specimen obtained from an area of soft tissue necrosis shows microbial organisms, but very few neutrophils. An analysis of neutrophil function shows a defect in rolling. This child’s increased susceptibility to infection is most likely caused by a defect involving which of the following molecules?",
+            options: [
+                { id: "A", text: "Complement C3b" },
+                { id: "B", text: "Integrins" },
+                { id: "C", text: "Leukotriene B4" },
+                { id: "D", text: "NADPH oxidase" },
+                { id: "E", text: "Selectins" }
+            ],
+            correct: "E",
+            explanation: "Leukocyte rolling is the first step in transmigration and depends on interactions between <strong>selectins</strong> (P, E, and L) and their ligands. Integrins mediate firm adhesion (the next step). Defects in selectins prevent rolling."
+        },
+        {
+            id: 7,
+            text: "In an experiment, bacteria are introduced into a perfused tissue preparation. Leukocytes leave the vasculature and migrate to the site of bacterial inoculation. The movement of these leukocytes is most likely to be mediated by which of the following substances?",
+            options: [
+                { id: "A", text: "Bradykinin" },
+                { id: "B", text: "Chemokines" },
+                { id: "C", text: "Complement C3a" },
+                { id: "D", text: "Histamine" },
+                { id: "E", text: "Prostaglandins" }
+            ],
+            correct: "B",
+            explanation: "<strong>Chemokines</strong> are molecules that are chemotactic for neutrophils and other leukocytes, guiding them to the site of injury. Bradykinin and Histamine affect permeability. Prostaglandins affect pain/vasodilation."
+        },
+        {
+            id: 8,
+            text: "A 12-month-old boy with a 6-month history of repeated infections has had a fever and cough for the past 3 days. A Gram stain of sputum shows many gram-positive cocci in chains. CBC shows neutrophilia. Laboratory studies show that the patient’s neutrophils phagocytose and kill organisms promptly in the presence of normal human serum, but not in his own serum. The neutrophils migrate normally in a chemotaxis assay. Which of the following is the most likely cause of this boy’s increased susceptibility to infection?",
+            options: [
+                { id: "A", text: "Abnormality of selectin expression" },
+                { id: "B", text: "Diminished opsonization" },
+                { id: "C", text: "Defective neutrophil generation of hydrogen peroxide" },
+                { id: "D", text: "Deficiency of integrins" },
+                { id: "E", text: "Phagocytic cell microtubular protein defect" }
+            ],
+            correct: "B",
+            explanation: "The defect lies in the patient's serum (likely immunoglobulin or complement deficiency), not the neutrophils themselves. This prevents <strong>opsonization</strong>, which is required for efficient phagocytosis. Since neutrophils work with normal serum, the cellular machinery is intact."
+        },
+        {
+            id: 9,
+            text: "A 5-year-old child has a history of recurrent bacterial infections, including pneumonia and otitis media. Analysis of leukocytes collected from the peripheral blood shows a deficiency in myeloperoxidase. A reduction in which of the following processes is the most likely cause of this child’s increased susceptibility to infections?",
+            options: [
+                { id: "A", text: "Hydrogen peroxide (H2O2) elaboration" },
+                { id: "B", text: "Hydroxy-halide radical (HOCl–) formation" },
+                { id: "C", text: "Failure of migration resulting from complement deficiency" },
+                { id: "D", text: "Phagocytic cell oxygen consumption" },
+                { id: "E", text: "Prostaglandin production" }
+            ],
+            correct: "B",
+            explanation: "Myeloperoxidase (MPO) converts H2O2 into <strong>HOCl– (hypochlorous acid)</strong>, a powerful antimicrobial agent. MPO deficiency impairs this specific step of the respiratory burst."
+        },
+        {
+            id: 10,
+            text: "In an experiment, neutrophils collected from peripheral blood are analyzed for a “burst” of oxygen consumption. This respiratory burst is an essential step for which of the following events in an acute inflammatory response?",
+            options: [
+                { id: "A", text: "Attachment to endothelial cells" },
+                { id: "B", text: "Generation of microbicidal activity" },
+                { id: "C", text: "Increased production in bone marrow" },
+                { id: "D", text: "Opsonization of bacteria" },
+                { id: "E", text: "Phagocytosis of bacteria" }
+            ],
+            correct: "B",
+            explanation: "The respiratory burst generates reactive oxygen species (superoxide, H2O2, etc.) that are essential for <strong>microbicidal activity</strong> (killing of engulfed bacteria)."
+        },
+        {
+            id: 11,
+            text: "A 4-year-old girl has had numerous infections with Staphylococcus aureus since infancy. Genetic testing shows a defect leading to a lack of β2 integrin production. Which of the following abnormalities of neutrophil function is most likely responsible for these clinical symptoms?",
+            options: [
+                { id: "A", text: "Decreased generation of hydroxy-halide radicals" },
+                { id: "B", text: "Diminished phagocytosis of bacteria opsonized with IgG" },
+                { id: "C", text: "Failure of migration to the site of infection" },
+                { id: "D", text: "Inadequate adhesion on cytokine-activated endothelium" },
+                { id: "E", text: "Reduced respiratory burst after phagocytosis" }
+            ],
+            correct: "D",
+            explanation: "Integrins are crucial for the 'firm adhesion' step of leukocyte extravasation. A lack of β2 integrins prevents leukocytes from adhering firmly to the endothelium (<strong>inadequate adhesion</strong>), preventing them from leaving the bloodstream to fight infection (Leukocyte Adhesion Deficiency type 1)."
+        },
+        {
+            id: 12,
+            text: "In an experiment, peripheral blood cells are isolated and placed into a culture medium that preserves their metabolic activity. Interferon-γ is added to this culture, along with viable Escherichia coli organisms. Which of the following blood cell types in this medium is the most likely to have bactericidal activity against E. coli?",
+            options: [
+                { id: "A", text: "Basophil" },
+                { id: "B", text: "B lymphocyte" },
+                { id: "C", text: "CD4+ lymphocyte" },
+                { id: "D", text: "CD8+ lymphocyte" },
+                { id: "E", text: "Monocyte" },
+                { id: "F", text: "Natural killer cell" },
+                { id: "G", text: "Neutrophil" }
+            ],
+            correct: "E",
+            explanation: "<strong>Monocytes</strong> (which transform into macrophages) are stimulated by Interferon-γ to activate inducible nitric oxide synthase (iNOS) and other mechanisms to kill bacteria. Neutrophils use different pathways."
+        },
+        {
+            id: 13,
+            text: "In an experiment, T lymphocytes from peripheral blood are placed in a medium that preserves their function. The lymphocytes are activated by contact with antigen and incubated for 4 hours. The supernatant fluid is collected and is found to contain a substance that is a major stimulator of monocytes and macrophages. Which of the following substances released into this fluid medium is most likely to stimulate macrophages?",
+            options: [
+                { id: "A", text: "Histamine" },
+                { id: "B", text: "Interferon-γ" },
+                { id: "C", text: "Leukotriene B4" },
+                { id: "D", text: "Nitric oxide" },
+                { id: "E", text: "Phospholipase C" },
+                { id: "F", text: "Tumor necrosis factor (TNF)" }
+            ],
+            correct: "B",
+            explanation: "<strong>Interferon-γ</strong> is the classic macrophage-activating cytokine secreted by activated T cells (and NK cells). It boosts macrophage killing power."
+        },
+        {
+            id: 14,
+            text: "A woman who is allergic to cats visits a neighbor who has several cats. During the visit, she inhales cat dander, and within minutes, she develops nasal congestion with abundant nasal secretions. Which of the following substances is most likely to produce these findings?",
+            options: [
+                { id: "A", text: "Bradykinin" },
+                { id: "B", text: "Complement C5a" },
+                { id: "C", text: "Histamine" },
+                { id: "D", text: "Interleukin-1 (IL-1)" },
+                { id: "E", text: "Phospholipase C" },
+                { id: "F", text: "Tumor necrosis factor (TNF)" }
+            ],
+            correct: "C",
+            explanation: "This is a Type I hypersensitivity reaction. Pre-formed IgE on mast cells binds the allergen, causing degranulation and release of <strong>histamine</strong>, which causes immediate vasodilation and increased permeability (congestion/secretions)."
+        },
+        {
+            id: 15,
+            text: "In a 6-month randomized trial of a pharmacologic agent, one group of patients receives a cyclooxygenase-2 (COX-2) inhibitor, and a control group does not. ... The group receiving the drug reports subjective findings different from those of the control group. Which of the following findings was most likely reported by the group receiving the drug?",
+            options: [
+                { id: "A", text: "Increased ankle swelling" },
+                { id: "B", text: "Increased susceptibility to bruising" },
+                { id: "C", text: "Increased bouts of asthma" },
+                { id: "D", text: "Reduced severity of urticaria" },
+                { id: "E", text: "Numerous febrile episodes" },
+                { id: "F", text: "Reduced arthritis pain" }
+            ],
+            correct: "F",
+            explanation: "COX-2 is induced during inflammation to produce prostaglandins which mediate pain and fever. An inhibitor would result in <strong>reduced arthritis pain</strong>. (Note: COX-2 inhibitors can increase cardiovascular risk, but in the context of efficacy for arthritis, pain reduction is the primary effect)."
+        },
+        {
+            id: 16,
+            text: "A 19-year-old woman develops a sore throat and fever during the past day. Physical examination shows pharyngeal erythema and swelling. Laboratory findings include leukocytosis. She is given naproxen. Which of the following features of the acute inflammatory response is most affected by this drug?",
+            options: [
+                { id: "A", text: "Chemotaxis" },
+                { id: "B", text: "Emigration" },
+                { id: "C", text: "Leukocytosis" },
+                { id: "D", text: "Phagocytosis" },
+                { id: "E", text: "Vasodilation" }
+            ],
+            correct: "E",
+            explanation: "Naproxen is an NSAID that inhibits cyclooxygenase, reducing prostaglandin synthesis. Prostaglandins are key mediators of <strong>vasodilation</strong> and pain. Naproxen therefore reduces the redness and swelling associated with vasodilation."
+        },
+        {
+            id: 17,
+            text: "A 35-year-old woman takes acetylsalicylic acid (aspirin) for arthritis. Although her joint pain is reduced with this therapy, the inflammatory process continues. The aspirin therapy alleviates her pain mainly through reduction in the synthesis of which of the following mediators?",
+            options: [
+                { id: "A", text: "Complement C1q" },
+                { id: "B", text: "Histamine" },
+                { id: "C", text: "Leukotriene E4" },
+                { id: "D", text: "Nitric oxide" },
+                { id: "E", text: "Prostaglandins" }
+            ],
+            correct: "E",
+            explanation: "Aspirin inhibits the cyclooxygenase pathway, blocking the production of <strong>prostaglandins</strong>, which are responsible for pain and fever."
+        },
+        {
+            id: 18,
+            text: "A 77-year-old woman experiences a sudden loss of consciousness, with loss of movement on the right side of the body. Cerebral angiography shows an occlusion of the left middle cerebral artery. Elaboration of which of the following mediators will be most beneficial in preventing further ischemic injury to her cerebral cortex?",
+            options: [
+                { id: "A", text: "Bradykinin" },
+                { id: "B", text: "Leukotriene E4" },
+                { id: "C", text: "Nitric oxide" },
+                { id: "D", text: "Platelet-activating factor" },
+                { id: "E", text: "Thromboxane A2" }
+            ],
+            correct: "C",
+            explanation: "<strong>Nitric oxide (NO)</strong> is a potent vasodilator released by endothelial cells. In ischemia, vasodilation is beneficial to try to restore blood flow. The other options (Leukotrienes, Thromboxane, PAF) generally cause vasoconstriction or aggregation, which would worsen the stroke."
+        },
+        {
+            id: 19,
+            text: "In an experiment, bacteria are inoculated into aliquots of normal human blood that have been treated with an anticoagulant. It is observed that the bacteria are either phagocytized by neutrophils or undergo lysis. Which of the following blood plasma components is most likely to facilitate these effects?",
+            options: [
+                { id: "A", text: "Complement" },
+                { id: "B", text: "Fibrin" },
+                { id: "C", text: "Kallikrein" },
+                { id: "D", text: "Plasmin" },
+                { id: "E", text: "Thrombin" }
+            ],
+            correct: "A",
+            explanation: "<strong>Complement</strong> activation leads to C3b deposition (opsonization for phagocytosis) and the formation of the Membrane Attack Complex (C5-C9) which causes direct bacterial lysis."
+        },
+        {
+            id: 20,
+            text: "Patients with extensive endothelial injury from Escherichia coli sepsis have consumption of coagulation factors as well as an extensive inflammatory response. Administration of activated protein C is most likely to decrease this inflammatory response by reducing the amount of which of the following substances?",
+            options: [
+                { id: "A", text: "Complement" },
+                { id: "B", text: "Fibrin" },
+                { id: "C", text: "Kallikrein" },
+                { id: "D", text: "Plasmin" },
+                { id: "E", text: "Thrombin" }
+            ],
+            correct: "E",
+            explanation: "Protein C is an anticoagulant that degrades Factors Va and VIIIa, thereby reducing the generation of <strong>Thrombin</strong>. Thrombin is pro-inflammatory; it activates endothelium and platelets. Reducing thrombin dampens the inflammatory loop."
+        },
+        {
+            id: 21,
+            text: "A 95-year-old woman touches a pot of boiling water. Within 2 hours, she has marked erythema of the skin of the fingers of her hand, and small blisters appear on the finger pads. This has led to which one of the following inflammatory responses?",
+            options: [
+                { id: "A", text: "Fibrinous inflammation" },
+                { id: "B", text: "Granulomatous inflammation" },
+                { id: "C", text: "Purulent inflammation" },
+                { id: "D", text: "Serous inflammation" },
+                { id: "E", text: "Ulceration" }
+            ],
+            correct: "D",
+            explanation: "Blisters are a classic example of <strong>serous inflammation</strong>, characterized by the accumulation of a thin, protein-poor fluid (transudate/effusion) derived from plasma."
+        },
+        {
+            id: 22,
+            text: "A 24-year-old, sexually active woman has experienced lower abdominal pain for the past day. ... Laparotomy reveals a distended, fluid-filled, reddened left fallopian tube that is about to rupture. A left salpingectomy is performed. Which of the following is most likely to be seen on microscopic examination of the excised fallopian tube?",
+            options: [
+                { id: "A", text: "Fibroblastic proliferation" },
+                { id: "B", text: "Langhans giant cells" },
+                { id: "C", text: "Liquefactive necrosis" },
+                { id: "D", text: "Mononuclear infiltrates" },
+                { id: "E", text: "Squamous metaplasia" }
+            ],
+            correct: "C",
+            explanation: "This is an acute suppurative (purulent) infection. Neutrophils release enzymes that cause <strong>liquefactive necrosis</strong>, weakening the wall and predisposing to rupture."
+        },
+        {
+            id: 23,
+            text: "A 68-year-old man has had worsening shortness of breath for the past week. ... Thoracentesis performed on the left pleural cavity yields 800 mL of cloudy yellow fluid that has a WBC count of 2500/mm3 with 98% neutrophils. ... Which of the following terms best describes the process occurring in his left pleural cavity?",
+            options: [
+                { id: "A", text: "Abscess" },
+                { id: "B", text: "Chronic inflammation" },
+                { id: "C", text: "Edema" },
+                { id: "D", text: "Fibrinous inflammation" },
+                { id: "E", text: "Purulent exudate" },
+                { id: "F", text: "Serous effusion" }
+            ],
+            correct: "E",
+            explanation: "A fluid collection rich in neutrophils and cellular debris is a <strong>purulent exudate</strong> (pus). In the pleural space, this is also called an empyema."
+        },
+        {
+            id: 24,
+            text: "An 87-year-old woman has had a cough productive of yellowish sputum for the past 2 days. On examination her temperature is 37° C. A chest radiograph shows bilateral patchy infiltrates. Her peripheral blood shows leukocytosis. A week later she is afebrile. Which of the following is the most likely outcome of her pulmonary disease?",
+            options: [
+                { id: "A", text: "Chronic inflammation" },
+                { id: "B", text: "Fibrous scarring" },
+                { id: "C", text: "Neoplasia" },
+                { id: "D", text: "Resolution" },
+                { id: "E", text: "Ulceration" }
+            ],
+            correct: "D",
+            explanation: "Acute bacterial pneumonia in a patient who recovers typically undergoes <strong>resolution</strong>, where the exudate is cleared and the normal lung architecture is restored. Lung parenchyma has regenerative capacity (unlike the heart)."
+        },
+        {
+            id: 25,
+            text: "A 53-year-old woman has experienced abdominal pain for 2 weeks. ... The figure shows microscopic examination of a biopsy specimen of a duodenal lesion (showing loss of epithelium). Which of the following pathologic processes is most likely present?",
+            image: true,
+            options: [
+                { id: "A", text: "Abscess" },
+                { id: "B", text: "Caseating granuloma" },
+                { id: "C", text: "Chronic inflammation" },
+                { id: "D", text: "Purulent exudate" },
+                { id: "E", text: "Serous effusion" },
+                { id: "F", text: "Ulceration" }
+            ],
+            correct: "F",
+            explanation: "An <strong>ulceration</strong> is defined as the local defect or excavation of the surface of an organ or tissue that is produced by the sloughing (shedding) of inflamed necrotic tissue."
+        },
+        {
+            id: 26,
+            text: "A 92-year-old woman is diagnosed with Staphylococcus aureus pneumonia... Two weeks later, she no longer has a productive cough, but she still has a temperature of 38.1° C. A chest radiograph shows (a cavity with an air-fluid level). Which of the following terms best describes the outcome of the patient’s pneumonia?",
+            image: true,
+            options: [
+                { id: "A", text: "Abscess formation" },
+                { id: "B", text: "Complete resolution" },
+                { id: "C", text: "Fibrous scarring" },
+                { id: "D", text: "Chronic inflammation" },
+                { id: "E", text: "Tissue regeneration" }
+            ],
+            correct: "A",
+            explanation: "S. aureus is pyogenic and causes extensive tissue destruction. A localized collection of pus with tissue destruction (evidenced by the cavity/air-fluid level) is an <strong>abscess</strong>."
+        },
+        {
+            id: 27,
+            text: "A 29-year-old woman with a congenital ventricular septal defect has had a persistent temperature of 38.6° C and headache for the past 3 weeks. A head CT scan shows an enhancing 3-cm, ring like lesion in the right parietal lobe of her brain. Which of the following actions by inflammatory cells has most likely produced this CT finding?",
+            options: [
+                { id: "A", text: "Elaboration of nitric oxide by macrophages" },
+                { id: "B", text: "Formation of immunoglobulin by B lymphocytes" },
+                { id: "C", text: "Generation of prostaglandin by endothelium" },
+                { id: "D", text: "Production of interferon-γ by T lymphocytes" },
+                { id: "E", text: "Release of lysosomal enzymes from neutrophils" }
+            ],
+            correct: "E",
+            explanation: "This is a brain abscess (septic embolus). Abscess formation involves liquefactive necrosis mediated by the <strong>release of lysosomal enzymes from neutrophils</strong> and macrophages."
+        },
+        {
+            id: 28,
+            text: "A 37-year-old man has had midepigastric pain for the past 3 months. An upper gastrointestinal endoscopy shows a 2-cm, sharply demarcated, shallow ulceration of the gastric antrum. Microscopic examination of a biopsy from the ulcer base shows angiogenesis, fibrosis, and mononuclear cell infiltrates... Which of the following terms best describes this pathologic process?",
+            options: [
+                { id: "A", text: "Acute inflammation" },
+                { id: "B", text: "Chronic inflammation" },
+                { id: "C", text: "Fibrinous inflammation" },
+                { id: "D", text: "Granulomatous inflammation" },
+                { id: "E", text: "Serous inflammation" }
+            ],
+            correct: "B",
+            explanation: "The combination of tissue destruction, fibrosis (repair), angiogenesis, and mononuclear cells (lymphocytes, plasma cells) is the definition of <strong>chronic inflammation</strong>."
+        },
+        {
+            id: 29,
+            text: "A 65-year-old man develops worsening congestive heart failure 2 weeks after an acute myocardial infarction. ... Now, capillaries, fibroblasts, collagen, and inflammatory cells have largely replaced the infarcted myocardium. Which of the following inflammatory cell types in this lesion plays the most important role in the healing process?",
+            options: [
+                { id: "A", text: "Eosinophils" },
+                { id: "B", text: "Epithelioid cells" },
+                { id: "C", text: "Macrophages" },
+                { id: "D", text: "Neutrophils" },
+                { id: "E", text: "Plasma cells" }
+            ],
+            correct: "C",
+            explanation: "<strong>Macrophages</strong> are crucial in healing. They clean up debris and secrete growth factors (PDGF, FGF, TGF-beta) that recruit fibroblasts and stimulate angiogenesis (granulation tissue)."
+        },
+        {
+            id: 30,
+            text: "A 9-year-old boy has had a chronic cough and fever for the past month. ... A transbronchial biopsy specimen shows granulomatous inflammation with epithelioid macrophages and Langhans giant cells. Which of the following mediators is most likely to contribute to giant cell formation?",
+            options: [
+                { id: "A", text: "Complement C3b" },
+                { id: "B", text: "Interferon-γ" },
+                { id: "C", text: "Interleukin-1 (IL-1)" },
+                { id: "D", text: "Leukotriene B4" },
+                { id: "E", text: "Tumor necrosis factor (TNF)" }
+            ],
+            correct: "B",
+            explanation: "<strong>Interferon-γ</strong> (secreted by T-cells) is the primary driver of granulomatous inflammation. It transforms macrophages into epithelioid cells and promotes their fusion into giant cells."
+        },
+        {
+            id: 31,
+            text: "A 32-year-old woman has had a chronic cough with fever for the past month. ... A transbronchial biopsy specimen shows interstitial infiltrates with lymphocytes, plasma cells, and epithelioid macrophages. Which of the following infectious agents is the most likely cause of this appearance?",
+            options: [
+                { id: "A", text: "Candida albicans" },
+                { id: "B", text: "Cytomegalovirus" },
+                { id: "C", text: "Enterobacter aerogenes" },
+                { id: "D", text: "Mycobacterium tuberculosis" },
+                { id: "E", text: "Plasmodium falciparum" },
+                { id: "F", text: "Staphylococcus aureus" }
+            ],
+            correct: "D",
+            explanation: "The presence of epithelioid macrophages (granulomas) is highly characteristic of tuberculosis (<strong>Mycobacterium tuberculosis</strong>). Bacterial pneumonias cause acute inflammation; viral infections cause diffuse interstitial lymphocytic infiltrates but not usually granulomas."
+        },
+        {
+            id: 32,
+            text: "One month after an appendectomy, a 25-year-old woman palpates a small nodule beneath the skin at the site of the healed right lower quadrant sutured incision. The nodule is excised, and microscopic examination shows macrophages, collagen deposition, small lymphocytes, and multinucleated giant cells. Polarizable, refractile material is seen in the nodule. Which of the following complications of the surgery best accounts for these findings?",
+            options: [
+                { id: "A", text: "Abscess formation" },
+                { id: "B", text: "Chronic inflammation" },
+                { id: "C", text: "Exuberant granulation tissue" },
+                { id: "D", text: "Granuloma formation" },
+                { id: "E", text: "Healing by second intention" }
+            ],
+            correct: "D",
+            explanation: "The refractile material is suture material (foreign body). The reaction to it, involving multinucleated giant cells, is a foreign body <strong>granuloma</strong>."
+        },
+        {
+            id: 33,
+            text: "A 43-year-old man has had a cough and fever for the past 2 months. ... A transbronchial lung biopsy is performed, yielding a specimen with the microscopic appearance shown in the figure (showing noncaseating granulomas). Which of the following chemical mediators is most important in the pathogenesis of this lesion?",
+            image: true,
+            options: [
+                { id: "A", text: "Bradykinin" },
+                { id: "B", text: "Complement C5a" },
+                { id: "C", text: "Interferon-γ" },
+                { id: "D", text: "Nitric oxide" },
+                { id: "E", text: "Prostaglandins" }
+            ],
+            correct: "C",
+            explanation: "This looks like Sarcoidosis (non-necrotizing granulomas). Like TB, the formation of granulomas is driven by Th1 responses and <strong>Interferon-γ</strong>."
+        },
+        {
+            id: 34,
+            text: "An 8-year-old girl has had difficulty swallowing for the past day. On examination, her pharynx is swollen and erythematous with an overlying yellow exudate. ... Streptococcus pyogenes is cultured. Which of the following substances is most likely to increase in response to pyrogens released by this organism?",
+            options: [
+                { id: "A", text: "Hageman factor" },
+                { id: "B", text: "Immunoglobulin E" },
+                { id: "C", text: "Interleukin-12 (IL-12)" },
+                { id: "D", text: "Nitric oxide" },
+                { id: "E", text: "Prostaglandins" }
+            ],
+            correct: "E",
+            explanation: "Exogenous pyrogens stimulate inflammatory cells to release endogenous pyrogens (IL-1, TNF). These act on the hypothalamus to increase <strong>prostaglandins</strong> (specifically PGE2), which reset the temperature set-point, causing fever."
+        },
+        {
+            id: 35,
+            text: "A 41-year-old man has had a severe headache for the past 2 days. On examination, his temperature is 39.2° C. A lumbar puncture is performed... showing meningitis. Which of the following substances is the most likely mediator for the fever observed in this man?",
+            options: [
+                { id: "A", text: "Bradykinin" },
+                { id: "B", text: "Histamine" },
+                { id: "C", text: "Leukotriene B4" },
+                { id: "D", text: "Nitric oxide" },
+                { id: "E", text: "Tumor necrosis factor (TNF)" }
+            ],
+            correct: "E",
+            explanation: "<strong>Tumor necrosis factor (TNF)</strong> and IL-1 are the major cytokines (endogenous pyrogens) responsible for fever and the acute phase response."
+        },
+        {
+            id: 36,
+            text: "A 43-year-old man with a ventricular septal defect has had a cough and fever for the past 2 days. ... His erythrocyte sedimentation rate (ESR) is increased. Microbial cells are opsonized and cleared. Which of the following chemical mediators is most important in producing these findings?",
+            options: [
+                { id: "A", text: "Bradykinin" },
+                { id: "B", text: "C-reactive protein" },
+                { id: "C", text: "Interferon-γ" },
+                { id: "D", text: "Nitric oxide" },
+                { id: "E", text: "Prostaglandin" },
+                { id: "F", text: "Tumor necrosis factor (TNF)" }
+            ],
+            correct: "B",
+            explanation: "The ESR is increased due to fibrinogen. <strong>C-reactive protein (CRP)</strong> is another acute phase reactant produced by the liver (stimulated by IL-6) that acts as an opsonin to assist in clearing bacteria."
+        },
+        {
+            id: 37,
+            text: "In an experiment, a group of test animals is infected with viral hepatitis. Two months later, complete recovery... is observed. A control test group is infected with bacterial organisms, and after the same period... fibrous scars... are seen. Which of the following factors best explains the different outcomes for the two test groups?",
+            options: [
+                { id: "A", text: "Extent of damage to the biliary ducts" },
+                { id: "B", text: "Extent of the hepatocyte injury" },
+                { id: "C", text: "Injury to the connective tissue framework" },
+                { id: "D", text: "Location of the lesion within the liver" },
+                { id: "E", text: "Nature of the injurious etiologic agent" }
+            ],
+            correct: "C",
+            explanation: "Regeneration requires an intact scaffold. If the <strong>connective tissue framework</strong> (ECM) is destroyed (as in an abscess), healing occurs by scarring. If the framework is intact (as in viral hepatitis where individual cells die), regeneration can restore architecture."
+        },
+        {
+            id: 38,
+            text: "A 51-year-old woman tests positive for hepatitis A antibody. Her serum AST level is 275 U/L, and ALT is 310 U/L. One month later, these enzyme levels have returned to normal. Which phase of the cell cycle best describes the hepatocytes 1 month after her infection?",
+            options: [
+                { id: "A", text: "G0" },
+                { id: "B", text: "G1" },
+                { id: "C", text: "S" },
+                { id: "D", text: "G2" },
+                { id: "E", text: "M" }
+            ],
+            correct: "A",
+            explanation: "Hepatocytes are stable cells. They enter the cell cycle to regenerate when injured, but once the liver is restored and healthy (1 month later), they return to the quiescent phase <strong>G0</strong>."
+        },
+        {
+            id: 39,
+            text: "A 54-year-old man undergoes laparoscopic hernia repair. ... Further history reveals that his usual diet has poor nutritional value and is deficient in vitamin C. Synthesis of which of the following extracellular matrix components is most affected by this deficiency?",
+            options: [
+                { id: "A", text: "Collagen" },
+                { id: "B", text: "Elastin" },
+                { id: "C", text: "Fibronectin" },
+                { id: "D", text: "Integrin" },
+                { id: "E", text: "Laminin" }
+            ],
+            correct: "A",
+            explanation: "Vitamin C (ascorbic acid) is a required cofactor for lysyl and prolyl hydroxylase, enzymes necessary for hydroxylation of pro-collagen. Deficiency leads to scurvy and defective <strong>collagen</strong> synthesis/cross-linking."
+        },
+        {
+            id: 40,
+            text: "In an experiment, glass beads are embolized into the coronary arteries of rats, resulting in myocardial injury. After 7 days, sections of the myocardium are studied using light microscopy. ... Which of the following mediators is most likely being expressed to produce this appearance?",
+            image: true,
+            options: [
+                { id: "A", text: "Epidermal growth factor" },
+                { id: "B", text: "Interleukin-2 (IL-2)" },
+                { id: "C", text: "Leukotriene B4" },
+                { id: "D", text: "Thromboxane A2" },
+                { id: "E", text: "Tumor necrosis factor (TNF)" },
+                { id: "F", text: "Vascular endothelial growth factor" }
+            ],
+            correct: "F",
+            explanation: "After 7 days, granulation tissue is forming. This is rich in capillaries (angiogenesis). <strong>Vascular endothelial growth factor (VEGF)</strong> is the primary driver of angiogenesis."
+        },
+        {
+            id: 41,
+            text: "A 20-year-old woman undergoes cesarean section to deliver a term infant, and the lower abdominal incision is sutured. The sutures are removed 1 week later. Which of the following statements best describes the wound site at the time of suture removal?",
+            options: [
+                { id: "A", text: "Collagen degradation exceeds synthesis" },
+                { id: "B", text: "Granulation tissue is still present" },
+                { id: "C", text: "No more wound strength will be gained" },
+                { id: "D", text: "Type IV collagen predominates" },
+                { id: "E", text: "Wound strength is 80% of normal tissue" }
+            ],
+            correct: "B",
+            explanation: "At 1 week (7 days), the wound is only about 10% strength. It is still in the proliferative phase where <strong>granulation tissue</strong> is present, and collagen deposition is just getting underway. 80% strength is reached after 3 months."
+        },
+        {
+            id: 42,
+            text: "A 24-year-old man with acute appendicitis undergoes surgical removal of the inflamed appendix. The incision site is sutured. A trichrome-stained section representative of the site with blue appearing collagen is shown in the figure. How long after the surgery would this appearance most likely be seen?",
+            image: true,
+            options: [
+                { id: "A", text: "1 day" },
+                { id: "B", text: "2 to 3 days" },
+                { id: "C", text: "4 to 5 days" },
+                { id: "D", text: "2 weeks" },
+                { id: "E", text: "1 month" }
+            ],
+            correct: "E",
+            explanation: "Trichrome stains collagen blue. Dense collagen accumulation suggests the maturation/remodeling phase. This amount of collagen and reduced cellularity is typical of <strong>1 month</strong> post-injury."
+        },
+        {
+            id: 43,
+            text: "A 40-year-old man underwent laparotomy... A wound infection complicated the postoperative course... and the wound “granulated in.” Six weeks later, the wound is only 10% of its original size. Which of the following processes best accounts for the observed decrease in wound size over the past 6 weeks?",
+            options: [
+                { id: "A", text: "Elaboration of adhesive glycoproteins" },
+                { id: "B", text: "Increase in synthesis of collagen" },
+                { id: "C", text: "Inhibition of metalloproteinases" },
+                { id: "D", text: "Myofibroblast contraction" },
+                { id: "E", text: "Resolution of subcutaneous edema" }
+            ],
+            correct: "D",
+            explanation: "Healing by second intention involves significant wound contraction to close the gap. This is mediated by <strong>myofibroblasts</strong>, which have contractile properties."
+        },
+        {
+            id: 44,
+            text: "In an experiment involving observations on wound healing, researchers noted that intracytoplasmic cytoskeletal elements, including actin, interact with the extracellular matrix to promote cell attachment and migration in wound healing. Which of the following substances is most likely responsible for such interaction between the cytoskeleton and the extracellular matrix?",
+            options: [
+                { id: "A", text: "Epidermal growth factor" },
+                { id: "B", text: "Fibronectin" },
+                { id: "C", text: "Integrin" },
+                { id: "D", text: "Platelet-derived growth factor" },
+                { id: "E", text: "Type IV collagen" },
+                { id: "F", text: "Vascular endothelial growth factor" }
+            ],
+            correct: "C",
+            explanation: "<strong>Integrins</strong> are the transmembrane proteins that link the intracellular cytoskeleton (actin) to the extracellular matrix (e.g., fibronectin), allowing for cell adhesion and migration."
+        },
+        {
+            id: 45,
+            text: "A 23-year-old woman receiving corticosteroid therapy for an autoimmune disease has an abscess on her upper outer right arm. She undergoes minor surgery to incise and drain the abscess, but the wound heals poorly over the next month. Which of the following aspects of wound healing is most likely to be deficient in this patient?",
+            options: [
+                { id: "A", text: "Collagen deposition" },
+                { id: "B", text: "Elaboration of VEGF" },
+                { id: "C", text: "Neutrophil infiltration" },
+                { id: "D", text: "Reepithelialization" },
+                { id: "E", text: "Serine proteinase production" }
+            ],
+            correct: "A",
+            explanation: "Glucocorticoids (corticosteroids) inhibit wound healing, primarily by impairing <strong>collagen synthesis (deposition)</strong> and fibrosis. They also have anti-inflammatory effects, but the structural weakness is due to lack of collagen."
+        },
+        {
+            id: 46,
+            text: "An 18-year-old man lacerated his left ear and required sutures. The sutures were removed 1 week later. Wound healing continued, but the site became disfigured over the next 2 months by the process shown in the figure (raised, nodular scar). Which of the following terms best describes the process that occurred in this man?",
+            image: true,
+            options: [
+                { id: "A", text: "Dehiscence" },
+                { id: "B", text: "Keloid formation" },
+                { id: "C", text: "Organization" },
+                { id: "D", text: "Resolution" },
+                { id: "E", text: "Secondary union" }
+            ],
+            correct: "B",
+            explanation: "Exuberant collagen formation that grows beyond the boundaries of the original wound is called a <strong>Keloid</strong>. This is different from hypertrophic scars (which stay within boundaries)."
+        },
+        {
+            id: 47,
+            text: "A 58-year-old man had chest pain persisting for 4 hours. A radiographic imaging procedure showed an infarction involving a 4-cm area of the posterior left ventricular free wall. ... Which of the following pathologic findings would most likely be seen in the left ventricular lesion 1 month later?",
+            options: [
+                { id: "A", text: "Chronic inflammation" },
+                { id: "B", text: "Coagulative necrosis" },
+                { id: "C", text: "Complete resolution" },
+                { id: "D", text: "Fibrous scar" },
+                { id: "E", text: "Nodular regeneration" }
+            ],
+            correct: "D",
+            explanation: "The heart (myocardium) consists of permanent cells that cannot regenerate. Therefore, healing of a myocardial infarction always occurs via formation of a <strong>fibrous scar</strong>."
+        }
+    ];
+
+    // --- APPLICATION STATE ---
+    let currentQuestionIndex = 0;
+    const userAnswers = new Map(); // Stores { questionId: selectedOptionId }
+
+    // --- DOM ELEMENTS ---
+    const gridEl = document.getElementById('questionGrid');
+    const questionContainer = document.getElementById('questionContainer');
+    const explanationPanel = document.getElementById('explanationPanel');
+    const explanationText = document.getElementById('explanationText');
+    const questionIdFooter = document.getElementById('questionIdFooter');
+    const sidebar = document.getElementById('sidebar');
+
+    // --- INITIALIZATION ---
+    function init() {
+        renderGrid();
+        loadQuestion(0);
+    }
+
+    // --- CORE LOGIC ---
+    function loadQuestion(index) {
+        currentQuestionIndex = index;
+        const data = quizData[index];
+        const hasAnswered = userAnswers.has(data.id);
+        const selectedOption = userAnswers.get(data.id);
+
+        // Update Footer ID
+        questionIdFooter.innerText = `Question ID: ${data.id}`;
+
+        // Build Question HTML
+        let html = `
+            <div class="question-text">
+                <span style="float:left; font-weight:bold; margin-right:10px; font-size:1.2em; color:var(--accent-blue)">${data.id}.</span>
+                ${data.text}
+            </div>
+            ${data.image ? '<div class="image-placeholder">[Image would appear here]</div>' : ''}
+            <ul class="options-list">
+        `;
+
+        data.options.forEach(opt => {
+            let className = 'option-item';
+            
+            if (hasAnswered) {
+                className += ' disabled';
+                // Logic for styling answered state
+                if (opt.id === data.correct) {
+                    className += ' correct';
+                } else if (opt.id === selectedOption) {
+                    className += ' incorrect';
+                }
+            }
+
+            html += `
+                <li class="${className}" onclick="handleOptionClick('${opt.id}')">
+                    <span class="option-letter">${opt.id}</span>
+                    <span>${opt.text}</span>
+                </li>
+            `;
+        });
+        html += `</ul>`;
+
+        questionContainer.innerHTML = html;
+
+        // Handle Explanation Panel Visibility
+        if (hasAnswered) {
+            explanationPanel.classList.add('visible');
+            explanationText.innerHTML = data.explanation;
+        } else {
+            explanationPanel.classList.remove('visible');
+        }
+
+        updateGridSelection();
+    }
+
+    function handleOptionClick(optionId) {
+        const data = quizData[currentQuestionIndex];
+        
+        // Prevent changing answer (UWorld style usually locks in test mode, allows change in tutor mode, but simplest is lock for quiz)
+        if (userAnswers.has(data.id)) return;
+
+        // Save Answer
+        userAnswers.set(data.id, optionId);
+
+        // Re-render to show feedback
+        loadQuestion(currentQuestionIndex);
+        renderGrid(); // Update sidebar color
+    }
+
+    function nextQuestion() {
+        if (currentQuestionIndex < quizData.length - 1) {
+            loadQuestion(currentQuestionIndex + 1);
+        }
+    }
+
+    function prevQuestion() {
+        if (currentQuestionIndex > 0) {
+            loadQuestion(currentQuestionIndex - 1);
+        }
+    }
+
+    // --- GRID NAVIGATION ---
+    function renderGrid() {
+        gridEl.innerHTML = '';
+        quizData.forEach((q, index) => {
+            const item = document.createElement('div');
+            item.className = 'grid-item';
+            item.innerText = q.id;
+            
+            if (userAnswers.has(q.id)) {
+                const selected = userAnswers.get(q.id);
+                if (selected === q.correct) {
+                    item.classList.add('answered-correct');
+                } else {
+                    item.classList.add('answered-wrong');
+                }
+            }
+
+            if (index === currentQuestionIndex) {
+                item.classList.add('active');
+            }
+
+            item.onclick = () => {
+                loadQuestion(index);
+                if(window.innerWidth <= 768) toggleSidebar(); // Close sidebar on mobile select
+            };
+            gridEl.appendChild(item);
+        });
+    }
+
+    function updateGridSelection() {
+        // Just updates the active border without redrawing whole grid
+        const items = gridEl.children;
+        for (let i = 0; i < items.length; i++) {
+            if (i === currentQuestionIndex) items[i].classList.add('active');
+            else items[i].classList.remove('active');
+        }
+    }
+
+    // --- UI HELPERS ---
+    function toggleSidebar() {
+        sidebar.classList.toggle('open');
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>
