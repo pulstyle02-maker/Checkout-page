@@ -1,767 +1,662 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,
-initial-scale=1.0">
-<title>UHS Past Papers - Pathology</title>
-<!-- Load Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Use Inter font family -->
-<style>
-body {
-font-family: 'Inter'
-background-color: #f7f7f7;
-, sans-serif;
-}
-.lo-card {
-border-left: 4px solid #06B6D4;
-}
-/* Custom scrollbar for mobile feel */
-.lo-scroll {
-scrollbar-width: none; /* Firefox */
-}
-.lo-scroll::-webkit-scrollbar {
-display: none; /* Chrome, Safari, Opera */
-}
-.quiz-option:hover {
-transform: translateY(-1px);
-box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px
--2px rgba(0, 0, 0, 0.1);
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UHS Past Papers | ModMedicalis</title>
+    <style>
+        :root {
+            --primary: #1a4f8b; /* UWorld-ish Blue */
+            --primary-dark: #133b6b;
+            --accent: #007bff;
+            --background: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #212529;
+            --text-muted: #6c757d;
+            --correct-bg: #d4edda;
+            --correct-border: #c3e6cb;
+            --correct-text: #155724;
+            --wrong-bg: #f8d7da;
+            --wrong-border: #f5c6cb;
+            --wrong-text: #721c24;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .header-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.5);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        /* Main Layout */
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard */
+        .dashboard-card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-lg {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-lg:active {
+            transform: scale(0.98);
+        }
+
+        .lo-container {
+            text-align: left;
+            background: #f1f3f5;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 20px;
+        }
+
+        /* Quiz UI */
+        .progress-bar {
+            height: 4px;
+            background: #e9ecef;
+            width: 100%;
+            position: fixed;
+            top: 55px; /* Height of header roughly */
+            left: 0;
+            z-index: 999;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .question-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
+
+        .option {
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .option:hover {
+            background-color: #f8f9fa;
+        }
+
+        .option.selected-correct {
+            background-color: var(--correct-bg);
+            border-color: var(--correct-border);
+            color: var(--correct-text);
+        }
+
+        .option.selected-wrong {
+            background-color: var(--wrong-bg);
+            border-color: var(--wrong-border);
+            color: var(--wrong-text);
+        }
+
+        .option.reveal-correct {
+            background-color: var(--correct-bg);
+            border-color: var(--correct-border);
+            color: var(--correct-text);
+            position: relative;
+        }
+        .option.reveal-correct::after {
+            content: "✓";
+            margin-left: auto;
+            font-weight: bold;
+        }
+
+        .explanation-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f5ff;
+            border: 1px solid #b8daff;
+            border-radius: 6px;
+            color: #004085;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        /* Footer Nav */
+        .footer-nav {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-action-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .nav-action-btn:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+        }
+
+        /* Flashcard Styles */
+        .scene {
+            width: 100%;
+            height: 400px;
+            perspective: 600px;
+            margin-top: 20px;
+        }
+
+        .card-obj {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .card-obj.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: white;
+            border: 1px solid #e9ecef;
+        }
+
+        .card-face.card-back {
+            transform: rotateY(180deg);
+            background-color: #f1f8ff;
+            border-color: #cce5ff;
+        }
+
+        .fc-year {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: var(--text-muted);
+        }
+
+        .fc-content {
+            font-size: 1.2rem;
+            font-weight: 500;
+            line-height: 1.6;
+        }
+
+        .fc-answer {
+            color: var(--correct-text);
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        .fc-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .fc-btn {
+            background: white;
+            border: 1px solid #ced4da;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+
+        /* Results */
+        .score-display {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+
+    </style>
 </head>
-<body class="min-h-screen flex flex-col">
-<!-- Firebase Imports and Setup (MANDATORY BOILERPLATE) -->
-<script type="module">
-import { initializeApp } from
-"https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken,
-onAuthStateChanged } from
-"https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, collection, query,
-setLogLevel } from
-"https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-// IMPORTANT: Log level set to debug for firestore diagnostics
-setLogLevel('Debug');
-const appId = typeof
-app
-id !== 'undefined' ?
-app
-__
-_
-__
-_
-'default-app-id';
-const firebaseConfig = typeof
-firebase
-config !==
-__
-_
-'undefined' ? JSON.parse(
-firebase
-config) : null;
-__
-_
-const initialAuthToken = typeof
-initial
-auth
-token !==
-__
-_
-_
-'undefined' ?
-initial
-auth
-token : null;
-id :
-__
-_
-_
-let app, db, auth;
-let userId = null;
-let isAuthReady = false;
-// Function to initialize Firebase and sign in
-async function initializeFirebase() {
-if (!firebaseConfig) {
-console.error("Firebase configuration is missing.
-return;
-");
-initialAuthToken);
-}
-try {
-app = initializeApp(firebaseConfig);
-db = getFirestore(app);
-auth = getAuth(app);
-// Sign in with custom token or anonymously
-if (initialAuthToken) {
-await signInWithCustomToken(auth,
-} else {
-await signInAnonymously(auth);
-}
-userId);
-// Listen for auth state changes
-onAuthStateChanged(auth, (user) => {
-if (user) {
-userId = user.uid;
-console.log("User signed in with ID:"
-,
-} else {
-userId = null;
-console.log("User signed out or anonymous.
-");
-}
-isAuthReady = true;
-if (document.getElementById('user-id-display')) {
-document.getElementById('user-id-display').textContent = userId ||
-'N/A';
-}
-});
-sign-in:"
-} catch (error) {
-console.error("Error initializing Firebase or during
-, error);
-}
-script
-}
-// Run initialization
-if (firebaseConfig) {
-initializeFirebase();
-}
-// Expose necessary variables to the global scope for the main
-window.db = db;
-window.auth = auth;
-window.getFirestore = getFirestore;
-window.collection = collection;
-window.query = query;
-window.onSnapshot = onSnapshot;
-window.doc = doc;
-</script>
-<!-- Main Content -->
-<header class="bg-cyan-700 p-4 shadow-xl text-white sticky top-0
-z-10">
-<h1 class="text-xl font-bold text-center">UHS Past Papers |
-Pathology</h1>
-</header>
-<p class="text-xs text-center opacity-80">by modmedicalis</p>
-<div class="flex-grow flex flex-col p-4">
-<!-- Tab Navigation -->
-<nav class="flex justify-around bg-white rounded-xl shadow-lg
-p-1 mb-4">
-<button id="tab-quiz" onclick="showTab('quiz')"
-class="flex-1 py-2 text-sm font-semibold text-center rounded-lg
-transition duration-200">
-Quiz (Filtered MCQs)
-</button>
-<button id="tab-los" onclick="showTab('los')"
-class="flex-1 py-2 text-sm font-semibold text-center rounded-lg
-transition duration-200">
-Learning Objectives
-</button>
-</nav>
-<!-- User ID Display (MANDATORY for multi-user apps) -->
-<p class="text-xs text-gray-500 mb-2 text-center">
-User ID: <span id="user-id-display" class="font-mono
-text-gray-700 text-[10px] break-all">Loading...</span>
-</p>
-<!-- Quiz Section -->
-<div id="quiz-section" class="tab-content flex-grow flex
-flex-col bg-white p-4 rounded-xl shadow-lg lo-scroll">
-<h2 class="text-lg font-bold text-gray-800 mb-4 border-b
-pb-2">Pathology Quiz</h2>
-<div id="quiz-container" class="flex-grow flex flex-col">
-<!-- Question Card -->
-<div id="question-card" class="mb-4 flex-grow flex
-flex-col">
-<p class="text-gray-500 text-center py-10">Loading
-questions...</p>
-</div>
-<!-- Control Buttons -->
-<div class="flex justify-between items-center mt-4
-pt-4 border-t border-gray-100">
-<button onclick="prevQuestion()" id="prev-btn"
-class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full
-shadow-sm hover:bg-gray-300 transition duration-150
-disabled:opacity-50 disabled:cursor-not-allowed">
-<svg xmlns="http://www.w3.org/2000/svg"
-fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-class="w-4 h-4 inline-block align-middle mr-1">
-<path stroke-linecap="round"
-stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-</svg>
-Previous
-</button>
-<div id="question-index" class="text-sm
-font-medium text-gray-600"></div>
-<button onclick="nextQuestion()" id="next-btn"
-class="bg-cyan-600 text-white font-semibold py-2 px-4 rounded-full
-shadow-md hover:bg-cyan-700 transition duration-150">
-Next
-<svg xmlns="http://www.w3.org/2000/svg"
-fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-class="w-4 h-4 inline-block align-middle ml-1">
-<path stroke-linecap="round"
-stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-</svg>
-</button>
-</div>
-</div>
-<!-- Quiz Results Modal (Hidden initially) -->
-<div id="results-modal" class="hidden fixed inset-0
-bg-black bg-opacity-70 flex items-center justify-center p-4 z-20">
-<div class="bg-white p-6 rounded-xl shadow-2xl w-full
-max-w-sm transform transition duration-300 scale-100">
-<h3 class="text-2xl font-bold text-cyan-700 mb-4
-text-center">Quiz Complete!</h3>
-<p class="text-gray-700 text-lg mb-6
-text-center">Your Score:</p>
-<div class="text-5xl font-extrabold text-teal-600
-text-center mb-8">
-<span id="score-text"></span>
-</div>
-<button onclick="resetQuiz()" class="w-full
-bg-blue-500 text-white font-semibold py-3 rounded-full shadow-md
-hover:bg-blue-600 transition duration-200">
-Restart Quiz
-</button>
-</div>
-</div>
-</div>
-<!-- Learning Objectives Section -->
-<div id="los-section" class="tab-content hidden flex-grow
-bg-white p-4 rounded-xl shadow-lg lo-scroll overflow-y-auto">
-<h2 class="text-lg font-bold text-gray-800 mb-4 border-b
-pb-2">UHS Learning Objectives (Pathology)</h2>
-<div id="los-list" class="space-y-4">
-<!-- LOs injected by JS -->
-</div>
-</div>
-</div>
-<!-- JavaScript Logic -->
-<script>
-const LOs = {
-CVA
-MENINGITIS: "CVA & Meningitis"
-,
-_
-ACUTE
-INFLAMMATION
-1: "Acute Inflammation: Stimuli &
-_
-_
-Components"
-,
-ACUTE
-INFLAMMATION
-2: "Acute Inflammation: Events,
-_
-_
-Transudate/Exudate & Outcomes"
-,
-NECROSIS: "Necrosis: Definition and Types"
-,
-CHEMICAL
-MEDIATORS: "Chemical Mediators of Inflammation"
-_
-,
-CHRONIC
-GRANULOMATOUS: "Chronic & Granulomatous
-_
-Inflammation"
-,
-MYCOBACTERIA: "Mycobacteria: TB & Leprosy"
-,
-REPAIR: "Tissue Repair & Wound Healing Complications"
-};
-// Filtered and adapted MCQs from the provided file snippets
-const questions = [
-{
-lo
-tag: 'NECROSIS'
-,
-_
-question: "A diabetic patient presents with painless
-discoloration of the toe, indicative of an ischemic injury. This
-condition is primarily an example of:"
-,
-options: ["Liquefactive necrosis"
-,
-"Gangrenous
-necrosis (dry)"
-,
-"Fat necrosis"
-,
-"Caseous necrosis"],
-answer: "Gangrenous necrosis (dry)"
-, // Diabetic
-ischemic injury leads to dry gangrene, which is a form of coagulative
-necrosis. (From 'Diabetic patient with painless discoloration of toe
-_
-Ischemic injury'
-- 2022 Key)
-year: "2022"
-},
-{
-lo
-tag: 'MYCOBACTERIA'
-,
-_
-question: "Which type of immunity is primarily
-responsible for defense against intracellular microbes such as
-*Mycobacterium tuberculosis*?"
-,
-options: ["Humoral immunity"
-,
-(CMI)"
-,
-"Immune complex mediated hypersensitivity"
-"Cell mediated immunity
-"Immediate type of
-,
-hypersensitivity"],
-answer: "Cell mediated immunity (CMI)"
-, // Directly
-from file snippet: "Which type of immunity provides us with defense
-against intracellular microbes? B. Cell mediated immunity"
-year: "2018"
-},
-{
-lo
-tag: 'CHEMICAL
-MEDIATORS'
-,
-_
-_
-question: "Following an IV dose of penicillin, a
-patient develops skin rash, breathing difficulty, and hypotension
-(anaphylaxis). This hypersensitivity reaction is most likely mediated
-by:"
-,
-options: ["IgM"
-,
-"IgE"
-,
-"C3b"
-,
-"Prostaglandins"],
-answer: "IgE"
-, // From file snippet: "Following an IV
-dose of penicillin... The hypersensitivity reaction is most likely
-mediated by which of the following? IgE"
-year: "2017"
-},
-{
-lo
-tag: 'ACUTE
-_
-INFLAMMATION
-_
-_
-2'
-,
-question: "Acute inflammatory fluid accumulation that
-is low in protein (specific gravity < 1.012), resulting primarily from
-increased hydrostatic pressure due to reduced venous outflow, is
-termed:"
-,
-options: ["Pus"
-,
-"Transudate"
-,
-"Exudate"
-,
-"Serous
-effusion"],
-answer: "Transudate"
-,
-year: "2023 (Adapted from Transudate/Exudate LO)"
-},
-{
-lo
-tag: 'CHRONIC
-GRANULOMATOUS'
-,
-_
-_
-question: "Granulomatous inflammation is characterized
-by the presence of activated macrophages that develop abundant
-cytoplasm and resemble epithelial cells. These are known as:"
-,
-options: ["Plasma cells"
-,
-"Epithelioid histiocytes"
-,
-"Mast cells"
-,
-"Langhans giant cells"],
-answer: "Epithelioid histiocytes"
-,
-year: "2020 (LO on granulomatous inflammation
-morphology)"
-},
-{
-lo
-tag: 'REPAIR'
-,
-_
-question: "Which term describes the excessive
-proliferation of scar tissue that extends beyond the boundaries of the
-original wound site?"
-,
-options: ["Hypertrophic scar"
-,
-"Contracture"
-,
-"Fibrosis"
-,
-"Keloid"],
-answer: "Keloid"
-,
-year: "2016 (Derived from wound healing complications
-LO)"
-},
-{
-lo
-tag: 'CVA
-MENINGITIS'
-,
-_
-_
-question: "In the pathophysiology of Cerebral Vascular
-Accident (CVA), an ischemic stroke is primarily caused by:"
-,
-options: ["Vascular rupture (hemorrhage)"
-,
-"Arterial
-occlusion (thrombus/embolism)"
-,
-"Systemic hypotension"
-,
-"Increased
-intracranial pressure"],
-answer: "Arterial occlusion (thrombus/embolism)"
-,
-year: "2019 (Pathophysiology of CVA LO)"
-}
-];
-let currentQuestionIndex = 0;
-let userAnswers = new Array(questions.length).fill(null);
-// --- Tab Management ---
-const quizSection = document.getElementById('quiz-section');
-const losSection = document.getElementById('los-section');
-const tabQuizBtn = document.getElementById('tab-quiz');
-const tabLosBtn = document.getElementById('tab-los');
-function showTab(tabId) {
-// Reset styles
-tabQuizBtn.classList.remove('bg-cyan-600'
-tabLosBtn.classList.remove('bg-cyan-600'
-tabQuizBtn.classList.add('text-cyan-600'
-,
-,
-'hover:bg-cyan-50');
-tabLosBtn.classList.add('text-cyan-600'
-,
-'hover:bg-cyan-50');
-,
-'text-white');
-'text-white');
-// Hide all sections
-quizSection.classList.add('hidden');
-losSection.classList.add('hidden');
-// Show selected section and highlight button
-if (tabId === 'quiz') {
-quizSection.classList.remove('hidden');
-tabQuizBtn.classList.add('bg-cyan-600'
-,
-'text-white'
-,
-'shadow-inner');
-tabQuizBtn.classList.remove('text-cyan-600'
-,
-'hover:bg-cyan-50');
-} else if (tabId === 'los') {
-losSection.classList.remove('hidden');
-tabLosBtn.classList.add('bg-cyan-600'
-,
-'text-white'
-,
-'shadow-inner');
-tabLosBtn.classList.remove('text-cyan-600'
-,
-'hover:bg-cyan-50');
-}
-}
-// --- Quiz Logic ---
-function renderQuestion() {
-const container =
-document.getElementById('question-card');
-if (questions.length === 0) {
-container.innerHTML =
-`
-<p class="text-red-500
-text-center py-10 font-medium">No filtered MCQs are currently
-available in the quiz.</p>
-`
-;
-return;
-}
-const qData = questions[currentQuestionIndex];
-const currentAnswer = userAnswers[currentQuestionIndex];
-let optionsHtml = qData.options.map((option, index) => {
-const isSelected = currentAnswer === option;
-const isCorrect = option === qData.answer;
-let classes = 'quiz-option p-3 mb-2 rounded-xl border
-transition duration-150 text-gray-700 shadow-sm';
-// Styling based on selection and correction
-if (currentAnswer !== null) {
-if (isSelected && isCorrect) {
-classes += ' bg-teal-100 border-teal-500
-font-semibold';
-} else if (isSelected && !isCorrect) {
-classes += ' bg-red-100 border-red-500
-font-semibold';
-} else if (isCorrect) {
-classes += ' bg-green-100 border-green-500';
-} else {
-classes += ' border-gray-200 bg-gray-50
-opacity-60';
-}
-} else {
-// Default hover state when not answered
-classes += ' border-gray-200 bg-gray-50
-hover:bg-gray-100 cursor-pointer';
-}
-`
-const clickHandler = currentAnswer === null ?
-selectAnswer('${option.replace(/'/g,
-"\\'")}')`
-: '';
-`
-return
-<div class="${classes}" onclick="${clickHandler}">
-<span class="font-mono text-xs text-cyan-700
-mr-2">${String.fromCharCode(65 + index)}.</span>
-${option}
-${currentAnswer !== null && isCorrect ? '<span
-class="float-right text-teal-600 font-bold text-xl">✓</span>' : ''}
-${currentAnswer !== null && isSelected &&
-!isCorrect ? '<span class="float-right text-red-600 font-bold
-text-xl">✕</span>' : ''}
-</div>
-`
-;
-}).join('');
-container.innerHTML =
-`
-<div class="mb-4 flex flex-wrap gap-2">
-<span class="inline-block bg-cyan-100
-text-cyan-700 text-xs font-semibold px-3 py-1 rounded-full
-shadow-inner">
-<svg xmlns="http://www.w3.org/2000/svg"
-fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-stroke="currentColor" class="w-3 h-3 inline-block align-middle mr-1">
-<path stroke-linecap="round"
-stroke-linejoin="round" d="M6.75 3v13.5M3.75 6.75h17.5M3.75
-16.5h17.5M17.25 3v13.5" />
-</svg>
-Year: ${qData.year}
-</span>
-<span class="inline-block bg-blue-100
-text-blue-700 text-xs font-semibold px-3 py-1 rounded-full
-shadow-inner">
-<svg xmlns="http://www.w3.org/2000/svg"
-fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-stroke="currentColor" class="w-3 h-3 inline-block align-middle mr-1">
-<path stroke-linecap="round"
-stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5
-3h7.5m3-9h7.5m-7.5 3h7.5m-7.5 3h7.5m-7.5 3h7.5m-12-3v-3m0 0v-3m0
-3h-3m3 0h3" />
-</svg>
-Topic: ${LOs[qData.lo
-_
-tag]}
-</span>
-</div>
-<p class="text-xl font-medium text-gray-900
-mb-6">${qData.question}</p>
-<div id="options-container" class="space-y-3
-flex-grow">
-${optionsHtml}
-</div>
-`
-;
-updateControls();
-}
-window.selectAnswer = function(selectedOption) {
-userAnswers[currentQuestionIndex] = selectedOption;
-renderQuestion();
-}
-function updateControls() {
-const nextBtn = document.getElementById('next-btn');
-const prevBtn = document.getElementById('prev-btn');
-const indexDisplay =
-document.getElementById('question-index');
-indexDisplay.textContent =
-`Question
-${currentQuestionIndex + 1} of ${questions.length}`
-;
-// Previous button logic
-prevBtn.disabled = currentQuestionIndex === 0;
-// Next/Submit button logic
-if (currentQuestionIndex === questions.length - 1) {
-nextBtn.textContent = 'Submit Quiz';
-nextBtn.onclick = submitQuiz;
-nextBtn.classList.remove('bg-cyan-600'
-,
-'hover:bg-cyan-700');
-nextBtn.classList.add('bg-teal-500'
-,
-'hover:bg-teal-600');
-nextBtn.innerHTML =
-`Submit Quiz
-<svg xmlns="http://www.w3.org/2000/svg"
-fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-class="w-4 h-4 inline-block align-middle ml-1">
-<path stroke-linecap="round"
-stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18
-0 9 9 0 0118 0z" />
-</svg>
-`
-;
-} else {
-nextBtn.textContent = 'Next';
-nextBtn.onclick = nextQuestion;
-nextBtn.classList.remove('bg-teal-500'
-,
-'hover:bg-teal-600');
-nextBtn.classList.add('bg-cyan-600'
-,
-'hover:bg-cyan-700');
-nextBtn.innerHTML =
-`Next
-<svg xmlns="http://www.w3.org/2000/svg"
-fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-class="w-4 h-4 inline-block align-middle ml-1">
-<path stroke-linecap="round"
-stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-</svg>
-`
-;
-}
-}
-window.nextQuestion = function() {
-if (currentQuestionIndex < questions.length - 1) {
-currentQuestionIndex++;
-renderQuestion();
-}
-}
-window.prevQuestion = function() {
-if (currentQuestionIndex > 0) {
-currentQuestionIndex--;
-renderQuestion();
-}
-}
-function submitQuiz() {
-let correctCount = 0;
-userAnswers.forEach((answer, index) => {
-if (answer === questions[index].answer) {
-correctCount++;
-}
-});
-const scoreText =
-`${correctCount} / ${questions.length}`
-document.getElementById('score-text').textContent =
-;
-scoreText;
-document.getElementById('results-modal').classList.remove('hidden');
-}
-window.resetQuiz = function() {
-userAnswers = new Array(questions.length).fill(null);
-currentQuestionIndex = 0;
-document.getElementById('results-modal').classList.add('hidden');
-renderQuestion();
-}
-// --- LOs Rendering ---
-function renderLOs() {
-const loListContainer =
-document.getElementById('los-list');
-const fullLOs = [
-{ title: "CVA and Meningitis"
-, content: "Discuss the
-pathophysiology of cerebral vascular accident (CVA). Define
-Meningitis. Identify types of meningitis.
-" },
-{ title: "Acute Inflammation: Definition & Stimuli"
-,
-content: "Define acute inflammation. Enlist stimuli for Acute
-Inflammation. Recognize microbes, necrotic cells, and foreign
-substances causing acute inflammation.
-" },
-{ title: "Necrosis"
-, content: "Define necrosis and
-explain its type with example.
-" },
-{ title: "Acute Inflammation: Events & Outcomes"
-,
-content: "Discuss the role of vascular and cellular events in acute
-inflammation. Differentiate between transudate and exudate. Describe
-the different morphological patterns and outcomes of acute
-inflammation.
-" },
-{ title: "Chemical Mediators"
-, content: "Classify
-chemical mediators. Describe the different pathways of synthesis of
-chemical mediators and their role in clinical practice. Discuss the
-role of different chemical mediators in acute inflammation.
-" },
-{ title: "Chronic & Granulomatous Inflammation"
-,
-content: "Define chronic inflammation. Discuss the role of chronic
-inflammatory cells and mediators in chronic inflammation. Discuss the
-causes, pathophysiology and morphology of granulomatous inflammation.
-},
-{ title: "Mycobacteria"
-, content: "Classify
-mycobacteria. Explain the pathogenesis and lab diagnosis of
-*Mycobacterium tuberculosis*
-. Discuss the Runyon classification of
-atypical mycobacteria. Discuss pathogeneses and lab diagnosis of
-leprosy.
-" },
-{ title: "Tissue Repair: Cell Cycle & Growth Factors"
-content: "Discuss the concept of Cell Proliferation, the Cell Cycle
-and Stem Cells in tissue repair. Discuss the role of Growth Factors,
-receptors, signal transduction and extracellular matrix Involved in
-Regeneration and Repair.
-" },
-{ title: "Tissue Repair: Healing & Complications"
-,
-content: "Explain the types of healing along with the steps in scar
-formation. Identify the factors that influence the tissue repair.
-Discuss the complication of wound healing - keloid, Hypertrophy,
-Scarring.
-" }
-];
-loListContainer.innerHTML = fullLOs.map(lo =>
-`
-<div class="lo-card bg-cyan-50 p-3 rounded-xl
-shadow-md border-l-4 border-cyan-600 transition duration-150
-hover:bg-cyan-100">
-<h3 class="font-bold
-text-gray-900">${lo.title}</h3>
-<p class="text-sm text-gray-700
-mt-1">${lo.content}</p>
-</div>
-`).join('');
-"
-,
-}
-// --- Initial Load ---
-window.onload = function() {
-renderLOs();
-renderQuestion();
-showTab('quiz'); // Default to the quiz section
-};
-</script>
+<body>
+
+    <header>
+        <div class="brand">ModMedicalis <span style="font-weight:300; font-size:0.9rem; opacity:0.8;">| Pathology</span></div>
+        <button class="header-btn" onclick="showView('home')">Home</button>
+    </header>
+
+    <!-- Progress Bar (Only for Quiz) -->
+    <div class="progress-bar" id="quiz-progress-bar" style="display:none;">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <main>
+        <!-- HOME VIEW -->
+        <div id="home" class="view active">
+            <div class="dashboard-card">
+                <h2 style="margin-top:0; color:var(--primary);">UHS Pathology Past Papers</h2>
+                <p style="color: var(--text-muted);">Curated MCQs based on official UHS Learning Objectives (2007-2023).</p>
+                
+                <button class="btn-lg btn-primary" onclick="startQuiz()">Start Quiz Mode</button>
+                <button class="btn-lg btn-secondary" onclick="startFlashcards()">Start Flashcard Mode</button>
+
+                <div class="lo-container">
+                    <strong>Included Topics:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px; line-height: 1.6;">
+                        <li>CVA & Meningitis</li>
+                        <li>Acute & Chronic Inflammation</li>
+                        <li>Chemical Mediators & Necrosis</li>
+                        <li>Tuberculosis, Leprosy & Mycobacteria</li>
+                        <li>Healing, Repair & Complications</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUIZ VIEW -->
+        <div id="quiz" class="view">
+            <div class="question-meta" id="q-meta">Year | Topic</div>
+            <div class="question-text" id="q-text">Question goes here?</div>
+            
+            <div id="options-container">
+                <!-- Options generated by JS -->
+            </div>
+
+            <div class="explanation-box" id="q-explanation">
+                <strong>Explanation:</strong> <span id="q-explanation-text"></span>
+            </div>
+        </div>
+
+        <!-- FLASHCARD VIEW -->
+        <div id="flashcard" class="view">
+            <div style="text-align:center; color:var(--text-muted); margin-bottom:10px;">
+                Card <span id="fc-index">1</span> of <span id="fc-total">47</span>
+            </div>
+            <div class="scene">
+                <div class="card-obj" onclick="flipCard(this)">
+                    <div class="card-face card-front">
+                        <span class="fc-year" id="fc-front-year">Year</span>
+                        <div class="fc-content" id="fc-front-text">Question</div>
+                        <div style="margin-top:20px; font-size:0.8rem; color:#aaa;">(Tap to Flip)</div>
+                    </div>
+                    <div class="card-face card-back">
+                        <span class="fc-year">Answer</span>
+                        <div class="fc-answer" id="fc-back-answer">Correct Option</div>
+                        <p id="fc-back-explanation" style="font-size:0.9rem; color:#555;"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="fc-controls">
+                <button class="fc-btn" onclick="prevCard()">&#8592;</button>
+                <button class="fc-btn" onclick="nextCard()">&#8594;</button>
+            </div>
+        </div>
+
+        <!-- RESULTS VIEW -->
+        <div id="results" class="view">
+            <div class="dashboard-card">
+                <h3>Quiz Completed</h3>
+                <div class="score-display" id="final-score">85%</div>
+                <p id="result-msg">Great job!</p>
+                <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+                <button class="btn-lg btn-primary" onclick="startQuiz()">Retake Quiz</button>
+                <button class="btn-lg btn-secondary" onclick="showView('home')">Back to Home</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Nav (Visible only in Quiz) -->
+    <footer class="footer-nav" id="quiz-footer" style="display:none;">
+        <div style="font-weight:600; color:var(--text-muted);">Q <span id="q-current">1</span>/<span id="q-total">47</span></div>
+        <button class="nav-action-btn" id="next-btn" onclick="nextQuestion()" disabled>Next</button>
+    </footer>
+
+    <script>
+        /* DATA BANK (47 MCQs) */
+        const questionBank = [
+            // --- MENINGITIS & CNS ---
+            { year: "Annual 2022", question: "A patient presents with meningitis after swimming in fresh water. What is the likely causative agent?", options: ["Neisseria meningitidis", "Naegleria fowleri", "Streptococcus pneumoniae", "Acanthamoeba"], correct: 1 },
+            { year: "Annual 2017", question: "Adult meningitis caused by gram negative diplococci is:", options: ["Streptococcus pneumoniae", "Neisseria meningitidis", "Haemophilus influenzae", "Listeria monocytogenes"], correct: 1 },
+            { year: "Supp 2019", question: "Stiff neck is a clinical sign associated with:", options: ["Meningitis", "Encephalitis", "Brain Abscess", "Tetanus"], correct: 0 },
+            { year: "Supp 2015", question: "Which of the following causes epidemic meningitis?", options: ["Neisseria meningitidis", "Streptococcus pneumoniae", "Haemophilus influenzae", "Listeria"], correct: 0 },
+            { year: "Model Paper 2007", question: "A neonate was born with signs of encephalitis, chorioretinitis, and hepatosplenomegaly. IgM Ab titer was raised. Mother has cats. What is the organism?", options: ["Pneumocystis carinii", "Toxoplasma gondii", "Cytomegalovirus", "Rubella virus"], correct: 1 },
+
+            // --- NECROSIS ---
+            { year: "Annual 2022", question: "Myocardial Infarction (MI) is characterized by which type of necrosis?", options: ["Liquefactive necrosis", "Coagulative necrosis", "Caseous necrosis", "Fat necrosis"], correct: 1 },
+            { year: "Annual 2022", question: "Tuberculosis (TB) is characterized by which type of necrosis?", options: ["Coagulative necrosis", "Liquefactive necrosis", "Caseous necrosis", "Fibrinoid necrosis"], correct: 2 },
+            { year: "Annual 2020", question: "Liquefactive necrosis is typically seen in:", options: ["Heart", "Brain", "Kidney", "Spleen"], correct: 1 },
+            { year: "Model Paper 2007", question: "Which of the following types of necrosis is grossly opaque and chalky white?", options: ["Coagulation necrosis", "Liquefaction necrosis", "Caseous necrosis", "Fat necrosis"], correct: 3 },
+            { year: "Model Paper 2007", question: "Caseation necrosis is most characteristic of:", options: ["Acute myocardial infarction", "Tuberculosis", "Acute pancreatitis", "Cerebral infarct"], correct: 1 },
+            { year: "Supp 2015", question: "Whitish area found in pancreas or breast is indicative of:", options: ["Coagulative necrosis", "Fat necrosis", "Liquefactive necrosis", "Gangrenous necrosis"], correct: 1 },
+
+            // --- INFLAMMATION ---
+            { year: "Annual 2022", question: "Which mediator causes redness in inflammation?", options: ["Histamine", "Prostaglandins", "Leukotrienes", "Bradykinin"], correct: 1 },
+            { year: "Annual 2022", question: "Which molecules mediate and regulate leukocyte migration?", options: ["Antibodies", "Adhesion molecules and cytokines", "Complement proteins", "Prostaglandins"], correct: 1 },
+            { year: "Annual 2021", question: "Myofibroblasts are responsible for:", options: ["Wound contraction", "Collagen synthesis", "Angiogenesis", "Phagocytosis"], correct: 0 },
+            { year: "Annual 2019", question: "Lipoxin mediated chemotactic factor is:", options: ["C5a", "IL-8", "LTB4", "Histamine"], correct: 2 },
+            { year: "Annual 2019", question: "Cardinal sign Rubor (Redness) is due to:", options: ["Arteriolar dilatation", "Venous stasis", "Edema", "Vessel damage"], correct: 0 },
+            { year: "Annual 2019", question: "Transmigration for all leukocytes is mediated by:", options: ["Selectins", "Integrins", "ICAM-1", "Mucins"], correct: 2 },
+            { year: "Model Paper 2007", question: "Which of the following is the hallmark of acute inflammation?", options: ["Neutrophils", "Connective tissue", "Macrophages", "Granulation tissue"], correct: 0 },
+            { year: "Model Paper 2007", question: "After initiation of an acute inflammatory process, the third sequence of changes in vascular flow is:", options: ["Vasoconstriction", "Redness", "Leukocytic migration", "Vasodilation"], correct: 3 },
+            { year: "Supp 2015", question: "Chemoattractant for neutrophils is:", options: ["C3b", "LTB4", "Prostaglandin", "Bradykinin"], correct: 1 },
+
+            // --- MEDIATORS ---
+            { year: "Annual 2022", question: "Which complement component is responsible for opsonization?", options: ["C3a", "C3b", "C5a", "C5b-9"], correct: 1 },
+            { year: "Supp 2019", question: "Source of histamine is:", options: ["Mast cells", "Neutrophils", "Fibroblasts", "Endothelial cells"], correct: 0 },
+            { year: "Supp 2014", question: "Pain in inflammation is mediated by:", options: ["Histamine", "Bradykinin + Prostaglandins", "C3b", "IL-1"], correct: 1 },
+            { year: "Model Paper 2011", question: "A 12-year-old boy has acute appendicitis. Which mediators are involved in causation of both pain and fever?", options: ["Nitric Oxide", "Bradykinin", "Prostaglandins", "Histamine"], correct: 2 },
+            { year: "Model Paper 2011", question: "Which of the following is the most efficient microbial killing mechanism of neutrophils?", options: ["Lysosomal enzymes", "H2O2-MPO-Halide system", "Defensins", "Lysozyme"], correct: 1 },
+
+            // --- CHRONIC & GRANULOMA ---
+            { year: "Annual 2020", question: "Chronic granulomatous inflammation is characterized by which cell?", options: ["Neutrophil", "Macrophage", "Basophil", "Eosinophil"], correct: 1 },
+            { year: "Annual 2019", question: "In granuloma, epithelioid and giant cells are derived from:", options: ["T-Cells", "Macrophages", "B-Cells", "Fibroblasts"], correct: 1 },
+            { year: "Model Paper 2007", question: "Granuloma formation is most frequently associated with:", options: ["The healing process", "Acute inflammation", "A persistent irritant", "Wound contraction"], correct: 2 },
+            { year: "Supp 2015", question: "Which cells are present in non-specific chronic inflammation?", options: ["Neutrophils only", "Lymphocytes, plasma cells and fibrosis", "Giant cells only", "Eosinophils"], correct: 1 },
+
+            // --- TUBERCULOSIS / MYCOBACTERIA ---
+            { year: "Annual 2022", question: "Cream (buff) colored colonies are characteristic of:", options: ["M. tuberculosis", "M. leprae", "S. aureus", "E. coli"], correct: 0 },
+            { year: "Annual 2022", question: "Which mycobacterium produces pigment in light?", options: ["M. tuberculosis", "M. kansasii", "M. avium", "M. leprae"], correct: 1 },
+            { year: "Annual 2022", question: "Tuberculin skin test is an example of:", options: ["Immediate hypersensitivity", "Antibody mediated immunity", "Cell-mediated immunity (Type IV)", "Immune complex disease"], correct: 2 },
+            { year: "Supp 2019", question: "Media used for M. tuberculosis is:", options: ["Blood agar", "MacConkey agar", "Lowenstein-Jensen (LJ) medium", "Chocolate agar"], correct: 2 },
+            { year: "Annual 2019", question: "Leprosy scenario, detection is done by use of:", options: ["Guinea pig", "Foot of mouse / Armadillo", "Rabbit", "Cell culture"], correct: 1 },
+            { year: "Model Paper 2007", question: "In Tuberculoid leprosy, the growth of Mycobacterium leprae is limited by:", options: ["Antibodies", "Necrosis", "Cell mediated immunity", "Giant cell formation"], correct: 2 },
+            { year: "Annual 2019", question: "Non-chromogen mycobacteria is:", options: ["M. kansasii", "M. avium", "M. marinum", "M. scrofulaceum"], correct: 1 },
+
+            // --- HEALING & REPAIR ---
+            { year: "Annual 2022", question: "Contraction of wound is primarily mediated by:", options: ["Fibroblasts", "Myofibroblasts", "Macrophages", "Endothelial cells"], correct: 1 },
+            { year: "Annual 2022", question: "In 3rd degree burn, what is a common complication?", options: ["Keloid", "Wound contracture", "Hypertrophic scar", "Dehiscence"], correct: 1 },
+            { year: "Annual 2017", question: "Angiogenesis is characterized by which growth factor?", options: ["EGF", "VEGF", "PDGF", "TGF-Beta"], correct: 1 },
+            { year: "Annual 2016", question: "Wound healing that protrudes above the surface is called:", options: ["Hypertrophic scar", "Keloid", "Granulation tissue", "Contracture"], correct: 1 },
+            { year: "Supp 2015", question: "Fundamental step in effective healing by secondary intention is:", options: ["Skin grafting", "Sutures", "Granulation tissue formation", "Fibroblastic proliferation"], correct: 2 },
+            { year: "Model Paper 2007", question: "The most characteristic feature of granulation tissue is:", options: ["Growth of fibroblasts and new capillaries", "Resemblance to granuloma", "Character of exudate", "Presence of monocytes"], correct: 0 },
+            { year: "Model Paper 2007", question: "A lacerated wound healed but became disfigured by a prominent raised irregular nodular scar. This is:", options: ["Organization", "Dehiscence", "Keloid formation", "Secondary union"], correct: 2 },
+            { year: "Model Paper 2007", question: "At the site of healing, which cell performs the most important function for the healing phenomenon to start?", options: ["Plasma cells", "Neutrophils", "Macrophages", "Platelets"], correct: 2 },
+
+            // --- TRANSUDATE / EXUDATE ---
+            { year: "Annual 2020", question: "Fluid and protein loss in inflammation is termed as:", options: ["Transudate", "Exudate", "Edema", "Pus"], correct: 1 },
+            { year: "Supp 2019", question: "Transudate is characterized by:", options: ["High proteins", "Low proteins", "High specific gravity", "Presence of cells"], correct: 1 },
+            { year: "Model Paper 2009", question: "A fluid shows protein content less than 3.0 gm/dl and specific gravity 1.015. It is:", options: ["Exudate", "Transudate", "Effusion", "Pus"], correct: 1 }
+        ];
+
+        /* STATE VARIABLES */
+        let appState = {
+            currentQIndex: 0,
+            score: 0,
+            questions: [],
+            mode: 'quiz' // or 'flashcard'
+        };
+
+        /* UTILITIES */
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            if (viewId === 'quiz') {
+                document.getElementById('quiz-footer').style.display = 'flex';
+                document.getElementById('quiz-progress-bar').style.display = 'block';
+            } else {
+                document.getElementById('quiz-footer').style.display = 'none';
+                document.getElementById('quiz-progress-bar').style.display = 'none';
+            }
+        }
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        /* QUIZ LOGIC */
+        function startQuiz() {
+            appState.mode = 'quiz';
+            appState.questions = shuffle([...questionBank]);
+            appState.currentQIndex = 0;
+            appState.score = 0;
+            document.getElementById('q-total').innerText = appState.questions.length;
+            loadQuestion();
+            showView('quiz');
+        }
+
+        function loadQuestion() {
+            const q = appState.questions[appState.currentQIndex];
+            document.getElementById('q-current').innerText = appState.currentQIndex + 1;
+            document.getElementById('progress-fill').style.width = ((appState.currentQIndex) / appState.questions.length * 100) + '%';
+            
+            document.getElementById('q-meta').innerText = `${q.year}`;
+            document.getElementById('q-text').innerText = q.question;
+            
+            const optContainer = document.getElementById('options-container');
+            optContainer.innerHTML = '';
+            
+            // Hide explanation
+            document.getElementById('q-explanation').style.display = 'none';
+            document.getElementById('next-btn').disabled = true;
+
+            q.options.forEach((opt, idx) => {
+                const div = document.createElement('div');
+                div.className = 'option';
+                div.innerText = opt;
+                div.onclick = () => handleOptionClick(div, idx, q.correct);
+                optContainer.appendChild(div);
+            });
+        }
+
+        function handleOptionClick(element, selectedIdx, correctIdx) {
+            // Prevent changing answer
+            if (!document.getElementById('next-btn').disabled) return;
+
+            const options = document.getElementById('options-container').children;
+
+            if (selectedIdx === correctIdx) {
+                element.classList.add('selected-correct');
+                appState.score++;
+            } else {
+                element.classList.add('selected-wrong');
+                options[correctIdx].classList.add('reveal-correct');
+            }
+
+            // Show explanation (Using correct answer as text if no specific explanation in DB)
+            const expText = document.getElementById('q-explanation-text');
+            const q = appState.questions[appState.currentQIndex];
+            expText.innerText = q.options[correctIdx] + (q.year ? ` (Ref: ${q.year})` : "");
+            document.getElementById('q-explanation').style.display = 'block';
+
+            document.getElementById('next-btn').disabled = false;
+        }
+
+        function nextQuestion() {
+            if (appState.currentQIndex < appState.questions.length - 1) {
+                appState.currentQIndex++;
+                loadQuestion();
+            } else {
+                finishQuiz();
+            }
+        }
+
+        function finishQuiz() {
+            showView('results');
+            const pct = Math.round((appState.score / appState.questions.length) * 100);
+            document.getElementById('final-score').innerText = pct + '%';
+            
+            const msg = document.getElementById('result-msg');
+            if(pct > 80) msg.innerText = "Excellent work! You are ready.";
+            else if(pct > 50) msg.innerText = "Good job, keep practicing.";
+            else msg.innerText = "Review the topics and try again.";
+        }
+
+        /* FLASHCARD LOGIC */
+        function startFlashcards() {
+            appState.mode = 'flashcard';
+            appState.questions = [...questionBank]; // No shuffle needed, or can be enabled
+            appState.currentQIndex = 0;
+            document.getElementById('fc-total').innerText = appState.questions.length;
+            loadFlashcard();
+            showView('flashcard');
+        }
+
+        function loadFlashcard() {
+            const q = appState.questions[appState.currentQIndex];
+            document.getElementById('fc-index').innerText = appState.currentQIndex + 1;
+            
+            // Reset Flip
+            const card = document.querySelector('.card-obj');
+            card.classList.remove('is-flipped');
+
+            // Content
+            setTimeout(() => {
+                document.getElementById('fc-front-year').innerText = q.year;
+                document.getElementById('fc-front-text').innerText = q.question;
+                document.getElementById('fc-back-answer').innerText = q.options[q.correct];
+                document.getElementById('fc-back-explanation').innerText = "Reference: " + q.year;
+            }, 200); // slight delay to allow flip back
+        }
+
+        function flipCard(card) {
+            card.classList.toggle('is-flipped');
+        }
+
+        function nextCard() {
+            if(appState.currentQIndex < appState.questions.length - 1) {
+                appState.currentQIndex++;
+                loadFlashcard();
+            }
+        }
+
+        function prevCard() {
+            if(appState.currentQIndex > 0) {
+                appState.currentQIndex--;
+                loadFlashcard();
+            }
+        }
+
+    </script>
 </body>
 </html>
