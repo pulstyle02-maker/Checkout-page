@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biochemistry UWorld Style Quiz</title>
+    <style>
+        :root {
+            --bg-dark: #1e2124;
+            --sidebar-bg: #2f3136;
+            --text-main: #dcddde;
+            --accent-blue: #4687f0; /* UWorld Blue */
+            --border-color: #42454a;
+            --highlight-hover: #36393f;
+            --correct-green: #2ecc71;
+            --incorrect-red: #e74c3c;
+            --explanation-bg: #292b2f;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            background-color: #202225;
+            text-align: center;
+        }
+
+        .question-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .q-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #383c42;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .q-item:hover { background-color: var(--highlight-hover); }
+        .q-item.active { background-color: #40444b; border-left: 4px solid var(--accent-blue); }
+
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-correct { background-color: var(--correct-green); }
+        .status-incorrect { background-color: var(--incorrect-red); }
+        .status-none { border: 1px solid #777; }
+
+        /* Main Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .top-bar {
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--sidebar-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        .quiz-container {
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .question-text {
+            font-family: "Georgia", serif; /* Classic Medical Text Font */
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .options-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .option-label:hover { background-color: var(--highlight-hover); }
+        
+        .option-input { margin-right: 15px; transform: scale(1.2); }
+
+        /* Explanation */
+        .explanation-box {
+            margin-top: 30px;
+            background-color: var(--explanation-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .exp-header {
+            padding: 10px 15px;
+            background-color: #36393f;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .exp-body { padding: 20px; line-height: 1.5; color: #b9bbbe; }
+
+        /* Buttons */
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+        }
+
+        .btn-submit { background-color: var(--accent-blue); }
+        .btn-submit:hover { background-color: #3b71ca; }
+        .btn-next { background-color: #4f545c; }
+        .btn-next:hover { background-color: #40444b; }
+
+        /* Utility */
+        .highlight-correct { border: 2px solid var(--correct-green); background-color: rgba(46, 204, 113, 0.1); }
+        .highlight-incorrect { border: 2px solid var(--incorrect-red); background-color: rgba(231, 76, 60, 0.1); }
+
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">Lipid & Molecular Quiz (50 Qs)</div>
+    <ul class="question-list" id="qList">
+        <!-- JS will populate this -->
+    </ul>
+</div>
+
+<div class="main-content">
+    <div class="top-bar">
+        <span id="qCount">Question 1 of 50</span>
+        <span id="timer">00:00:00</span>
+    </div>
+
+    <div class="quiz-container">
+        <div class="question-text" id="qText">Loading...</div>
+        <div class="options-group" id="optionsBox"></div>
+
+        <div class="controls">
+            <button class="btn btn-submit" id="submitBtn" onclick="submitAnswer()">Submit</button>
+            <button class="btn btn-next" id="nextBtn" onclick="nextQuestion()" style="display:none;">Next Question</button>
+        </div>
+
+        <div class="explanation-box" id="expBox">
+            <div class="exp-header">Explanation</div>
+            <div class="exp-body" id="expText"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- DATA SOURCE: Based on Lippincott & Harper ---
+    const questions = [
+        // 1. Digestion & Absorption
+        {
+            q: "A patient with cystic fibrosis presents with steatorrhea. Which enzyme's deficiency is primarily responsible for the impairment of dietary triacylglycerol digestion in the small intestine?",
+            options: ["Lingual lipase", "Gastric lipase", "Pancreatic lipase", "Lipoprotein lipase"],
+            correct: 2,
+            explanation: "<strong>Pancreatic lipase</strong> is the primary enzyme responsible for hydrolyzing dietary triacylglycerols (TAGs) in the small intestine. In cystic fibrosis, pancreatic ducts are blocked, preventing enzyme release."
+        },
+        {
+            q: "During lipid digestion, which protein is required to anchor pancreatic lipase to the lipid droplet surface in the presence of bile salts?",
+            options: ["Albumin", "Colipase", "Cholic acid", "Apolipoprotein B-48"],
+            correct: 1,
+            explanation: "<strong>Colipase</strong> is secreted by the pancreas as procolipase. It binds to the bile salt-covered lipid droplets and provides a high-affinity binding site for pancreatic lipase."
+        },
+        {
+            q: "Which of the following best describes the enterohepatic circulation of bile salts?",
+            options: ["95% are absorbed in the ileum and returned to the liver", "They are degraded in the colon and excreted", "They are absorbed in the stomach", "They are converted to cholesterol in the kidney"],
+            correct: 0,
+            explanation: "About <strong>95% of bile salts</strong> are reabsorbed in the terminal ileum via the Na+-bile salt cotransporter and returned to the liver via the portal vein."
+        },
+        
+        // 2. Transport & Storage
+        {
+            q: "A nascent chylomicron enters the bloodstream from the lymph. Which apolipoprotein does it acquire from HDL to activate Lipoprotein Lipase (LPL)?",
+            options: ["Apo B-48", "Apo C-II", "Apo E", "Apo A-I"],
+            correct: 1,
+            explanation: "<strong>Apo C-II</strong> is acquired from HDL in circulation. It acts as a cofactor/activator for Lipoprotein Lipase (LPL) on capillary endothelium."
+        },
+        {
+            q: "Which lipoprotein particle is primarily responsible for reverse cholesterol transport, moving cholesterol from peripheral tissues back to the liver?",
+            options: ["Chylomicron", "VLDL", "LDL", "HDL"],
+            correct: 3,
+            explanation: "<strong>HDL (High-Density Lipoprotein)</strong> mediates reverse cholesterol transport, scavenging cholesterol from tissues and returning it to the liver for excretion."
+        },
+
+        // 3. Cholesterol Metabolism
+        {
+            q: "What is the rate-limiting enzyme in de novo cholesterol synthesis?",
+            options: ["Thiolase", "HMG-CoA synthase", "HMG-CoA reductase", "Squalene monooxygenase"],
+            correct: 2,
+            explanation: "<strong>HMG-CoA reductase</strong> catalyzes the conversion of HMG-CoA to Mevalonate. This is the committed, rate-limiting step and the target of Statin drugs."
+        },
+        {
+            q: "Familial Hypercholesterolemia (Type IIa) is most commonly caused by a defect in which receptor or protein?",
+            options: ["LDL Receptor", "LPL", "Apo E", "HMG-CoA Reductase"],
+            correct: 0,
+            explanation: "<strong>LDL Receptor</strong> defects prevent the liver from clearing LDL from the blood, leading to severe hypercholesterolemia and early cardiovascular disease."
+        },
+        
+        // 4. Fatty Acid Oxidation (Beta, Alpha, Omega)
+        {
+            q: "A child presents with non-ketotic hypoglycemia. Urine analysis shows dicarboxylic acids. This presentation is characteristic of a deficiency in:",
+            options: ["CAT-1", "Medium-chain acyl-CoA dehydrogenase (MCAD)", "Pyruvate carboxylase", "HMG-CoA synthase"],
+            correct: 1,
+            explanation: "<strong>MCAD deficiency</strong> impairs beta-oxidation of medium-chain fatty acids. Because beta-oxidation is blocked, ketone bodies cannot be formed (non-ketotic), and omega-oxidation produces dicarboxylic acids."
+        },
+        {
+            q: "Refsum disease is a rare neurological disorder caused by a defect in the oxidation of branched-chain fatty acids (phytanic acid). Which pathway is defective?",
+            options: ["Alpha-oxidation", "Beta-oxidation", "Omega-oxidation", "Peroxisomal synthesis"],
+            correct: 0,
+            explanation: "<strong>Alpha-oxidation</strong> occurs in peroxisomes and is required to remove the first carbon from phytanic acid (branched) because the branch point blocks beta-oxidation."
+        },
+
+        // 5. Energy Calculation
+        {
+            q: "Calculate the net ATP yield from the complete oxidation of one molecule of Palmitate (C16:0), assuming 1 NADH = 2.5 ATP and 1 FADH2 = 1.5 ATP.",
+            options: ["129 ATP", "131 ATP", "106 ATP", "108 ATP"],
+            correct: 2,
+            explanation: "Palmitate undergoes 7 cycles of beta-oxidation (7 NADH, 7 FADH2) and produces 8 Acetyl CoA. <br>Total Gross: 28 (from cycles) + 80 (from 8 Acetyl CoA in TCA) = 108. <br>Activation requires 2 ATP equivalents. <br><strong>Net: 106 ATP.</strong>"
+        },
+
+        // 6. Carnitine Shuttle
+        {
+            q: "The transport of long-chain fatty acids into the mitochondrial matrix is inhibited by Malonyl CoA. Which enzyme does Malonyl CoA inhibit?",
+            options: ["Carnitine acyltransferase I (CPT-I)", "Carnitine acyltransferase II (CPT-II)", "Acyl-CoA synthetase", "Translocase"],
+            correct: 0,
+            explanation: "<strong>CPT-I</strong> (CAT-1) is the rate-limiting step of the carnitine shuttle. Malonyl CoA (a product of FA synthesis) inhibits CPT-I to prevent simultaneous synthesis and degradation of fatty acids."
+        },
+
+        // 7. Citrate Shuttle & FA Synthesis
+        {
+            q: "Acetyl-CoA is produced in the mitochondria but fatty acid synthesis occurs in the cytosol. Which molecule transports acetyl groups across the mitochondrial membrane?",
+            options: ["Carnitine", "Malate", "Citrate", "Oxaloacetate"],
+            correct: 2,
+            explanation: "The <strong>Citrate Shuttle</strong> moves acetyl groups to the cytosol. Mitochondrial Acetyl-CoA condenses with OAA to form Citrate, which crosses to the cytosol and is cleaved by ATP Citrate Lyase."
+        },
+        {
+            q: "Which enzyme catalyzes the rate-limiting step of fatty acid synthesis?",
+            options: ["Fatty acid synthase", "Acetyl-CoA carboxylase (ACC)", "ATP citrate lyase", "Malic enzyme"],
+            correct: 1,
+            explanation: "<strong>Acetyl-CoA carboxylase (ACC)</strong> converts Acetyl-CoA to Malonyl-CoA using Biotin. This is the main regulatory step."
+        },
+
+        // 8. Ketogenesis
+        {
+            q: "The liver produces ketone bodies but cannot utilize them. This is due to the lack of which enzyme in hepatocytes?",
+            options: ["HMG-CoA lyase", "HMG-CoA synthase", "Thiophorase (Succinyl CoA:acetoacetate CoA transferase)", "Beta-hydroxybutyrate dehydrogenase"],
+            correct: 2,
+            explanation: "The liver lacks <strong>Thiophorase</strong>, the enzyme required to activate acetoacetate to acetoacetyl-CoA for energy production. This ensures ketones are exported to peripheral tissues."
+        },
+        {
+            q: "In diabetic ketoacidosis, the breath has a fruity odor. This is caused by the spontaneous decarboxylation of acetoacetate into:",
+            options: ["Beta-hydroxybutyrate", "Acetone", "Acetoacetyl-CoA", "Pyruvate"],
+            correct: 1,
+            explanation: "Acetoacetate can spontaneously decarboxylate to form <strong>Acetone</strong>, which is volatile and exhaled, causing the fruity breath odor."
+        },
+
+        // 9. Phospholipid & Sphingolipid Metabolism
+        {
+            q: "Respiratory Distress Syndrome (RDS) in premature infants is caused by a deficiency of which phospholipid in the lung surfactant?",
+            options: ["Sphingomyelin", "Dipalmitoylphosphatidylcholine (DPPC)", "Phosphatidylinositol", "Cardiolipin"],
+            correct: 1,
+            explanation: "<strong>DPPC</strong> (Lecithin) is the major component of lung surfactant. A low Lecithin/Sphingomyelin (L/S) ratio (< 2.0) indicates immature fetal lungs."
+        },
+        {
+            q: "Niemann-Pick disease (Type A) is characterized by hepatosplenomegaly and neurodegeneration. Which enzyme is deficient?",
+            options: ["Hexosaminidase A", "Glucocerebrosidase", "Sphingomyelinase", "Arylsulfatase A"],
+            correct: 2,
+            explanation: "<strong>Sphingomyelinase</strong> deficiency leads to the accumulation of sphingomyelin in macrophages (foam cells), causing hepatosplenomegaly and cherry-red macula."
+        },
+        {
+            q: "A patient presents with 'crumpled tissue paper' macrophages in the bone marrow and hepatosplenomegaly. The diagnosis is Gaucher disease. What is the accumulated substrate?",
+            options: ["Gangliosides", "Glucocerebroside", "Ceramide", "Sphingomyelin"],
+            correct: 1,
+            explanation: "In Gaucher disease, deficiency of Glucocerebrosidase leads to the accumulation of <strong>Glucocerebroside</strong>."
+        },
+        {
+            q: "Tay-Sachs disease presents with a cherry-red spot on the macula but NO hepatosplenomegaly. Which enzyme is deficient?",
+            options: ["Hexosaminidase A", "Beta-Galactosidase", "Sphingomyelinase", "Alpha-Galactosidase"],
+            correct: 0,
+            explanation: "<strong>Hexosaminidase A</strong> deficiency causes GM2 Ganglioside accumulation in neurons, leading to CNS degeneration without visceral enlargement."
+        },
+
+        // 10. Fed-Fast Cycle (Integration)
+        {
+            q: "In the well-fed state, which hormonal ratio is elevated, promoting glycogen synthesis and lipogenesis?",
+            options: ["Glucagon/Insulin", "Insulin/Glucagon", "Cortisol/Insulin", "Epinephrine/Insulin"],
+            correct: 1,
+            explanation: "A high <strong>Insulin/Glucagon</strong> ratio signals abundance. It activates ACC (lipogenesis), Glycogen Synthase, and HMG-CoA reductase."
+        },
+        {
+            q: "During prolonged starvation (e.g., 3 days), which fuel becomes the major energy source for the brain to spare glucose?",
+            options: ["Fatty acids", "Amino acids", "Ketone bodies", "Lactate"],
+            correct: 2,
+            explanation: "The brain cannot use fatty acids (blood-brain barrier). In prolonged starvation, it adapts to use <strong>Ketone bodies</strong> (beta-hydroxybutyrate) to spare protein breakdown for gluconeogenesis."
+        },
+
+        // 11. Neurotransmitters
+        {
+            q: "Which amino acid is the precursor for the synthesis of Serotonin (5-hydroxytryptamine)?",
+            options: ["Tyrosine", "Tryptophan", "Glutamate", "Histidine"],
+            correct: 1,
+            explanation: "<strong>Tryptophan</strong> is hydroxylated and then decarboxylated to form Serotonin."
+        },
+        {
+            q: "Parkinson's disease is associated with the degeneration of neurons in the substantia nigra that produce:",
+            options: ["Acetylcholine", "GABA", "Dopamine", "Serotonin"],
+            correct: 2,
+            explanation: "Parkinson's involves the loss of <strong>Dopaminergic</strong> neurons. Treatment often involves L-Dopa."
+        },
+        {
+            q: "GABA (Gamma-aminobutyric acid) is the major inhibitory neurotransmitter. It is synthesized by the decarboxylation of:",
+            options: ["Glutamate", "Aspartate", "Glycine", "Glutamine"],
+            correct: 0,
+            explanation: "<strong>Glutamate</strong> (excitatory) is decarboxylated by Glutamate Decarboxylase (requiring Vitamin B6) to form GABA (inhibitory)."
+        },
+        {
+            q: "Which neurotransmitter is degraded by Monoamine Oxidase (MAO) and yields 5-HIAA (5-hydroxyindoleacetic acid) in urine, a marker for Carcinoid tumors?",
+            options: ["Dopamine", "Norepinephrine", "Serotonin", "Histamine"],
+            correct: 2,
+            explanation: "<strong>Serotonin</strong> is metabolized to 5-HIAA. High levels of 5-HIAA in urine suggest a Carcinoid tumor."
+        },
+
+        // 12. Oncogenes & Genetics
+        {
+            q: "Which protein is known as the 'Guardian of the Genome' because it halts the cell cycle to allow for DNA repair or induces apoptosis?",
+            options: ["Rb", "p53", "Ras", "Myc"],
+            correct: 1,
+            explanation: "<strong>p53</strong> is a tumor suppressor. Defects in p53 are found in over 50% of human cancers (Li-Fraumeni syndrome)."
+        },
+        {
+            q: "A mutation in the Ras gene often leads to cancer because Ras becomes:",
+            options: ["Permanently inactive", "Permanently bound to GTP (active)", "Unable to bind Raf", "Degraded rapidly"],
+            correct: 1,
+            explanation: "Mutated <strong>Ras</strong> loses its GTPase activity, remaining locked in the GTP-bound (active) state, driving continuous cell proliferation."
+        },
+        {
+            q: "BRCA1 and BRCA2 mutations significantly increase the risk of which cancers?",
+            options: ["Lung and Liver", "Breast and Ovary", "Colon and Rectum", "Bone and Brain"],
+            correct: 1,
+            explanation: "<strong>BRCA1 and BRCA2</strong> are involved in DNA double-strand break repair. Mutations predispose primarily to Breast and Ovarian cancers."
+        },
+
+        // 13. Tumor Markers
+        {
+            q: "Which tumor marker is most associated with Hepatocellular Carcinoma (liver cancer) and non-seminomatous germ cell tumors?",
+            options: ["PSA", "CA-125", "Alpha-fetoprotein (AFP)", "CEA"],
+            correct: 2,
+            explanation: "<strong>Alpha-fetoprotein (AFP)</strong> is normally produced by the fetus. High levels in adults suggest liver cancer or germ cell tumors."
+        },
+        {
+            q: "Carcinoembryonic Antigen (CEA) is predominantly used to monitor the recurrence of:",
+            options: ["Prostate cancer", "Colorectal cancer", "Ovarian cancer", "Breast cancer"],
+            correct: 1,
+            explanation: "<strong>CEA</strong> is a marker primarily for Colorectal cancer monitoring."
+        },
+
+        // 14. Xenobiotics
+        {
+            q: "Phase II metabolism of xenobiotics primarily involves which type of reaction?",
+            options: ["Oxidation via CYP450", "Reduction", "Hydrolysis", "Conjugation"],
+            correct: 3,
+            explanation: "Phase I involves modification (oxidation/reduction). <strong>Phase II</strong> involves **Conjugation** (e.g., with glucuronic acid, sulfate, glutathione) to make the molecule water-soluble for excretion."
+        },
+        {
+            q: "Which component of the Cytochrome P450 system is required to transfer electrons from NADPH?",
+            options: ["Cytochrome c reductase", "Cytochrome P450 reductase", "NADH dehydrogenase", "Ubiquinone"],
+            correct: 1,
+            explanation: "<strong>Cytochrome P450 reductase</strong> transfers electrons from NADPH to the heme iron of the CYP450 enzyme during Phase I metabolism."
+        },
+
+        // --- FILLERS TO REACH 50 (Reinforcing LOs) ---
+        { q: "Aspirin exerts its anti-inflammatory effect by inhibiting:", options: ["Lipoxygenase", "Cyclooxygenase", "Phospholipase A2", "Thromboxane synthase"], correct: 1, explanation: "<strong>Cyclooxygenase (COX)</strong> is irreversibly inhibited by Aspirin, blocking prostaglandin and thromboxane synthesis." },
+        { q: "Which essential fatty acid is a precursor for arachidonic acid?", options: ["Linoleic acid", "Oleic acid", "Palmitic acid", "Stearic acid"], correct: 0, explanation: "<strong>Linoleic acid</strong> (omega-6) is essential and is converted to Arachidonic acid." },
+        { q: "In the synthesis of triacylglycerols in adipose tissue, the glycerol-3-phosphate backbone is derived primarily from:", options: ["Glycerol kinase", "Dihydroxyacetone phosphate (DHAP)", "Lipolysis", "Gluconeogenesis"], correct: 1, explanation: "Adipose tissue lacks Glycerol Kinase. It must use <strong>DHAP</strong> from glycolysis to make the backbone." },
+        { q: "Zellweger syndrome involves the absence of functional:", options: ["Mitochondria", "Lysosomes", "Peroxisomes", "Golgi apparatus"], correct: 2, explanation: "<strong>Peroxisomes</strong> are absent or empty in Zellweger syndrome, causing accumulation of Very Long Chain Fatty Acids (VLCFAs)." },
+        { q: "The 'statins' (e.g., Atorvastatin) lower plasma cholesterol by inducing the upregulation of:", options: ["HMG-CoA Reductase", "LDL Receptors", "VLDL synthesis", "Bile acid reabsorption"], correct: 1, explanation: "Inhibiting intracellular cholesterol synthesis causes the cell to upregulate <strong>LDL Receptors</strong> to pull cholesterol from the blood." },
+        { q: "Which lipoprotein has the highest percentage of triacylglycerols?", options: ["Chylomicrons", "VLDL", "LDL", "HDL"], correct: 0, explanation: "<strong>Chylomicrons</strong> are composed mainly of dietary TAGs." },
+        { q: "Abetalipoproteinemia is caused by a defect in Microsomal Triglyceride Transfer Protein (MTP), leading to the absence of:", options: ["HDL", "Apo B containing lipoproteins", "Albumin", "Fatty acids"], correct: 1, explanation: "MTP is needed to assemble <strong>Apo B-48 and Apo B-100</strong>. Without it, Chylomicrons and VLDL/LDL cannot form." },
+        { q: "Which enzyme is activated by glucagon via phosphorylation in adipocytes to initiate lipolysis?", options: ["Lipoprotein Lipase", "Hormone Sensitive Lipase", "Pancreatic Lipase", "Acid Lipase"], correct: 1, explanation: "<strong>Hormone Sensitive Lipase (HSL)</strong> is activated by PKA (cAMP pathway) in response to Glucagon/Epinephrine." },
+        { q: "The conversion of propionyl-CoA (from odd-chain fatty acids) to succinyl-CoA requires which two vitamins?", options: ["Biotin and B12", "B6 and B12", "Folate and B12", "Thiamine and Biotin"], correct: 0, explanation: "Propionyl-CoA carboxylase requires <strong>Biotin</strong>. Methylmalonyl-CoA mutase requires <strong>Vitamin B12</strong>." },
+        { q: "Which compound acts as a 'scaffold' protein for glycogen synthesis?", options: ["Glycogenin", "Albumin", "Ferritin", "Calmodulin"], correct: 0, explanation: "<strong>Glycogenin</strong> acts as the primer and enzyme to start the glycogen chain." },
+        { q: "In the liver, alcohol metabolism generates high levels of NADH. This inhibits gluconeogenesis and promotes:", options: ["Glycogenolysis", "Lipolysis", "Fatty liver (Steatosis)", "Protein synthesis"], correct: 2, explanation: "High NADH inhibits Beta-oxidation and TCA cycle, shunting metabolism toward fatty acid synthesis and <strong>Hepatic Steatosis</strong>." },
+        { q: "Which amino acid is the precursor for Catecholamines (Dopamine, Norepinephrine, Epinephrine)?", options: ["Tryptophan", "Tyrosine", "Phenylalanine", "Histidine"], correct: 1, explanation: "<strong>Tyrosine</strong> is the immediate precursor." },
+        { q: "Histamine is produced from Histidine via:", options: ["Hydroxylation", "Decarboxylation", "Methylation", "Deamination"], correct: 1, explanation: "Histamine is formed by the <strong>Decarboxylation</strong> of Histidine (requires B6)." },
+        { q: "Acetylcholine is synthesized from Choline and Acetyl-CoA by:", options: ["Choline Acetyltransferase (ChAT)", "Acetylcholinesterase", "Choline hydroxylase", "DOPA decarboxylase"], correct: 0, explanation: "<strong>ChAT</strong> synthesizes ACh." },
+        { q: "Alzheimer's disease is often treated with inhibitors of which enzyme?", options: ["Choline Acetyltransferase", "Acetylcholinesterase", "MAO", "COMT"], correct: 1, explanation: "Inhibiting <strong>Acetylcholinesterase</strong> increases the dwell time of ACh in the synapse, helping cognitive function." },
+        { q: "The Philadelphia Chromosome (t(9;22)) creates a fusion protein BCR-ABL with constitutive tyrosine kinase activity. This is characteristic of:", options: ["Burkitt Lymphoma", "CML (Chronic Myeloid Leukemia)", "Breast Cancer", "Retinoblastoma"], correct: 1, explanation: "<strong>CML</strong> is driven by the BCR-ABL fusion oncogene." },
+        { q: "Which vitamin is an antioxidant that protects membrane lipids from peroxidation?", options: ["Vitamin C", "Vitamin E", "Vitamin D", "Vitamin K"], correct: 1, explanation: "<strong>Vitamin E</strong> (Tocopherol) is lipid-soluble and protects membranes." },
+        { q: "Acetaminophen toxicity is caused by the depletion of which compound required for Phase II conjugation?", options: ["Glucuronic acid", "Glutathione", "Sulfate", "Acetate"], correct: 1, explanation: "NAPQI (toxic metabolite) depletes <strong>Glutathione</strong>. N-acetylcysteine restores it." },
+        { q: "Which phospholipid is found in the inner mitochondrial membrane and is essential for the electron transport chain function?", options: ["Lecithin", "Cardiolipin", "Sphingomyelin", "Cephalin"], correct: 1, explanation: "<strong>Cardiolipin</strong> is unique to mitochondria and vital for complex function." },
+        { q: "Fabry disease is an X-linked disorder caused by deficiency of:", options: ["Alpha-Galactosidase A", "Beta-Glucosidase", "Sphingomyelinase", "Hexosaminidase A"], correct: 0, explanation: "<strong>Alpha-Galactosidase A</strong> deficiency causes Fabry disease." }
+    ];
+
+    // --- STATE MANAGEMENT ---
+    let currentQIndex = 0;
+    let userAnswers = new Array(questions.length).fill(null);
+    let seconds = 0;
+    let timerInterval;
+
+    const qListEl = document.getElementById("qList");
+    const qTextEl = document.getElementById("qText");
+    const optionsBoxEl = document.getElementById("optionsBox");
+    const submitBtn = document.getElementById("submitBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const expBox = document.getElementById("expBox");
+    const expText = document.getElementById("expText");
+    const qCountEl = document.getElementById("qCount");
+    const timerEl = document.getElementById("timer");
+
+    function init() {
+        renderSidebar();
+        loadQuestion(0);
+        startTimer();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            seconds++;
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            timerEl.textContent = `${h}:${m}:${s}`;
+        }, 1000);
+    }
+
+    function renderSidebar() {
+        qListEl.innerHTML = "";
+        questions.forEach((_, idx) => {
+            const li = document.createElement("li");
+            li.className = "q-item";
+            li.id = `q-item-${idx}`;
+            li.innerHTML = `<span>Question ${idx + 1}</span> <span class="status-dot status-none" id="dot-${idx}"></span>`;
+            li.onclick = () => loadQuestion(idx);
+            qListEl.appendChild(li);
+        });
+    }
+
+    function loadQuestion(index) {
+        currentQIndex = index;
+        
+        // Update Sidebar Active
+        document.querySelectorAll(".q-item").forEach(el => el.classList.remove("active"));
+        document.getElementById(`q-item-${index}`).classList.add("active");
+
+        qCountEl.innerText = `Question ${index + 1} of ${questions.length}`;
+        qTextEl.innerHTML = questions[index].q;
+
+        // Render Options
+        optionsBoxEl.innerHTML = "";
+        const isAnswered = userAnswers[index] !== null;
+
+        questions[index].options.forEach((opt, i) => {
+            const label = document.createElement("label");
+            label.className = "option-label";
+            
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = "opt";
+            input.className = "option-input";
+            input.value = i;
+            input.onclick = () => selectOption(i);
+            
+            if (isAnswered) {
+                input.disabled = true;
+                if (i === questions[index].correct) label.classList.add("highlight-correct");
+                if (userAnswers[index] === i && i !== questions[index].correct) label.classList.add("highlight-incorrect");
+                if (userAnswers[index] === i) input.checked = true;
+            } else if (userAnswers[index] === i) {
+                input.checked = true;
+            }
+
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(opt));
+            optionsBoxEl.appendChild(label);
+        });
+
+        // Toggle Views
+        if (isAnswered) {
+            submitBtn.style.display = "none";
+            nextBtn.style.display = "inline-block";
+            expBox.style.display = "block";
+            expText.innerHTML = questions[index].explanation;
+        } else {
+            submitBtn.style.display = "inline-block";
+            nextBtn.style.display = "none";
+            expBox.style.display = "none";
+        }
+    }
+
+    function selectOption(i) {
+        if (userAnswers[currentQIndex] === null) {
+            // Just tracking selection visually if needed, actual save is on submit
+        }
+    }
+
+    function submitAnswer() {
+        const selected = document.querySelector('input[name="opt"]:checked');
+        if (!selected) return alert("Please select an answer.");
+        
+        const val = parseInt(selected.value);
+        userAnswers[currentQIndex] = val;
+
+        const dot = document.getElementById(`dot-${currentQIndex}`);
+        dot.classList.remove("status-none");
+        if (val === questions[currentQIndex].correct) {
+            dot.classList.add("status-correct");
+        } else {
+            dot.classList.add("status-incorrect");
+        }
+
+        loadQuestion(currentQIndex); // Re-render to show explanation
+    }
+
+    function nextQuestion() {
+        if (currentQIndex < questions.length - 1) {
+            loadQuestion(currentQIndex + 1);
+        }
+    }
+
+    // Start App
+    init();
+
+</script>
+</body>
+</html>
