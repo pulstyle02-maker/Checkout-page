@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GUESS OR MESS Histology</title>
+    <style>
+        :root {
+            --primary: #4e54c8;
+            --secondary: #8f94fb;
+            --dark: #1a1a2e;
+            --light: #e0e0e0;
+            --accent: #ff0055;
+            --card-bg: #16213e;
+            --success: #00b894;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: var(--light);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: -webkit-linear-gradient(var(--secondary), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+        }
+
+        .subtitle {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        /* --- Main Container --- */
+        #app-container {
+            flex: 1;
+            position: relative;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* --- Views --- */
+        .view {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Home View --- */
+        .microscope-container {
+            width: 150px;
+            height: 150px;
+            margin: 30px auto;
+            position: relative;
+        }
+
+        .microscope-svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 10px var(--primary));
+        }
+
+        .lens-part {
+            animation: focusLens 3s infinite ease-in-out;
+            transform-origin: center;
+        }
+
+        @keyframes focusLens {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .menu-btn {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border: none;
+            width: 100%;
+            max-width: 300px;
+            padding: 18px;
+            margin: 10px 0;
+            border-radius: 50px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(78, 84, 200, 0.4);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .menu-btn:active {
+            transform: scale(0.95);
+        }
+
+        .credits {
+            margin-top: auto;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        
+        .credits span {
+            display: block;
+            color: var(--secondary);
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* --- Quiz View --- */
+        .quiz-img-box {
+            width: 100%;
+            max-width: 400px;
+            height: 250px;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 2px solid var(--primary);
+            position: relative;
+        }
+
+        .quiz-img-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .option-btn {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .option-btn.correct { background: var(--success); border-color: var(--success); }
+        .option-btn.wrong { background: var(--accent); border-color: var(--accent); }
+
+        /* --- OSPE View (Flashcard) --- */
+        .flashcard-container {
+            perspective: 1000px;
+            width: 100%;
+            max-width: 350px;
+            height: 450px;
+            margin: auto;
+            cursor: pointer;
+        }
+
+        .flashcard {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .flashcard.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            overflow: hidden;
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card-front img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            padding: 20px;
+            background: linear-gradient(135deg, var(--dark), #2a2a4a);
+        }
+
+        .card-back h3 {
+            color: var(--secondary);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .card-back ul {
+            text-align: left;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+
+        .instruction {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* --- Revision View --- */
+        .revision-list {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .revision-item {
+            background: var(--card-bg);
+            margin-bottom: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .revision-header {
+            padding: 15px;
+            background: rgba(78, 84, 200, 0.2);
+            font-weight: bold;
+            color: var(--secondary);
+            font-size: 1.2rem;
+        }
+
+        .revision-content {
+            padding: 15px;
+        }
+
+        .revision-content ul {
+            padding-left: 20px;
+            margin: 0 0 15px 0;
+            color: #ddd;
+        }
+
+        .gallery {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding-bottom: 10px;
+        }
+
+        .gallery img {
+            height: 100px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        /* --- Navigation --- */
+        .nav-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 200;
+        }
+
+        .home-btn-icon {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        /* --- Result Screen --- */
+        .result-box {
+            text-align: center;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .wrong-list {
+            text-align: left;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .wrong-item {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: var(--accent);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>GUESS OR MESS</h1>
+        <div class="subtitle">Histology by ModMedicalis</div>
+    </header>
+
+    <div class="nav-bar" id="nav-bar" style="display: none;">
+        <button class="home-btn-icon" onclick="goHome()">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        </button>
+    </div>
+
+    <div id="app-container">
+        
+        <!-- HOME PAGE -->
+        <div id="home-view" class="view active">
+            <div class="microscope-container">
+                <!-- Simple Microscope SVG -->
+                <svg class="microscope-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="35" y="85" width="30" height="5" rx="2" fill="#8f94fb"/>
+                    <path d="M40 85 V70 H60 V85" stroke="#e0e0e0" stroke-width="3"/>
+                    <path d="M50 70 V30" stroke="#e0e0e0" stroke-width="8" stroke-linecap="round"/>
+                    <g class="lens-part">
+                        <rect x="42" y="30" width="16" height="25" rx="2" fill="#4e54c8"/>
+                        <circle cx="50" cy="55" r="5" fill="#8f94fb" opacity="0.8"/>
+                        <path d="M38 40 H30 L25 50" stroke="#e0e0e0" stroke-width="3" stroke-linecap="round"/>
+                    </g>
+                    <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+                </svg>
+            </div>
+
+            <button class="menu-btn" onclick="startQuiz()">QUIZ</button>
+            <button class="menu-btn" onclick="startOspe()">OSPE</button>
+            <button class="menu-btn" onclick="startRevision()">REVISION</button>
+
+            <div class="credits">
+                Credits:
+                <span>Daniyal Haider & Hamza Anwar</span>
+                (AIMC’28)
+            </div>
+        </div>
+
+        <!-- QUIZ PAGE -->
+        <div id="quiz-view" class="view">
+            <h2 id="quiz-progress" style="margin-bottom: 10px;">Question 1/10</h2>
+            <div class="quiz-img-box">
+                <img id="quiz-img" src="" alt="Histology Slide">
+            </div>
+            <div class="options-grid" id="quiz-options">
+                <!-- Options generated by JS -->
+            </div>
+        </div>
+
+        <!-- OSPE PAGE -->
+        <div id="ospe-view" class="view" style="justify-content: center;">
+            <div class="flashcard-container" onclick="flipCard()">
+                <div class="flashcard" id="ospe-card">
+                    <div class="card-front">
+                        <img id="ospe-img" src="" alt="OSPE Slide">
+                        <div style="position:absolute; bottom:10px; background:rgba(0,0,0,0.7); padding:5px 10px; border-radius:10px;">Tap to Reveal</div>
+                    </div>
+                    <div class="card-back">
+                        <h3 id="ospe-title">Title</h3>
+                        <ul id="ospe-points">
+                            <!-- Points -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="instruction">Tap card to flip • Swipe or click Next</div>
+            <button class="menu-btn" style="margin-top: 20px; width: 200px; padding: 12px;" onclick="nextOspe()">Next Slide</button>
+        </div>
+
+        <!-- REVISION PAGE -->
+        <div id="revision-view" class="view">
+            <h2 style="color:var(--secondary); margin-bottom: 20px;">Study Notes</h2>
+            <div class="revision-list" id="revision-container">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <!-- RESULTS PAGE -->
+        <div id="result-view" class="view" style="justify-content: center;">
+            <div class="result-box">
+                <h2 style="color: white;">Quiz Complete!</h2>
+                <h1 id="final-score" style="font-size: 3rem; margin: 10px 0;">8/10</h1>
+                <p id="feedback-msg">Great Job!</p>
+                
+                <div id="wrong-answers-container" style="display:none;">
+                    <p style="color:var(--secondary); font-weight:bold; margin-top:15px;">Focus on these slides:</p>
+                    <div class="wrong-list" id="wrong-list"></div>
+                </div>
+
+                <button class="menu-btn" style="margin-top: 20px;" onclick="goHome()">Home</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA ---
+        const histologyData = [
+            {
+                name: "Spinal Cord",
+                points: ["Central Canal", "Butterfly shaped Gray Matter", "Peripheral White matter"],
+                images: [
+                    "https://i.imgur.com/2xBDGls.jpeg",
+                    "https://i.imgur.com/UHfULRV.jpeg",
+                    "https://i.imgur.com/CEsPiQ9.jpeg"
+                ]
+            },
+            {
+                name: "Ganglion",
+                points: ["Cell Bodies & Nerve Fibers", "Connective Tissue Capsule", "Satellite Cells", "Peripheral Nerve fascicles"],
+                images: [
+                    "https://i.imgur.com/8h9TIv4.jpeg",
+                    "https://i.imgur.com/S2MOTkQ.jpeg",
+                    "https://i.imgur.com/mAHmDXk.jpeg"
+                ]
+            },
+            {
+                name: "Peripheral Nerve",
+                points: ["Epineurium (outer layer)", "Perineurium (surrounds fascicles)", "Endoneurium (surrounds fibers)", "Wavy appearance of fibers"],
+                images: [
+                    "https://i.imgur.com/9i6qin8.jpeg",
+                    "https://i.imgur.com/gw7JQD1.jpeg",
+                    "https://i.imgur.com/K3OejGa.jpeg"
+                ]
+            },
+            {
+                name: "Cerebellum",
+                points: ["3 Layers of Gray matter", "Molecular layer (outer)", "Purkinje cell layer (middle)", "Granular cell layer (inner)", "White matter core"],
+                images: [
+                    "https://i.imgur.com/HRTPvqa.jpeg",
+                    "https://i.imgur.com/Nr0utSn.jpeg",
+                    "https://i.imgur.com/nRMMguC.jpeg"
+                ]
+            },
+            {
+                name: "Cerebrum",
+                points: ["6 Layers of Cortex", "Pyramidal cells", "Granule cells", "No distinct Purkinje layer"],
+                images: [
+                    "https://i.imgur.com/3QVokhm.jpeg",
+                    "https://i.imgur.com/stjSi3c.jpeg",
+                    "https://i.imgur.com/tAzFdou.jpeg",
+                    "https://i.imgur.com/HodXSI3.jpeg"
+                ]
+            },
+            {
+                name: "Thin Skin",
+                points: ["4 Layers of epidermis", "Thin stratum corneum", "Dermis contains Hair Follicles", "Sebaceous glands present"],
+                images: [
+                    "https://i.imgur.com/RN7MsMx.jpeg",
+                    "https://i.imgur.com/IFDEObz.jpeg",
+                    "https://i.imgur.com/5FVZCTN.jpeg"
+                ]
+            },
+            {
+                name: "Thick Skin",
+                points: ["5 Layers of epidermis", "Thick stratum corneum", "Stratum Lucidum present", "No Hair follicles", "Prominent Papillary/Reticular dermis"],
+                images: [
+                    "https://i.imgur.com/TReDbtU.jpeg",
+                    "https://i.imgur.com/ZthHZXM.jpeg",
+                    "https://i.imgur.com/8iw2jdS.jpeg"
+                ]
+            }
+        ];
+
+        // --- STATE ---
+        let quizQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let wrongAnswers = [];
+        let ospeDeck = [];
+        let currentOspeIndex = 0;
+
+        // --- NAVIGATION ---
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            const nav = document.getElementById('nav-bar');
+            if (viewId === 'home-view' || viewId === 'result-view') {
+                nav.style.display = 'none';
+            } else {
+                nav.style.display = 'block';
+            }
+        }
+
+        function goHome() {
+            showView('home-view');
+        }
+
+        // --- QUIZ LOGIC ---
+        function startQuiz() {
+            quizQuestions = [];
+            score = 0;
+            wrongAnswers = [];
+            currentQuestionIndex = 0;
+
+            // Flatten images into questions
+            histologyData.forEach(cat => {
+                cat.images.forEach(imgUrl => {
+                    quizQuestions.push({
+                        image: imgUrl,
+                        answer: cat.name,
+                        correctPoints: cat.points
+                    });
+                });
+            });
+
+            // Shuffle questions
+            quizQuestions = shuffleArray(quizQuestions);
+            loadQuestion();
+            showView('quiz-view');
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= quizQuestions.length) {
+                endQuiz();
+                return;
+            }
+
+            const q = quizQuestions[currentQuestionIndex];
+            document.getElementById('quiz-progress').innerText = `Slide ${currentQuestionIndex + 1} / ${quizQuestions.length}`;
+            document.getElementById('quiz-img').src = q.image;
+
+            const optionsDiv = document.getElementById('quiz-options');
+            optionsDiv.innerHTML = '';
+
+            // Generate Distractors
+            let allNames = histologyData.map(d => d.name);
+            let distractors = allNames.filter(n => n !== q.answer);
+            distractors = shuffleArray(distractors).slice(0, 3);
+            
+            let options = [...distractors, q.answer];
+            options = shuffleArray(options);
+
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(opt, q.answer, btn);
+                optionsDiv.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selected, correct, btnElement) {
+            // Disable all buttons
+            const btns = document.querySelectorAll('.option-btn');
+            btns.forEach(b => b.disabled = true);
+
+            if (selected === correct) {
+                score++;
+                btnElement.classList.add('correct');
+            } else {
+                btnElement.classList.add('wrong');
+                // Highlight correct one
+                btns.forEach(b => {
+                    if (b.innerText === correct) b.classList.add('correct');
+                });
+                // Track wrong answer
+                wrongAnswers.push(quizQuestions[currentQuestionIndex]);
+            }
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                loadQuestion();
+            }, 1200);
+        }
+
+        function endQuiz() {
+            showView('result-view');
+            document.getElementById('final-score').innerText = `${score} / ${quizQuestions.length}`;
+            
+            const wrongContainer = document.getElementById('wrong-answers-container');
+            const wrongList = document.getElementById('wrong-list');
+            const msg = document.getElementById('feedback-msg');
+
+            if (score === quizQuestions.length) {
+                msg.innerText = "Histology Master! Perfect Score.";
+                wrongContainer.style.display = 'none';
+            } else {
+                msg.innerText = "Good effort! Review the mistakes below.";
+                wrongContainer.style.display = 'block';
+                wrongList.innerHTML = '';
+                
+                // Deduplicate wrong categories for display
+                const uniqueWrongs = [...new Set(wrongAnswers.map(w => w.answer))];
+                
+                uniqueWrongs.forEach(catName => {
+                    const div = document.createElement('div');
+                    div.className = 'wrong-item';
+                    div.innerHTML = `<strong>${catName}</strong>`;
+                    wrongList.appendChild(div);
+                });
+            }
+        }
+
+        // --- OSPE LOGIC ---
+        function startOspe() {
+            ospeDeck = [];
+            currentOspeIndex = 0;
+
+            // Flatten deck
+            histologyData.forEach(cat => {
+                cat.images.forEach(img => {
+                    ospeDeck.push({
+                        image: img,
+                        name: cat.name,
+                        points: cat.points
+                    });
+                });
+            });
+
+            ospeDeck = shuffleArray(ospeDeck);
+            loadOspeCard();
+            showView('ospe-view');
+        }
+
+        function loadOspeCard() {
+            const card = document.getElementById('ospe-card');
+            card.classList.remove('flipped'); // Reset flip
+
+            setTimeout(() => {
+                const data = ospeDeck[currentOspeIndex];
+                document.getElementById('ospe-img').src = data.image;
+                document.getElementById('ospe-title').innerText = data.name;
+                
+                const ul = document.getElementById('ospe-points');
+                ul.innerHTML = '';
+                data.points.forEach(p => {
+                    const li = document.createElement('li');
+                    li.innerText = p;
+                    ul.appendChild(li);
+                });
+            }, 200);
+        }
+
+        function flipCard() {
+            document.getElementById('ospe-card').classList.toggle('flipped');
+        }
+
+        function nextOspe() {
+            currentOspeIndex = (currentOspeIndex + 1) % ospeDeck.length;
+            loadOspeCard();
+        }
+
+        // --- REVISION LOGIC ---
+        function startRevision() {
+            const container = document.getElementById('revision-container');
+            container.innerHTML = '';
+
+            histologyData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'revision-item';
+
+                // Points List
+                let pointsHtml = '';
+                item.points.forEach(p => pointsHtml += `<li>${p}</li>`);
+
+                // Image Gallery
+                let imgsHtml = '';
+                item.images.forEach(img => imgsHtml += `<img src="${img}" onclick="viewImageFull(this.src)">`);
+
+                div.innerHTML = `
+                    <div class="revision-header">${item.name}</div>
+                    <div class="revision-content">
+                        <ul>${pointsHtml}</ul>
+                        <div class="gallery">${imgsHtml}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            showView('revision-view');
+        }
+
+        // --- UTILS ---
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function viewImageFull(src) {
+            // Optional: Simple implementation to open image in new tab or modal
+            // keeping it simple for single file: do nothing or just log
+            // console.log("Viewing", src);
+        }
+
+        // Initialize
+        window.onload = function() {
+            // Preload images for smoother experience could go here
+        }
+
+    </script>
+</body>
+</html>
