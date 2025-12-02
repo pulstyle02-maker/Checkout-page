@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Viewport updated to prevent zooming issues while ensuring content fits width -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GUESS OR MESS Histology</title>
     <style>
@@ -17,7 +18,6 @@
 
         * {
             box-sizing: border-box;
-            user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -27,8 +27,10 @@
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             color: var(--light);
-            height: 100vh;
-            overflow: hidden;
+            /* Use dvh to account for mobile browser address bars */
+            height: 100dvh; 
+            width: 100vw;
+            overflow: hidden; /* Prevent body scroll, handle inside app-container */
             display: flex;
             flex-direction: column;
         }
@@ -39,8 +41,10 @@
             padding: 15px;
             background: rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             z-index: 100;
             border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0; /* Prevent header from shrinking */
         }
 
         h1 {
@@ -62,11 +66,15 @@
 
         /* --- Main Container --- */
         #app-container {
-            flex: 1;
+            flex-grow: 1;
             position: relative;
-            overflow-y: auto;
+            width: 100%;
+            /* Enable smooth scrolling inside the container */
+            overflow-y: auto; 
             overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; 
             padding: 20px;
+            padding-bottom: 80px; /* Extra padding so buttons aren't cut off at bottom */
         }
 
         /* --- Views --- */
@@ -75,8 +83,9 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            height: 100%;
-            animation: fadeIn 0.4s ease;
+            /* No fixed height here, allow content to dictate height for scrolling */
+            min-height: 100%; 
+            animation: fadeIn 0.3s ease-out;
         }
 
         .view.active {
@@ -84,7 +93,7 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(5px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -92,8 +101,9 @@
         .microscope-container {
             width: 150px;
             height: 150px;
-            margin: 30px auto;
+            margin: 20px auto;
             position: relative;
+            flex-shrink: 0;
         }
 
         .microscope-svg {
@@ -105,6 +115,7 @@
         .lens-part {
             animation: focusLens 3s infinite ease-in-out;
             transform-origin: center;
+            will-change: transform; /* Performance optimization */
         }
 
         @keyframes focusLens {
@@ -125,7 +136,8 @@
             font-weight: bold;
             box-shadow: 0 4px 15px rgba(78, 84, 200, 0.4);
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: transform 0.1s;
+            touch-action: manipulation;
         }
 
         .menu-btn:active {
@@ -133,7 +145,7 @@
         }
 
         .credits {
-            margin-top: auto;
+            margin-top: 30px;
             font-size: 0.8rem;
             color: rgba(255,255,255,0.5);
             text-align: center;
@@ -151,13 +163,14 @@
         .quiz-img-box {
             width: 100%;
             max-width: 400px;
-            height: 250px;
+            height: 250px; /* Fixed height for image container */
             background: #000;
             border-radius: 15px;
             overflow: hidden;
             margin-bottom: 20px;
             border: 2px solid var(--primary);
             position: relative;
+            flex-shrink: 0;
         }
 
         .quiz-img-box img {
@@ -172,6 +185,7 @@
             gap: 10px;
             width: 100%;
             max-width: 400px;
+            margin-bottom: 20px;
         }
 
         .option-btn {
@@ -182,19 +196,30 @@
             border-radius: 10px;
             font-size: 0.9rem;
             cursor: pointer;
+            touch-action: manipulation;
         }
 
         .option-btn.correct { background: var(--success); border-color: var(--success); }
         .option-btn.wrong { background: var(--accent); border-color: var(--accent); }
 
         /* --- OSPE View (Flashcard) --- */
+        .ospe-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Allow scrolling if card is tall */
+            padding-bottom: 40px; 
+        }
+
         .flashcard-container {
             perspective: 1000px;
             width: 100%;
             max-width: 350px;
             height: 450px;
-            margin: auto;
+            margin: 10px auto;
             cursor: pointer;
+            position: relative;
         }
 
         .flashcard {
@@ -239,18 +264,21 @@
             transform: rotateY(180deg);
             padding: 20px;
             background: linear-gradient(135deg, var(--dark), #2a2a4a);
+            overflow-y: auto; /* Allow text inside card to scroll if too long */
         }
 
         .card-back h3 {
             color: var(--secondary);
             font-size: 1.5rem;
-            margin-bottom: 20px;
+            margin: 0 0 20px 0;
+            flex-shrink: 0;
         }
 
         .card-back ul {
             text-align: left;
             padding-left: 20px;
             line-height: 1.6;
+            margin: 0;
         }
 
         .instruction {
@@ -300,29 +328,33 @@
 
         .gallery img {
             height: 100px;
+            width: auto;
             border-radius: 8px;
             border: 1px solid #444;
+            /* Improve performance during scrolling */
+            content-visibility: auto; 
         }
 
         /* --- Navigation --- */
         .nav-bar {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 15px;
+            left: 15px;
             z-index: 200;
         }
 
         .home-btn-icon {
-            background: rgba(255,255,255,0.1);
-            border: none;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
             color: white;
-            width: 40px;
-            height: 40px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            backdrop-filter: blur(5px);
         }
 
         /* --- Result Screen --- */
@@ -331,8 +363,9 @@
             background: var(--card-bg);
             padding: 30px;
             border-radius: 20px;
-            width: 90%;
+            width: 100%;
             max-width: 400px;
+            margin: 20px 0;
         }
 
         .wrong-list {
@@ -359,7 +392,7 @@
 
     <div class="nav-bar" id="nav-bar" style="display: none;">
         <button class="home-btn-icon" onclick="goHome()">
-            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
         </button>
     </div>
 
@@ -368,7 +401,6 @@
         <!-- HOME PAGE -->
         <div id="home-view" class="view active">
             <div class="microscope-container">
-                <!-- Simple Microscope SVG -->
                 <svg class="microscope-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="35" y="85" width="30" height="5" rx="2" fill="#8f94fb"/>
                     <path d="M40 85 V70 H60 V85" stroke="#e0e0e0" stroke-width="3"/>
@@ -405,23 +437,25 @@
         </div>
 
         <!-- OSPE PAGE -->
-        <div id="ospe-view" class="view" style="justify-content: center;">
-            <div class="flashcard-container" onclick="flipCard()">
-                <div class="flashcard" id="ospe-card">
-                    <div class="card-front">
-                        <img id="ospe-img" src="" alt="OSPE Slide">
-                        <div style="position:absolute; bottom:10px; background:rgba(0,0,0,0.7); padding:5px 10px; border-radius:10px;">Tap to Reveal</div>
-                    </div>
-                    <div class="card-back">
-                        <h3 id="ospe-title">Title</h3>
-                        <ul id="ospe-points">
-                            <!-- Points -->
-                        </ul>
+        <div id="ospe-view" class="view">
+            <div class="ospe-wrapper">
+                <div class="flashcard-container" onclick="flipCard()">
+                    <div class="flashcard" id="ospe-card">
+                        <div class="card-front">
+                            <img id="ospe-img" src="" alt="OSPE Slide">
+                            <div style="position:absolute; bottom:10px; background:rgba(0,0,0,0.7); padding:5px 10px; border-radius:10px;">Tap to Reveal</div>
+                        </div>
+                        <div class="card-back">
+                            <h3 id="ospe-title">Title</h3>
+                            <ul id="ospe-points">
+                                <!-- Points -->
+                            </ul>
+                        </div>
                     </div>
                 </div>
+                <div class="instruction">Tap card to flip • Scroll down for Next</div>
+                <button class="menu-btn" style="margin-top: 20px; width: 200px; padding: 12px;" onclick="nextOspe()">Next Slide</button>
             </div>
-            <div class="instruction">Tap card to flip • Swipe or click Next</div>
-            <button class="menu-btn" style="margin-top: 20px; width: 200px; padding: 12px;" onclick="nextOspe()">Next Slide</button>
         </div>
 
         <!-- REVISION PAGE -->
@@ -433,7 +467,7 @@
         </div>
 
         <!-- RESULTS PAGE -->
-        <div id="result-view" class="view" style="justify-content: center;">
+        <div id="result-view" class="view">
             <div class="result-box">
                 <h2 style="color: white;">Quiz Complete!</h2>
                 <h1 id="final-score" style="font-size: 3rem; margin: 10px 0;">8/10</h1>
@@ -532,6 +566,9 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             
+            // Scroll to top when changing view
+            document.getElementById('app-container').scrollTop = 0;
+
             const nav = document.getElementById('nav-bar');
             if (viewId === 'home-view' || viewId === 'result-view') {
                 nav.style.display = 'none';
@@ -576,7 +613,11 @@
 
             const q = quizQuestions[currentQuestionIndex];
             document.getElementById('quiz-progress').innerText = `Slide ${currentQuestionIndex + 1} / ${quizQuestions.length}`;
-            document.getElementById('quiz-img').src = q.image;
+            
+            // Use JS to set source to ensure clean switch
+            const imgEl = document.getElementById('quiz-img');
+            imgEl.src = ''; // Clear first
+            imgEl.src = q.image;
 
             const optionsDiv = document.getElementById('quiz-options');
             optionsDiv.innerHTML = '';
@@ -599,7 +640,6 @@
         }
 
         function checkAnswer(selected, correct, btnElement) {
-            // Disable all buttons
             const btns = document.querySelectorAll('.option-btn');
             btns.forEach(b => b.disabled = true);
 
@@ -608,11 +648,9 @@
                 btnElement.classList.add('correct');
             } else {
                 btnElement.classList.add('wrong');
-                // Highlight correct one
                 btns.forEach(b => {
                     if (b.innerText === correct) b.classList.add('correct');
                 });
-                // Track wrong answer
                 wrongAnswers.push(quizQuestions[currentQuestionIndex]);
             }
 
@@ -638,7 +676,6 @@
                 wrongContainer.style.display = 'block';
                 wrongList.innerHTML = '';
                 
-                // Deduplicate wrong categories for display
                 const uniqueWrongs = [...new Set(wrongAnswers.map(w => w.answer))];
                 
                 uniqueWrongs.forEach(catName => {
@@ -655,7 +692,6 @@
             ospeDeck = [];
             currentOspeIndex = 0;
 
-            // Flatten deck
             histologyData.forEach(cat => {
                 cat.images.forEach(img => {
                     ospeDeck.push({
@@ -673,7 +709,7 @@
 
         function loadOspeCard() {
             const card = document.getElementById('ospe-card');
-            card.classList.remove('flipped'); // Reset flip
+            card.classList.remove('flipped'); 
 
             setTimeout(() => {
                 const data = ospeDeck[currentOspeIndex];
@@ -708,13 +744,12 @@
                 const div = document.createElement('div');
                 div.className = 'revision-item';
 
-                // Points List
                 let pointsHtml = '';
                 item.points.forEach(p => pointsHtml += `<li>${p}</li>`);
 
-                // Image Gallery
                 let imgsHtml = '';
-                item.images.forEach(img => imgsHtml += `<img src="${img}" onclick="viewImageFull(this.src)">`);
+                // Added loading="lazy" to prevent hanging
+                item.images.forEach(img => imgsHtml += `<img src="${img}" loading="lazy">`);
 
                 div.innerHTML = `
                     <div class="revision-header">${item.name}</div>
@@ -738,15 +773,8 @@
             return array;
         }
 
-        function viewImageFull(src) {
-            // Optional: Simple implementation to open image in new tab or modal
-            // keeping it simple for single file: do nothing or just log
-            // console.log("Viewing", src);
-        }
-
-        // Initialize
         window.onload = function() {
-            // Preload images for smoother experience could go here
+            // Initial load setup if needed
         }
 
     </script>
