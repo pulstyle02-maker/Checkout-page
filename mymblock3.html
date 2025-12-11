@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModMedicalis Secure Portal</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            height: 100%;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- LOGIN STYLES --- */
+        #login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 300px;
+        }
+
+        .login-box h2 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .login-box button:hover {
+            background-color: #c0392b;
+        }
+
+        .error-msg {
+            color: red;
+            font-size: 14px;
+            display: none;
+            margin-top: 10px;
+        }
+
+        /* --- DASHBOARD --- */
+        #dashboard {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        nav {
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 60px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .tabs {
+            display: flex;
+            height: 100%;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #bdc3c7;
+            padding: 0 25px;
+            font-size: 16px;
+            cursor: pointer;
+            height: 100%;
+            transition: 0.3s;
+            font-weight: 600;
+        }
+
+        .tab-btn.active {
+            color: white;
+            border-bottom: 4px solid var(--accent);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .quiz-btn {
+            background-color: var(--accent);
+            color: white;
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* --- CONTENT & PDF --- */
+        .content-area {
+            flex: 1;
+            position: relative;
+            background: #525659;
+            overflow: hidden;
+        }
+
+        .tab-content {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .pdf-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        iframe.pdf-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Watermark */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 5vw;
+            color: rgba(255, 0, 0, 0.12);
+            pointer-events: none;
+            z-index: 50;
+            white-space: nowrap;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        /* Security Shield */
+        .security-shield {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 120px;
+            height: 60px;
+            background: transparent;
+            z-index: 60;
+        }
+
+        /* --- SIDEBAR BUTTONS --- */
+        .audio-sidebar {
+            position: fixed;
+            right: 0;
+            top: 40%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .audio-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 12px;
+            border-radius: 10px 0 0 10px;
+            cursor: pointer;
+            width: 140px;
+            text-align: left;
+            transition: 0.3s;
+            box-shadow: -2px 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .audio-btn:hover {
+            background-color: var(--accent);
+            width: 160px;
+        }
+
+        .audio-btn.active-audio {
+            background-color: var(--accent);
+            width: 160px;
+            border-left: 5px solid white;
+        }
+
+        /* --- FLOATING AUDIO PLAYER --- */
+        /* This container holds the Google Drive Player iframe */
+        #audio-player-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            height: 100px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 200;
+            display: none; /* Hidden by default */
+            border: 2px solid var(--primary);
+            overflow: hidden;
+        }
+
+        #audio-player-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .close-player {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--accent);
+            color: white;
+            border: none;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 201;
+        }
+
+        .cvs-msg {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: white;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <!-- LOGIN -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>ModMedicalis</h2>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Username" required autocomplete="off">
+                <input type="password" id="password" placeholder="Password (4-digit)" maxlength="4" required>
+                <div class="error-msg" id="errorMsg">Access Denied</div>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard">
+        <nav>
+            <div class="tabs">
+                <button class="tab-btn" onclick="openTab('cvs')">CVS</button>
+                <button class="tab-btn active" onclick="openTab('resp')">RESP</button>
+            </div>
+            <a href="https://www.modmedicalis.online/respquiz" target="_blank" class="quiz-btn">Quiz Portal</a>
+        </nav>
+
+        <div class="content-area">
+            <!-- CVS TAB -->
+            <div id="cvs" class="tab-content">
+                <div class="cvs-msg">CVS Module Locked</div>
+            </div>
+
+            <!-- RESP TAB -->
+            <div id="resp" class="tab-content active">
+                <div class="pdf-container">
+                    <div class="security-shield"></div>
+                    <div id="watermark-display" class="watermark">USER</div>
+                    <!-- PDF Embed -->
+                    <iframe class="pdf-frame" src="https://drive.google.com/file/d/11lngwVifDAfYiQrvNiXzqHOZho3CQhrr/preview" allow="autoplay"></iframe>
+                </div>
+
+                <!-- Side Buttons -->
+                <div class="audio-sidebar">
+                    <button class="audio-btn" onclick="loadAudio('pathology')">
+                        🎵 Pathology VN
+                    </button>
+                    <button class="audio-btn" onclick="loadAudio('pharma')">
+                        🎵 Pharma VN
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FLOATING AUDIO PLAYER (Always on top) -->
+    <div id="audio-player-container">
+        <button class="close-player" onclick="closeAudio()">X</button>
+        <iframe id="audio-frame" src=""></iframe>
+    </div>
+
+    <script>
+        // --- SECURE USER DATABASE (4-Digit Codes) ---
+        const users = {
+            "eman fatima": "4821",
+            "hasnain": "9302",
+            "hadi khan": "1567",
+            "minahil noor": "8823",
+            "muhammad bilal": "5109",
+            "hira usman": "2741",
+            "ty": "6638",
+            "mahrukh": "9124",
+            "nazra ahmad": "3305",
+            "afnan maryam": "7412",
+            "fatima": "1985",
+            "zoha hassan": "5563",
+            "habiba ansar": "4029",
+            "gul": "8217",
+            "ishmal asif": "3691",
+            "janita horain": "7754",
+            "rohail ahmad": "2048",
+            "hareem mubashar": "6193",
+            "iqra farheen": "9531",
+            "moeeza": "8406",
+            "shaveeza abid": "1128",
+            "ujala ijaz": "5972",
+            "sadia akmal": "3044",
+            "hadia akbar": "6285",
+            "malaika aziz": "7390",
+            "omar rabani": "1452",
+            "huda khalid": "8674",
+            "ahmed ali nasir": "2291",
+            "iman khalid": "5836",
+            "muhammad omar rashid": "9410",
+            "faiqa rubab": "4355",
+            "muhammad ahmad": "1234",
+            "taiba": "5678"
+        };
+
+        // --- AUDIO ID MAPPING ---
+        const audioIDs = {
+            'pathology': '1A_6-J60XF6-AIk2wIM2cyPVqW7CXeYIT',
+            'pharma': '15bLfKELhtCVWsmM2cKG5_TjeQSp_t2PR'
+        };
+
+        // --- LOGIN LOGIC ---
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const userKey = user.toLowerCase();
+
+            if (users[userKey] && users[userKey] === pass) {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'flex';
+                document.getElementById('watermark-display').innerText = user;
+            } else {
+                document.getElementById('errorMsg').style.display = 'block';
+                document.getElementById('password').value = '';
+            }
+        });
+
+        // --- TAB LOGIC ---
+        function openTab(tabName) {
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(c => c.classList.remove('active'));
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => b.classList.remove('active'));
+
+            document.getElementById(tabName).classList.add('active');
+            
+            // Highlight button
+            if(tabName === 'cvs') btns[0].classList.add('active');
+            if(tabName === 'resp') btns[1].classList.add('active');
+        }
+
+        // --- AUDIO PLAYER LOGIC ---
+        function loadAudio(type) {
+            const container = document.getElementById('audio-player-container');
+            const frame = document.getElementById('audio-frame');
+            const fileId = audioIDs[type];
+
+            // 1. Show the floating player box
+            container.style.display = 'block';
+
+            // 2. Load the Google Drive PREVIEW into the small box
+            // 'preview' is the most reliable way to play audio without 403 errors
+            frame.src = `https://drive.google.com/file/d/${fileId}/preview`;
+        }
+
+        function closeAudio() {
+            const container = document.getElementById('audio-player-container');
+            const frame = document.getElementById('audio-frame');
+            
+            // Hide and stop audio by unloading src
+            container.style.display = 'none';
+            frame.src = "";
+        }
+
+        // --- SECURITY ---
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && (e.key === 's' || e.key === 'p' || e.key === 'u')) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
