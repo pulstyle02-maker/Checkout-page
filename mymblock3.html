@@ -53,12 +53,14 @@
         .tabs button {
             background: none; border: none; color: #bdc3c7;
             font-weight: bold; padding: 0 10px; height: 45px;
+            cursor: pointer;
         }
         .tabs button.active { color: white; border-bottom: 3px solid var(--accent); }
 
         .quiz-btn {
-            background: var(--accent); color: white; text-decoration: none;
+            background: var(--accent); color: white; border: none;
             padding: 5px 10px; border-radius: 4px; font-size: 12px;
+            cursor: pointer;
         }
 
         /* --- PDF AREA --- */
@@ -69,7 +71,7 @@
             overflow: hidden;
             display: flex; flex-direction: column;
         }
-        .tab-content { display: none; width: 100%; height: 100%; }
+        .tab-content { display: none; width: 100%; height: 100%; position: relative; }
         .tab-content.active { display: block; }
 
         iframe.pdf-frame { width: 100%; height: 100%; border: none; }
@@ -85,7 +87,24 @@
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 10vw; color: rgba(255, 0, 0, 0.15);
             pointer-events: none; font-weight: 900; z-index: 40;
+            white-space: nowrap;
         }
+
+        /* --- QUIZ EMBEDDED VIEW --- */
+        #quiz-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 5000;
+            display: none; flex-direction: column;
+        }
+        .quiz-header {
+            height: 45px; background: var(--primary);
+            display: flex; align-items: center; padding: 0 10px;
+        }
+        .back-btn {
+            background: white; color: var(--primary); border: none;
+            padding: 5px 15px; border-radius: 4px; font-weight: bold; cursor: pointer;
+        }
+        #quiz-frame { flex: 1; border: none; width: 100%; }
 
         /* --- SIDE BUTTONS (TINY) --- */
         .audio-sidebar {
@@ -111,12 +130,12 @@
         #audio-footer {
             position: fixed; 
             bottom: 0; left: 0; width: 100%;
-            height: 70px; /* Small height */
+            height: 70px; 
             background: #f1f1f1;
             border-top: 2px solid var(--primary);
             z-index: 200;
-            display: none; /* Hidden until clicked */
-            overflow: hidden; /* Hides the rest of the Google page */
+            display: none; 
+            overflow: hidden; 
         }
 
         .close-footer {
@@ -127,27 +146,14 @@
             z-index: 205;
         }
 
-        /* 
-           CENTERING TRICK:
-           We make the iframe tall (300px) but position it so the 
-           MIDDLE of the iframe (where the Play button is) sits 
-           exactly inside our 70px footer window.
-        */
         #audio-footer iframe {
             width: 100%;
-            height: 300px; /* Tall enough to encompass the play button */
+            height: 300px; 
             border: none;
             position: absolute;
             top: 50%; 
-            transform: translateY(-50%); /* Moves the center of iframe to center of footer */
+            transform: translateY(-50%); 
             z-index: 201;
-        }
-
-        /* CVS Message */
-        .cvs-msg {
-            display: flex; justify-content: center; align-items: center;
-            height: 100%; color: white; font-size: 16px; padding: 20px;
-            text-align: center;
         }
     </style>
 </head>
@@ -173,17 +179,15 @@
                 <button class="active" onclick="switchTab('resp')">RESP</button>
                 <button onclick="switchTab('cvs')">CVS</button>
             </div>
-            <a href="https://www.modmedicalis.online/respquiz" target="_blank" class="quiz-btn">Quiz</a>
+            <!-- Quiz now opens internal overlay -->
+            <button class="quiz-btn" onclick="openQuiz()">Quiz</button>
         </nav>
 
         <div class="content-area">
             <!-- RESP TAB -->
             <div id="resp" class="tab-content active">
-                <!-- PDF BLOCKER (No Download) -->
                 <div class="security-shield"></div>
-                <!-- WATERMARK -->
-                <div id="wm" class="watermark">USER</div>
-                <!-- PDF EMBED -->
+                <div class="watermark">USER</div>
                 <iframe class="pdf-frame" src="https://drive.google.com/file/d/11lngwVifDAfYiQrvNiXzqHOZho3CQhrr/preview"></iframe>
 
                 <!-- SIDE BUTTONS -->
@@ -195,9 +199,20 @@
 
             <!-- CVS TAB -->
             <div id="cvs" class="tab-content">
-                <div class="cvs-msg">Will be updated today at 6pm</div>
+                <div class="security-shield"></div>
+                <div class="watermark">USER</div>
+                <!-- Updated CVS Link -->
+                <iframe class="pdf-frame" src="https://drive.google.com/file/d/1NI6J7iPjB6xCMpTgmotJl3ZpKsTN3vyt/preview"></iframe>
             </div>
         </div>
+    </div>
+
+    <!-- EMBEDDED QUIZ OVERLAY -->
+    <div id="quiz-overlay">
+        <div class="quiz-header">
+            <button class="back-btn" onclick="closeQuiz()">← Back to Notes</button>
+        </div>
+        <iframe id="quiz-frame" src=""></iframe>
     </div>
 
     <!-- AUDIO FOOTER -->
@@ -209,6 +224,7 @@
     <script>
         // --- USERS ---
         const users = {
+            // Existing
             "eman fatima": "4821", "hasnain": "9302", "hadi khan": "1567",
             "minahil noor": "8823", "muhammad bilal": "5109", "hira usman": "2741",
             "ty": "6638", "mahrukh": "9124", "nazra ahmad": "3305",
@@ -219,7 +235,18 @@
             "ujala ijaz": "5972", "sadia akmal": "3044", "hadia akbar": "6285",
             "malaika aziz": "7390", "omar rabani": "1452", "huda khalid": "8674",
             "ahmed ali nasir": "2291", "iman khalid": "5836", "muhammad omar rashid": "9410",
-            "faiqa rubab": "4355", "muhammad ahmad": "1234", "taiba": "5678"
+            "faiqa rubab": "4355", "muhammad ahmad": "1234", "taiba": "5678",
+            
+            // New Additions
+            "sveba": "4421",
+            "mahnoor": "7732",
+            "ayesha mumtaz": "9918",
+            "fizzah": "2205",
+            "mod489": "8899",
+            "mod567": "5670",
+            "mod445": "4450",
+            "mod434": "4340",
+            "mod609": "6090"
         };
 
         // --- LOGIN ---
@@ -230,7 +257,11 @@
             if(users[u] && users[u] === p){
                 document.getElementById('login-overlay').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'flex';
-                document.getElementById('wm').innerText = document.getElementById('username').value;
+                
+                // Update Watermark in BOTH tabs
+                document.querySelectorAll('.watermark').forEach(el => {
+                    el.innerText = document.getElementById('username').value;
+                });
             } else {
                 document.getElementById('errorMsg').style.display = 'block';
                 document.getElementById('password').value = '';
@@ -245,19 +276,32 @@
             event.target.classList.add('active');
         }
 
+        // --- QUIZ LOGIC ---
+        function openQuiz() {
+            const quizOverlay = document.getElementById('quiz-overlay');
+            const quizFrame = document.getElementById('quiz-frame');
+            
+            // Set source only when opening to refresh/load
+            quizFrame.src = "https://www.modmedicalis.online/respquiz";
+            quizOverlay.style.display = 'flex';
+        }
+
+        function closeQuiz() {
+            const quizOverlay = document.getElementById('quiz-overlay');
+            const quizFrame = document.getElementById('quiz-frame');
+            
+            quizOverlay.style.display = 'none';
+            quizFrame.src = ""; // Clear src to stop audio/video if present
+        }
+
         // --- FOOTER AUDIO PLAYER ---
         function loadFooterAudio(fileId) {
             const footer = document.getElementById('audio-footer');
             const frame = document.getElementById('footer-frame');
             const content = document.querySelector('.content-area');
 
-            // Show footer
             footer.style.display = 'block';
-            
-            // Adjust PDF area so footer doesn't cover text (push PDF up slightly)
             content.style.paddingBottom = "70px"; 
-
-            // Load Google Drive Preview
             frame.src = `https://drive.google.com/file/d/${fileId}/preview`;
         }
 
