@@ -2,536 +2,356 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnkiPro | Local AI & OCR</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- LIBRARIES -->
-    <!-- 1. PDF.js (Reads PDF) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <!-- 2. Tesseract.js (OCR for Scanned Images) -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <!-- 3. Compromise.js (The "Offline AI" for NLP) -->
-    <script src="https://unpkg.com/compromise@14.10.0/builds/compromise.min.js"></script>
-    
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
-                    colors: {
-                        dark: {
-                            900: '#0b0f19', 
-                            800: '#151b2b', 
-                            700: '#232d42', 
-                        },
-                        brand: {
-                            500: '#00dc82', // Nuxt Green vibe
-                            600: '#00bd6f',
-                            accent: '#36e4da'
-                        }
-                    },
-                    animation: {
-                        'gradient-x': 'gradient-x 3s ease infinite',
-                    },
-                    keyframes: {
-                        'gradient-x': {
-                            '0%, 100%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'left center'
-                            },
-                            '50%': {
-                                'background-size': '200% 200%',
-                                'background-position': 'right center'
-                            },
-                        },
-                    }
-                }
-            }
-        }
-    </script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GI Embryology - Dark Mode</title>
     <style>
-        body { background-color: #0b0f19; color: #f1f5f9; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0b0f19; }
-        ::-webkit-scrollbar-thumb { background: #232d42; border-radius: 10px; }
-        
-        /* AI Card Styling */
-        .flashcard {
-            background: rgba(21, 27, 43, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 40px rgba(0, 220, 130, 0.05);
-            transition: all 0.3s ease;
+        :root {
+            --bg: #000000;
+            --card-bg: #121212;
+            --text-main: #e2e2e2;
+            --text-sub: #888888;
+            --accent: #3b82f6; /* Blue for context */
+            --answer: #4ade80; /* Neon Green for answers */
+            --cloze-bg: #2d2d2d;
+            --progress: #2563eb;
         }
 
-        .cloze-hidden {
-            background: linear-gradient(90deg, #151b2b, #232d42);
-            color: transparent;
-            border-bottom: 2px solid #00dc82;
-            padding: 0 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            user-select: none;
-            position: relative;
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
-            display: inline-block;
-            vertical-align: bottom;
-            min-width: 60px;
+            user-select: none; /* Prevents text highlighting on rapid taps */
+            -webkit-tap-highlight-color: transparent;
         }
-        
-        /* Shimmer effect for hidden words to imply AI is "holding" it */
-        .cloze-hidden::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 220, 130, 0.1), transparent);
-            transform: skewX(-20deg) translateX(-150%);
-            animation: shimmer 2s infinite;
-        }
-        
-        @keyframes shimmer { 100% { transform: skewX(-20deg) translateX(150%); } }
 
-        .cloze-revealed {
-            background-color: rgba(0, 220, 130, 0.1);
-            color: #36e4da;
-            border-bottom: 2px solid transparent;
-            padding: 0 4px;
+        /* Top Bar */
+        header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            background: #0a0a0a;
+        }
+
+        .category-badge {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent);
             font-weight: 700;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        
-        .ai-badge {
-            background: linear-gradient(90deg, #00dc82, #36e4da);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: bold;
+        .counter {
+            font-family: monospace;
+            color: var(--text-sub);
+            font-size: 0.9rem;
         }
+
+        /* Main Content Area */
+        #app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* The Sentence */
+        #content-text {
+            font-size: 1.6rem;
+            line-height: 1.6;
+            text-align: left;
+            max-width: 600px;
+            width: 100%;
+            font-weight: 400;
+        }
+
+        /* The Hidden/Revealed Word */
+        .cloze-box {
+            display: inline-block;
+            background-color: var(--cloze-bg);
+            color: transparent;
+            border-radius: 6px;
+            padding: 0 12px;
+            margin: 0 4px;
+            min-width: 60px;
+            text-align: center;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            border-bottom: 2px solid #444;
+        }
+
+        .cloze-box.revealed {
+            background-color: transparent;
+            color: var(--answer);
+            border-bottom: 2px solid var(--answer);
+            transform: scale(1.05);
+        }
+
+        /* Instruction text at bottom */
+        .instruction {
+            position: absolute;
+            bottom: 40px;
+            color: #444;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Progress Bar */
+        .progress-rail {
+            width: 100%;
+            height: 4px;
+            background: #222;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--progress);
+            width: 0%;
+            transition: width 0.2s;
+            box-shadow: 0 0 10px var(--progress);
+        }
+
+        /* Animation for transition */
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body>
 
-    <!-- Header -->
-    <header class="h-16 bg-dark-900/80 border-b border-dark-700/50 flex items-center justify-between px-6 z-20 backdrop-blur-md">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
-                <i class="fa-solid fa-brain"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-xl tracking-tight leading-none text-white">Anki<span class="ai-badge">AI</span></h1>
-                <p class="text-[10px] text-gray-500 font-mono tracking-widest uppercase">Intelligent Recall Engine</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-4 text-xs font-mono">
-            <div id="ai-status" class="flex items-center gap-2 text-gray-400">
-                <span class="relative flex h-2 w-2">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-500 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
-                </span>
-                <span id="ai-status-text">NLP Model Ready</span>
-            </div>
-        </div>
-    </header>
-
-    <div class="flex flex-1 overflow-hidden">
-        
-        <!-- Sidebar -->
-        <aside class="w-80 bg-dark-900 border-r border-dark-700 flex flex-col z-10">
-            <div class="p-6 flex-1 overflow-y-auto">
-                
-                <!-- Upload Area -->
-                <div class="mb-8 relative group">
-                    <div class="absolute -inset-0.5 bg-gradient-to-r from-brand-600 to-blue-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                    <label class="relative block w-full h-44 bg-dark-800 border border-dark-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-dark-700 transition overflow-hidden">
-                        <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
-                        
-                        <div id="upload-content" class="text-center p-4 z-10">
-                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-500 mb-3 group-hover:text-brand-500 transition"></i>
-                            <p class="text-sm text-gray-300 font-bold">Upload Document</p>
-                            <p class="text-[10px] text-gray-500 mt-2">Supports Text PDFs & <br> Scanned Images (OCR)</p>
-                        </div>
-
-                        <!-- Processing UI -->
-                        <div id="processing-ui" class="absolute inset-0 bg-dark-800 z-20 hidden flex-col items-center justify-center">
-                            <i class="fa-solid fa-circle-notch fa-spin text-brand-500 text-2xl mb-3"></i>
-                            <p class="text-xs font-bold text-white mb-1">ANALYZING CONTENT</p>
-                            <p id="process-stage" class="text-[10px] text-brand-500 font-mono">Initializing Neural Engine...</p>
-                            
-                            <div class="w-2/3 h-1 bg-dark-700 rounded-full mt-3 overflow-hidden">
-                                <div id="progress-bar" class="h-full w-0 bg-brand-500 transition-all duration-300"></div>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-
-                <!-- AI Stats -->
-                <div class="bg-dark-800/50 rounded-xl border border-dark-700 p-4 space-y-4">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fa-solid fa-chart-pie text-brand-500 text-xs"></i>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Context Analysis</h3>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-dark-900 p-3 rounded-lg border border-dark-700">
-                            <span class="text-[10px] text-gray-500 block mb-1">Topics Found</span>
-                            <span id="stat-topics" class="text-lg font-mono font-bold text-white">0</span>
-                        </div>
-                        <div class="bg-dark-900 p-3 rounded-lg border border-dark-700">
-                            <span class="text-[10px] text-gray-500 block mb-1">Cards Gen.</span>
-                            <span id="stat-cards" class="text-lg font-mono font-bold text-brand-500">0</span>
-                        </div>
-                    </div>
-                    
-                    <div class="text-[10px] text-gray-500 leading-relaxed">
-                        <i class="fa-solid fa-filter mr-1"></i>
-                        The AI is filtering out "fluff" sentences and only keeping those containing key topics.
-                    </div>
-                </div>
-
-            </div>
-            
-            <div class="p-4 border-t border-dark-700 bg-dark-800/30">
-                <button onclick="window.location.reload()" class="w-full py-3 text-xs font-bold text-white bg-gradient-to-r from-red-900/80 to-red-800/80 hover:from-red-800 hover:to-red-700 rounded-lg shadow-lg shadow-red-900/20 transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-trash"></i> CLEAR MEMORY
-                </button>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="flex-1 bg-dark-900 relative flex items-center justify-center p-6">
-            
-            <!-- Grid Background -->
-            <div class="absolute inset-0 z-0 opacity-10" style="background-image: radial-gradient(#232d42 1px, transparent 1px); background-size: 24px 24px;"></div>
-
-            <!-- Empty State -->
-            <div id="empty-state" class="text-center z-10">
-                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-800 border border-dark-700 mb-6 shadow-[0_0_30px_rgba(0,220,130,0.1)]">
-                    <i class="fa-solid fa-microchip text-3xl text-dark-600"></i>
-                </div>
-                <h2 class="text-3xl font-bold text-white mb-2">Ready to Learn</h2>
-                <p class="text-sm text-gray-500 max-w-md mx-auto">
-                    Upload a PDF. Our local AI model will scan for <span class="text-brand-500">Important Concepts</span>, ignore the fluff, and create smart cloze deletions instantly.
-                </p>
-            </div>
-
-            <!-- Card View -->
-            <div id="card-area" class="hidden w-full max-w-4xl z-10 flex-col items-center">
-                
-                <div class="w-full flex justify-between items-center mb-6 px-4">
-                    <span id="progress-text" class="text-xs font-mono text-brand-500">Topic: General</span>
-                    <div class="h-1.5 w-32 bg-dark-800 rounded-full overflow-hidden">
-                        <div id="session-progress" class="h-full bg-brand-500 w-0 transition-all"></div>
-                    </div>
-                </div>
-
-                <div class="flashcard w-full min-h-[400px] rounded-2xl p-10 md:p-16 flex flex-col justify-center items-center text-center relative mb-10">
-                    
-                    <!-- AI Insight Label -->
-                    <div class="absolute top-6 left-6 flex items-center gap-2 opacity-50">
-                        <i class="fa-solid fa-robot text-brand-500 text-xs"></i>
-                        <span class="text-[10px] font-mono uppercase tracking-widest text-brand-500">Smart Extract</span>
-                    </div>
-
-                    <p id="card-content" class="text-xl md:text-3xl text-gray-100 leading-relaxed font-light">
-                        <!-- Content -->
-                    </p>
-
-                    <div class="mt-12 text-xs text-gray-600 font-mono">
-                        <span class="text-brand-500 animate-pulse">_</span> CLICK HIDDEN WORDS TO REVEAL
-                    </div>
-                </div>
-
-                <!-- Controls -->
-                <div class="flex gap-4">
-                    <button onclick="prevCard()" class="w-14 h-14 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-brand-500 transition flex items-center justify-center">
-                        <i class="fa-solid fa-arrow-left"></i>
-                    </button>
-
-                    <button onclick="markKnown()" class="h-14 px-10 bg-brand-600 hover:bg-brand-500 text-dark-900 rounded-full font-bold text-lg shadow-[0_0_20px_rgba(0,220,130,0.3)] hover:shadow-[0_0_30px_rgba(0,220,130,0.5)] transition transform hover:-translate-y-1 flex items-center gap-3">
-                        <span>Next Concept</span>
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-
-                    <button onclick="nextCard()" class="w-14 h-14 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-brand-500 transition flex items-center justify-center">
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </div>
-
-            </div>
-        </main>
+    <div class="progress-rail">
+        <div class="progress-fill" id="progress-bar"></div>
     </div>
 
-    <!-- LOGIC -->
+    <header>
+        <span class="category-badge" id="category-display">FOREGUT</span>
+        <span class="counter" id="counter-display">1 / 60</span>
+    </header>
+
+    <div id="app-container">
+        <div id="content-text" class="fade-in">
+            Loading...
+        </div>
+        <div class="instruction" id="instruction-text">Tap or Press Vol Up to Reveal</div>
+    </div>
+
     <script>
-        // --- WORKER SETUP ---
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // --- DATASET: 60 HIGH YIELD UHS POINTS ---
+        const db = [
+             // GENERAL
+        { q: "The epithelial lining of the digestive tract and parenchyma of glands is derived from [...].", a: "Endoderm", cat: "General" },
+        { q: "Connective tissue, muscle, and peritoneum of the gut wall are derived from [...].", a: "Visceral Mesoderm", cat: "General" },
+        { q: "Molecular regulation of gut regionalization is initiated by [...] which establishes a HOX gene gradient.", a: "SHH", cat: "Molecular" },
+        
+        // MESENTERIES & PERITONEUM
+        { q: "Organs suspended by mesenteries are called [...].", a: "Intraperitoneal", cat: "Mesenteries" },
+        { q: "Organs lying against the posterior body wall covered by peritoneum only anteriorly are called [...].", a: "Retroperitoneal", cat: "Mesenteries" },
+        { q: "The ventral mesentery is derived from the [...].", a: "Septum Transversum", cat: "Mesenteries" },
+        { q: "The ventral mesentery persists as the [...] and the falciform ligament.", a: "Lesser Omentum", cat: "Mesenteries" },
+        { q: "The spleen develops within the [...] mesogastrium.", a: "Dorsal", cat: "Mesenteries" },
+        
+        // ARTERIAL SUPPLY
+        { q: "The foregut is supplied by the [...] artery.", a: "Celiac", cat: "Arteries" },
+        { q: "The midgut is supplied by the [...] artery.", a: "SMA (Superior Mesenteric)", cat: "Arteries" },
+        { q: "The hindgut is supplied by the [...] artery.", a: "IMA (Inferior Mesenteric)", cat: "Arteries" },
 
-        // --- STATE ---
-        let deck = []; // { html: string, topic: string }
+        // FOREGUT: ESOPHAGUS & STOMACH
+        { q: "The respiratory diverticulum (lung bud) appears at approximately [...] weeks.", a: "4 weeks", cat: "Foregut" },
+        { q: "The [...] septum partitions the foregut into the esophagus and respiratory primordium.", a: "Tracheoesophageal", cat: "Foregut" },
+        { q: "Esophageal atresia with [...] fistula is the most common esophageal anomaly (90%).", a: "Distal Tracheoesophageal", cat: "Clinical" },
+        { q: "A classic sign of esophageal atresia in the fetus is [...].", a: "Polyhydramnios", cat: "Clinical" },
+        { q: "The stomach rotates 90° clockwise around its [...] axis.", a: "Longitudinal", cat: "Foregut" },
+        { q: "Due to rotation, the left vagus nerve innervates the [...] wall of the stomach.", a: "Anterior", cat: "Foregut" },
+        { q: "The space created behind the stomach by its rotation is the [...].", a: "Omental Bursa", cat: "Foregut" },
+        { q: "Pyloric stenosis is characterized by hypertrophy of the [...] muscle layer.", a: "Circular", cat: "Clinical" },
+        { q: "The clinical presentation of pyloric stenosis is [...] vomiting.", a: "Projectile Non-bilious", cat: "Clinical" },
+
+        // DUODENUM & LIVER
+        { q: "The duodenum becomes C-shaped and rotates to the right, becoming [...] retroperitoneal.", a: "Secondarily", cat: "Foregut" },
+        { q: "The hepatic diverticulum (liver bud) appears in the middle of the [...] week.", a: "3rd", cat: "Foregut" },
+        { q: "Kupffer cells and hematopoietic cells of the liver are derived from [...].", a: "Mesoderm", cat: "Foregut" },
+        { q: "The connection between the liver bud and foregut narrows to form the [...].", a: "Bile Duct", cat: "Foregut" },
+        
+        // PANCREAS
+        { q: "The pancreas is formed by two buds: the [...] and dorsal buds.", a: "Ventral", cat: "Pancreas" },
+        { q: "The ventral pancreatic bud forms the [...] and the inferior part of the head.", a: "Uncinate process", cat: "Pancreas" },
+        { q: "The main pancreatic duct (Wirsung) is formed by the ventral duct and the distal part of the [...] duct.", a: "Dorsal", cat: "Pancreas" },
+        { q: "The master gene for pancreatic development is [...].", a: "PDX1", cat: "Molecular" },
+        { q: "Annular pancreas creates a ring around the duodenum causing [...] of the duodenum.", a: "Stenosis", cat: "Clinical" },
+        { q: "Insulin secretion begins at approximately the [...] month of fetal life.", a: "5th", cat: "Pancreas" },
+
+        // MIDGUT: ROTATION & HERNIA
+        { q: "The midgut communicates with the yolk sac via the [...].", a: "Vitelline Duct", cat: "Midgut" },
+        { q: "Physiological herniation of intestinal loops occurs during the [...] week.", a: "6th", cat: "Midgut" },
+        { q: "The midgut rotates a total of [...] degrees counterclockwise.", a: "270", cat: "Midgut" },
+        { q: "The axis of midgut rotation is the [...] artery.", a: "Superior Mesenteric", cat: "Midgut" },
+        { q: "The first 90° of rotation occurs during herniation; the remaining [...] occur during the return.", a: "180°", cat: "Midgut" },
+        { q: "Herniated loops return to the abdominal cavity during the [...] week.", a: "10th", cat: "Midgut" },
+        { q: "The [...] is the last part of the gut to reenter the abdominal cavity.", a: "Cecal bud", cat: "Midgut" },
+
+        // MIDGUT ANOMALIES
+        { q: "An [...] involves herniation through the umbilical ring covered by amnion.", a: "Omphalocele", cat: "Clinical" },
+        { q: "Gastroschisis involves protrusion of viscera directly through the body wall and is NOT covered by [...].", a: "Amnion", cat: "Clinical" },
+        { q: "Meckel's diverticulum is a remnant of the [...].", a: "Vitelline Duct", cat: "Clinical" },
+        { q: "Meckel's diverticulum follows the Rule of 2s: 2 feet from ileocecal valve, 2% of population, contains [...] types of ectopic tissue.", a: "2 (Gastric/Pancreatic)", cat: "Clinical" },
+        { q: "A [...] fistula connects the umbilicus to the intestinal lumen (fecal discharge).", a: "Vitelline", cat: "Clinical" },
+        { q: "Left-sided colon results from a rotation of only [...] degrees.", a: "90", cat: "Clinical" },
+        { q: "Reversed rotation causes the transverse colon to pass [...] the duodenum.", a: "Behind", cat: "Clinical" },
+
+        // HINDGUT
+        { q: "The hindgut forms the distal transverse colon to the upper part of the [...].", a: "Anal Canal", cat: "Hindgut" },
+        { q: "The cloaca is partitioned by the [...] septum.", a: "Urorectal", cat: "Hindgut" },
+        { q: "The upper 2/3 of the anal canal is [...] in origin.", a: "Endodermal", cat: "Hindgut" },
+        { q: "The lower 1/3 of the anal canal is ectodermal, derived from the [...].", a: "Proctodeum", cat: "Hindgut" },
+        { q: "The junction between endodermal and ectodermal parts of the anal canal is the [...] line.", a: "Pectinate", cat: "Hindgut" },
+        
+        // HINDGUT ANOMALIES
+        { q: "Hirschsprung disease (megacolon) is caused by the absence of [...] ganglia.", a: "Parasympathetic", cat: "Clinical" },
+        { q: "Hirschsprung disease results from failed migration of [...] cells.", a: "Neural Crest", cat: "Clinical" },
+        { q: "Imperforate anus results when the [...] membrane fails to break down.", a: "Anal", cat: "Clinical" },
+        { q: "Rectovaginal fistulas are caused by defects in the formation of the [...].", a: "Cloaca / Urorectal Septum", cat: "Clinical" },
+
+        // EXTRA HIGH YIELD REVIEWS
+        { q: "The appendix is initially located in the [...] quadrant before descending.", a: "Right Upper (RUQ)", cat: "Midgut" },
+        { q: "Most common position of the appendix is [...].", a: "Retrocecal", cat: "Midgut" },
+        { q: "Apple peel atresia occurs in the [...] and accounts for 10% of atresias.", a: "Jejunum", cat: "Clinical" },
+        { q: "Extrahepatic biliary atresia often requires a [...] transplant.", a: "Liver", cat: "Clinical" },
+        { q: "Accessory pancreatic tissue is most often found in the [...].", a: "Stomach mucosa / Meckel's", cat: "Pancreas" },
+        { q: "Double bubble sign on X-ray is indicative of [...] atresia.", a: "Duodenal", cat: "Clinical" },
+        { q: "Volvulus is a twisting of the bowel that compromises the [...] supply.", a: "Blood", cat: "Clinical" },
+        { q: "The primitive gut is formed during [...] folding of the embryo.", a: "Cephalocaudal/Lateral", cat: "General" }
+        ];
+
+        // --- STATE MANAGEMENT ---
         let currentIndex = 0;
-        let importantTopics = new Set();
-        let pdfDoc = null;
+        let isRevealed = false; // State: Hidden vs Revealed
 
-        // --- UI REFS ---
-        const ui = {
-            upload: document.getElementById('pdf-upload'),
-            processing: document.getElementById('processing-ui'),
-            bar: document.getElementById('progress-bar'),
-            stage: document.getElementById('process-stage'),
-            empty: document.getElementById('empty-state'),
-            cardArea: document.getElementById('card-area'),
-            content: document.getElementById('card-content'),
-            topicLabel: document.getElementById('progress-text'),
-            sessionBar: document.getElementById('session-progress'),
-            statTopics: document.getElementById('stat-topics'),
-            statCards: document.getElementById('stat-cards'),
-        };
+        // --- DOM ELEMENTS ---
+        const contentDiv = document.getElementById('content-text');
+        const catDisplay = document.getElementById('category-display');
+        const countDisplay = document.getElementById('counter-display');
+        const progressBar = document.getElementById('progress-bar');
+        const instruction = document.getElementById('instruction-text');
+        const container = document.getElementById('app-container');
 
-        // --- MAIN ENTRY ---
-        ui.upload.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        // --- LOGIC ---
 
-            // Start UI
-            document.getElementById('upload-content').classList.add('hidden');
-            ui.processing.classList.remove('hidden');
-            ui.processing.classList.add('flex');
+        function renderCard() {
+            const card = db[currentIndex];
             
-            try {
-                // 1. Read PDF
-                const buffer = await file.arrayBuffer();
-                pdfDoc = await pdfjsLib.getDocument(buffer).promise;
-                
-                let rawText = "";
-                const totalPages = pdfDoc.numPages;
-
-                // 2. Extract Text (Loop with OCR fallback)
-                for (let i = 1; i <= totalPages; i++) {
-                    ui.stage.innerText = `Scanning Page ${i}/${totalPages}...`;
-                    ui.bar.style.width = `${(i/totalPages)*50}%`;
-                    
-                    const page = await pdfDoc.getPage(i);
-                    const textContent = await page.getTextContent();
-                    let pageText = textContent.items.map(item => item.str).join(' ');
-
-                    // OCR Check: If page is empty/gibberish, scan it as image
-                    if (pageText.length < 50) {
-                        ui.stage.innerText = `OCR AI Processing Page ${i}...`;
-                        const viewport = page.getViewport({ scale: 1.5 });
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-                        
-                        await page.render({ canvasContext: ctx, viewport }).promise;
-                        
-                        const result = await Tesseract.recognize(canvas.toDataURL(), 'eng');
-                        pageText = result.data.text;
-                    }
-                    
-                    rawText += pageText + " ";
-                    
-                    // Yield to UI
-                    await new Promise(r => setTimeout(r, 10));
-                }
-
-                // 3. AI NLP Analysis
-                ui.stage.innerText = "Training Local AI Model...";
-                ui.bar.style.width = "75%";
-                await new Promise(r => setTimeout(r, 500)); // Visual pause
-
-                analyzeAndGenerate(rawText);
-
-            } catch (err) {
-                console.error(err);
-                alert("Error: " + err.message);
-                location.reload();
-            }
-        });
-
-        // --- THE AI LOGIC (Compromise.js) ---
-        function analyzeAndGenerate(fullText) {
-            ui.stage.innerText = "Extracting Concepts & Generating Cards...";
-            ui.bar.style.width = "90%";
-
-            // Clean text
-            const cleanText = fullText.replace(/\s+/g, ' ').replace(/-\s/g, '');
-
-            // A. GLOBAL TOPIC EXTRACTION
-            // We use Compromise to find the most frequent Nouns and Named Entities
-            const doc = nlp(cleanText);
+            // Text Processing
+            // We split the question at '[...]' to insert the specialized span
+            const parts = card.q.split('[...]');
             
-            // Get "Topics" (People, Places, Organizations) + "Nouns"
-            // We count frequency to find "Important" ones
-            const topics = doc.topics().out('freq'); 
-            const nouns = doc.nouns().out('freq');
+            // Build HTML
+            // Note: We assign an ID to the cloze box to animate it later
+            contentDiv.innerHTML = `
+                ${parts[0]}<span id="cloze-target" class="cloze-box">???</span>${parts[1]}
+            `;
+
+            // Update UI
+            catDisplay.textContent = card.cat;
+            countDisplay.textContent = `${currentIndex + 1} / ${db.length}`;
+            instruction.textContent = "Tap or Press Vol Up to Reveal";
             
-            // Combine and filter
-            const allTerms = [...topics, ...nouns];
+            // Reset State
+            isRevealed = false;
             
-            // Threshold: Term must appear at least twice to be "Important" (unless short doc)
-            const minFreq = cleanText.length > 5000 ? 2 : 1;
+            // Animation Reset
+            contentDiv.classList.remove('fade-in');
+            void contentDiv.offsetWidth; // Trigger reflow
+            contentDiv.classList.add('fade-in');
+
+            // Progress Bar
+            const pct = ((currentIndex) / db.length) * 100;
+            progressBar.style.width = `${pct}%`;
+        }
+
+        function reveal() {
+            const clozeBox = document.getElementById('cloze-target');
+            const card = db[currentIndex];
             
-            importantTopics = new Set();
-            allTerms.forEach(t => {
-                if(t.count >= minFreq && t.normal.length > 3) {
-                    // Ignore common stop words that might sneak in
-                    const stops = ['page', 'chapter', 'introduction', 'conclusion', 'summary'];
-                    if(!stops.includes(t.normal)) {
-                        importantTopics.add(t.normal);
-                    }
-                }
-            });
+            clozeBox.textContent = card.a;
+            clozeBox.classList.add('revealed');
+            
+            instruction.textContent = "Tap for Next";
+            isRevealed = true;
+        }
 
-            ui.statTopics.innerText = importantTopics.size;
-
-            // B. SENTENCE PROCESSING
-            const sentences = doc.sentences().out('array');
-            deck = [];
-
-            sentences.forEach(sentence => {
-                // Filter 1: Length
-                if(sentence.length < 30 || sentence.length > 400) return;
-
-                // Filter 2: Relevance
-                // The sentence MUST contain at least one of our Important Topics
-                const sentenceDoc = nlp(sentence);
-                const sentenceTerms = sentenceDoc.nouns().out('array');
-                const hasTopic = sentenceTerms.some(term => importantTopics.has(nlp(term).normalize().out('text')));
-
-                if(!hasTopic) return; // Skip "fluff" sentences
-
-                // C. SMART MASKING
-                // Instead of random words, we find the "Subject" or "Object" that matches a Topic
-                const targetWord = findBestMaskTarget(sentenceDoc);
-                
-                if(targetWord) {
-                    const card = createCardHTML(sentence, targetWord);
-                    deck.push({
-                        html: card,
-                        topic: targetWord // Store topic for label
-                    });
-                }
-            });
-
-            // Finish
-            if(deck.length > 0) {
-                ui.statCards.innerText = deck.length;
-                startSession();
+        function next() {
+            if(currentIndex < db.length - 1) {
+                currentIndex++;
+                renderCard();
             } else {
-                alert("Could not extract flashcards. Text might be too sparse.");
-                location.reload();
+                // End of Deck
+                contentDiv.innerHTML = `<span style="color:var(--answer)">All Done!</span><br>Good luck on your exam.`;
+                instruction.textContent = "Tap to Restart";
+                currentIndex = -1; // Next tap resets
             }
         }
 
-        function findBestMaskTarget(sentenceDoc) {
-            // Priority 1: Proper Nouns / Topics
-            const topics = sentenceDoc.topics().out('array');
-            if(topics.length > 0) {
-                // Return the longest topic (usually most specific)
-                return topics.reduce((a, b) => a.length > b.length ? a : b);
-            }
-
-            // Priority 2: Nouns that are in our "Important Topics" list
-            const nouns = sentenceDoc.nouns().out('array');
-            const importantNoun = nouns.find(n => importantTopics.has(nlp(n).normalize().out('text')));
-            if(importantNoun) return importantNoun;
-
-            // Priority 3: Dates/Values (often crucial info)
-            const values = sentenceDoc.values().out('array');
-            if(values.length > 0) return values[0];
-
-            return null; // If nothing good found, skip sentence
-        }
-
-        function createCardHTML(sentence, target) {
-            // Regex to replace the specific target word/phrase case-insensitively
-            // We use a function to preserve the original casing in the 'revealed' state
-            const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex chars
-            const regex = new RegExp(`\\b${escapedTarget}\\b`, 'i');
-            
-            return sentence.replace(regex, (match) => {
-                return `<span class="cloze-hidden" onclick="reveal(this, '${match.replace(/'/g, "\\'")}')">???</span>`;
-            });
-        }
-
-        // --- APP FLOW ---
-        function startSession() {
-            ui.processing.classList.add('hidden');
-            ui.empty.classList.add('hidden');
-            ui.cardArea.classList.remove('hidden');
-            ui.cardArea.classList.add('flex');
+        function restart() {
+            currentIndex = 0;
             renderCard();
         }
 
-        function renderCard() {
-            if(currentIndex >= deck.length) {
-                ui.content.innerHTML = `<div class="text-brand-500 font-bold">Session Complete!</div>`;
+        // --- INTERACTION HANDLER ---
+        function handleInteraction() {
+            if (currentIndex === -1) {
+                restart();
                 return;
             }
 
-            const cardData = deck[currentIndex];
-            
-            // UI Updates
-            ui.topicLabel.innerText = `Topic: ${cardData.topic.toUpperCase()}`;
-            const pct = ((currentIndex) / deck.length) * 100;
-            ui.sessionBar.style.width = `${pct}%`;
-
-            // Card Animation
-            const cardEl = document.querySelector('.flashcard');
-            cardEl.style.opacity = '0';
-            cardEl.style.transform = 'translateY(10px)';
-
-            setTimeout(() => {
-                ui.content.innerHTML = cardData.html;
-                cardEl.style.opacity = '1';
-                cardEl.style.transform = 'translateY(0)';
-            }, 200);
-        }
-
-        // Global function for onclick in HTML string
-        window.reveal = function(el, text) {
-            el.className = 'cloze-revealed';
-            el.innerText = text;
-        }
-
-        function nextCard() {
-            if(currentIndex < deck.length) {
-                currentIndex++;
-                renderCard();
+            if (!isRevealed) {
+                reveal();
+            } else {
+                next();
             }
         }
 
-        function prevCard() {
-            if(currentIndex > 0) {
-                currentIndex--;
-                renderCard();
-            }
-        }
+        // --- EVENT LISTENERS ---
 
-        function markKnown() {
-            // Auto reveal
-            const hiddens = document.querySelectorAll('.cloze-hidden');
-            hiddens.forEach(h => h.click());
-            
-            setTimeout(() => {
-                if(currentIndex < deck.length) {
-                    currentIndex++;
-                    renderCard();
-                }
-            }, 800);
-        }
+        // 1. Touch / Click Anywhere
+        container.addEventListener('click', (e) => {
+            // Simple debounce to prevent accidental double taps
+            handleInteraction();
+        });
+
+        // 2. Volume Button & Keyboard Logic
+        document.addEventListener('keydown', (e) => {
+            // List of keys to trigger interaction
+            // 'AudioVolumeUp' is standard for media keys
+            // 'ArrowRight', 'Space', 'Enter' for desktop usage
+            const triggerKeys = ['Space', 'Enter', 'ArrowRight', 'ArrowDown', 'AudioVolumeUp', 'VolumeUp'];
+
+            if (triggerKeys.includes(e.code) || triggerKeys.includes(e.key)) {
+                // Prevent default behavior (e.g., scrolling or volume change)
+                // Note: Modern mobile OS often ignore preventDefault for Volume keys for security, 
+                // but we listen to the event anyway.
+                // e.preventDefault(); 
+                
+                handleInteraction();
+            }
+        });
+
+        // Initialize
+        renderCard();
 
     </script>
 </body>
