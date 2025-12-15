@@ -3,33 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnkiPro | Dark Mode</title>
+    <title>AnkiPro | Local AI & OCR</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- PDF.js -->
+    
+    <!-- LIBRARIES -->
+    <!-- 1. PDF.js (Reads PDF) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- 2. Tesseract.js (OCR for Scanned Images) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- 3. Compromise.js (The "Offline AI" for NLP) -->
+    <script src="https://unpkg.com/compromise@14.10.0/builds/compromise.min.js"></script>
+    
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Roboto', 'sans-serif'] },
+                    fontFamily: { sans: ['Space Grotesk', 'sans-serif'] },
                     colors: {
                         dark: {
-                            900: '#111827', // Main BG
-                            800: '#1f2937', // Card/Panel BG
-                            700: '#374151', // Borders/Inputs
-                            600: '#4b5563', // Hover
+                            900: '#0b0f19', 
+                            800: '#151b2b', 
+                            700: '#232d42', 
                         },
                         brand: {
-                            500: '#3b82f6', // Blue
-                            600: '#2563eb',
+                            500: '#00dc82', // Nuxt Green vibe
+                            600: '#00bd6f',
+                            accent: '#36e4da'
                         }
+                    },
+                    animation: {
+                        'gradient-x': 'gradient-x 3s ease infinite',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
                     }
                 }
             }
@@ -37,411 +59,474 @@
     </script>
 
     <style>
-        body {
-            background-color: #111827;
-            color: #f3f4f6;
-        }
-
-        /* Clean Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #111827; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
-
-        /* Card Styles */
+        body { background-color: #0b0f19; color: #f1f5f9; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #232d42; border-radius: 10px; }
+        
+        /* AI Card Styling */
         .flashcard {
-            background-color: #1f2937;
-            border: 1px solid #374151;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-            transition: transform 0.2s ease;
+            background: rgba(21, 27, 43, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 40px rgba(0, 220, 130, 0.05);
+            transition: all 0.3s ease;
         }
 
-        /* Cloze (Hidden Word) Styles */
         .cloze-hidden {
-            background-color: #374151;
+            background: linear-gradient(90deg, #151b2b, #232d42);
             color: transparent;
-            border-bottom: 2px solid #3b82f6;
-            padding: 0 5px;
-            border-radius: 3px;
+            border-bottom: 2px solid #00dc82;
+            padding: 0 8px;
+            border-radius: 4px;
             cursor: pointer;
+            font-weight: 600;
             user-select: none;
             position: relative;
-            font-weight: 500;
-            transition: background 0.2s;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: bottom;
+            min-width: 60px;
         }
-
-        .cloze-hidden:hover {
-            background-color: #4b5563;
+        
+        /* Shimmer effect for hidden words to imply AI is "holding" it */
+        .cloze-hidden::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 220, 130, 0.1), transparent);
+            transform: skewX(-20deg) translateX(-150%);
+            animation: shimmer 2s infinite;
         }
+        
+        @keyframes shimmer { 100% { transform: skewX(-20deg) translateX(150%); } }
 
         .cloze-revealed {
-            background-color: rgba(59, 130, 246, 0.1);
-            color: #60a5fa;
+            background-color: rgba(0, 220, 130, 0.1);
+            color: #36e4da;
             border-bottom: 2px solid transparent;
-            padding: 0 2px;
+            padding: 0 4px;
             font-weight: 700;
-            animation: fadeIn 0.3s ease;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; } to { opacity: 1; }
-        }
-
-        .loader-bar {
-            background: repeating-linear-gradient(
-                45deg,
-                #2563eb,
-                #2563eb 10px,
-                #1d4ed8 10px,
-                #1d4ed8 20px
-            );
-            background-size: 200% 100%;
-            animation: moveStripe 1s linear infinite;
-        }
-
-        @keyframes moveStripe {
-            0% { background-position: 100% 0; }
-            100% { background-position: 0 0; }
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .ai-badge {
+            background: linear-gradient(90deg, #00dc82, #36e4da);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
         }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
-    <header class="h-14 bg-dark-800 border-b border-dark-700 flex items-center justify-between px-6 z-20">
+    <header class="h-16 bg-dark-900/80 border-b border-dark-700/50 flex items-center justify-between px-6 z-20 backdrop-blur-md">
         <div class="flex items-center gap-3">
-            <i class="fa-solid fa-layer-group text-brand-500 text-xl"></i>
-            <h1 class="font-bold text-lg text-gray-100">Anki<span class="font-light text-gray-400">Pro</span></h1>
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                <i class="fa-solid fa-brain"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xl tracking-tight leading-none text-white">Anki<span class="ai-badge">AI</span></h1>
+                <p class="text-[10px] text-gray-500 font-mono tracking-widest uppercase">Intelligent Recall Engine</p>
+            </div>
         </div>
-        <div class="text-xs text-gray-500 font-mono">
-            V 2.0 • Smart Context Extraction
+        <div class="flex items-center gap-4 text-xs font-mono">
+            <div id="ai-status" class="flex items-center gap-2 text-gray-400">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-500 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
+                </span>
+                <span id="ai-status-text">NLP Model Ready</span>
+            </div>
         </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
         
         <!-- Sidebar -->
-        <aside class="w-72 bg-dark-900 border-r border-dark-700 flex flex-col z-10">
-            <div class="p-5 flex-1 overflow-y-auto">
+        <aside class="w-80 bg-dark-900 border-r border-dark-700 flex flex-col z-10">
+            <div class="p-6 flex-1 overflow-y-auto">
                 
-                <!-- Upload Box -->
-                <div class="mb-8">
-                    <label class="block w-full h-32 border-2 border-dashed border-dark-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 hover:bg-dark-800 transition group relative overflow-hidden">
+                <!-- Upload Area -->
+                <div class="mb-8 relative group">
+                    <div class="absolute -inset-0.5 bg-gradient-to-r from-brand-600 to-blue-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                    <label class="relative block w-full h-44 bg-dark-800 border border-dark-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-dark-700 transition overflow-hidden">
                         <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
                         
-                        <div id="upload-content" class="text-center">
-                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-dark-600 mb-2 group-hover:text-brand-500 transition"></i>
-                            <p class="text-sm text-gray-400 font-medium">Select PDF</p>
+                        <div id="upload-content" class="text-center p-4 z-10">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-500 mb-3 group-hover:text-brand-500 transition"></i>
+                            <p class="text-sm text-gray-300 font-bold">Upload Document</p>
+                            <p class="text-[10px] text-gray-500 mt-2">Supports Text PDFs & <br> Scanned Images (OCR)</p>
                         </div>
-                        
-                        <!-- Progress Overlay -->
-                        <div id="processing-ui" class="absolute inset-0 bg-dark-800 hidden flex-col items-center justify-center z-10">
-                            <p class="text-xs text-brand-500 mb-2 font-bold animate-pulse">ANALYZING...</p>
-                            <div class="w-3/4 h-1.5 bg-dark-700 rounded-full overflow-hidden">
-                                <div id="progress-bar" class="h-full w-0 bg-brand-500"></div>
+
+                        <!-- Processing UI -->
+                        <div id="processing-ui" class="absolute inset-0 bg-dark-800 z-20 hidden flex-col items-center justify-center">
+                            <i class="fa-solid fa-circle-notch fa-spin text-brand-500 text-2xl mb-3"></i>
+                            <p class="text-xs font-bold text-white mb-1">ANALYZING CONTENT</p>
+                            <p id="process-stage" class="text-[10px] text-brand-500 font-mono">Initializing Neural Engine...</p>
+                            
+                            <div class="w-2/3 h-1 bg-dark-700 rounded-full mt-3 overflow-hidden">
+                                <div id="progress-bar" class="h-full w-0 bg-brand-500 transition-all duration-300"></div>
                             </div>
-                            <p id="page-counter" class="text-[10px] text-gray-500 mt-2">Page 0/0</p>
                         </div>
                     </label>
                 </div>
 
-                <!-- Controls -->
-                <div class="space-y-6">
-                    <div>
-                        <div class="flex justify-between mb-2">
-                            <label class="text-xs font-bold text-gray-500 uppercase">Difficulty</label>
-                            <span id="diff-label" class="text-xs text-brand-500">Normal</span>
-                        </div>
-                        <input type="range" id="difficulty" min="1" max="3" value="2" class="w-full h-1 bg-dark-700 rounded-lg appearance-none cursor-pointer accent-brand-500">
-                        <p class="text-[10px] text-gray-600 mt-1">Adjusts how many words are hidden.</p>
+                <!-- AI Stats -->
+                <div class="bg-dark-800/50 rounded-xl border border-dark-700 p-4 space-y-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-chart-pie text-brand-500 text-xs"></i>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Context Analysis</h3>
                     </div>
-
-                    <!-- Stats -->
-                    <div class="bg-dark-800 p-4 rounded-lg border border-dark-700">
-                        <h3 class="text-xs font-bold text-gray-400 uppercase mb-3">Session Stats</h3>
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm text-gray-300">Total Cards</span>
-                            <span id="stat-total" class="font-mono font-bold">0</span>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-dark-900 p-3 rounded-lg border border-dark-700">
+                            <span class="text-[10px] text-gray-500 block mb-1">Topics Found</span>
+                            <span id="stat-topics" class="text-lg font-mono font-bold text-white">0</span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-300">Reviewed</span>
-                            <span id="stat-done" class="text-brand-500 font-mono font-bold">0</span>
+                        <div class="bg-dark-900 p-3 rounded-lg border border-dark-700">
+                            <span class="text-[10px] text-gray-500 block mb-1">Cards Gen.</span>
+                            <span id="stat-cards" class="text-lg font-mono font-bold text-brand-500">0</span>
                         </div>
+                    </div>
+                    
+                    <div class="text-[10px] text-gray-500 leading-relaxed">
+                        <i class="fa-solid fa-filter mr-1"></i>
+                        The AI is filtering out "fluff" sentences and only keeping those containing key topics.
                     </div>
                 </div>
-            </div>
 
-            <div class="p-4 border-t border-dark-700">
-                <button onclick="window.location.reload()" class="w-full py-2 text-xs font-bold text-gray-400 hover:text-white bg-dark-800 hover:bg-dark-700 rounded transition">
-                    RESET APP
+            </div>
+            
+            <div class="p-4 border-t border-dark-700 bg-dark-800/30">
+                <button onclick="window.location.reload()" class="w-full py-3 text-xs font-bold text-white bg-gradient-to-r from-red-900/80 to-red-800/80 hover:from-red-800 hover:to-red-700 rounded-lg shadow-lg shadow-red-900/20 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-trash"></i> CLEAR MEMORY
                 </button>
             </div>
         </aside>
 
-        <!-- Main Stage -->
-        <main class="flex-1 bg-dark-900 flex items-center justify-center p-8 relative">
+        <!-- Main Content -->
+        <main class="flex-1 bg-dark-900 relative flex items-center justify-center p-6">
             
+            <!-- Grid Background -->
+            <div class="absolute inset-0 z-0 opacity-10" style="background-image: radial-gradient(#232d42 1px, transparent 1px); background-size: 24px 24px;"></div>
+
             <!-- Empty State -->
-            <div id="empty-state" class="text-center">
-                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-800 border border-dark-700 mb-4">
-                    <i class="fa-solid fa-book-open text-3xl text-dark-600"></i>
+            <div id="empty-state" class="text-center z-10">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-800 border border-dark-700 mb-6 shadow-[0_0_30px_rgba(0,220,130,0.1)]">
+                    <i class="fa-solid fa-microchip text-3xl text-dark-600"></i>
                 </div>
-                <h2 class="text-xl font-bold text-gray-200">No Document Loaded</h2>
-                <p class="text-sm text-gray-500 mt-2 max-w-sm mx-auto">Upload a PDF to generate smart active recall cards. <br> <span class="text-xs text-brand-500">Text-based PDFs only (OCR not supported in browser)</span></p>
+                <h2 class="text-3xl font-bold text-white mb-2">Ready to Learn</h2>
+                <p class="text-sm text-gray-500 max-w-md mx-auto">
+                    Upload a PDF. Our local AI model will scan for <span class="text-brand-500">Important Concepts</span>, ignore the fluff, and create smart cloze deletions instantly.
+                </p>
             </div>
 
-            <!-- Card UI -->
-            <div id="card-area" class="hidden w-full max-w-4xl flex flex-col items-center">
+            <!-- Card View -->
+            <div id="card-area" class="hidden w-full max-w-4xl z-10 flex-col items-center">
                 
-                <div class="flashcard w-full min-h-[300px] md:min-h-[400px] rounded-xl p-8 md:p-12 flex flex-col justify-center items-center text-center relative mb-8">
-                    
-                    <span id="card-index" class="absolute top-4 left-6 text-xs font-mono text-dark-600 bg-dark-900 px-2 py-1 rounded">Card 1</span>
-
-                    <p id="card-content" class="text-xl md:text-3xl text-gray-200 leading-relaxed font-light">
-                        <!-- Content goes here -->
-                    </p>
-
-                    <div class="mt-8 text-xs text-gray-500 uppercase tracking-widest font-semibold">
-                        <i class="fa-regular fa-hand-pointer mr-2"></i> Click blue lines to reveal
+                <div class="w-full flex justify-between items-center mb-6 px-4">
+                    <span id="progress-text" class="text-xs font-mono text-brand-500">Topic: General</span>
+                    <div class="h-1.5 w-32 bg-dark-800 rounded-full overflow-hidden">
+                        <div id="session-progress" class="h-full bg-brand-500 w-0 transition-all"></div>
                     </div>
                 </div>
 
-                <!-- Navigation -->
+                <div class="flashcard w-full min-h-[400px] rounded-2xl p-10 md:p-16 flex flex-col justify-center items-center text-center relative mb-10">
+                    
+                    <!-- AI Insight Label -->
+                    <div class="absolute top-6 left-6 flex items-center gap-2 opacity-50">
+                        <i class="fa-solid fa-robot text-brand-500 text-xs"></i>
+                        <span class="text-[10px] font-mono uppercase tracking-widest text-brand-500">Smart Extract</span>
+                    </div>
+
+                    <p id="card-content" class="text-xl md:text-3xl text-gray-100 leading-relaxed font-light">
+                        <!-- Content -->
+                    </p>
+
+                    <div class="mt-12 text-xs text-gray-600 font-mono">
+                        <span class="text-brand-500 animate-pulse">_</span> CLICK HIDDEN WORDS TO REVEAL
+                    </div>
+                </div>
+
+                <!-- Controls -->
                 <div class="flex gap-4">
-                    <button onclick="prevCard()" class="w-12 h-12 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-gray-500 transition flex items-center justify-center">
+                    <button onclick="prevCard()" class="w-14 h-14 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-brand-500 transition flex items-center justify-center">
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
 
-                    <button onclick="markKnown()" class="h-12 px-8 bg-brand-600 hover:bg-brand-500 text-white rounded-full font-bold shadow-lg shadow-blue-900/20 transition flex items-center gap-2">
-                        Next Card <i class="fa-solid fa-check"></i>
+                    <button onclick="markKnown()" class="h-14 px-10 bg-brand-600 hover:bg-brand-500 text-dark-900 rounded-full font-bold text-lg shadow-[0_0_20px_rgba(0,220,130,0.3)] hover:shadow-[0_0_30px_rgba(0,220,130,0.5)] transition transform hover:-translate-y-1 flex items-center gap-3">
+                        <span>Next Concept</span>
+                        <i class="fa-solid fa-check"></i>
                     </button>
 
-                    <button onclick="nextCard()" class="w-12 h-12 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-gray-500 transition flex items-center justify-center">
+                    <button onclick="nextCard()" class="w-14 h-14 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-brand-500 transition flex items-center justify-center">
                         <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </div>
-            </div>
 
+            </div>
         </main>
     </div>
 
     <!-- LOGIC -->
     <script>
-        // PDF.js Worker
+        // --- WORKER SETUP ---
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // Variables
-        let deck = [];
+        // --- STATE ---
+        let deck = []; // { html: string, topic: string }
         let currentIndex = 0;
-        
-        // --- SMART ALGORITHM CONFIG ---
-        const stopWords = new Set([
-            "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at", "this", "but", "his", "by", "from", "they", "we", "say", "her", "she", "or", "an", "will", "my", "one", "all", "would", "there", "their", "what", "so", "up", "out", "if", "about", "who", "get", "which", "go", "me", "when", "make", "can", "like", "time", "no", "just", "him", "know", "take", "people", "into", "year", "your", "good", "some", "could", "them", "see", "other", "than", "then", "now", "look", "only", "come", "its", "over", "think", "also", "back", "after", "use", "two", "how", "our", "work", "first", "well", "way", "even", "new", "want", "because", "any", "these", "give", "day", "most", "us", "are"
-        ]);
+        let importantTopics = new Set();
+        let pdfDoc = null;
 
-        const importantSuffixes = ["tion", "sion", "ment", "ness", "ity", "ism", "logy", "ance", "ence", "ant", "ent", "ary", "ize", "ise", "ate"];
+        // --- UI REFS ---
+        const ui = {
+            upload: document.getElementById('pdf-upload'),
+            processing: document.getElementById('processing-ui'),
+            bar: document.getElementById('progress-bar'),
+            stage: document.getElementById('process-stage'),
+            empty: document.getElementById('empty-state'),
+            cardArea: document.getElementById('card-area'),
+            content: document.getElementById('card-content'),
+            topicLabel: document.getElementById('progress-text'),
+            sessionBar: document.getElementById('session-progress'),
+            statTopics: document.getElementById('stat-topics'),
+            statCards: document.getElementById('stat-cards'),
+        };
 
-        // --- DOM ELEMENTS ---
-        const uploadInput = document.getElementById('pdf-upload');
-        const processingUI = document.getElementById('processing-ui');
-        const progressBar = document.getElementById('progress-bar');
-        const pageCounter = document.getElementById('page-counter');
-        const emptyState = document.getElementById('empty-state');
-        const cardArea = document.getElementById('card-area');
-        const cardContent = document.getElementById('card-content');
-        const diffSlider = document.getElementById('difficulty');
-
-        // --- EVENTS ---
-        uploadInput.addEventListener('change', handleUpload);
-        diffSlider.addEventListener('input', (e) => {
-            const labels = ["Easy", "Normal", "Hard"];
-            document.getElementById('diff-label').innerText = labels[e.target.value - 1];
-        });
-
-        // --- MAIN FUNCTIONS ---
-
-        async function handleUpload(e) {
+        // --- MAIN ENTRY ---
+        ui.upload.addEventListener('change', async (e) => {
             const file = e.target.files[0];
-            if(!file) return;
+            if (!file) return;
 
-            // UI Reset
+            // Start UI
             document.getElementById('upload-content').classList.add('hidden');
-            processingUI.classList.remove('hidden');
-            processingUI.classList.add('flex');
+            ui.processing.classList.remove('hidden');
+            ui.processing.classList.add('flex');
             
             try {
+                // 1. Read PDF
                 const buffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(buffer).promise;
+                pdfDoc = await pdfjsLib.getDocument(buffer).promise;
                 
-                let fullText = "";
-                const totalPages = pdf.numPages;
+                let rawText = "";
+                const totalPages = pdfDoc.numPages;
 
-                // ASYNC BATCH PROCESSING (Fixes Large PDF Freeze)
+                // 2. Extract Text (Loop with OCR fallback)
                 for (let i = 1; i <= totalPages; i++) {
-                    try {
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
+                    ui.stage.innerText = `Scanning Page ${i}/${totalPages}...`;
+                    ui.bar.style.width = `${(i/totalPages)*50}%`;
+                    
+                    const page = await pdfDoc.getPage(i);
+                    const textContent = await page.getTextContent();
+                    let pageText = textContent.items.map(item => item.str).join(' ');
+
+                    // OCR Check: If page is empty/gibberish, scan it as image
+                    if (pageText.length < 50) {
+                        ui.stage.innerText = `OCR AI Processing Page ${i}...`;
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
                         
-                        // Check for images/scans
-                        if(textContent.items.length === 0) {
-                            console.warn(`Page ${i} appears to be an image/scan. Skipping.`);
-                            continue;
-                        }
+                        await page.render({ canvasContext: ctx, viewport }).promise;
+                        
+                        const result = await Tesseract.recognize(canvas.toDataURL(), 'eng');
+                        pageText = result.data.text;
+                    }
+                    
+                    rawText += pageText + " ";
+                    
+                    // Yield to UI
+                    await new Promise(r => setTimeout(r, 10));
+                }
 
-                        const pageStr = textContent.items.map(item => item.str).join(' ');
-                        fullText += pageStr + " ";
+                // 3. AI NLP Analysis
+                ui.stage.innerText = "Training Local AI Model...";
+                ui.bar.style.width = "75%";
+                await new Promise(r => setTimeout(r, 500)); // Visual pause
 
-                        // Update Progress Bar
-                        const pct = Math.round((i / totalPages) * 100);
-                        progressBar.style.width = `${pct}%`;
-                        pageCounter.innerText = `Processing Page ${i}/${totalPages}`;
+                analyzeAndGenerate(rawText);
 
-                        // Yield to main thread every 5 pages
-                        if (i % 5 === 0) await new Promise(r => setTimeout(r, 10));
+            } catch (err) {
+                console.error(err);
+                alert("Error: " + err.message);
+                location.reload();
+            }
+        });
 
-                    } catch (err) {
-                        console.error("Error on page " + i, err);
+        // --- THE AI LOGIC (Compromise.js) ---
+        function analyzeAndGenerate(fullText) {
+            ui.stage.innerText = "Extracting Concepts & Generating Cards...";
+            ui.bar.style.width = "90%";
+
+            // Clean text
+            const cleanText = fullText.replace(/\s+/g, ' ').replace(/-\s/g, '');
+
+            // A. GLOBAL TOPIC EXTRACTION
+            // We use Compromise to find the most frequent Nouns and Named Entities
+            const doc = nlp(cleanText);
+            
+            // Get "Topics" (People, Places, Organizations) + "Nouns"
+            // We count frequency to find "Important" ones
+            const topics = doc.topics().out('freq'); 
+            const nouns = doc.nouns().out('freq');
+            
+            // Combine and filter
+            const allTerms = [...topics, ...nouns];
+            
+            // Threshold: Term must appear at least twice to be "Important" (unless short doc)
+            const minFreq = cleanText.length > 5000 ? 2 : 1;
+            
+            importantTopics = new Set();
+            allTerms.forEach(t => {
+                if(t.count >= minFreq && t.normal.length > 3) {
+                    // Ignore common stop words that might sneak in
+                    const stops = ['page', 'chapter', 'introduction', 'conclusion', 'summary'];
+                    if(!stops.includes(t.normal)) {
+                        importantTopics.add(t.normal);
                     }
                 }
+            });
 
-                if(fullText.length < 50) {
-                    throw new Error("No text found. Document might be scanned images.");
-                }
+            ui.statTopics.innerText = importantTopics.size;
 
-                generateCards(fullText);
-                
-            } catch (err) {
-                alert("Error: " + err.message);
-                window.location.reload();
-            }
-        }
-
-        function generateCards(text) {
-            // Clean text: remove weird spacing, newlines inside sentences
-            const cleanText = text.replace(/\s+/g, ' ').replace(/-\s/g, ''); 
-            
-            // Split by sentence terminators
-            const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [];
-            
+            // B. SENTENCE PROCESSING
+            const sentences = doc.sentences().out('array');
             deck = [];
-            const difficulty = parseInt(diffSlider.value);
-            
-            // Process sentences
-            sentences.forEach(sentence => {
-                sentence = sentence.trim();
-                
-                // Filter garbage sentences
-                if(sentence.length < 30 || sentence.length > 350) return; 
 
-                const cardHtml = createSmartCloze(sentence);
-                if(cardHtml) {
-                    deck.push(cardHtml);
+            sentences.forEach(sentence => {
+                // Filter 1: Length
+                if(sentence.length < 30 || sentence.length > 400) return;
+
+                // Filter 2: Relevance
+                // The sentence MUST contain at least one of our Important Topics
+                const sentenceDoc = nlp(sentence);
+                const sentenceTerms = sentenceDoc.nouns().out('array');
+                const hasTopic = sentenceTerms.some(term => importantTopics.has(nlp(term).normalize().out('text')));
+
+                if(!hasTopic) return; // Skip "fluff" sentences
+
+                // C. SMART MASKING
+                // Instead of random words, we find the "Subject" or "Object" that matches a Topic
+                const targetWord = findBestMaskTarget(sentenceDoc);
+                
+                if(targetWord) {
+                    const card = createCardHTML(sentence, targetWord);
+                    deck.push({
+                        html: card,
+                        topic: targetWord // Store topic for label
+                    });
                 }
             });
 
+            // Finish
             if(deck.length > 0) {
-                initApp();
+                ui.statCards.innerText = deck.length;
+                startSession();
             } else {
-                alert("Could not generate cards. The text structure might be too complex or empty.");
-                window.location.reload();
+                alert("Could not extract flashcards. Text might be too sparse.");
+                location.reload();
             }
         }
 
-        // --- THE "SMART" LOGIC ---
-        function createSmartCloze(sentence) {
-            const words = sentence.split(' ');
-            let bestIndex = -1;
-            let highestScore = -1;
+        function findBestMaskTarget(sentenceDoc) {
+            // Priority 1: Proper Nouns / Topics
+            const topics = sentenceDoc.topics().out('array');
+            if(topics.length > 0) {
+                // Return the longest topic (usually most specific)
+                return topics.reduce((a, b) => a.length > b.length ? a : b);
+            }
 
-            words.forEach((word, index) => {
-                // Remove punctuation for scoring
-                const clean = word.replace(/[^a-zA-Z0-9-]/g, '');
-                const lower = clean.toLowerCase();
+            // Priority 2: Nouns that are in our "Important Topics" list
+            const nouns = sentenceDoc.nouns().out('array');
+            const importantNoun = nouns.find(n => importantTopics.has(nlp(n).normalize().out('text')));
+            if(importantNoun) return importantNoun;
 
-                // 1. Skip Stop Words & Short words
-                if(stopWords.has(lower) || clean.length < 3) return;
+            // Priority 3: Dates/Values (often crucial info)
+            const values = sentenceDoc.values().out('array');
+            if(values.length > 0) return values[0];
 
-                let score = 0;
-
-                // 2. Suffix Bonus (Scientific/Academic words)
-                if(importantSuffixes.some(s => lower.endsWith(s))) score += 5;
-
-                // 3. Capitalization Bonus (Proper Nouns, excluding start of sentence)
-                if(index > 0 && /^[A-Z]/.test(clean)) score += 4;
-
-                // 4. Numeric Data Bonus (Years, Percentages)
-                if(/\d/.test(clean)) score += 6;
-
-                // 5. Length Bonus (Longer words usually carry more meaning)
-                score += (clean.length * 0.2);
-
-                if(score > highestScore) {
-                    highestScore = score;
-                    bestIndex = index;
-                }
-            });
-
-            // Threshold: If the best word isn't "important" enough, skip the sentence
-            if(highestScore < 3) return null;
-
-            // Create HTML
-            const targetWord = words[bestIndex];
-            const cleanTarget = targetWord.replace(/[.,!?;:]/g, ''); // Content inside hidden box
-            
-            // Replace the word with the span
-            words[bestIndex] = `<span class="cloze-hidden" onclick="this.className='cloze-revealed'; this.innerText='${targetWord}'">???</span>`;
-
-            return words.join(' ');
+            return null; // If nothing good found, skip sentence
         }
 
-        function initApp() {
-            processingUI.classList.add('hidden');
-            emptyState.classList.add('hidden');
-            cardArea.classList.remove('hidden');
-            cardArea.classList.add('flex');
+        function createCardHTML(sentence, target) {
+            // Regex to replace the specific target word/phrase case-insensitively
+            // We use a function to preserve the original casing in the 'revealed' state
+            const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex chars
+            const regex = new RegExp(`\\b${escapedTarget}\\b`, 'i');
             
-            document.getElementById('stat-total').innerText = deck.length;
+            return sentence.replace(regex, (match) => {
+                return `<span class="cloze-hidden" onclick="reveal(this, '${match.replace(/'/g, "\\'")}')">???</span>`;
+            });
+        }
+
+        // --- APP FLOW ---
+        function startSession() {
+            ui.processing.classList.add('hidden');
+            ui.empty.classList.add('hidden');
+            ui.cardArea.classList.remove('hidden');
+            ui.cardArea.classList.add('flex');
             renderCard();
         }
 
         function renderCard() {
             if(currentIndex >= deck.length) {
-                cardContent.innerHTML = `<div class="text-brand-500 font-bold">🎉 Session Complete!</div><div class="text-sm mt-2 text-gray-500">Refresh to upload another PDF.</div>`;
+                ui.content.innerHTML = `<div class="text-brand-500 font-bold">Session Complete!</div>`;
                 return;
             }
 
-            // Reset Animation
+            const cardData = deck[currentIndex];
+            
+            // UI Updates
+            ui.topicLabel.innerText = `Topic: ${cardData.topic.toUpperCase()}`;
+            const pct = ((currentIndex) / deck.length) * 100;
+            ui.sessionBar.style.width = `${pct}%`;
+
+            // Card Animation
             const cardEl = document.querySelector('.flashcard');
             cardEl.style.opacity = '0';
             cardEl.style.transform = 'translateY(10px)';
-            
+
             setTimeout(() => {
-                document.getElementById('card-index').innerText = `Card ${currentIndex + 1} / ${deck.length}`;
-                cardContent.innerHTML = deck[currentIndex];
-                
+                ui.content.innerHTML = cardData.html;
                 cardEl.style.opacity = '1';
                 cardEl.style.transform = 'translateY(0)';
             }, 200);
         }
 
+        // Global function for onclick in HTML string
+        window.reveal = function(el, text) {
+            el.className = 'cloze-revealed';
+            el.innerText = text;
+        }
+
         function nextCard() {
-            if(currentIndex < deck.length) currentIndex++;
-            renderCard();
+            if(currentIndex < deck.length) {
+                currentIndex++;
+                renderCard();
+            }
         }
 
         function prevCard() {
-            if(currentIndex > 0) currentIndex--;
-            renderCard();
+            if(currentIndex > 0) {
+                currentIndex--;
+                renderCard();
+            }
         }
 
         function markKnown() {
-            // Auto reveal current before moving
+            // Auto reveal
             const hiddens = document.querySelectorAll('.cloze-hidden');
             hiddens.forEach(h => h.click());
-
+            
             setTimeout(() => {
                 if(currentIndex < deck.length) {
-                    document.getElementById('stat-done').innerText = currentIndex + 1;
                     currentIndex++;
                     renderCard();
                 }
