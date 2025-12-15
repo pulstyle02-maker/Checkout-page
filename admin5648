@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MYM Admin | Executive Dashboard</title>
+    
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',
+                            primary: '#3b82f6', 
+                            success: '#10b981',
+                            danger: '#ef4444',
+                            warning: '#f59e0b',
+                            card: '#ffffff'
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'glow': '0 0 15px rgba(59, 130, 246, 0.3)'
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Mobile App Feel */
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:active { transform: scale(0.98); }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .new-badge {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: #ef4444;
+            color: white;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-left: 6px;
+            animation: pulse 1.5s infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px; 
+            background-color: #1a1a1a; 
+            color: #fff; 
+            text-align: center; 
+            border-radius: 12px; 
+            padding: 16px; 
+            position: fixed; 
+            z-index: 100; 
+            left: 50%; 
+            bottom: 80px; 
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s; 
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 100px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="hidden md:flex w-72 bg-brand-dark text-white flex-col shadow-2xl z-50">
+        <div class="h-20 flex items-center px-8 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-glow">M</div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide">ModMedicalis</h1>
+                    <p class="text-xs text-slate-400">Admin Console</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="flex-1 py-8 px-4 space-y-2">
+            <a href="#" onclick="navTo('dashboard')" id="link-dashboard" class="nav-item flex items-center px-4 py-3.5 rounded-xl bg-blue-600/10 text-blue-400 font-medium transition-all hover:bg-blue-600 hover:text-white">
+                <i class="fa-solid fa-chart-pie w-6"></i> Dashboard
+            </a>
+            <a href="#" onclick="navTo('orders')" id="link-orders" class="nav-item flex items-center px-4 py-3.5 rounded-xl text-slate-400 font-medium transition-all hover:bg-slate-800 hover:text-white">
+                <i class="fa-solid fa-box-open w-6"></i> Orders
+            </a>
+            <a href="#" onclick="navTo('expenses')" id="link-expenses" class="nav-item flex items-center px-4 py-3.5 rounded-xl text-slate-400 font-medium transition-all hover:bg-slate-800 hover:text-white">
+                <i class="fa-solid fa-wallet w-6"></i> Expenses & Profit
+            </a>
+        </nav>
+
+        <div class="p-6 border-t border-slate-800">
+            <button onclick="fetchData()" class="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate"></i> Sync Data
+            </button>
+        </div>
+    </aside>
+
+    <!-- MOBILE HEADER -->
+    <div class="md:hidden h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 relative shadow-sm">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-brand-dark rounded-lg flex items-center justify-center text-white font-bold">M</div>
+            <span class="font-bold text-slate-800">Overview</span>
+        </div>
+        <button onclick="fetchData()" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-600">
+            <i class="fa-solid fa-rotate text-xs"></i>
+        </button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-y-auto bg-slate-50 relative pb-24 md:pb-0">
+        
+        <!-- === VIEW: DASHBOARD === -->
+        <div id="view-dashboard" class="p-4 md:p-8 max-w-7xl mx-auto fade-in">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Performance</h2>
+                    <p class="text-sm text-slate-500">Real-time financial overview</p>
+                </div>
+                <span id="last-sync" class="text-xs text-slate-400 hidden md:block">Synced just now</span>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="stat-card bg-white p-5 rounded-2xl shadow-soft border border-slate-100">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i class="fa-solid fa-coins"></i></div>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold uppercase">Total Revenue</p>
+                    <h3 class="text-2xl font-extrabold text-slate-800" id="dash-revenue">...</h3>
+                </div>
+                
+                <div class="stat-card bg-white p-5 rounded-2xl shadow-soft border border-slate-100 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full -mr-4 -mt-4"></div>
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold uppercase">Net Profit</p>
+                    <h3 class="text-2xl font-extrabold text-emerald-600" id="dash-profit">...</h3>
+                    <p class="text-[10px] text-emerald-600 font-medium mt-1">After Expenses</p>
+                </div>
+
+                <div class="stat-card bg-white p-5 rounded-2xl shadow-soft border border-slate-100">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i class="fa-solid fa-cart-shopping"></i></div>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold uppercase">Orders</p>
+                    <h3 class="text-2xl font-extrabold text-slate-800" id="dash-orders">...</h3>
+                </div>
+
+                <div class="stat-card bg-white p-5 rounded-2xl shadow-soft border border-slate-100">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="p-2 bg-rose-50 text-rose-600 rounded-lg"><i class="fa-solid fa-receipt"></i></div>
+                    </div>
+                    <p class="text-slate-500 text-xs font-semibold uppercase">Expenses</p>
+                    <h3 class="text-2xl font-extrabold text-rose-600" id="dash-expenses">...</h3>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Main Chart -->
+                <div class="bg-white p-6 rounded-2xl shadow-soft border border-slate-100 lg:col-span-2">
+                    <h3 class="font-bold text-slate-800 mb-4">Financial Breakdown</h3>
+                    <div class="h-64">
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Product Chart -->
+                <div class="bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
+                    <h3 class="font-bold text-slate-800 mb-4">Top Products</h3>
+                    <div class="h-64 flex justify-center">
+                        <canvas id="productChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- === VIEW: ORDERS === -->
+        <div id="view-orders" class="p-4 md:p-8 max-w-7xl mx-auto hidden fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <h2 class="text-2xl font-bold text-slate-900">Order Management</h2>
+                <div class="relative w-full md:w-64">
+                    <input type="text" id="search-orders" onkeyup="filterOrders()" placeholder="Search ID, Name..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                                <th class="p-4 w-16 text-center">Seen</th>
+                                <th class="p-4">Customer</th>
+                                <th class="p-4">Product Details</th>
+                                <th class="p-4 text-right">Revenue</th>
+                                <th class="p-4 text-right">Profit</th>
+                                <th class="p-4 text-center">Status</th>
+                                <th class="p-4 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                            <!-- Injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- === VIEW: EXPENSES === -->
+        <div id="view-expenses" class="p-4 md:p-8 max-w-7xl mx-auto hidden fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Expenses & Purchases</h2>
+                    <p class="text-sm text-slate-500">Track spending from profits</p>
+                </div>
+                <button onclick="document.getElementById('expense-modal').classList.remove('hidden')" class="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-rose-200 transition">
+                    <i class="fa-solid fa-plus mr-2"></i> Add Expense
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- List -->
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 font-bold text-slate-800">History</div>
+                    <div id="expenses-list" class="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+                        <!-- Injected JS -->
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="space-y-4">
+                    <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-xl">
+                        <p class="text-slate-400 text-sm font-medium mb-1">Available Profit Balance</p>
+                        <h2 class="text-3xl font-bold" id="balance-display">Rs 0</h2>
+                        <div class="mt-4 h-1 bg-slate-700 rounded-full overflow-hidden">
+                            <div id="balance-bar" class="h-full bg-emerald-500 w-0 transition-all duration-1000"></div>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2 flex justify-between">
+                            <span>Used: <span id="used-amount">0</span></span>
+                            <span>Total Profit: <span id="total-profit-ref">0</span></span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MOBILE NAVIGATION (Bottom) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white glass-nav flex justify-around p-3 z-50">
+        <button onclick="navTo('dashboard')" class="mobile-nav-btn active flex flex-col items-center gap-1 text-xs text-blue-600">
+            <i class="fa-solid fa-chart-pie text-xl"></i>
+            <span>Dash</span>
+        </button>
+        <button onclick="navTo('orders')" class="mobile-nav-btn flex flex-col items-center gap-1 text-xs text-slate-400">
+            <i class="fa-solid fa-box-open text-xl"></i>
+            <span>Orders</span>
+        </button>
+        <button onclick="navTo('expenses')" class="mobile-nav-btn flex flex-col items-center gap-1 text-xs text-slate-400">
+            <i class="fa-solid fa-wallet text-xl"></i>
+            <span>Spend</span>
+        </button>
+    </nav>
+
+    <!-- ADD EXPENSE MODAL -->
+    <div id="expense-modal" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl transform scale-100 transition-all">
+            <h3 class="text-xl font-bold text-slate-900 mb-4">Add New Expense</h3>
+            <form onsubmit="window.addExpense(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Item Name</label>
+                        <input type="text" id="exp-name" required class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none" placeholder="e.g., Marketing Ads">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cost (PKR)</label>
+                        <input type="number" id="exp-amount" required class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none" placeholder="0">
+                    </div>
+                </div>
+                <div class="mt-6 flex gap-3">
+                    <button type="button" onclick="document.getElementById('expense-modal').classList.add('hidden')" class="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="flex-1 py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div id="toast">Operation Successful</div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // CONFIG
+        const BIN_ID = "693dfa40d0ea881f40277ddf";
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        const API_KEY = "$2a$10$hKOenfTHIlmCwiQp8Ta1ue1CQt1GPgEjPMlXgyLgFhbwRyU1R.pIm";
+        const ADMIN_WHATSAPP = "923096554421"; 
+
+        // STATE
+        let appData = {
+            orders: [],
+            expenses: []
+        };
+        let charts = {};
+
+        // INITIALIZE
+        window.onload = () => {
+            fetchData();
+        };
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            toast.innerText = msg;
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        // NAVIGATION
+        window.navTo = function(view) {
+            ['dashboard', 'orders', 'expenses'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                const link = document.getElementById(`link-${v}`);
+                if (link) {
+                    link.classList.remove('bg-blue-600/10', 'text-blue-400');
+                    link.classList.add('text-slate-400');
+                }
+            });
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            
+            const activeLink = document.getElementById(`link-${view}`);
+            if (activeLink) {
+                activeLink.classList.remove('text-slate-400');
+                activeLink.classList.add('bg-blue-600/10', 'text-blue-400');
+            }
+
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600');
+                btn.classList.add('text-slate-400');
+            });
+        }
+
+        // DATA HANDLER
+        window.fetchData = async function() {
+            try {
+                const res = await fetch(API_URL + "/latest", {
+                    headers: { "X-Master-Key": API_KEY }
+                });
+                const json = await res.json();
+                
+                let record = json.record;
+                if (record.record) record = record.record; 
+                
+                appData.orders = Array.isArray(record.orders) ? record.orders : (Array.isArray(record) ? record : []);
+                appData.expenses = Array.isArray(record.expenses) ? record.expenses : [];
+
+                updateUI();
+            } catch (err) {
+                alert("Error syncing data");
+                console.error(err);
+            }
+        }
+
+        window.saveData = async function() {
+            try {
+                showToast("Saving changes...");
+                
+                // --- SANITIZE DATA ---
+                // Removing calculated fields and large payment slips to ensure file size stays small
+                const cleanOrders = appData.orders.map(order => {
+                    const { calcProfit, calcQty, calcRevenue, displayName, cleanName, parsedName, parsedQty, paymentSlip_Backup, ...rest } = order;
+                    // Also wipe paymentSlip if it's too long (base64)
+                    if (rest.paymentSlip && rest.paymentSlip.length > 300) {
+                        rest.paymentSlip = "View in Email";
+                    }
+                    return rest;
+                });
+
+                await fetch(API_URL, {
+                    method: "PUT",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "X-Master-Key": API_KEY 
+                    },
+                    body: JSON.stringify({ 
+                        orders: cleanOrders,
+                        expenses: appData.expenses
+                    })
+                });
+                showToast("Changes saved!");
+            } catch (err) {
+                console.error(err);
+                alert("Failed to save. Data might be too large.");
+            }
+        }
+
+        // LOGIC CORE
+        function updateUI() {
+            let totalRev = 0;
+            let totalProfit = 0;
+            let productCounts = { "Block 3": 0, "Block 5": 0, "Block 6": 0 };
+
+            appData.orders.forEach(order => {
+                let rawString = order.product || ""; 
+                let items = rawString.split(';');
+                
+                let thisOrderRevenue = 0;
+                let thisOrderProfit = 0;
+                let displayNames = [];
+
+                items.forEach(item => {
+                    item = item.trim();
+                    if(!item) return;
+
+                    let qty = 1;
+                    const qtyMatch = item.match(/x\s*(\d+)/i);
+                    if (qtyMatch) qty = parseInt(qtyMatch[1]);
+
+                    let itemUpper = item.toUpperCase();
+                    let unitPrice = 0;
+                    let unitProfit = 0;
+                    let cleanName = "";
+
+                    if (itemUpper.includes('BLOCK 3')) {
+                        unitPrice = 700;
+                        unitProfit = 350;
+                        productCounts["Block 3"] += qty;
+                        cleanName = "BLOCK 3";
+                    } else if (itemUpper.includes('BLOCK 6')) {
+                        unitPrice = 700;
+                        unitProfit = 350;
+                        productCounts["Block 6"] += qty;
+                        cleanName = "BLOCK 6";
+                    } else if (itemUpper.includes('BLOCK 5') || itemUpper.includes('MIND YOUR MINORS')) {
+                        unitPrice = 500;
+                        unitProfit = 250;
+                        productCounts["Block 5"] += qty;
+                        cleanName = "BLOCK 5";
+                    }
+
+                    if(cleanName) {
+                        thisOrderRevenue += (unitPrice * qty);
+                        thisOrderProfit += (unitProfit * qty);
+                        displayNames.push(`Mind Your Minors ${cleanName} x ${qty}`);
+                    }
+                });
+
+                order.calcRevenue = thisOrderRevenue;
+                order.calcProfit = thisOrderProfit;
+                order.displayName = displayNames.join(", ");
+                
+                totalRev += thisOrderRevenue;
+                totalProfit += thisOrderProfit;
+            });
+
+            let totalExp = appData.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            let netProfit = totalProfit - totalExp;
+
+            document.getElementById('dash-revenue').innerText = `Rs ${totalRev.toLocaleString()}`;
+            document.getElementById('dash-profit').innerText = `Rs ${netProfit.toLocaleString()}`;
+            document.getElementById('dash-orders').innerText = appData.orders.length;
+            document.getElementById('dash-expenses').innerText = `Rs ${totalExp.toLocaleString()}`;
+
+            document.getElementById('balance-display').innerText = `Rs ${netProfit.toLocaleString()}`;
+            document.getElementById('used-amount').innerText = `Rs ${totalExp.toLocaleString()}`;
+            document.getElementById('total-profit-ref').innerText = `Rs ${totalProfit.toLocaleString()}`;
+            
+            let percentUsed = totalProfit > 0 ? (totalExp / totalProfit) * 100 : 0;
+            document.getElementById('balance-bar').style.width = `${Math.min(percentUsed, 100)}%`;
+            document.getElementById('balance-bar').className = `h-full transition-all duration-1000 ${percentUsed > 80 ? 'bg-red-500' : 'bg-emerald-500'}`;
+
+            renderOrdersTable();
+            renderExpensesList();
+            renderCharts(totalRev, totalExp, netProfit, productCounts);
+        }
+
+        function renderOrdersTable() {
+            const tbody = document.getElementById('orders-table-body');
+            tbody.innerHTML = '';
+            
+            const sorted = [...appData.orders].reverse();
+
+            sorted.forEach(order => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-50 last:border-0 group";
+                
+                const isDone = order.status === 'completed';
+                const statusHtml = isDone 
+                    ? `<span class="bg-emerald-100 text-emerald-700 py-1 px-2 rounded text-xs font-bold">Done</span>`
+                    : `<span class="bg-amber-100 text-amber-700 py-1 px-2 rounded text-xs font-bold">Pending</span>`;
+
+                const isSeen = order.isSeen === true;
+                const newBadge = !isSeen ? `<span class="new-badge">NEW</span>` : '';
+                const eyeClass = isSeen ? 'text-slate-300' : 'text-blue-500';
+                const orderDate = new Date(order.orderDateTimePKT).toLocaleDateString();
+                
+                const remarkHtml = order.remarks ? `<p class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded mt-1 border border-amber-100 inline-block font-semibold"><i class="fa-regular fa-note-sticky mr-1"></i>${order.remarks}</p>` : '';
+
+                tr.innerHTML = `
+                    <td class="p-4 text-center">
+                        <button onclick="window.toggleSeen('${order.orderId}')" class="${eyeClass} hover:text-blue-700 transition" title="Mark Seen">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </td>
+                    <td class="p-4">
+                        <p class="font-bold text-slate-800 flex items-center">
+                            ${order.fullName} ${newBadge}
+                        </p>
+                        <p class="text-xs text-slate-400 font-mono">${order.orderId} • ${orderDate}</p>
+                    </td>
+                    <td class="p-4">
+                        <p class="text-xs font-bold text-slate-700 uppercase">${order.displayName || 'Parsing Error'}</p>
+                        ${remarkHtml}
+                    </td>
+                    <td class="p-4 text-right text-slate-600 text-xs">Rs ${order.calcRevenue}</td>
+                    <td class="p-4 text-right font-bold text-emerald-600 text-sm">+${order.calcProfit}</td>
+                    <td class="p-4 text-center">${statusHtml}</td>
+                    <td class="p-4 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <button onclick="window.forwardOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition shadow-sm" title="WhatsApp Forward">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </button>
+                            <button onclick="window.addRemark('${order.orderId}')" class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-200 transition shadow-sm" title="Add Note">
+                                <i class="fa-regular fa-note-sticky"></i>
+                            </button>
+                            <button onclick="window.toggleStatus('${order.orderId}')" class="text-slate-400 hover:text-blue-600 transition" title="Toggle Status">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                            <button onclick="window.deleteOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition shadow-sm" title="Delete Order">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderExpensesList() {
+            const container = document.getElementById('expenses-list');
+            container.innerHTML = '';
+            
+            if(appData.expenses.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">No expenses recorded yet.</div>`;
+                return;
+            }
+
+            [...appData.expenses].reverse().forEach((exp) => {
+                const item = document.createElement('div');
+                item.className = "p-4 flex justify-between items-center hover:bg-slate-50 group";
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs"><i class="fa-solid fa-receipt"></i></div>
+                        <div>
+                            <p class="font-bold text-slate-800 text-sm">${exp.name}</p>
+                            <p class="text-xs text-slate-400">${new Date(exp.date).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-rose-600">- Rs ${exp.amount.toLocaleString()}</span>
+                        <button onclick="window.deleteExpense('${exp.id}')" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition shadow-sm" title="Delete Expense">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function renderCharts(rev, exp, net, products) {
+            const ctxFin = document.getElementById('financeChart').getContext('2d');
+            if (charts.fin) charts.fin.destroy();
+            
+            charts.fin = new Chart(ctxFin, {
+                type: 'bar',
+                data: {
+                    labels: ['Revenue', 'Expenses', 'Net Profit'],
+                    datasets: [{
+                        label: 'PKR',
+                        data: [rev, exp, net],
+                        backgroundColor: ['#3b82f6', '#ef4444', '#10b981'],
+                        borderRadius: 8,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { grid: { display: false } }, x: { grid: { display: false } } }
+                }
+            });
+
+            const ctxProd = document.getElementById('productChart').getContext('2d');
+            if (charts.prod) charts.prod.destroy();
+
+            charts.prod = new Chart(ctxProd, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(products),
+                    datasets: [{
+                        data: Object.values(products),
+                        backgroundColor: ['#f59e0b', '#ec4899', '#3b82f6'],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } }
+                }
+            });
+        }
+
+        // --- GLOBAL ACTIONS ---
+        
+        window.toggleSeen = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
+            if(order) {
+                order.isSeen = !order.isSeen; 
+                updateUI();
+                saveData();
+            }
+        };
+
+        window.addRemark = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
+            if(order) {
+                const note = prompt("Enter remark for this order:", order.remarks || "");
+                if (note !== null) {
+                    order.remarks = note;
+                    updateUI();
+                    saveData();
+                }
+            }
+        };
+
+        window.forwardOrder = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
+            if(order) {
+                const cleanAddress = (order.shippingAddress || "").replace(/\n/g, ", ");
+                const text = `*New Order: ${order.orderId}*\n\n*Name:* ${order.fullName}\n*Items:* ${order.displayName}\n*Contact:* ${order.contactInfo}\n*Address:* ${cleanAddress}`;
+                const encodedText = encodeURIComponent(text);
+                window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodedText}`, '_blank');
+            }
+        };
+
+        window.toggleStatus = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
+            if(order) {
+                order.status = order.status === 'completed' ? 'pending' : 'completed';
+                updateUI();
+                saveData();
+            }
+        };
+
+        window.deleteOrder = function(id) {
+            if(confirm("Permanently delete this order?")) {
+                // Direct Splice for reliable reactivity
+                const index = appData.orders.findIndex(o => String(o.orderId) === String(id));
+                if (index > -1) {
+                    appData.orders.splice(index, 1);
+                    updateUI();
+                    saveData();
+                }
+            }
+        };
+
+        window.deleteExpense = function(expId) {
+            if(confirm("Permanently delete this expense?")) {
+                const index = appData.expenses.findIndex(e => String(e.id) === String(expId));
+                if (index > -1) {
+                    appData.expenses.splice(index, 1);
+                    updateUI();
+                    saveData();
+                }
+            }
+        };
+
+        window.addExpense = function(e) {
+            e.preventDefault();
+            const name = document.getElementById('exp-name').value;
+            const amount = parseFloat(document.getElementById('exp-amount').value);
+            
+            appData.expenses.push({
+                id: Date.now(), 
+                name: name,
+                amount: amount,
+                date: new Date().toISOString()
+            });
+
+            updateUI();
+            saveData();
+            document.getElementById('expense-modal').classList.add('hidden');
+            e.target.reset();
+        };
+
+        window.filterOrders = function() {
+            const term = document.getElementById('search-orders').value.toLowerCase();
+            const rows = document.getElementById('orders-table-body').getElementsByTagName('tr');
+            Array.from(rows).forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        };
+    </script>
+</body>
+</html>
