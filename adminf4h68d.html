@@ -74,6 +74,32 @@
             display: inline-block;
             vertical-align: middle;
         }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px; 
+            background-color: #1a1a1a; 
+            color: #fff; 
+            text-align: center; 
+            border-radius: 12px; 
+            padding: 16px; 
+            position: fixed; 
+            z-index: 100; 
+            left: 50%; 
+            bottom: 80px; 
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s; 
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 100px;
+        }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden">
@@ -282,7 +308,7 @@
     <div id="expense-modal" class="fixed inset-0 bg-black/50 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl transform scale-100 transition-all">
             <h3 class="text-xl font-bold text-slate-900 mb-4">Add New Expense</h3>
-            <form onsubmit="addExpense(event)">
+            <form onsubmit="window.addExpense(event)">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Item Name</label>
@@ -300,6 +326,9 @@
             </form>
         </div>
     </div>
+    
+    <!-- Toast -->
+    <div id="toast">Operation Successful</div>
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
@@ -321,8 +350,15 @@
             fetchData();
         };
 
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            toast.innerText = msg;
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
         // NAVIGATION
-        function navTo(view) {
+        window.navTo = function(view) {
             ['dashboard', 'orders', 'expenses'].forEach(v => {
                 document.getElementById(`view-${v}`).classList.add('hidden');
                 const link = document.getElementById(`link-${v}`);
@@ -346,7 +382,7 @@
         }
 
         // DATA HANDLER
-        async function fetchData() {
+        window.fetchData = async function() {
             try {
                 const res = await fetch(API_URL + "/latest", {
                     headers: { "X-Master-Key": API_KEY }
@@ -366,8 +402,21 @@
             }
         }
 
-        async function saveData() {
+        window.saveData = async function() {
             try {
+                showToast("Saving changes...");
+                
+                // --- SANITIZE DATA ---
+                // Removing calculated fields and large payment slips to ensure file size stays small
+                const cleanOrders = appData.orders.map(order => {
+                    const { calcProfit, calcQty, calcRevenue, displayName, cleanName, parsedName, parsedQty, paymentSlip_Backup, ...rest } = order;
+                    // Also wipe paymentSlip if it's too long (base64)
+                    if (rest.paymentSlip && rest.paymentSlip.length > 300) {
+                        rest.paymentSlip = "View in Email";
+                    }
+                    return rest;
+                });
+
                 await fetch(API_URL, {
                     method: "PUT",
                     headers: { 
@@ -375,12 +424,14 @@
                         "X-Master-Key": API_KEY 
                     },
                     body: JSON.stringify({ 
-                        orders: appData.orders,
+                        orders: cleanOrders,
                         expenses: appData.expenses
                     })
                 });
+                showToast("Changes saved!");
             } catch (err) {
-                alert("Failed to save changes");
+                console.error(err);
+                alert("Failed to save. Data might be too large.");
             }
         }
 
@@ -390,12 +441,8 @@
             let totalProfit = 0;
             let productCounts = { "Block 3": 0, "Block 5": 0, "Block 6": 0 };
 
-            // 1. Loop through orders to parse raw strings and calculate money
             appData.orders.forEach(order => {
                 let rawString = order.product || ""; 
-                // e.g. "MIND YOUR MINORS BLOCK 3 x 1 (Rs. 700); MIND YOUR MINORS BLOCK 5 x 2 (Rs. 1000)"
-                
-                // Split by semicolon usually found in checkout
                 let items = rawString.split(';');
                 
                 let thisOrderRevenue = 0;
@@ -406,12 +453,10 @@
                     item = item.trim();
                     if(!item) return;
 
-                    // Parse Quantity (x Number)
                     let qty = 1;
                     const qtyMatch = item.match(/x\s*(\d+)/i);
                     if (qtyMatch) qty = parseInt(qtyMatch[1]);
 
-                    // Determine Type & Price
                     let itemUpper = item.toUpperCase();
                     let unitPrice = 0;
                     let unitProfit = 0;
@@ -428,7 +473,6 @@
                         productCounts["Block 6"] += qty;
                         cleanName = "BLOCK 6";
                     } else if (itemUpper.includes('BLOCK 5') || itemUpper.includes('MIND YOUR MINORS')) {
-                        // "Mind Your Minors" default fallback is Block 5 per instructions
                         unitPrice = 500;
                         unitProfit = 250;
                         productCounts["Block 5"] += qty;
@@ -438,31 +482,26 @@
                     if(cleanName) {
                         thisOrderRevenue += (unitPrice * qty);
                         thisOrderProfit += (unitProfit * qty);
-                        displayNames.push(`${cleanName} x ${qty}`);
+                        displayNames.push(`Mind Your Minors ${cleanName} x ${qty}`);
                     }
                 });
 
-                // Save calculated data to object for easier rendering
                 order.calcRevenue = thisOrderRevenue;
                 order.calcProfit = thisOrderProfit;
                 order.displayName = displayNames.join(", ");
                 
-                // Add to Global Totals
                 totalRev += thisOrderRevenue;
                 totalProfit += thisOrderProfit;
             });
 
-            // 2. Expenses
             let totalExp = appData.expenses.reduce((sum, exp) => sum + exp.amount, 0);
             let netProfit = totalProfit - totalExp;
 
-            // 3. Update DOM Dashboard
             document.getElementById('dash-revenue').innerText = `Rs ${totalRev.toLocaleString()}`;
             document.getElementById('dash-profit').innerText = `Rs ${netProfit.toLocaleString()}`;
             document.getElementById('dash-orders').innerText = appData.orders.length;
             document.getElementById('dash-expenses').innerText = `Rs ${totalExp.toLocaleString()}`;
 
-            // 4. Update Expenses View Stats
             document.getElementById('balance-display').innerText = `Rs ${netProfit.toLocaleString()}`;
             document.getElementById('used-amount').innerText = `Rs ${totalExp.toLocaleString()}`;
             document.getElementById('total-profit-ref').innerText = `Rs ${totalProfit.toLocaleString()}`;
@@ -471,7 +510,6 @@
             document.getElementById('balance-bar').style.width = `${Math.min(percentUsed, 100)}%`;
             document.getElementById('balance-bar').className = `h-full transition-all duration-1000 ${percentUsed > 80 ? 'bg-red-500' : 'bg-emerald-500'}`;
 
-            // 5. Renders
             renderOrdersTable();
             renderExpensesList();
             renderCharts(totalRev, totalExp, netProfit, productCounts);
@@ -481,12 +519,11 @@
             const tbody = document.getElementById('orders-table-body');
             tbody.innerHTML = '';
             
-            // Sort new first
             const sorted = [...appData.orders].reverse();
 
             sorted.forEach(order => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition border-b border-slate-50 last:border-0";
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-50 last:border-0 group";
                 
                 const isDone = order.status === 'completed';
                 const statusHtml = isDone 
@@ -497,10 +534,12 @@
                 const newBadge = !isSeen ? `<span class="new-badge">NEW</span>` : '';
                 const eyeClass = isSeen ? 'text-slate-300' : 'text-blue-500';
                 const orderDate = new Date(order.orderDateTimePKT).toLocaleDateString();
+                
+                const remarkHtml = order.remarks ? `<p class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded mt-1 border border-amber-100 inline-block font-semibold"><i class="fa-regular fa-note-sticky mr-1"></i>${order.remarks}</p>` : '';
 
                 tr.innerHTML = `
                     <td class="p-4 text-center">
-                        <button onclick="toggleSeen('${order.orderId}')" class="${eyeClass} hover:text-blue-700 transition" title="Mark Seen">
+                        <button onclick="window.toggleSeen('${order.orderId}')" class="${eyeClass} hover:text-blue-700 transition" title="Mark Seen">
                             <i class="fa-solid fa-eye"></i>
                         </button>
                     </td>
@@ -512,17 +551,26 @@
                     </td>
                     <td class="p-4">
                         <p class="text-xs font-bold text-slate-700 uppercase">${order.displayName || 'Parsing Error'}</p>
+                        ${remarkHtml}
                     </td>
                     <td class="p-4 text-right text-slate-600 text-xs">Rs ${order.calcRevenue}</td>
                     <td class="p-4 text-right font-bold text-emerald-600 text-sm">+${order.calcProfit}</td>
                     <td class="p-4 text-center">${statusHtml}</td>
-                    <td class="p-4 text-center flex items-center justify-center gap-2">
-                        <button onclick="forwardOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition shadow-sm" title="WhatsApp Forward">
-                            <i class="fa-brands fa-whatsapp"></i>
-                        </button>
-                        <button onclick="toggleStatus('${order.orderId}')" class="text-slate-400 hover:text-blue-600 transition" title="Toggle Status">
-                            <i class="fa-solid fa-rotate"></i>
-                        </button>
+                    <td class="p-4 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <button onclick="window.forwardOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition shadow-sm" title="WhatsApp Forward">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </button>
+                            <button onclick="window.addRemark('${order.orderId}')" class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-200 transition shadow-sm" title="Add Note">
+                                <i class="fa-regular fa-note-sticky"></i>
+                            </button>
+                            <button onclick="window.toggleStatus('${order.orderId}')" class="text-slate-400 hover:text-blue-600 transition" title="Toggle Status">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                            <button onclick="window.deleteOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition shadow-sm" title="Delete Order">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -540,7 +588,7 @@
 
             [...appData.expenses].reverse().forEach((exp) => {
                 const item = document.createElement('div');
-                item.className = "p-4 flex justify-between items-center hover:bg-slate-50";
+                item.className = "p-4 flex justify-between items-center hover:bg-slate-50 group";
                 item.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs"><i class="fa-solid fa-receipt"></i></div>
@@ -549,7 +597,12 @@
                             <p class="text-xs text-slate-400">${new Date(exp.date).toLocaleDateString()}</p>
                         </div>
                     </div>
-                    <span class="font-bold text-rose-600">- Rs ${exp.amount.toLocaleString()}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-rose-600">- Rs ${exp.amount.toLocaleString()}</span>
+                        <button onclick="window.deleteExpense('${exp.id}')" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition shadow-sm" title="Delete Expense">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
                 `;
                 container.appendChild(item);
             });
@@ -601,43 +654,78 @@
             });
         }
 
-        // ACTIONS
-        function toggleSeen(id) {
-            const order = appData.orders.find(o => o.orderId === id);
+        // --- GLOBAL ACTIONS ---
+        
+        window.toggleSeen = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
             if(order) {
                 order.isSeen = !order.isSeen; 
                 updateUI();
                 saveData();
             }
-        }
+        };
 
-        function forwardOrder(id) {
-            const order = appData.orders.find(o => o.orderId === id);
+        window.addRemark = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
             if(order) {
-                // FORMAT: FULL NAME | PRODUCTS | CONTACT | ADDRESS
+                const note = prompt("Enter remark for this order:", order.remarks || "");
+                if (note !== null) {
+                    order.remarks = note;
+                    updateUI();
+                    saveData();
+                }
+            }
+        };
+
+        window.forwardOrder = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
+            if(order) {
                 const cleanAddress = (order.shippingAddress || "").replace(/\n/g, ", ");
                 const text = `*New Order: ${order.orderId}*\n\n*Name:* ${order.fullName}\n*Items:* ${order.displayName}\n*Contact:* ${order.contactInfo}\n*Address:* ${cleanAddress}`;
                 const encodedText = encodeURIComponent(text);
                 window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodedText}`, '_blank');
             }
-        }
+        };
 
-        function toggleStatus(id) {
-            const order = appData.orders.find(o => o.orderId === id);
+        window.toggleStatus = function(id) {
+            const order = appData.orders.find(o => String(o.orderId) === String(id));
             if(order) {
                 order.status = order.status === 'completed' ? 'pending' : 'completed';
                 updateUI();
                 saveData();
             }
-        }
+        };
 
-        function addExpense(e) {
+        window.deleteOrder = function(id) {
+            if(confirm("Permanently delete this order?")) {
+                // Direct Splice for reliable reactivity
+                const index = appData.orders.findIndex(o => String(o.orderId) === String(id));
+                if (index > -1) {
+                    appData.orders.splice(index, 1);
+                    updateUI();
+                    saveData();
+                }
+            }
+        };
+
+        window.deleteExpense = function(expId) {
+            if(confirm("Permanently delete this expense?")) {
+                const index = appData.expenses.findIndex(e => String(e.id) === String(expId));
+                if (index > -1) {
+                    appData.expenses.splice(index, 1);
+                    updateUI();
+                    saveData();
+                }
+            }
+        };
+
+        window.addExpense = function(e) {
             e.preventDefault();
             const name = document.getElementById('exp-name').value;
             const amount = parseFloat(document.getElementById('exp-amount').value);
             
             appData.expenses.push({
-                id: Date.now(),
+                id: Date.now(), 
                 name: name,
                 amount: amount,
                 date: new Date().toISOString()
@@ -647,16 +735,16 @@
             saveData();
             document.getElementById('expense-modal').classList.add('hidden');
             e.target.reset();
-        }
+        };
 
-        function filterOrders() {
+        window.filterOrders = function() {
             const term = document.getElementById('search-orders').value.toLowerCase();
             const rows = document.getElementById('orders-table-body').getElementsByTagName('tr');
             Array.from(rows).forEach(row => {
                 const text = row.innerText.toLowerCase();
                 row.style.display = text.includes(term) ? '' : 'none';
             });
-        }
+        };
     </script>
 </body>
 </html>
