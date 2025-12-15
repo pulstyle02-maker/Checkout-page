@@ -40,24 +40,17 @@
 
     <style>
         body { background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
-        
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        /* Mobile App Feel */
         .glass-nav {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-top: 1px solid rgba(0,0,0,0.05);
         }
-        
         .stat-card { transition: transform 0.2s; }
         .stat-card:active { transform: scale(0.98); }
-
-        /* Animations */
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
@@ -74,8 +67,21 @@
             display: inline-block;
             vertical-align: middle;
         }
+        
+        /* Tag for Manual Orders */
+        .manual-badge {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: #6366f1;
+            color: white;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-left: 6px;
+            display: inline-block;
+            vertical-align: middle;
+        }
 
-        /* Toast Notification */
         #toast {
             visibility: hidden;
             min-width: 250px; 
@@ -122,6 +128,9 @@
             </a>
             <a href="#" onclick="navTo('orders')" id="link-orders" class="nav-item flex items-center px-4 py-3.5 rounded-xl text-slate-400 font-medium transition-all hover:bg-slate-800 hover:text-white">
                 <i class="fa-solid fa-box-open w-6"></i> Orders
+            </a>
+            <a href="#" onclick="navTo('entry')" id="link-entry" class="nav-item flex items-center px-4 py-3.5 rounded-xl text-slate-400 font-medium transition-all hover:bg-slate-800 hover:text-white">
+                <i class="fa-solid fa-pen-to-square w-6"></i> Manual Entry
             </a>
             <a href="#" onclick="navTo('expenses')" id="link-expenses" class="nav-item flex items-center px-4 py-3.5 rounded-xl text-slate-400 font-medium transition-all hover:bg-slate-800 hover:text-white">
                 <i class="fa-solid fa-wallet w-6"></i> Expenses & Profit
@@ -181,24 +190,24 @@
 
                 <div class="stat-card bg-white p-5 rounded-2xl shadow-soft border border-slate-100">
                     <div class="flex justify-between items-start mb-2">
-                        <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i class="fa-solid fa-cart-shopping"></i></div>
+                        <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i class="fa-solid fa-check-circle"></i></div>
                     </div>
-                    <p class="text-slate-500 text-xs font-semibold uppercase">Orders</p>
-                    <h3 class="text-2xl font-extrabold text-slate-800" id="dash-orders">...</h3>
+                    <p class="text-slate-500 text-xs font-semibold uppercase">Completed</p>
+                    <h3 class="text-2xl font-extrabold text-slate-800" id="dash-completed">...</h3>
                 </div>
 
                 <div class="stat-card bg-white p-5 rounded-2xl shadow-soft border border-slate-100">
                     <div class="flex justify-between items-start mb-2">
-                        <div class="p-2 bg-rose-50 text-rose-600 rounded-lg"><i class="fa-solid fa-receipt"></i></div>
+                        <div class="p-2 bg-amber-50 text-amber-600 rounded-lg"><i class="fa-solid fa-clock"></i></div>
                     </div>
-                    <p class="text-slate-500 text-xs font-semibold uppercase">Expenses</p>
-                    <h3 class="text-2xl font-extrabold text-rose-600" id="dash-expenses">...</h3>
+                    <p class="text-slate-500 text-xs font-semibold uppercase">Pending</p>
+                    <h3 class="text-2xl font-extrabold text-amber-600" id="dash-pending">...</h3>
                 </div>
             </div>
 
             <!-- Charts Section -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <!-- Main Chart -->
+                <!-- Main Financial Chart -->
                 <div class="bg-white p-6 rounded-2xl shadow-soft border border-slate-100 lg:col-span-2">
                     <h3 class="font-bold text-slate-800 mb-4">Financial Breakdown</h3>
                     <div class="h-64">
@@ -206,11 +215,22 @@
                     </div>
                 </div>
                 
-                <!-- Product Chart -->
-                <div class="bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
-                    <h3 class="font-bold text-slate-800 mb-4">Top Products</h3>
-                    <div class="h-64 flex justify-center">
-                        <canvas id="productChart"></canvas>
+                <!-- Status & Product Chart Container -->
+                <div class="space-y-6">
+                    <!-- Status Chart -->
+                    <div class="bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
+                        <h3 class="font-bold text-slate-800 mb-4">Order Status</h3>
+                        <div class="h-32 flex justify-center">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Product Chart -->
+                    <div class="bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
+                        <h3 class="font-bold text-slate-800 mb-4">Top Products</h3>
+                        <div class="h-32 flex justify-center">
+                            <canvas id="productChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -245,6 +265,77 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <!-- === VIEW: MANUAL ENTRY (NEW) === -->
+        <div id="view-entry" class="p-4 md:p-8 max-w-7xl mx-auto hidden fade-in">
+            <div class="max-w-2xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-900">Manual Order Entry</h2>
+                    <p class="text-sm text-slate-500">Add an order manually with custom pricing logic</p>
+                </div>
+
+                <form onsubmit="window.submitManualOrder(event)" class="bg-white p-6 md:p-8 rounded-2xl shadow-soft border border-slate-100 space-y-6">
+                    
+                    <!-- Customer Info -->
+                    <div>
+                        <h4 class="text-xs font-bold text-blue-600 uppercase mb-3">Customer Details</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Customer Name</label>
+                                <input type="text" id="man-name" required class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="John Doe">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Contact / Phone</label>
+                                <input type="text" id="man-contact" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="0300...">
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Shipping Address</label>
+                            <textarea id="man-address" rows="2" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Full address..."></textarea>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-100">
+
+                    <!-- Product Info -->
+                    <div>
+                        <h4 class="text-xs font-bold text-blue-600 uppercase mb-3">Product & Pricing</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Product Type</label>
+                                <select id="man-product" onchange="calculateSuggestedBase()" class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                                    <option value="BLOCK 6">Block 6 (Base Cost: 350)</option>
+                                    <option value="BLOCK 3">Block 3 (Base Cost: 350)</option>
+                                    <option value="BLOCK 5">Block 5 (Base Cost: 250)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Quantity</label>
+                                <input type="number" id="man-qty" value="1" min="1" onchange="calculateSuggestedBase()" required class="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-xs font-bold text-slate-700 uppercase">Special Sale Price (Total)</label>
+                                <span class="text-[10px] text-slate-400">Override default price here</span>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute left-3 top-3 text-slate-400 font-bold">Rs</span>
+                                <input type="number" id="man-price" required class="w-full pl-10 border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="0">
+                            </div>
+                            <p class="text-xs text-slate-500 mt-2">
+                                Estimated Profit: <span id="man-est-profit" class="font-bold text-emerald-600">Rs 0</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-glow hover:bg-blue-700 transition transform active:scale-95">
+                        Add Manual Order
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -298,6 +389,10 @@
             <i class="fa-solid fa-box-open text-xl"></i>
             <span>Orders</span>
         </button>
+        <button onclick="navTo('entry')" class="mobile-nav-btn flex flex-col items-center gap-1 text-xs text-slate-400">
+            <i class="fa-solid fa-pen-to-square text-xl"></i>
+            <span>Entry</span>
+        </button>
         <button onclick="navTo('expenses')" class="mobile-nav-btn flex flex-col items-center gap-1 text-xs text-slate-400">
             <i class="fa-solid fa-wallet text-xl"></i>
             <span>Spend</span>
@@ -348,6 +443,8 @@
         // INITIALIZE
         window.onload = () => {
             fetchData();
+            // Setup listener for manual price calculation
+            document.getElementById('man-price').addEventListener('input', calculateSuggestedBase);
         };
 
         function showToast(msg) {
@@ -359,8 +456,10 @@
 
         // NAVIGATION
         window.navTo = function(view) {
-            ['dashboard', 'orders', 'expenses'].forEach(v => {
-                document.getElementById(`view-${v}`).classList.add('hidden');
+            ['dashboard', 'orders', 'expenses', 'entry'].forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if(el) el.classList.add('hidden');
+                
                 const link = document.getElementById(`link-${v}`);
                 if (link) {
                     link.classList.remove('bg-blue-600/10', 'text-blue-400');
@@ -407,10 +506,9 @@
                 showToast("Saving changes...");
                 
                 // --- SANITIZE DATA ---
-                // Removing calculated fields and large payment slips to ensure file size stays small
                 const cleanOrders = appData.orders.map(order => {
+                    // Remove calculated fields but keep 'manualRevenue' etc if they exist
                     const { calcProfit, calcQty, calcRevenue, displayName, cleanName, parsedName, parsedQty, paymentSlip_Backup, ...rest } = order;
-                    // Also wipe paymentSlip if it's too long (base64)
                     if (rest.paymentSlip && rest.paymentSlip.length > 300) {
                         rest.paymentSlip = "View in Email";
                     }
@@ -440,67 +538,89 @@
             let totalRev = 0;
             let totalProfit = 0;
             let productCounts = { "Block 3": 0, "Block 5": 0, "Block 6": 0 };
+            let pendingCount = 0;
+            let completedCount = 0;
 
             appData.orders.forEach(order => {
-                let rawString = order.product || ""; 
-                let items = rawString.split(';');
+                // Status Counts
+                if (order.status === 'completed') completedCount++;
+                else pendingCount++;
+
+                // Revenue Logic
+                if (order.isManual) {
+                    // Manual Order Logic
+                    order.calcRevenue = order.manualRevenue || 0;
+                    order.calcProfit = order.manualProfit || 0;
+                    order.displayName = `${order.product} (Manual)`;
+                    
+                    // Add to product counts roughly based on name
+                    if(order.product.includes('BLOCK 3')) productCounts["Block 3"] += (order.manualQty || 1);
+                    else if(order.product.includes('BLOCK 6')) productCounts["Block 6"] += (order.manualQty || 1);
+                    else productCounts["Block 5"] += (order.manualQty || 1);
+
+                } else {
+                    // Standard Email Parsing Logic
+                    let rawString = order.product || ""; 
+                    let items = rawString.split(';');
+                    
+                    let thisOrderRevenue = 0;
+                    let thisOrderProfit = 0;
+                    let displayNames = [];
+
+                    items.forEach(item => {
+                        item = item.trim();
+                        if(!item) return;
+
+                        let qty = 1;
+                        const qtyMatch = item.match(/x\s*(\d+)/i);
+                        if (qtyMatch) qty = parseInt(qtyMatch[1]);
+
+                        let itemUpper = item.toUpperCase();
+                        let unitPrice = 0;
+                        let unitProfit = 0;
+                        let cleanName = "";
+
+                        if (itemUpper.includes('BLOCK 3')) {
+                            unitPrice = 700;
+                            unitProfit = 350;
+                            productCounts["Block 3"] += qty;
+                            cleanName = "BLOCK 3";
+                        } else if (itemUpper.includes('BLOCK 6')) {
+                            unitPrice = 700;
+                            unitProfit = 350;
+                            productCounts["Block 6"] += qty;
+                            cleanName = "BLOCK 6";
+                        } else if (itemUpper.includes('BLOCK 5') || itemUpper.includes('MIND YOUR MINORS')) {
+                            unitPrice = 500;
+                            unitProfit = 250;
+                            productCounts["Block 5"] += qty;
+                            cleanName = "BLOCK 5";
+                        }
+
+                        if(cleanName) {
+                            thisOrderRevenue += (unitPrice * qty);
+                            thisOrderProfit += (unitProfit * qty);
+                            displayNames.push(`Mind Your Minors ${cleanName} x ${qty}`);
+                        }
+                    });
+
+                    order.calcRevenue = thisOrderRevenue;
+                    order.calcProfit = thisOrderProfit;
+                    order.displayName = displayNames.join(", ");
+                }
                 
-                let thisOrderRevenue = 0;
-                let thisOrderProfit = 0;
-                let displayNames = [];
-
-                items.forEach(item => {
-                    item = item.trim();
-                    if(!item) return;
-
-                    let qty = 1;
-                    const qtyMatch = item.match(/x\s*(\d+)/i);
-                    if (qtyMatch) qty = parseInt(qtyMatch[1]);
-
-                    let itemUpper = item.toUpperCase();
-                    let unitPrice = 0;
-                    let unitProfit = 0;
-                    let cleanName = "";
-
-                    if (itemUpper.includes('BLOCK 3')) {
-                        unitPrice = 700;
-                        unitProfit = 350;
-                        productCounts["Block 3"] += qty;
-                        cleanName = "BLOCK 3";
-                    } else if (itemUpper.includes('BLOCK 6')) {
-                        unitPrice = 700;
-                        unitProfit = 350;
-                        productCounts["Block 6"] += qty;
-                        cleanName = "BLOCK 6";
-                    } else if (itemUpper.includes('BLOCK 5') || itemUpper.includes('MIND YOUR MINORS')) {
-                        unitPrice = 500;
-                        unitProfit = 250;
-                        productCounts["Block 5"] += qty;
-                        cleanName = "BLOCK 5";
-                    }
-
-                    if(cleanName) {
-                        thisOrderRevenue += (unitPrice * qty);
-                        thisOrderProfit += (unitProfit * qty);
-                        displayNames.push(`Mind Your Minors ${cleanName} x ${qty}`);
-                    }
-                });
-
-                order.calcRevenue = thisOrderRevenue;
-                order.calcProfit = thisOrderProfit;
-                order.displayName = displayNames.join(", ");
-                
-                totalRev += thisOrderRevenue;
-                totalProfit += thisOrderProfit;
+                totalRev += order.calcRevenue;
+                totalProfit += order.calcProfit;
             });
 
             let totalExp = appData.expenses.reduce((sum, exp) => sum + exp.amount, 0);
             let netProfit = totalProfit - totalExp;
 
+            // Update DOM Stats
             document.getElementById('dash-revenue').innerText = `Rs ${totalRev.toLocaleString()}`;
             document.getElementById('dash-profit').innerText = `Rs ${netProfit.toLocaleString()}`;
-            document.getElementById('dash-orders').innerText = appData.orders.length;
-            document.getElementById('dash-expenses').innerText = `Rs ${totalExp.toLocaleString()}`;
+            document.getElementById('dash-completed').innerText = completedCount;
+            document.getElementById('dash-pending').innerText = pendingCount;
 
             document.getElementById('balance-display').innerText = `Rs ${netProfit.toLocaleString()}`;
             document.getElementById('used-amount').innerText = `Rs ${totalExp.toLocaleString()}`;
@@ -512,7 +632,7 @@
 
             renderOrdersTable();
             renderExpensesList();
-            renderCharts(totalRev, totalExp, netProfit, productCounts);
+            renderCharts(totalRev, totalExp, netProfit, productCounts, pendingCount, completedCount);
         }
 
         function renderOrdersTable() {
@@ -531,9 +651,10 @@
                     : `<span class="bg-amber-100 text-amber-700 py-1 px-2 rounded text-xs font-bold">Pending</span>`;
 
                 const isSeen = order.isSeen === true;
-                const newBadge = !isSeen ? `<span class="new-badge">NEW</span>` : '';
+                const newBadge = (!isSeen && !order.isManual) ? `<span class="new-badge">NEW</span>` : '';
+                const manualBadge = order.isManual ? `<span class="manual-badge">MANUAL</span>` : '';
                 const eyeClass = isSeen ? 'text-slate-300' : 'text-blue-500';
-                const orderDate = new Date(order.orderDateTimePKT).toLocaleDateString();
+                const orderDate = new Date(order.orderDateTimePKT || order.date).toLocaleDateString();
                 
                 const remarkHtml = order.remarks ? `<p class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded mt-1 border border-amber-100 inline-block font-semibold"><i class="fa-regular fa-note-sticky mr-1"></i>${order.remarks}</p>` : '';
 
@@ -545,7 +666,7 @@
                     </td>
                     <td class="p-4">
                         <p class="font-bold text-slate-800 flex items-center">
-                            ${order.fullName} ${newBadge}
+                            ${order.fullName} ${newBadge} ${manualBadge}
                         </p>
                         <p class="text-xs text-slate-400 font-mono">${order.orderId} • ${orderDate}</p>
                     </td>
@@ -608,10 +729,10 @@
             });
         }
 
-        function renderCharts(rev, exp, net, products) {
+        function renderCharts(rev, exp, net, products, pending, completed) {
+            // 1. Finance Bar Chart
             const ctxFin = document.getElementById('financeChart').getContext('2d');
             if (charts.fin) charts.fin.destroy();
-            
             charts.fin = new Chart(ctxFin, {
                 type: 'bar',
                 data: {
@@ -632,9 +753,9 @@
                 }
             });
 
+            // 2. Product Donut Chart
             const ctxProd = document.getElementById('productChart').getContext('2d');
             if (charts.prod) charts.prod.destroy();
-
             charts.prod = new Chart(ctxProd, {
                 type: 'doughnut',
                 data: {
@@ -649,10 +770,91 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } }
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, font: {size: 10} } } }
+                }
+            });
+
+            // 3. Status Pie Chart (New)
+            const ctxStat = document.getElementById('statusChart').getContext('2d');
+            if (charts.stat) charts.stat.destroy();
+            charts.stat = new Chart(ctxStat, {
+                type: 'pie',
+                data: {
+                    labels: ['Pending', 'Completed'],
+                    datasets: [{
+                        data: [pending, completed],
+                        backgroundColor: ['#f59e0b', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, font: {size: 10} } } }
                 }
             });
         }
+
+        // --- MANUAL ORDER LOGIC ---
+        window.calculateSuggestedBase = function() {
+            const type = document.getElementById('man-product').value;
+            const qty = parseInt(document.getElementById('man-qty').value) || 1;
+            const customPrice = parseFloat(document.getElementById('man-price').value) || 0;
+            
+            let baseCost = 0;
+            if(type === 'BLOCK 6' || type === 'BLOCK 3') baseCost = 350;
+            else if(type === 'BLOCK 5') baseCost = 250;
+            
+            const totalCost = baseCost * qty;
+            const profit = customPrice - totalCost;
+            
+            const profitEl = document.getElementById('man-est-profit');
+            profitEl.innerText = `Rs ${profit}`;
+            profitEl.className = profit >= 0 ? "font-bold text-emerald-600" : "font-bold text-red-600";
+        }
+
+        window.submitManualOrder = function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('man-name').value;
+            const contact = document.getElementById('man-contact').value;
+            const address = document.getElementById('man-address').value;
+            const product = document.getElementById('man-product').value;
+            const qty = parseInt(document.getElementById('man-qty').value);
+            const price = parseFloat(document.getElementById('man-price').value);
+            
+            // Calculate Profit
+            let baseCost = 0;
+            if(product === 'BLOCK 6' || product === 'BLOCK 3') baseCost = 350;
+            else if(product === 'BLOCK 5') baseCost = 250;
+            const profit = price - (baseCost * qty);
+
+            // Construct Object
+            const newOrder = {
+                orderId: "MAN-" + Date.now().toString().slice(-6),
+                fullName: name,
+                contactInfo: contact,
+                shippingAddress: address,
+                product: `${product} x ${qty}`,
+                manualQty: qty,
+                manualRevenue: price,
+                manualProfit: profit,
+                isManual: true,
+                status: "pending",
+                isSeen: true,
+                date: new Date().toISOString()
+            };
+
+            appData.orders.unshift(newOrder); // Add to top
+            saveData();
+            updateUI();
+            
+            e.target.reset();
+            calculateSuggestedBase(); // Reset profit display
+            showToast("Manual Order Added!");
+            navTo('orders');
+        }
+
 
         // --- GLOBAL ACTIONS ---
         
@@ -698,7 +900,6 @@
 
         window.deleteOrder = function(id) {
             if(confirm("Permanently delete this order?")) {
-                // Direct Splice for reliable reactivity
                 const index = appData.orders.findIndex(o => String(o.orderId) === String(id));
                 if (index > -1) {
                     appData.orders.splice(index, 1);
@@ -748,4 +949,3 @@
     </script>
 </body>
 </html>
-
