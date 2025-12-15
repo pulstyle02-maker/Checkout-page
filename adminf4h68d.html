@@ -505,6 +505,10 @@
             <i class="fa-solid fa-box-open text-xl"></i>
             <span>Orders</span>
         </button>
+        <button onclick="navTo('expenses')" class="mobile-nav-btn flex-shrink-0 flex flex-col items-center gap-1 text-xs text-slate-400 w-16">
+            <i class="fa-solid fa-wallet text-xl"></i>
+            <span>Exp</span>
+        </button>
         <button onclick="navTo('entry')" class="mobile-nav-btn flex-shrink-0 flex flex-col items-center gap-1 text-xs text-slate-400 w-16">
             <i class="fa-solid fa-pen-to-square text-xl"></i>
             <span>Entry</span>
@@ -612,21 +616,72 @@
                 let record = json.record;
                 if (record.record) record = record.record; 
                 
-                appData.orders = Array.isArray(record.orders) ? record.orders : [];
-                appData.expenses = Array.isArray(record.expenses) ? record.expenses : [];
-                appData.cashOnHand = record.cashOnHand !== undefined ? record.cashOnHand : 0;
-                appData.reminders = Array.isArray(record.reminders) ? record.reminders : [];
+                let repairNeeded = false;
+
+                // 1. ORDERS: Always take the latest from Cloud (External script updates this)
+                if (Array.isArray(record.orders)) {
+                    appData.orders = record.orders;
+                }
+                
+                // 2. EXPENSES: "Self-Healing Logic"
+                // If Cloud has expenses, accept them & update Local Backup.
+                if (Array.isArray(record.expenses)) {
+                    appData.expenses = record.expenses;
+                    localStorage.setItem('mym_backup_expenses', JSON.stringify(record.expenses));
+                } else {
+                    // Cloud has NO expenses (External script deleted them).
+                    // RESTORE from Local Backup.
+                    const backupExp = localStorage.getItem('mym_backup_expenses');
+                    if (backupExp) {
+                        appData.expenses = JSON.parse(backupExp);
+                        repairNeeded = true;
+                    }
+                }
+                
+                // 3. CASH ON HAND: Same logic
+                if (typeof record.cashOnHand === 'number') {
+                    appData.cashOnHand = record.cashOnHand;
+                    localStorage.setItem('mym_backup_cash', record.cashOnHand);
+                } else {
+                    const backupCash = localStorage.getItem('mym_backup_cash');
+                    if(backupCash) {
+                        appData.cashOnHand = parseFloat(backupCash);
+                        repairNeeded = true;
+                    }
+                }
+                
+                // 4. REMINDERS: Same logic
+                if (Array.isArray(record.reminders)) {
+                    appData.reminders = record.reminders;
+                    localStorage.setItem('mym_backup_tasks', JSON.stringify(record.reminders));
+                } else {
+                    const backupTasks = localStorage.getItem('mym_backup_tasks');
+                    if (backupTasks) {
+                        appData.reminders = JSON.parse(backupTasks);
+                        repairNeeded = true;
+                    }
+                }
 
                 updateUI();
+
+                // 5. AUTO-REPAIR
+                // If we detected that Cloud was missing data but we restored it locally,
+                // Immediately save back to Cloud to fix the database for everyone.
+                if (repairNeeded) {
+                    console.log("Auto-Repairing Database...");
+                    showToast("Restored Data from Backup & Synced");
+                    saveData(true); // silent save
+                }
+
             } catch (err) {
                 alert("Error syncing data");
                 console.error(err);
             }
         }
 
-        window.saveData = async function() {
+        window.saveData = async function(silent = false) {
             try {
-                showToast("Saving changes...");
+                if(!silent) showToast("Saving changes...");
                 
                 // --- SANITIZE DATA ---
                 const cleanOrders = appData.orders.map(order => {
@@ -636,6 +691,11 @@
                     }
                     return rest;
                 });
+
+                // Update Local Backups before sending
+                localStorage.setItem('mym_backup_expenses', JSON.stringify(appData.expenses));
+                localStorage.setItem('mym_backup_tasks', JSON.stringify(appData.reminders));
+                localStorage.setItem('mym_backup_cash', appData.cashOnHand);
 
                 await fetch(API_URL, {
                     method: "PUT",
@@ -650,10 +710,10 @@
                         reminders: appData.reminders
                     })
                 });
-                showToast("Changes saved!");
+                if(!silent) showToast("Changes saved!");
             } catch (err) {
                 console.error(err);
-                alert("Failed to save. Data might be too large.");
+                if(!silent) alert("Failed to save. Data might be too large.");
             }
         }
 
@@ -852,10 +912,13 @@
                             <button onclick="window.addRemark('${order.orderId}')" class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-200 transition shadow-sm" title="Add Note">
                                 <i class="fa-regular fa-note-sticky"></i>
                             </button>
-                            <button onclick="window.toggleStatus('${order.orderId}')" class="text-slate-400 hover:text-blue-600 transition" title="Toggle Status">
-                                <i class="fa-solid fa-rotate"></i>
+                            
+                            <!-- UPDATED STATUS BUTTON: DISTINCTIVE STYLE AND SPACING -->
+                            <button onclick="window.toggleStatus('${order.orderId}')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white hover:border-blue-600 transition shadow-sm ml-2" title="Toggle Status">
+                                <i class="fa-solid fa-arrow-right-arrow-left text-[10px]"></i>
                             </button>
-                            <button onclick="window.deleteOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition shadow-sm" title="Delete Order">
+                            
+                            <button onclick="window.deleteOrder('${order.orderId}')" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition shadow-sm ml-2" title="Delete Order">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </div>
