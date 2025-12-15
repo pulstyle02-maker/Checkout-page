@@ -3,37 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nebula Anki | PDF to Flashcards</title>
+    <title>AnkiPro | Dark Mode</title>
     
-    <!-- Dependencies -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: { sans: ['Roboto', 'sans-serif'] },
                     colors: {
-                        bg: '#020617', // Slate 950
-                        surface: '#0f172a', // Slate 900
-                        primary: '#6366f1', // Indigo 500
-                        accent: '#8b5cf6', // Violet 500
-                    },
-                    animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'fade-in': 'fadeIn 0.5s ease-out',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
+                        dark: {
+                            900: '#111827', // Main BG
+                            800: '#1f2937', // Card/Panel BG
+                            700: '#374151', // Borders/Inputs
+                            600: '#4b5563', // Hover
                         },
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        brand: {
+                            500: '#3b82f6', // Blue
+                            600: '#2563eb',
                         }
                     }
                 }
@@ -43,440 +38,416 @@
 
     <style>
         body {
-            background-color: #020617;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
-            background-attachment: fixed;
-            color: #e2e8f0;
-            overflow: hidden; /* App feel */
+            background-color: #111827;
+            color: #f3f4f6;
         }
 
-        /* Glassmorphism Logic */
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        /* Clean Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+        /* Card Styles */
+        .flashcard {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s ease;
         }
 
+        /* Cloze (Hidden Word) Styles */
         .cloze-hidden {
-            background-color: #334155;
+            background-color: #374151;
             color: transparent;
-            border-radius: 4px;
-            padding: 0 6px;
+            border-bottom: 2px solid #3b82f6;
+            padding: 0 5px;
+            border-radius: 3px;
             cursor: pointer;
-            transition: all 0.3s ease;
             user-select: none;
             position: relative;
-            border-bottom: 2px solid #6366f1;
+            font-weight: 500;
+            transition: background 0.2s;
         }
 
-        .cloze-hidden::after {
-            content: "REVEAL";
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            color: #94a3b8;
-            font-size: 0.6rem;
-            font-weight: 700;
-            letter-spacing: 1px;
+        .cloze-hidden:hover {
+            background-color: #4b5563;
         }
 
         .cloze-revealed {
-            background-color: rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-            border-radius: 4px;
-            padding: 0 4px;
-            font-weight: 700;
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
             border-bottom: 2px solid transparent;
-            animation: highlight 0.5s ease;
+            padding: 0 2px;
+            font-weight: 700;
+            animation: fadeIn 0.3s ease;
         }
 
-        @keyframes highlight {
-            0% { transform: scale(0.95); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+        @keyframes fadeIn {
+            from { opacity: 0; } to { opacity: 1; }
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-        .loader {
-            border: 3px solid rgba(255,255,255,0.1);
-            border-radius: 50%;
-            border-top: 3px solid #6366f1;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+        .loader-bar {
+            background: repeating-linear-gradient(
+                45deg,
+                #2563eb,
+                #2563eb 10px,
+                #1d4ed8 10px,
+                #1d4ed8 20px
+            );
+            background-size: 200% 100%;
+            animation: moveStripe 1s linear infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @keyframes moveStripe {
+            0% { background-position: 100% 0; }
+            100% { background-position: 0 0; }
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col">
+<body class="h-screen flex flex-col overflow-hidden">
 
     <!-- Header -->
-    <header class="h-16 border-b border-white/5 flex items-center justify-between px-6 z-10 glass-panel">
+    <header class="h-14 bg-dark-800 border-b border-dark-700 flex items-center justify-between px-6 z-20">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <i class="fa-solid fa-brain text-white text-sm"></i>
-            </div>
-            <h1 class="font-bold text-lg tracking-tight text-white">Nebula<span class="text-indigo-400 font-light">Deck</span></h1>
+            <i class="fa-solid fa-layer-group text-brand-500 text-xl"></i>
+            <h1 class="font-bold text-lg text-gray-100">Anki<span class="font-light text-gray-400">Pro</span></h1>
         </div>
-        
-        <div class="flex items-center gap-4">
-            <div class="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
-                <i class="fa-solid fa-microchip"></i>
-                <span>Local Processing • No API</span>
-            </div>
+        <div class="text-xs text-gray-500 font-mono">
+            V 2.0 • Smart Context Extraction
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex overflow-hidden relative">
+    <div class="flex flex-1 overflow-hidden">
         
-        <!-- Sidebar Controls -->
-        <aside class="w-80 border-r border-white/5 bg-slate-900/50 backdrop-blur-md flex flex-col z-10">
-            <div class="p-6 space-y-6">
-                <!-- Upload Zone -->
-                <div class="relative group">
-                    <input type="file" id="pdf-upload" accept=".pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
-                    <div class="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center transition-all group-hover:border-indigo-500 group-hover:bg-indigo-500/5">
-                        <div class="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 text-indigo-400 group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-file-pdf text-xl"></i>
+        <!-- Sidebar -->
+        <aside class="w-72 bg-dark-900 border-r border-dark-700 flex flex-col z-10">
+            <div class="p-5 flex-1 overflow-y-auto">
+                
+                <!-- Upload Box -->
+                <div class="mb-8">
+                    <label class="block w-full h-32 border-2 border-dashed border-dark-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 hover:bg-dark-800 transition group relative overflow-hidden">
+                        <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
+                        
+                        <div id="upload-content" class="text-center">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-dark-600 mb-2 group-hover:text-brand-500 transition"></i>
+                            <p class="text-sm text-gray-400 font-medium">Select PDF</p>
                         </div>
-                        <h3 class="text-sm font-semibold text-white">Upload PDF</h3>
-                        <p class="text-xs text-slate-500 mt-1">Click or Drag & Drop</p>
-                    </div>
+                        
+                        <!-- Progress Overlay -->
+                        <div id="processing-ui" class="absolute inset-0 bg-dark-800 hidden flex-col items-center justify-center z-10">
+                            <p class="text-xs text-brand-500 mb-2 font-bold animate-pulse">ANALYZING...</p>
+                            <div class="w-3/4 h-1.5 bg-dark-700 rounded-full overflow-hidden">
+                                <div id="progress-bar" class="h-full w-0 bg-brand-500"></div>
+                            </div>
+                            <p id="page-counter" class="text-[10px] text-gray-500 mt-2">Page 0/0</p>
+                        </div>
+                    </label>
                 </div>
 
-                <!-- Settings -->
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Density</label>
-                        <span id="density-val" class="text-xs text-indigo-400 font-mono">Normal</span>
+                <!-- Controls -->
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="text-xs font-bold text-gray-500 uppercase">Difficulty</label>
+                            <span id="diff-label" class="text-xs text-brand-500">Normal</span>
+                        </div>
+                        <input type="range" id="difficulty" min="1" max="3" value="2" class="w-full h-1 bg-dark-700 rounded-lg appearance-none cursor-pointer accent-brand-500">
+                        <p class="text-[10px] text-gray-600 mt-1">Adjusts how many words are hidden.</p>
                     </div>
-                    <input type="range" id="card-density" min="1" max="3" value="2" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
-                    <p class="text-[10px] text-slate-500">1: Detailed (Many Cards) — 3: Summary (Few Cards)</p>
-                </div>
 
-                <!-- Stats -->
-                <div id="stats-panel" class="hidden space-y-3 p-4 bg-white/5 rounded-xl border border-white/5">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-slate-400">Total Cards</span>
-                        <span id="total-cards" class="text-white font-mono">0</span>
-                    </div>
-                    <div class="flex justify-between text-xs">
-                        <span class="text-slate-400">Completed</span>
-                        <span id="reviewed-count" class="text-emerald-400 font-mono">0</span>
-                    </div>
-                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
-                        <div id="progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-300"></div>
+                    <!-- Stats -->
+                    <div class="bg-dark-800 p-4 rounded-lg border border-dark-700">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase mb-3">Session Stats</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-gray-300">Total Cards</span>
+                            <span id="stat-total" class="font-mono font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-300">Reviewed</span>
+                            <span id="stat-done" class="text-brand-500 font-mono font-bold">0</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-auto p-4 border-t border-white/5 text-center">
-                <button onclick="resetApp()" class="text-xs text-slate-500 hover:text-white transition flex items-center justify-center gap-2 w-full py-2">
-                    <i class="fa-solid fa-trash"></i> Clear & Restart
+            <div class="p-4 border-t border-dark-700">
+                <button onclick="window.location.reload()" class="w-full py-2 text-xs font-bold text-gray-400 hover:text-white bg-dark-800 hover:bg-dark-700 rounded transition">
+                    RESET APP
                 </button>
             </div>
         </aside>
 
-        <!-- Card Area -->
-        <section class="flex-1 flex flex-col items-center justify-center p-6 md:p-12 relative">
+        <!-- Main Stage -->
+        <main class="flex-1 bg-dark-900 flex items-center justify-center p-8 relative">
             
             <!-- Empty State -->
-            <div id="empty-state" class="text-center animate-float">
-                <div class="w-24 h-24 bg-gradient-to-tr from-slate-800 to-slate-900 rounded-2xl mx-auto flex items-center justify-center shadow-2xl border border-white/5 mb-6">
-                    <i class="fa-solid fa-layer-group text-4xl text-slate-600"></i>
+            <div id="empty-state" class="text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-dark-800 border border-dark-700 mb-4">
+                    <i class="fa-solid fa-book-open text-3xl text-dark-600"></i>
                 </div>
-                <h2 class="text-2xl font-bold text-white mb-2">No Deck Loaded</h2>
-                <p class="text-slate-400 max-w-sm mx-auto">Upload a PDF lecture, textbook chapter, or notes to instantly generate active recall cards.</p>
+                <h2 class="text-xl font-bold text-gray-200">No Document Loaded</h2>
+                <p class="text-sm text-gray-500 mt-2 max-w-sm mx-auto">Upload a PDF to generate smart active recall cards. <br> <span class="text-xs text-brand-500">Text-based PDFs only (OCR not supported in browser)</span></p>
             </div>
 
-            <!-- Loading Overlay -->
-            <div id="loader-overlay" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-                <div class="loader mb-4"></div>
-                <p class="text-sm font-semibold text-indigo-400 animate-pulse">Analyzing Content...</p>
-                <p class="text-xs text-slate-500 mt-2">Extracting key concepts without API</p>
-            </div>
-
-            <!-- Flashcard Container -->
-            <div id="card-container" class="hidden w-full max-w-3xl aspect-[16/9] md:aspect-[2/1] relative perspective-1000">
+            <!-- Card UI -->
+            <div id="card-area" class="hidden w-full max-w-4xl flex flex-col items-center">
                 
-                <div class="w-full h-full glass-panel rounded-2xl p-8 md:p-16 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden transition-all duration-500" id="active-card">
+                <div class="flashcard w-full min-h-[300px] md:min-h-[400px] rounded-xl p-8 md:p-12 flex flex-col justify-center items-center text-center relative mb-8">
                     
-                    <!-- Card Header -->
-                    <div class="absolute top-6 left-6 flex items-center gap-2">
-                        <span class="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20" id="card-index">#1</span>
-                    </div>
+                    <span id="card-index" class="absolute top-4 left-6 text-xs font-mono text-dark-600 bg-dark-900 px-2 py-1 rounded">Card 1</span>
 
-                    <!-- Card Content -->
-                    <div class="prose prose-invert prose-lg max-w-none">
-                        <p id="card-text" class="text-xl md:text-2xl leading-relaxed font-light text-slate-200">
-                            <!-- Content Injected Here -->
-                        </p>
-                    </div>
-
-                    <!-- Hint/Context -->
-                    <p id="card-context" class="absolute bottom-6 text-xs text-slate-500 uppercase tracking-widest font-semibold opacity-50">
-                        Click highlighted areas to reveal
+                    <p id="card-content" class="text-xl md:text-3xl text-gray-200 leading-relaxed font-light">
+                        <!-- Content goes here -->
                     </p>
+
+                    <div class="mt-8 text-xs text-gray-500 uppercase tracking-widest font-semibold">
+                        <i class="fa-regular fa-hand-pointer mr-2"></i> Click blue lines to reveal
+                    </div>
                 </div>
 
-                <!-- Navigation Controls -->
-                <div class="absolute -bottom-20 left-0 right-0 flex justify-center items-center gap-6">
-                    <button onclick="prevCard()" class="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 border border-white/10 text-white transition flex items-center justify-center shadow-lg group">
-                        <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition"></i>
-                    </button>
-                    
-                    <button onclick="markKnown()" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/30 transition transform hover:scale-105 active:scale-95 flex items-center gap-2">
-                        <i class="fa-solid fa-check"></i> Next Card
+                <!-- Navigation -->
+                <div class="flex gap-4">
+                    <button onclick="prevCard()" class="w-12 h-12 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-gray-500 transition flex items-center justify-center">
+                        <i class="fa-solid fa-arrow-left"></i>
                     </button>
 
-                    <button onclick="nextCard()" class="w-12 h-12 rounded-full bg-slate-800 hover:bg-slate-700 border border-white/10 text-white transition flex items-center justify-center shadow-lg group">
-                        <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition"></i>
+                    <button onclick="markKnown()" class="h-12 px-8 bg-brand-600 hover:bg-brand-500 text-white rounded-full font-bold shadow-lg shadow-blue-900/20 transition flex items-center gap-2">
+                        Next Card <i class="fa-solid fa-check"></i>
+                    </button>
+
+                    <button onclick="nextCard()" class="w-12 h-12 rounded-full bg-dark-800 border border-dark-700 text-gray-400 hover:text-white hover:border-gray-500 transition flex items-center justify-center">
+                        <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </div>
-
             </div>
-        </section>
-    </main>
 
+        </main>
+    </div>
+
+    <!-- LOGIC -->
     <script>
-        // --- CONFIGURATION & STATE ---
+        // PDF.js Worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+        // Variables
         let deck = [];
-        let currentCardIndex = 0;
-        let knownCards = 0;
+        let currentIndex = 0;
+        
+        // --- SMART ALGORITHM CONFIG ---
+        const stopWords = new Set([
+            "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at", "this", "but", "his", "by", "from", "they", "we", "say", "her", "she", "or", "an", "will", "my", "one", "all", "would", "there", "their", "what", "so", "up", "out", "if", "about", "who", "get", "which", "go", "me", "when", "make", "can", "like", "time", "no", "just", "him", "know", "take", "people", "into", "year", "your", "good", "some", "could", "them", "see", "other", "than", "then", "now", "look", "only", "come", "its", "over", "think", "also", "back", "after", "use", "two", "how", "our", "work", "first", "well", "way", "even", "new", "want", "because", "any", "these", "give", "day", "most", "us", "are"
+        ]);
+
+        const importantSuffixes = ["tion", "sion", "ment", "ness", "ity", "ism", "logy", "ance", "ence", "ant", "ent", "ary", "ize", "ise", "ate"];
 
         // --- DOM ELEMENTS ---
-        const fileInput = document.getElementById('pdf-upload');
+        const uploadInput = document.getElementById('pdf-upload');
+        const processingUI = document.getElementById('processing-ui');
+        const progressBar = document.getElementById('progress-bar');
+        const pageCounter = document.getElementById('page-counter');
         const emptyState = document.getElementById('empty-state');
-        const cardContainer = document.getElementById('card-container');
-        const loader = document.getElementById('loader-overlay');
-        const cardText = document.getElementById('card-text');
-        const cardIndexDisplay = document.getElementById('card-index');
-        const statsPanel = document.getElementById('stats-panel');
-        const densityInput = document.getElementById('card-density');
-        const densityValDisplay = document.getElementById('density-val');
+        const cardArea = document.getElementById('card-area');
+        const cardContent = document.getElementById('card-content');
+        const diffSlider = document.getElementById('difficulty');
 
-        // --- EVENT LISTENERS ---
-        fileInput.addEventListener('change', handleFileUpload);
-        
-        densityInput.addEventListener('input', (e) => {
-            const vals = {1: "Detailed", 2: "Normal", 3: "Summary"};
-            densityValDisplay.innerText = vals[e.target.value];
+        // --- EVENTS ---
+        uploadInput.addEventListener('change', handleUpload);
+        diffSlider.addEventListener('input', (e) => {
+            const labels = ["Easy", "Normal", "Hard"];
+            document.getElementById('diff-label').innerText = labels[e.target.value - 1];
         });
 
-        // --- CORE LOGIC ---
+        // --- MAIN FUNCTIONS ---
 
-        async function handleFileUpload(e) {
+        async function handleUpload(e) {
             const file = e.target.files[0];
-            if (!file) return;
+            if(!file) return;
 
-            // UI Updates
-            loader.classList.remove('hidden');
-            emptyState.classList.add('hidden');
-
+            // UI Reset
+            document.getElementById('upload-content').classList.add('hidden');
+            processingUI.classList.remove('hidden');
+            processingUI.classList.add('flex');
+            
             try {
-                const arrayBuffer = await file.arrayBuffer();
-                const textContent = await extractText(arrayBuffer);
-                deck = generateDeck(textContent);
+                const buffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(buffer).promise;
                 
-                if (deck.length === 0) {
-                    alert("Could not extract enough text to generate cards. Is this an image-based PDF?");
-                    resetApp();
-                    return;
+                let fullText = "";
+                const totalPages = pdf.numPages;
+
+                // ASYNC BATCH PROCESSING (Fixes Large PDF Freeze)
+                for (let i = 1; i <= totalPages; i++) {
+                    try {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        
+                        // Check for images/scans
+                        if(textContent.items.length === 0) {
+                            console.warn(`Page ${i} appears to be an image/scan. Skipping.`);
+                            continue;
+                        }
+
+                        const pageStr = textContent.items.map(item => item.str).join(' ');
+                        fullText += pageStr + " ";
+
+                        // Update Progress Bar
+                        const pct = Math.round((i / totalPages) * 100);
+                        progressBar.style.width = `${pct}%`;
+                        pageCounter.innerText = `Processing Page ${i}/${totalPages}`;
+
+                        // Yield to main thread every 5 pages
+                        if (i % 5 === 0) await new Promise(r => setTimeout(r, 10));
+
+                    } catch (err) {
+                        console.error("Error on page " + i, err);
+                    }
                 }
 
-                initDeck();
+                if(fullText.length < 50) {
+                    throw new Error("No text found. Document might be scanned images.");
+                }
+
+                generateCards(fullText);
+                
             } catch (err) {
-                console.error(err);
-                alert("Error processing PDF: " + err.message);
-                resetApp();
-            } finally {
-                loader.classList.add('hidden');
+                alert("Error: " + err.message);
+                window.location.reload();
             }
         }
 
-        async function extractText(arrayBuffer) {
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            let fullText = "";
+        function generateCards(text) {
+            // Clean text: remove weird spacing, newlines inside sentences
+            const cleanText = text.replace(/\s+/g, ' ').replace(/-\s/g, ''); 
             
-            // Limit to first 30 pages to prevent browser crash on huge books
-            const maxPages = Math.min(pdf.numPages, 30); 
-
-            for (let i = 1; i <= maxPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(' ');
-                fullText += pageText + " ";
-            }
-            return fullText;
-        }
-
-        // --- THE "ALGORITHM" (No API) ---
-        function generateDeck(text) {
-            // 1. Clean Text
-            const cleanText = text.replace(/\s+/g, ' ').trim();
-            
-            // 2. Split into sentences (simple regex)
+            // Split by sentence terminators
             const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [];
             
-            const generatedCards = [];
-            const density = parseInt(densityInput.value); 
-            // Density logic: 1 = every valid sentence, 2 = every 2nd, 3 = every 3rd
-            const step = density; 
-
-            for (let i = 0; i < sentences.length; i += step) {
-                const sentence = sentences[i].trim();
-                
-                // Filtering garbage (headers, page numbers, short fragments)
-                if (sentence.length < 20 || sentence.length > 300) continue;
-
-                const clozeData = createCloze(sentence);
-                if (clozeData) {
-                    generatedCards.push(clozeData);
-                }
-            }
-
-            return generatedCards;
-        }
-
-        function createCloze(sentence) {
-            const words = sentence.split(' ');
+            deck = [];
+            const difficulty = parseInt(diffSlider.value);
             
-            // Heuristic scoring to find the "best" word to hide
-            let bestWordIndex = -1;
-            let maxScore = -1;
-
-            words.forEach((word, index) => {
-                const cleanWord = word.replace(/[^a-zA-Z0-9]/g, '');
-                if (cleanWord.length < 3) return; // Skip "is", "at", "to"
-
-                let score = 0;
-
-                // Priority 1: Numbers/Dates (1999, 45%)
-                if (/\d/.test(cleanWord)) score += 10;
+            // Process sentences
+            sentences.forEach(sentence => {
+                sentence = sentence.trim();
                 
-                // Priority 2: Capitalized words inside sentence (Proper Nouns)
-                if (index > 0 && /^[A-Z]/.test(cleanWord)) score += 8;
+                // Filter garbage sentences
+                if(sentence.length < 30 || sentence.length > 350) return; 
 
-                // Priority 3: Long words (Scientific terms, etc)
-                score += (cleanWord.length * 0.5);
-
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestWordIndex = index;
+                const cardHtml = createSmartCloze(sentence);
+                if(cardHtml) {
+                    deck.push(cardHtml);
                 }
             });
 
-            if (bestWordIndex === -1) return null;
-
-            // Construct the card HTML
-            const answer = words[bestWordIndex];
-            // Remove punctuation for the answer check/display
-            const cleanAnswer = answer.replace(/[.,!?;:]/g, ''); 
-            
-            words[bestWordIndex] = `<span class="cloze-hidden" onclick="this.className='cloze-revealed'; this.innerText='${answer}'">[...]</span>`;
-            
-            return {
-                html: words.join(' '),
-                original: sentence,
-                answer: cleanAnswer
-            };
+            if(deck.length > 0) {
+                initApp();
+            } else {
+                alert("Could not generate cards. The text structure might be too complex or empty.");
+                window.location.reload();
+            }
         }
 
-        // --- DECK MANAGEMENT ---
+        // --- THE "SMART" LOGIC ---
+        function createSmartCloze(sentence) {
+            const words = sentence.split(' ');
+            let bestIndex = -1;
+            let highestScore = -1;
 
-        function initDeck() {
-            currentCardIndex = 0;
-            knownCards = 0;
-            updateStats();
-            renderCard();
+            words.forEach((word, index) => {
+                // Remove punctuation for scoring
+                const clean = word.replace(/[^a-zA-Z0-9-]/g, '');
+                const lower = clean.toLowerCase();
+
+                // 1. Skip Stop Words & Short words
+                if(stopWords.has(lower) || clean.length < 3) return;
+
+                let score = 0;
+
+                // 2. Suffix Bonus (Scientific/Academic words)
+                if(importantSuffixes.some(s => lower.endsWith(s))) score += 5;
+
+                // 3. Capitalization Bonus (Proper Nouns, excluding start of sentence)
+                if(index > 0 && /^[A-Z]/.test(clean)) score += 4;
+
+                // 4. Numeric Data Bonus (Years, Percentages)
+                if(/\d/.test(clean)) score += 6;
+
+                // 5. Length Bonus (Longer words usually carry more meaning)
+                score += (clean.length * 0.2);
+
+                if(score > highestScore) {
+                    highestScore = score;
+                    bestIndex = index;
+                }
+            });
+
+            // Threshold: If the best word isn't "important" enough, skip the sentence
+            if(highestScore < 3) return null;
+
+            // Create HTML
+            const targetWord = words[bestIndex];
+            const cleanTarget = targetWord.replace(/[.,!?;:]/g, ''); // Content inside hidden box
             
-            cardContainer.classList.remove('hidden');
-            cardContainer.classList.add('animate-fade-in');
-            statsPanel.classList.remove('hidden');
+            // Replace the word with the span
+            words[bestIndex] = `<span class="cloze-hidden" onclick="this.className='cloze-revealed'; this.innerText='${targetWord}'">???</span>`;
+
+            return words.join(' ');
+        }
+
+        function initApp() {
+            processingUI.classList.add('hidden');
+            emptyState.classList.add('hidden');
+            cardArea.classList.remove('hidden');
+            cardArea.classList.add('flex');
+            
+            document.getElementById('stat-total').innerText = deck.length;
+            renderCard();
         }
 
         function renderCard() {
-            if (currentCardIndex >= deck.length) {
-                // Deck Finished
-                cardText.innerHTML = `<span class="text-emerald-400 font-bold">Session Complete!</span><br><span class="text-sm text-slate-400">You reviewed ${deck.length} cards.</span>`;
-                cardIndexDisplay.innerText = "DONE";
+            if(currentIndex >= deck.length) {
+                cardContent.innerHTML = `<div class="text-brand-500 font-bold">🎉 Session Complete!</div><div class="text-sm mt-2 text-gray-500">Refresh to upload another PDF.</div>`;
                 return;
             }
 
-            const card = deck[currentCardIndex];
+            // Reset Animation
+            const cardEl = document.querySelector('.flashcard');
+            cardEl.style.opacity = '0';
+            cardEl.style.transform = 'translateY(10px)';
             
-            // Animation reset
-            const activeCard = document.getElementById('active-card');
-            activeCard.classList.remove('animate-fade-in');
-            void activeCard.offsetWidth; // Trigger reflow
-            activeCard.classList.add('animate-fade-in');
-
-            cardText.innerHTML = card.html;
-            cardIndexDisplay.innerText = `${currentCardIndex + 1} / ${deck.length}`;
-            
-            // Update Context (Fake topic extraction based on previous sentence)
-            const context = document.getElementById('card-context');
-            context.innerHTML = "Click highlighted area to reveal answer";
+            setTimeout(() => {
+                document.getElementById('card-index').innerText = `Card ${currentIndex + 1} / ${deck.length}`;
+                cardContent.innerHTML = deck[currentIndex];
+                
+                cardEl.style.opacity = '1';
+                cardEl.style.transform = 'translateY(0)';
+            }, 200);
         }
 
         function nextCard() {
-            if (currentCardIndex < deck.length) {
-                currentCardIndex++;
-                renderCard();
-                updateStats();
-            }
+            if(currentIndex < deck.length) currentIndex++;
+            renderCard();
         }
 
         function prevCard() {
-            if (currentCardIndex > 0) {
-                currentCardIndex--;
-                renderCard();
-                updateStats();
-            }
+            if(currentIndex > 0) currentIndex--;
+            renderCard();
         }
 
         function markKnown() {
-            // Auto reveal if not revealed
-            const spans = cardText.querySelectorAll('.cloze-hidden');
-            spans.forEach(s => s.click());
+            // Auto reveal current before moving
+            const hiddens = document.querySelectorAll('.cloze-hidden');
+            hiddens.forEach(h => h.click());
 
             setTimeout(() => {
-                if(currentCardIndex < deck.length) {
-                    knownCards++;
-                    nextCard();
+                if(currentIndex < deck.length) {
+                    document.getElementById('stat-done').innerText = currentIndex + 1;
+                    currentIndex++;
+                    renderCard();
                 }
-            }, 600); // Slight delay to see the answer
+            }, 800);
         }
 
-        function updateStats() {
-            document.getElementById('total-cards').innerText = deck.length;
-            document.getElementById('reviewed-count').innerText = currentCardIndex;
-            
-            const progress = deck.length > 0 ? (currentCardIndex / deck.length) * 100 : 0;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
-        }
-
-        function resetApp() {
-            deck = [];
-            currentCardIndex = 0;
-            fileInput.value = '';
-            cardContainer.classList.add('hidden');
-            statsPanel.classList.add('hidden');
-            emptyState.classList.remove('hidden');
-        }
     </script>
 </body>
 </html>
