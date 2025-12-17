@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guyton: Tubular Reabsorption & Secretion</title>
+    <style>
+        :root {
+            --bg-body: #121212;
+            --bg-sidebar: #1a1a1a;
+            --bg-card: #242424;
+            --text-main: #e0e0e0;
+            --text-muted: #b0b0b0;
+            --accent: #81d4fa; /* Light Blue */
+            --accent-dim: #0277bd;
+            --border: #333;
+            --highlight: #fbc02d; /* Gold for text highlight */
+            --highlight-text: #000;
+            --note-bg: #3e2723; /* Dark Brown/Red for notes */
+            --success: #388e3c;
+            --error: #d32f2f;
+            --font-stack: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-stack);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR */
+        aside {
+            width: 320px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 25px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .header h1 { font-size: 1.1rem; color: var(--accent); letter-spacing: 1px; margin-bottom: 5px; text-transform: uppercase; }
+        .header p { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+
+        .nav-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+
+        .nav-item:hover { background: #333; color: #fff; }
+        .nav-item.active {
+            background: rgba(129, 212, 250, 0.1);
+            color: var(--accent);
+            border-color: rgba(129, 212, 250, 0.3);
+        }
+
+        .tools { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-muted); }
+        .reset-link { color: #ef5350; cursor: pointer; text-decoration: underline; border: none; background: none; margin-top: 10px; padding: 0; font-size: 0.8rem; }
+
+        /* MAIN CONTENT */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 60px;
+            scroll-behavior: smooth;
+        }
+
+        .view-section { display: none; max-width: 950px; margin: 0 auto; padding-bottom: 100px; }
+        .view-section.active { display: block; }
+
+        /* NOTES TYPOGRAPHY */
+        .content-body { line-height: 1.8; font-size: 1.05rem; }
+        
+        h1.chapter-title { font-size: 2.2rem; color: var(--accent); margin-bottom: 10px; font-weight: 300; }
+        .chapter-sub { color: var(--text-muted); font-size: 1.2rem; margin-bottom: 50px; }
+
+        h2 { font-size: 1.6rem; color: #fff; margin-top: 60px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        h3 { font-size: 1.3rem; color: var(--accent); margin-top: 40px; margin-bottom: 15px; }
+        h4 { font-size: 1.1rem; color: #bdbdbd; margin-top: 30px; margin-bottom: 10px; font-weight: 700; }
+
+        p { margin-bottom: 18px; text-align: justify; }
+        ul, ol { margin-bottom: 20px; padding-left: 25px; }
+        li { margin-bottom: 8px; }
+
+        .key-concept {
+            background: var(--bg-card);
+            border-left: 4px solid var(--accent);
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .math-block {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            color: #81d4fa;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        strong { color: #fff; font-weight: 700; }
+
+        /* ANNOTATIONS */
+        ::selection { background: #0277bd; color: white; }
+        
+        .highlighted {
+            background-color: var(--highlight);
+            color: var(--highlight-text);
+            border-radius: 3px;
+            padding: 2px 0;
+        }
+
+        .sticky-note {
+            background-color: var(--note-bg);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border: 1px solid #5d4037;
+            position: relative;
+        }
+
+        .sticky-note::before {
+            content: "USER NOTE";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: var(--bg-body);
+            color: #a1887f;
+            font-size: 0.75rem;
+            padding: 0 5px;
+            font-weight: bold;
+        }
+
+        .note-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            font-family: var(--font-stack);
+            font-size: 1rem;
+            resize: vertical;
+            outline: none;
+            min-height: 40px;
+        }
+
+        /* CONTEXT MENU */
+        #context-menu {
+            position: absolute;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+            min-width: 160px;
+        }
+
+        #context-menu button {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            background: none;
+            border: none;
+            color: var(--text-main);
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+        }
+        #context-menu button:last-child { border-bottom: none; }
+        #context-menu button:hover { background: var(--accent); color: #000; }
+
+        /* MCQS */
+        .mcq-header {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mcq-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .tag {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .tag.easy { background: #2e7d32; color: #fff; }
+        .tag.uhs { background: #0d47a1; color: #fff; }
+        .tag.usmle { background: #e65100; color: #fff; }
+        .tag.hard { background: #b71c1c; color: #fff; }
+
+        .question { font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; padding-right: 80px; }
+
+        .option {
+            padding: 12px 15px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .option:hover:not(.disabled) { border-color: var(--accent); background: #333; }
+        .option.correct { background: rgba(56, 142, 60, 0.2); border-color: var(--success); color: #a5d6a7; }
+        .option.wrong { background: rgba(198, 40, 40, 0.2); border-color: var(--error); color: #ef9a9a; opacity: 0.7; }
+        .disabled { pointer-events: none; }
+
+        /* RESPONSIVE */
+        @media(max-width: 800px) {
+            body { flex-direction: column; }
+            aside { width: 100%; height: auto; flex-direction: row; align-items: center; padding: 10px; overflow-x: auto; }
+            .header, .tools { display: none; }
+            .nav-item { margin: 0 5px; white-space: nowrap; padding: 10px; }
+            .scroll-container { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<aside>
+    <div class="header">
+        <h1>PHYSIO MASTER</h1>
+        <p>Guyton & Hall | Tubular Reabsorption</p>
+    </div>
+
+    <button class="nav-item active" onclick="switchView('notes', this)">
+        <span>📖</span> Lecture Notes
+    </button>
+    <button class="nav-item" onclick="switchView('mcqs', this)">
+        <span>📝</span> 70 Practice MCQs
+    </button>
+
+    <div class="tools">
+        <p><strong>Status:</strong> <span id="save-status">Synced</span></p>
+        <p>Select text to highlight/note.</p>
+        <button class="reset-link" onclick="resetData()">Reset All Data</button>
+    </div>
+</aside>
+
+<!-- Context Menu -->
+<div id="context-menu">
+    <button onclick="applyHighlight()">🖍 Highlight</button>
+    <button onclick="addNote()">📝 Add Note</button>
+</div>
+
+<main>
+    <div id="notes-view" class="scroll-container view-section active">
+        <div id="content-editable" class="content-body">
+            
+            <h1 class="chapter-title">CHAPTER 27: RENAL TUBULAR REABSORPTION AND SECRETION</h1>
+            <p class="chapter-sub"><em>(Note: In older Guyton editions, this corresponds to Chapter 28. This text covers the complete topic of Tubular Processing.)</em></p>
+            
+            <p><strong>Exhaustive, Line-by-Line Reconstruction for High-Stakes Exams.</strong></p>
+
+            <h2>I. INTRODUCTION TO TUBULAR PROCESSING</h2>
+            <p>The kidney handles different substances via three distinct processes: Filtration, Reabsorption, and Secretion.</p>
+            <div class="math-block"> Urinary Excretion = Glomerular Filtration - Tubular Reabsorption + Tubular Secretion </div>
+            
+            <p><strong>Quantitative Importance:</strong></p>
+            <ul>
+                <li><strong>Filtration is Huge:</strong> The GFR is 180 Liters/day. Since the plasma volume is only 3 Liters, the entire plasma volume is filtered 60 times per day.</li>
+                <li><strong>Reabsorption is Selective:</strong> Unlike filtration (which is non-selective for solutes < 69,000 Da), reabsorption is highly selective.
+                    <ul>
+                        <li><strong>Glucose & Amino Acids:</strong> Completely reabsorbed (Excretion = 0).</li>
+                        <li><strong>Ions (Na, Cl, HCO3):</strong> Highly reabsorbed (>99%). Excretion varies with intake.</li>
+                        <li><strong>Waste (Urea, Creatinine):</strong> Poorly reabsorbed. Large amounts excreted.</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div class="key-concept">
+                <p><strong>Comparison of GFR and Reabsorption (Values to Memorize):</strong></p>
+                <ul>
+                    <li><strong>Glucose:</strong> Filtered 180 g/day → Reabsorbed 180 g/day → Excreted 0.</li>
+                    <li><strong>Bicarbonate:</strong> Filtered 4320 mEq/day → Reabsorbed 4318 mEq/day → Excreted ~2.</li>
+                    <li><strong>Sodium:</strong> Filtered 25,560 mEq/day → Reabsorbed 25,410 → Excreted 150.</li>
+                    <li><strong>Creatinine:</strong> Filtered 1.8 g/day → Reabsorbed 0 → Excreted 1.8.</li>
+                </ul>
+            </div>
+
+            <h2>II. MECHANISMS OF TRANSPORT</h2>
+
+            <h3>1. Active vs. Passive Transport</h3>
+            <ul>
+                <li><strong>Passive Transport (Diffusion):</strong> Movement down an electrochemical gradient. No energy required. (e.g., Water via osmosis, Urea).</li>
+                <li><strong>Active Transport:</strong> Movement against a gradient. Requires energy (ATP).
+                    <ul>
+                        <li><strong>Primary Active:</strong> Direct ATP hydrolysis (e.g., Na+-K+ ATPase).</li>
+                        <li><strong>Secondary Active:</strong> Uses energy stored in an ion gradient created by primary transport (e.g., Sodium-Glucose Co-transport).</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>2. Sodium Transport (The Central Mechanism)</h3>
+            <p>Sodium reabsorption powers the reabsorption of most other substances.</p>
+            <ul>
+                <li><strong>Basolateral Membrane (Primary Active):</strong> The <strong>Na+-K+ ATPase pump</strong> hydrolyzes ATP to pump 3 Na+ OUT of the cell (into interstitium) and 2 K+ INTO the cell.
+                    <ul>
+                        <li>Result 1: Low Intracellular Na+ (12 mEq/L) vs Tubular Lumen (140 mEq/L).</li>
+                        <li>Result 2: Electronegative cell interior (-70 mV).</li>
+                    </ul>
+                </li>
+                <li><strong>Luminal Membrane (Passive Entry):</strong> Na+ moves from the lumen into the cell down its huge electrochemical gradient. It uses carrier proteins (e.g., SGLT, NHE) or channels (ENaC).</li>
+                <li><strong>Ultrafiltration into Capillaries:</strong> Na+ and water in the interstitium move into peritubular capillaries via <strong>Bulk Flow</strong> governed by Starling Forces.</li>
+            </ul>
+
+            <h3>3. Secondary Active Transport (Glucose & Amino Acids)</h3>
+            <p>These substances enter the cell <strong>against</strong> their gradient by coupling with Sodium moving <strong>down</strong> its gradient.</p>
+            <ul>
+                <li><strong>SGLT (Sodium-Glucose Linked Transporter):</strong> Located on the brush border (Luminal side).
+                    <ul>
+                        <li>SGLT2: Proximal Tubule S1 segment (90% of glucose).</li>
+                        <li>SGLT1: Proximal Tubule S3 segment (10% of glucose).</li>
+                    </ul>
+                </li>
+                <li><strong>GLUT (Glucose Transporter):</strong> Facilitated diffusion carriers on the <strong>Basolateral</strong> side. Glucose exits the cell into the blood passively. (GLUT2 in S1, GLUT1 in S3).</li>
+            </ul>
+
+            <h3>4. Secretion Mechanisms</h3>
+            <ul>
+                <li><strong>Counter-Transport:</strong> One substance moves down its gradient to drive another against its gradient in the opposite direction.</li>
+                <li><strong>NHE (Sodium-Hydrogen Exchanger):</strong> Na+ moves IN, H+ moves OUT (Secreted). This is secondary active secretion.</li>
+            </ul>
+
+            <h3>5. Pinocytosis</h3>
+            <p>Large proteins (Albumin) are reabsorbed by attaching to the brush border, invaginating, and forming vesicles. This requires ATP (Active).</p>
+
+            <h2>III. TRANSPORT MAXIMUM (Tm) AND THRESHOLD</h2>
+
+            <h3>1. Concept of Tm</h3>
+            <p>Active transport systems become saturated when the tubular load exceeds the capacity of carrier proteins.</p>
+            <ul>
+                <li><strong>Transport Maximum for Glucose ($T_mG$):</strong> <strong>375 mg/min</strong>.</li>
+                <li><strong>Filtered Load:</strong> $GFR \times Plasma Glucose$. Normal is $125 \times 1 = 125 mg/min$.</li>
+            </ul>
+
+            <h3>2. Renal Threshold</h3>
+            <p>The plasma concentration at which glucose first appears in the urine.</p>
+            <ul>
+                <li><strong>Actual Threshold:</strong> <strong>200 mg/dl</strong> (Venous plasma).</li>
+                <li><strong>Theoretical Threshold:</strong> 300 mg/dl (Calculated from Tm).</li>
+                <li><strong>Splay:</strong> The difference between actual and theoretical threshold.
+                    <ul><li>Reason: Not all nephrons have the same Tm. Some saturate earlier than others.</li></ul>
+                </li>
+            </ul>
+
+            <h2>IV. REABSORPTION ALONG THE NEPHRON</h2>
+
+            <h3>1. Proximal Convoluted Tubule (PCT) - "The Workhorse"</h3>
+            <ul>
+                <li><strong>Capacity:</strong> Reabsorbs <strong>65%</strong> of Filtered Na+, H2O, Cl-, and K+. Reabsorbs <strong>100%</strong> of Glucose and Amino Acids.</li>
+                <li><strong>Histology:</strong> Extensive brush border (high surface area), lots of mitochondria (high active transport).</li>
+                <li><strong>Mechanism:</strong>
+                    <ul>
+                        <li><strong>First Half:</strong> Na+ is reabsorbed with Glucose/Amino acids (Co-transport).</li>
+                        <li><strong>Second Half:</strong> Na+ is reabsorbed with Chloride. (Chloride concentration rises in the lumen as water is reabsorbed, driving diffusion).</li>
+                    </ul>
+                </li>
+                <li><strong>Secretion:</strong> Organic Acids/Bases (Bile salts, Oxalate, Urate, Catecholamines). Also drugs (Penicillin, PAH).</li>
+                <li><strong>Isosmotic Reabsorption:</strong> The PCT is highly permeable to water (Aquaporin-1). Water follows solutes instantly. Tubular fluid osmolarity remains <strong>300 mOsm/L</strong>.</li>
+            </ul>
+
+            <h3>2. Loop of Henle</h3>
+            <p>Consists of three segments with distinct functions.</p>
+            <ul>
+                <li><strong>Thin Descending Limb:</strong>
+                    <ul>
+                        <li>Highly permeable to <strong>Water</strong> (Aquaporin-1).</li>
+                        <li>Impermeable to Solutes.</li>
+                        <li>Function: Water leaves, urine becomes <strong>Hypertonic</strong>.</li>
+                    </ul>
+                </li>
+                <li><strong>Thin Ascending Limb:</strong>
+                    <ul>
+                        <li>Impermeable to Water.</li>
+                        <li>Permeable to NaCl (Passive diffusion).</li>
+                    </ul>
+                </li>
+                <li><strong>Thick Ascending Limb (TAL):</strong>
+                    <ul>
+                        <li><strong>Impermeable to Water</strong>.</li>
+                        <li><strong>Active Transport:</strong> Strong Na+ reabsorption.</li>
+                        <li><strong>Transporter:</strong> <strong>NKCC2 (Na-K-2Cl Co-transporter)</strong>.
+                            <ul><li><em>Target of Loop Diuretics (Furosemide).</em></li></ul>
+                        </li>
+                        <li><strong>Positive Lumen Potential (+8 mV):</strong> Potassium leaks back into the lumen via ROMK channels. This positive charge drives the passive paracellular reabsorption of Cations (Mg++, Ca++, Na+).</li>
+                        <li><strong>Diluting Segment:</strong> Since solutes leave but water stays, tubular fluid becomes <strong>Hypotonic</strong> (~100 mOsm/L).</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>3. Distal Tubule</h3>
+            <ul>
+                <li><strong>Early Distal Tubule:</strong>
+                    <ul>
+                        <li>Properties similar to Thick Ascending Limb (Impermeable to water, "Diluting segment").</li>
+                        <li><strong>Transporter:</strong> <strong>NCC (Na-Cl Co-transporter)</strong>.</li>
+                        <li><em>Target of Thiazide Diuretics.</em></li>
+                        <li>Contains the <strong>Macula Densa</strong>.</li>
+                    </ul>
+                </li>
+                <li><strong>Late Distal Tubule & Cortical Collecting Duct:</strong>
+                    <ul>
+                        <li>Contains two cell types:</li>
+                        <li><strong>1. Principal Cells (Majority):</strong>
+                            <ul>
+                                <li>Reabsorb Na+ (via ENaC channels) and Secrete K+.</li>
+                                <li><strong>Hormonal Control:</strong> <strong>Aldosterone</strong> stimulates the Na-K pump and ENaC channels.</li>
+                                <li>Target of K-Sparing Diuretics (Spironolactone antagonists Aldosterone; Amiloride blocks ENaC).</li>
+                                <li>Water permeability is controlled by <strong>ADH (Vasopressin)</strong>.</li>
+                            </ul>
+                        </li>
+                        <li><strong>2. Intercalated Cells (Type A and B):</strong>
+                            <ul>
+                                <li><strong>Type A:</strong> Secrete H+ (active H+-ATPase) to correct acidosis. Reabsorb K+.</li>
+                                <li><strong>Type B:</strong> Secrete HCO3- to correct alkalosis.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>4. Medullary Collecting Duct</h3>
+            <ul>
+                <li>Final processing of urine.</li>
+                <li><strong>Water:</strong> Permeability controlled by ADH.</li>
+                <li><strong>Urea:</strong> Permeable (UT-A1 transporters). Urea diffuses into the medulla to help concentrate urine.</li>
+                <li><strong>Acid:</strong> Can secrete H+ against a huge gradient (900-fold).</li>
+            </ul>
+
+            <h2>V. REGULATION OF TUBULAR REABSORPTION</h2>
+
+            <h3>1. Glomerulotubular Balance</h3>
+            <ul>
+                <li><strong>Definition:</strong> The intrinsic ability of the tubules to increase their reabsorption rate in response to increased tubular load.</li>
+                <li><strong>Effect:</strong> If GFR increases from 125 to 150 ml/min, the PCT reabsorption increases automatically (from 81 to 97.5 ml/min) to maintain the constant fraction (65%).</li>
+                <li><strong>Mechanism:</strong> Prevents overloading of distal segments.</li>
+            </ul>
+
+            <h3>2. Peritubular Physical Forces (Starling Forces)</h3>
+            <ul>
+                <li>Reabsorption = $K_f \times Net Reabsorptive Force$.</li>
+                <li>Forces Favoring Reabsorption:
+                    <ul>
+                        <li><strong>Peritubular Capillary Oncotic Pressure ($\pi_c$):</strong> High (32 mmHg) because filtration concentrated the proteins.</li>
+                        <li><strong>Interstitial Hydrostatic Pressure ($P_{if}$):</strong> Low (6 mmHg).</li>
+                    </ul>
+                </li>
+                <li>Forces Opposing Reabsorption:
+                    <ul>
+                        <li><strong>Peritubular Capillary Hydrostatic Pressure ($P_c$):</strong> Low (13 mmHg).</li>
+                        <li><strong>Interstitial Oncotic Pressure ($\pi_{if}$):</strong> Low.</li>
+                    </ul>
+                </li>
+                <li><strong>Pressure Natriuresis:</strong> If Arterial Pressure rises → $P_c$ rises → Reabsorption decreases → Urine output increases.</li>
+            </ul>
+
+            <h3>3. Hormonal Regulation (High Yield)</h3>
+            <ul>
+                <li><strong>Aldosterone:</strong>
+                    <ul>
+                        <li><em>Site:</em> Late Distal & Cortical Collecting Tubule.</li>
+                        <li><em>Action:</em> Increases Na+ reabsorption, Increases K+ secretion.</li>
+                        <li><em>Stimulus:</em> Angiotensin II, High K+.</li>
+                        <li><em>Pathology:</em> Addison’s (loss of Na), Conn’s (retention of Na).</li>
+                    </ul>
+                </li>
+                <li><strong>Angiotensin II:</strong> The most powerful Na-retaining hormone.
+                    <ul>
+                        <li><em>Action 1:</em> Stimulates Aldosterone.</li>
+                        <li><em>Action 2:</em> Constricts Efferent arteriole → Reduces $P_c$ and increases $\pi_c$ → Increases physical reabsorption.</li>
+                        <li><em>Action 3:</em> Directly stimulates Na-H exchange in PCT.</li>
+                    </ul>
+                </li>
+                <li><strong>ADH (Vasopressin):</strong>
+                    <ul>
+                        <li><em>Site:</em> Distal Tubule & Collecting Ducts.</li>
+                        <li><em>Action:</em> Inserts Aquaporin-2 channels. Increases Water reabsorption.</li>
+                    </ul>
+                </li>
+                <li><strong>ANP (Atrial Natriuretic Peptide):</strong>
+                    <ul>
+                        <li><em>Source:</em> Cardiac atria (stretch).</li>
+                        <li><em>Action:</em> Inhibits Na/Water reabsorption. Decreases Renin/Aldosterone.</li>
+                    </ul>
+                </li>
+                <li><strong>PTH (Parathyroid Hormone):</strong>
+                    <ul>
+                        <li><em>Action:</em> Increases Calcium reabsorption (Distal tubule). Inhibits Phosphate reabsorption (PCT).</li>
+                    </ul>
+                </li>
+                <li><strong>Sympathetic Nervous System:</strong> Increases Na+ reabsorption directly and via Renin release.</li>
+            </ul>
+
+            <h2>VI. RENAL CLEARANCE</h2>
+            <p>The volume of plasma that is completely cleared of a substance by the kidneys per unit time.</p>
+            <div class="math-block"> C = (U × V) / P </div>
+            <ul>
+                <li><strong>Inulin Clearance:</strong> Used to measure <strong>GFR</strong>. Inulin is freely filtered, not reabsorbed, not secreted. Clearance = 125 ml/min.</li>
+                <li><strong>Creatinine Clearance:</strong> Clinical estimate of GFR. Small amount is secreted, so it slightly overestimates GFR, but measurement methods balance this error.</li>
+                <li><strong>PAH (Para-aminohippurate) Clearance:</strong> Used to measure <strong>Renal Plasma Flow (RPF)</strong>. PAH is filtered and completely secreted. Clearance = 650 ml/min.</li>
+                <li><strong>Calculation of Reabsorption/Secretion:</strong>
+                    <ul>
+                        <li>If Clearance < GFR: Substance is Reabsorbed (e.g., Urea, Glucose).</li>
+                        <li>If Clearance > GFR: Substance is Secreted (e.g., Creatinine, PAH).</li>
+                        <li>If Clearance = 0: Substance is fully reabsorbed (Glucose) or not filtered.</li>
+                    </ul>
+                </li>
+            </ul>
+
+        </div>
+    </div>
+
+    <!-- MCQS VIEW -->
+    <div id="mcqs-view" class="view-section">
+        <div class="mcq-header">
+            <div>
+                <h2>Practice Quiz</h2>
+                <p>70 Questions | Categorized</p>
+            </div>
+            <div>
+                <strong>Score: <span id="score" style="color: var(--accent);">0</span> / 70</strong>
+            </div>
+        </div>
+        <div id="mcq-container"></div>
+    </div>
+
+</main>
+
+<script>
+    // --- STORAGE & STATE ---
+    const KEY_CONTENT = 'Guyton_Reabsorption_Content';
+    
+    window.onload = () => {
+        const saved = localStorage.getItem(KEY_CONTENT);
+        if (saved) {
+            document.getElementById('content-editable').innerHTML = saved;
+            // Rebind listeners
+            document.querySelectorAll('.note-input').forEach(el => el.addEventListener('input', saveState));
+        }
+        renderMCQs();
+    };
+
+    function saveState() {
+        const html = document.getElementById('content-editable').innerHTML;
+        localStorage.setItem(KEY_CONTENT, html);
+        const status = document.getElementById('save-status');
+        status.textContent = 'Saving...';
+        setTimeout(() => status.textContent = 'Synced', 800);
+    }
+
+    function resetData() {
+        if(confirm("Clear all notes and highlights for this chapter?")) {
+            localStorage.removeItem(KEY_CONTENT);
+            location.reload();
+        }
+    }
+
+    // --- NAVIGATION ---
+    function switchView(viewId, btn) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId + '-view').classList.add('active');
+        btn.classList.add('active');
+    }
+
+    // --- ANNOTATION TOOLS ---
+    const contextMenu = document.getElementById('context-menu');
+    const contentArea = document.getElementById('content-editable');
+
+    contentArea.addEventListener('mouseup', (e) => {
+        const sel = window.getSelection();
+        if(sel.toString().length > 0) {
+            const rect = sel.getRangeAt(0).getBoundingClientRect();
+            contextMenu.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            contextMenu.style.left = `${rect.left + window.scrollX}px`;
+            contextMenu.style.display = 'block';
+        } else {
+            if(!contextMenu.contains(e.target)) contextMenu.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        if(!contextMenu.contains(e.target) && !contentArea.contains(e.target)) {
+            contextMenu.style.display = 'none';
+        }
+    });
+
+    function applyHighlight() {
+        const sel = window.getSelection();
+        if(!sel.rangeCount) return;
+        
+        const range = sel.getRangeAt(0);
+        const span = document.createElement('span');
+        span.className = 'highlighted';
+        try {
+            range.surroundContents(span);
+        } catch(e) {
+            alert("Please select a clean block of text (avoid overlapping existing highlights).");
+        }
+        
+        sel.removeAllRanges();
+        contextMenu.style.display = 'none';
+        saveState();
+    }
+
+    function addNote() {
+        const sel = window.getSelection();
+        if(!sel.rangeCount) return;
+
+        const range = sel.getRangeAt(0);
+        range.collapse(false);
+
+        const note = document.createElement('div');
+        note.className = 'sticky-note';
+        const input = document.createElement('textarea');
+        input.className = 'note-input';
+        input.placeholder = 'Type note here...';
+        input.addEventListener('input', saveState);
+        
+        note.appendChild(input);
+        range.insertNode(note);
+        
+        sel.removeAllRanges();
+        contextMenu.style.display = 'none';
+        saveState();
+    }
+
+    // --- MCQ ENGINE (70 Items) ---
+    const mcqDB = [
+        // EASY (1-15)
+        { q: "What percentage of filtered Sodium is reabsorbed in the PCT?", o: ["25%", "65%", "90%", "99%"], a: 1, t: "easy" },
+        { q: "Which substance has a Transport Maximum (Tm)?", o: ["Sodium", "Glucose", "Water", "Chloride"], a: 1, t: "easy" },
+        { q: "The descending limb of Loop of Henle is permeable to:", o: ["Solutes only", "Water only", "Both", "Neither"], a: 1, t: "easy" },
+        { q: "The renal threshold for glucose in venous plasma is approx:", o: ["100 mg/dl", "180-200 mg/dl", "375 mg/dl", "500 mg/dl"], a: 1, t: "easy" },
+        { q: "Which hormone is the primary regulator of potassium secretion?", o: ["ADH", "Aldosterone", "Cortisol", "PTH"], a: 1, t: "easy" },
+        { q: "Inulin clearance is a measure of:", o: ["RPF", "GFR", "Free water clearance", "Tubular Secretion"], a: 1, t: "easy" },
+        { q: "Water reabsorption in the collecting duct is controlled by:", o: ["Aldosterone", "ADH", "Renin", "ANP"], a: 1, t: "easy" },
+        { q: "Glucose is reabsorbed in the PCT via:", o: ["Primary Active Transport", "Secondary Active Co-transport", "Passive Diffusion", "Pinocytosis"], a: 1, t: "easy" },
+        { q: "Which part of the nephron is called the 'Diluting Segment'?", o: ["PCT", "Thin Descending", "Thick Ascending", "Collecting Duct"], a: 2, t: "easy" },
+        { q: "Sodium-Potassium ATPase pump is located on the:", o: ["Luminal membrane", "Basolateral membrane", "Tight junctions", "Mitochondria"], a: 1, t: "easy" },
+        { q: "Normal GFR is:", o: ["125 ml/min", "650 ml/min", "1 ml/min", "50 ml/min"], a: 0, t: "easy" },
+        { q: "Protein reabsorption occurs via:", o: ["Diffusion", "Facilitated Diffusion", "Pinocytosis", "Solvent Drag"], a: 2, t: "easy" },
+        { q: "The thick ascending limb is impermeable to:", o: ["Sodium", "Chloride", "Water", "Magnesium"], a: 2, t: "easy" },
+        { q: "Aldosterone acts primarily on:", o: ["PCT", "Loop of Henle", "Principal Cells", "Intercalated Cells"], a: 2, t: "easy" },
+        { q: "PAH clearance measures:", o: ["GFR", "RPF", "Filtration Fraction", "Tm"], a: 1, t: "easy" },
+
+        // UHS STYLE (16-35) - Fact Based
+        { q: "The tubular fluid osmolarity at the end of the PCT is:", o: ["100 mOsm/L", "300 mOsm/L", "600 mOsm/L", "1200 mOsm/L"], a: 1, t: "uhs" },
+        { q: "Transport Maximum (Tm) for Glucose is:", o: ["125 mg/min", "200 mg/min", "300 mg/min", "375 mg/min"], a: 3, t: "uhs" },
+        { q: "Which transporter is found in the apical membrane of the Thick Ascending Limb?", o: ["SGLT2", "NKCC2", "NCC", "ENaC"], a: 1, t: "uhs" },
+        { q: "The positive luminal potential (+8 mV) in the thick ascending limb drives paracellular reabsorption of:", o: ["Glucose", "Mg++ and Ca++", "Water", "Urea"], a: 1, t: "uhs" },
+        { q: "Which cells secrete Hydrogen ions via H+-ATPase?", o: ["Principal Cells", "Type A Intercalated Cells", "Type B Intercalated Cells", "Macula Densa"], a: 1, t: "uhs" },
+        { q: "What percentage of filtered water is reabsorbed in the Loop of Henle?", o: ["5%", "15%", "25%", "65%"], a: 1, t: "uhs" },
+        { q: "Angiotensin II increases filtration fraction, which increases reabsorption by:", o: ["Increasing Pc", "Decreasing Pc and Increasing Pi_c", "Decreasing GFR", "Inhibiting Aldosterone"], a: 1, t: "uhs" },
+        { q: "Which diuretic acts on the Na-Cl co-transporter (NCC) in the early distal tubule?", o: ["Furosemide", "Thiazides", "Spironolactone", "Acetazolamide"], a: 1, t: "uhs" },
+        { q: "Urea contributes to hyperosmolarity in the medulla. It is reabsorbed in the:", o: ["PCT", "Thick Ascending", "Distal Tubule", "Inner Medullary Collecting Duct"], a: 3, t: "uhs" },
+        { q: "Normal Filtration Fraction is:", o: ["10%", "20%", "50%", "80%"], a: 1, t: "uhs" },
+        { q: "Which substance has the highest renal clearance?", o: ["Glucose", "Urea", "Inulin", "PAH"], a: 3, t: "uhs" },
+        { q: "Glomerulotubular balance refers to the ability of the tubule to:", o: ["Maintain constant GFR", "Reabsorb a constant fraction of filtered load", "Secrete K+", "Concentrate urine"], a: 1, t: "uhs" },
+        { q: "SGLT2 inhibitors result in:", o: ["Hyperkalemia", "Glucosuria", "Hypernatremia", "Alkalosis"], a: 1, t: "uhs" },
+        { q: "PTH inhibits phosphate reabsorption in the:", o: ["PCT", "Loop of Henle", "DCT", "Collecting Duct"], a: 0, t: "uhs" },
+        { q: "The intracellular potential of a renal tubular cell is approx:", o: ["-70 mV", "-3 mV", "+8 mV", "0 mV"], a: 0, t: "uhs" },
+        { q: "Acetazolamide acts by inhibiting:", o: ["Na-K ATPase", "Carbonic Anhydrase", "NKCC2", "Aldosterone"], a: 1, t: "uhs" },
+        { q: "Principal cells reabsorb Na+ via:", o: ["NHE", "ENaC", "SGLT", "NKCC"], a: 1, t: "uhs" },
+        { q: "Which part of the tubule is most permeable to Urea?", o: ["PCT", "Thick Ascending", "Distal", "Inner Medullary Duct"], a: 3, t: "uhs" },
+        { q: "Amino acids are reabsorbed in the:", o: ["PCT", "Loop", "DCT", "CD"], a: 0, t: "uhs" },
+        { q: "Creatinine clearance overestimates GFR because:", o: ["It is reabsorbed", "It is secreted", "It is bound to protein", "It is metabolized"], a: 1, t: "uhs" },
+
+        // USMLE STYLE (36-55) - Clinical/Mechanism
+        { q: "A patient on a Loop Diuretic (Furosemide) will have increased urinary excretion of:", o: ["Na only", "Na and Water only", "Na, K, Ca, Mg, and Water", "Glucose"], a: 2, t: "usmle" },
+        { q: "In a patient with severe hemorrhage, Angiotensin II maintains GFR but increases Reabsorption by:", o: ["Increasing hydrostatic pressure in peritubular caps", "Increasing oncotic pressure in peritubular caps", "Dilating efferent arteriole", "Inhibiting Na-H exchange"], a: 1, t: "usmle" },
+        { q: "Liddle's Syndrome mimics Hyperaldosteronism (HTN, Hypokalemia) but Aldosterone is low. The defect is:", o: ["Overactive NKCC2", "Overactive ENaC", "Defective 11-beta-HSD", "Renin tumor"], a: 1, t: "usmle" },
+        { q: "A patient has glucosuria but normal blood glucose. The defect is likely in:", o: ["Insulin secretion", "SGLT2 transporter", "Glomerular basement membrane", "Distal tubule"], a: 1, t: "usmle" },
+        { q: "Type 2 Renal Tubular Acidosis (Proximal) involves a defect in:", o: ["H+ secretion", "HCO3- reabsorption", "Aldosterone receptors", "Ammonia production"], a: 1, t: "usmle" },
+        { q: "Which drug prevents remodeling of the heart and also decreases K+ excretion?", o: ["Furosemide", "Hydrochlorothiazide", "Spironolactone", "Mannitol"], a: 2, t: "usmle" },
+        { q: "Bartter's Syndrome mimics the effect of which diuretic?", o: ["Acetazolamide", "Loop Diuretic", "Thiazide", "K-sparing"], a: 1, t: "usmle" },
+        { q: "Gitelman's Syndrome involves a defect in the:", o: ["SGLT2", "NKCC2", "NCC (Na-Cl)", "ENaC"], a: 2, t: "usmle" },
+        { q: "Constriction of the afferent arteriole will:", o: ["Increase GFR and decrease Pc", "Decrease GFR and decrease Pc", "Increase GFR and increase Pc", "Decrease GFR and increase Pc"], a: 1, t: "usmle" },
+        { q: "Why does Thiazide use lead to Hypercalcemia?", o: ["It blocks Ca reabsorption", "It increases paracellular Ca transport", "It enhances distal Ca reabsorption", "It mimics PTH"], a: 2, t: "usmle" },
+        { q: "The 'Splay' in the glucose titration curve is due to:", o: ["Enzyme saturation", "Nephron heterogeneity", "Feedback inhibition", "Competitive inhibition"], a: 1, t: "usmle" },
+        { q: "ANP causes natriuresis by:", o: ["Inhibiting Na-K ATPase", "Dilating afferent, constricting efferent, inhibiting Na reabsorption", "Stimulating Aldosterone", "Inserting Aquaporins"], a: 1, t: "usmle" },
+        { q: "Which segment is responsible for the 'Single Effect' of the countercurrent multiplier?", o: ["Descending Limb", "Thick Ascending Limb", "Vasa Recta", "Collecting Duct"], a: 1, t: "usmle" },
+        { q: "In syndrome of inappropriate ADH (SIADH), urine osmolarity is:", o: ["Very Low", "High relative to plasma", "Zero", "Equal to plasma"], a: 1, t: "usmle" },
+        { q: "A patient with uncontrolled diabetes has polyuria due to:", o: ["Water diuresis", "Osmotic diuresis", "Pressure diuresis", "Lack of ADH"], a: 1, t: "usmle" },
+        { q: "Use of NSAIDs can cause acute renal failure and hyperkalemia by:", o: ["Blocking ENaC", "Reducing Renin and Aldosterone (via low prostaglandins)", "Direct toxicity", "Increasing GFR"], a: 1, t: "usmle" },
+        { q: "Sympathetic stimulation increases Na reabsorption by:", o: ["Constricting afferent arteriole (lower Pc)", "Direct alpha-adrenergic stimulation of tubules", "Stimulating Renin", "All of the above"], a: 3, t: "usmle" },
+        { q: "Which substance's clearance is flow-dependent?", o: ["Creatinine", "Urea", "Glucose", "Inulin"], a: 1, t: "usmle" },
+        { q: "Calculating Free Water Clearance helps distinguish:", o: ["Water diuresis from Osmotic diuresis", "GFR from RPF", "Proximal from Distal function", "Acidosis from Alkalosis"], a: 0, t: "usmle" },
+        { q: "If Clearance Ratio (Cx/Cinulin) is < 1, the substance is:", o: ["Net secreted", "Net reabsorbed", "Not filtered", "Synthesized"], a: 1, t: "usmle" },
+
+        // HARD (56-70)
+        { q: "Normally, the concentration of TF/P for Inulin at the end of PCT is:", o: ["1.0", "2.0", "3.0", "100"], a: 2, t: "hard" }, /* 65% water reabsorbed = 1/0.35 = ~3 */
+        { q: "Which ion has a TF/P ratio < 1.0 in the PCT?", o: ["Sodium", "Chloride", "Bicarbonate", "Creatinine"], a: 2, t: "hard" }, /* Reabsorbed preferentially to water */
+        { q: "The tightness of 'Tight Junctions' increases from:", o: ["Collecting Duct to PCT", "PCT to Collecting Duct", "Loop to PCT", "No change"], a: 1, t: "hard" },
+        { q: "Peritubular capillary reabsorption rate is normally:", o: ["1 ml/min", "10 ml/min", "124 ml/min", "650 ml/min"], a: 2, t: "hard" }, /* GFR - Urine flow = 125 - 1 */
+        { q: "Interstitial Hydrostatic Pressure in the renal cortex is approx:", o: ["-5 mmHg", "6 mmHg", "13 mmHg", "20 mmHg"], a: 1, t: "hard" },
+        { q: "The electrical potential in the lumen of the PCT is:", o: ["-70 mV", "-3 mV", "+8 mV", "0 mV"], a: 1, t: "hard" },
+        { q: "Dopamine at low doses causes:", o: ["Renal Vasoconstriction", "Renal Vasodilation", "Aldosterone release", "ADH release"], a: 1, t: "hard" },
+        { q: "Which segment has the highest Na-K ATPase activity?", o: ["PCT", "Thin Descending", "Thick Ascending", "Collecting Duct"], a: 2, t: "hard" }, /* Or DCT. But TAL is extremely high. */
+        { q: "Type B Intercalated cells secrete:", o: ["H+", "K+", "HCO3-", "Na+"], a: 2, t: "hard" },
+        { q: "The primary site of Magnesium reabsorption is:", o: ["PCT", "Thick Ascending Limb", "DCT", "CD"], a: 1, t: "hard" },
+        { q: "Which factor decreases peritubular capillary reabsorption?", o: ["High Filtration Fraction", "High Plasma Protein", "High Arterial Pressure", "Efferent Constriction"], a: 2, t: "hard" }, /* Pressure natriuresis mechanism */
+        { q: "Solvent drag is a significant mechanism in the:", o: ["PCT", "DCT", "Collecting Duct", "Ascending Limb"], a: 0, t: "hard" },
+        { q: "Urodilatin is a peptide similar to ANP secreted by:", o: ["Atria", "Distal Tubule cells", "Macula Densa", "Liver"], a: 1, t: "hard" },
+        { q: "Which substance is reabsorbed via Pinocytosis?", o: ["Glucose", "Urea", "Protein/Peptides", "Fatty acids"], a: 2, t: "hard" },
+        { q: "The limiting pH of urine is approximately:", o: ["3.0", "4.5", "6.0", "7.0"], a: 1, t: "hard" }
+    ];
+
+    function renderMCQs() {
+        const container = document.getElementById('mcq-container');
+        container.innerHTML = '';
+
+        mcqDB.forEach((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'mcq-card';
+
+            const tag = document.createElement('div');
+            tag.className = `tag ${item.t}`;
+            tag.textContent = item.t;
+            card.appendChild(tag);
+
+            const qText = document.createElement('div');
+            qText.className = 'question';
+            qText.textContent = `${idx+1}. ${item.q}`;
+            card.appendChild(qText);
+
+            item.o.forEach((opt, optIdx) => {
+                const btn = document.createElement('div');
+                btn.className = 'option';
+                btn.textContent = opt;
+                btn.onclick = () => checkAnswer(idx, optIdx, item.a, btn, card);
+                card.appendChild(btn);
+            });
+
+            container.appendChild(card);
+        });
+    }
+
+    const answered = new Set();
+    let score = 0;
+
+    function checkAnswer(qIdx, optIdx, correctIdx, btn, card) {
+        if(answered.has(qIdx)) return;
+        answered.add(qIdx);
+
+        const options = card.querySelectorAll('.option');
+        if(optIdx === correctIdx) {
+            btn.classList.add('correct');
+            score++;
+            document.getElementById('score').textContent = score;
+        } else {
+            btn.classList.add('wrong');
+            options[correctIdx].classList.add('correct');
+        }
+        options.forEach(o => o.classList.add('disabled'));
+    }
+</script>
+
+</body>
+</html>
