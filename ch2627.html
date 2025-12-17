@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guyton Ch. 26 - Urine Formation (I)</title>
+    <style>
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --accent-color: #0d6efd;
+            --accent-hover: #0b5ed7;
+            --border-color: #dee2e6;
+            --highlight-color: #ffeb3b;
+            --correct-bg: #d1e7dd;
+            --correct-border: #badbcc;
+            --correct-text: #0f5132;
+            --wrong-bg: #f8d7da;
+            --wrong-border: #f5c2c7;
+            --wrong-text: #842029;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Dark Mode Theme */
+        [data-theme="dark"] {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #5c87b2;
+            --accent-hover: #4a6d91;
+            --border-color: #333;
+            --highlight-color: #584c24;
+            --correct-bg: #1e3a27;
+            --correct-border: #2e5c36;
+            --correct-text: #a5d6a7;
+            --wrong-bg: #4a1e1e;
+            --wrong-border: #6e2b2b;
+            --wrong-text: #ef9a9a;
+            --shadow: 0 4px 6px rgba(0,0,0,0.5);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Sidebar */
+        aside {
+            width: 280px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .nav-item {
+            padding: 12px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .theme-toggle {
+            margin-top: auto;
+            padding: 10px;
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+            position: relative;
+        }
+
+        .content-container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: none;
+            padding-bottom: 80px;
+        }
+
+        .content-container.active { display: block; }
+
+        /* Notes Styling */
+        h1 { margin-bottom: 30px; font-size: 2rem; color: var(--accent-color); }
+        h2 { margin-top: 40px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        h3 { margin-top: 30px; margin-bottom: 15px; color: var(--text-secondary); }
+        p, li { line-height: 1.7; margin-bottom: 12px; }
+        ul { margin-left: 25px; }
+        .highlight { background-color: var(--highlight-color); border-radius: 2px; }
+        
+        .note-card {
+            background-color: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        /* MCQ Styling */
+        .mcq-stats {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .mcq-card {
+            background-color: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .options-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .option-btn {
+            text-align: left;
+            padding: 15px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .option-btn:hover:not(.disabled) {
+            border-color: var(--accent-color);
+            background-color: rgba(92, 135, 178, 0.1);
+        }
+
+        .option-btn.correct {
+            background-color: var(--correct-bg);
+            border-color: var(--correct-border);
+            color: var(--correct-text);
+        }
+
+        .option-btn.wrong {
+            background-color: var(--wrong-bg);
+            border-color: var(--wrong-border);
+            color: var(--wrong-text);
+        }
+
+        .disabled { pointer-events: none; }
+        
+        .tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        .tag-easy { background: #e8f5e9; color: #2e7d32; }
+        .tag-hard { background: #ffebee; color: #c62828; }
+        .tag-uhs { background: #e3f2fd; color: #1565c0; }
+        .tag-usmle { background: #fff3e0; color: #ef6c00; }
+
+        [data-theme="dark"] .tag-easy { background: #1b5e20; color: #a5d6a7; }
+        [data-theme="dark"] .tag-hard { background: #b71c1c; color: #ef9a9a; }
+        [data-theme="dark"] .tag-uhs { background: #0d47a1; color: #90caf9; }
+        [data-theme="dark"] .tag-usmle { background: #e65100; color: #ffcc80; }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            aside { width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 10px; align-items: center; }
+            .logo { margin: 0; padding: 0; border: none; margin-right: 20px; font-size: 1rem; }
+            .nav-item { margin: 0 5px; white-space: nowrap; padding: 8px 12px; }
+            .theme-toggle { margin: 0 0 0 auto; padding: 5px 10px; }
+            main { padding: 20px; }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+<aside>
+    <div class="logo">PHYSIO MASTER 2025</div>
+    <div class="nav-item active" onclick="switchTab('notes')">📖 Lecture Notes</div>
+    <div class="nav-item" onclick="switchTab('mcqs')">📝 Practice MCQs</div>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
+</aside>
+
+<main>
+    <!-- NOTES SECTION -->
+    <div id="notes-tab" class="content-container active">
+        <div class="note-card">
+            <h1>CHAPTER 26: URINE FORMATION (I)</h1>
+            <p><strong>Glomerular Filtration, Renal Blood Flow, and Their Control</strong></p>
+            <p><em>Exhaustive reconstruction based on Guyton & Hall Textbook of Medical Physiology.</em></p>
+
+            <h2>I. MULTIPLE FUNCTIONS OF THE KIDNEYS</h2>
+            <p>The kidneys are not just for urine formation; they are the master regulators of homeostasis.</p>
+            <ul>
+                <li><strong>Excretion of Metabolic Waste:</strong> Urea (protein), Creatinine (muscle), Uric Acid (nucleic acids), Bilirubin (Hb), Hormone metabolites.</li>
+                <li><strong>Excretion of Foreign Chemicals:</strong> Pesticides, drugs, toxins.</li>
+                <li><strong>Regulation of Water & Electrolytes:</strong> Maintains homeostasis despite widely varying intake.</li>
+                <li><strong>Arterial Pressure Regulation:</strong>
+                    <ul>
+                        <li>Long-term: Pressure Natriuresis (Na/H2O excretion).</li>
+                        <li>Short-term: Renin secretion.</li>
+                    </ul>
+                </li>
+                <li><strong>Acid-Base Balance:</strong> Excretes acids (sulfuric/phosphoric) & regulates Bicarbonate.</li>
+                <li><strong>Erythrocyte Production:</strong> Secretes EPO in response to hypoxia.</li>
+                <li><strong>Vitamin D Activation:</strong> Hydroxylates Vit D to Calcitriol (essential for Ca++ absorption).</li>
+                <li><strong>Gluconeogenesis:</strong> Synthesizes glucose from amino acids during prolonged fasting.</li>
+            </ul>
+
+            <h2>II. PHYSIOLOGICAL ANATOMY</h2>
+            <h3>1. General Organization</h3>
+            <ul>
+                <li><strong>Hilum:</strong> Medial entry/exit point.</li>
+                <li><strong>Cortex/Medulla:</strong> Medulla contains 8-10 Pyramids ending in Papillae.</li>
+                <li><strong>Drainage:</strong> Papilla → Minor Calyx → Major Calyx → Renal Pelvis → Ureter.</li>
+            </ul>
+
+            <h3>2. Renal Blood Supply (22% of Cardiac Output)</h3>
+            <p><strong>Pathway:</strong> Renal A. → Interlobar → Arcuate → Interlobular → Afferent Arteriole → Glomerulus (60 mmHg) → Efferent Arteriole → Peritubular Caps (13 mmHg) → Venous System.</p>
+            <p>Note the two capillary beds in series: High pressure glomerular (filtration) and low pressure peritubular (reabsorption).</p>
+
+            <h3>3. The Nephron</h3>
+            <ul>
+                <li>~1 million per kidney. No regeneration. Loss of 10% per decade after age 40.</li>
+                <li><strong>Cortical Nephrons (70-80%):</strong> Short loops, peritubular capillaries.</li>
+                <li><strong>Juxtamedullary Nephrons (20-30%):</strong> Deep glomeruli, long loops dipping into papilla, Vasa Recta blood supply. Crucial for urine concentration.</li>
+            </ul>
+
+            <h2>III. MICTURITION</h2>
+            <ul>
+                <li><strong>Detrusor:</strong> Smooth muscle syncytium (gap junctions). 40-60 mmHg pressure.</li>
+                <li><strong>Innervation:</strong>
+                    <ul>
+                        <li><strong>Parasympathetic (S2-S3):</strong> Pelvic Nerves. Motor to Detrusor. *Main emptying nerve*.</li>
+                        <li><strong>Sympathetic (T11-L2):</strong> Hypogastric Nerves. Inhibits Detrusor, constricts Internal Sphincter (Storage).</li>
+                        <li><strong>Somatic (S2-S4):</strong> Pudendal Nerve. Voluntary control of External Sphincter.</li>
+                    </ul>
+                </li>
+                <li><strong>Reflex:</strong> Self-regenerative stretch reflex. Facilitated or Inhibited by Pons (Brainstem) and Cortex.</li>
+            </ul>
+
+            <h2>IV. URINE FORMATION FORMULA</h2>
+            <p><strong>Excretion = Filtration - Reabsorption + Secretion</strong></p>
+            <ul>
+                <li>Creatinine: Filtered only.</li>
+                <li>Electrolytes: Filtered + Partially Reabsorbed.</li>
+                <li>Glucose: Filtered + 100% Reabsorbed.</li>
+                <li>Acids/Drugs: Filtered + Secreted.</li>
+            </ul>
+
+            <h2>V. GFR & GLOMERULAR MEMBRANE</h2>
+            <ul>
+                <li><strong>Normal GFR:</strong> 125 ml/min (180 L/day).</li>
+                <li><strong>Filtration Fraction:</strong> GFR/RPF = 0.2 (20%).</li>
+                <li><strong>Membrane Layers:</strong> Endothelium (fenestrated), Basement Membrane (negative charge), Podocytes (slit pores).</li>
+                <li><strong>Selectivity:</strong> Barrier to Proteins due to Size and Negative Charge. (Minimal Change Disease = loss of charge = proteinuria).</li>
+            </ul>
+
+            <h2>VI. DETERMINANTS OF GFR</h2>
+            <p><strong>GFR = Kf × Net Filtration Pressure</strong></p>
+            <ul>
+                <li><strong>Forces Favoring:</strong> Glomerular Hydrostatic Pressure (PG) = 60 mmHg.</li>
+                <li><strong>Forces Opposing:</strong> Bowman's Hydrostatic (PB) = 18 mmHg + Glomerular Oncotic (πG) = 32 mmHg.</li>
+                <li><strong>Net Pressure:</strong> +10 mmHg.</li>
+                <li><strong>Kf:</strong> 12.5 ml/min/mmHg. Reduced in Diabetes/Hypertension.</li>
+            </ul>
+
+            <h2>VII. PHYSIOLOGICAL CONTROL</h2>
+            <ul>
+                <li><strong>Sympathetic:</strong> Constricts Afferent/Efferent. Decreases GFR (only in severe stress).</li>
+                <li><strong>Angiotensin II:</strong> Constricts Efferent. Maintains GFR in hypotension.</li>
+                <li><strong>Prostaglandins/NO:</strong> Dilate Afferent. Protect GFR. (NSAIDs block this → renal failure).</li>
+            </ul>
+
+            <h2>VIII. AUTOREGULATION (75-160 mmHg)</h2>
+            <ul>
+                <li><strong>Tubuloglomerular Feedback:</strong> Macula Densa senses low NaCl → Dilates Afferent + Stimulates Renin (Ang II constricts Efferent) → Restores GFR.</li>
+                <li><strong>Myogenic:</strong> Stretch of arteriole causes contraction.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- MCQS SECTION -->
+    <div id="mcqs-tab" class="content-container">
+        <div class="mcq-stats">
+            <h2>Practice MCQs (70 Questions)</h2>
+            <div style="font-size: 1.2rem; font-weight: bold;">Score: <span id="current-score">0</span> / 70</div>
+        </div>
+        <div id="mcq-list"></div>
+    </div>
+</main>
+
+<script>
+    // --- APP STATE & UTILS ---
+    function toggleTheme() {
+        const body = document.body;
+        const current = body.getAttribute('data-theme');
+        body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.content-container').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        
+        document.getElementById(tabId + '-tab').classList.add('active');
+        // Simple active state logic for sidebar
+        const navItems = document.querySelectorAll('.nav-item');
+        if(tabId === 'notes') navItems[0].classList.add('active');
+        else navItems[1].classList.add('active');
+    }
+
+    // --- MCQ DATA ---
+    const mcqData = [
+        // BASIC / EASY
+        { q: "What is the approximate percentage of Cardiac Output that goes to the kidneys?", o: ["10%", "22%", "40%", "50%"], a: 1, type: "easy" },
+        { q: "Which substance is used to estimate GFR because it is freely filtered and neither reabsorbed nor secreted?", o: ["Urea", "Creatinine", "Glucose", "Sodium"], a: 1, type: "easy" },
+        { q: "The functional unit of the kidney is the:", o: ["Glomerulus", "Nephron", "Calyx", "Pyramid"], a: 1, type: "easy" },
+        { q: "Which part of the bladder is responsible for the micturition contraction?", o: ["Trigone", "Internal Sphincter", "Detrusor Muscle", "External Sphincter"], a: 2, type: "easy" },
+        { q: "What is the normal Glomerular Filtration Rate (GFR) in an adult male?", o: ["90 ml/min", "100 ml/min", "125 ml/min", "150 ml/min"], a: 2, type: "easy" },
+        { q: "Which nerve provides voluntary control to the External Urethral Sphincter?", o: ["Pelvic Nerve", "Hypogastric Nerve", "Pudendal Nerve", "Vagus Nerve"], a: 2, type: "easy" },
+        { q: "The vasa recta are associated with which type of nephrons?", o: ["Cortical", "Juxtamedullary", "Both", "None"], a: 1, type: "easy" },
+        { q: "Glucose in the urine is normally:", o: ["100% Excreted", "50% Reabsorbed", "100% Reabsorbed", "Secreted"], a: 2, type: "easy" },
+        { q: "Which pressure normally opposes glomerular filtration?", o: ["Glomerular Hydrostatic", "Bowman's Capsule Colloid", "Bowman's Capsule Hydrostatic", "Peritubular Hydrostatic"], a: 2, type: "easy" },
+        { q: "Renin is secreted by which cells?", o: ["Macula Densa", "Juxtaglomerular Cells", "Podocytes", "Mesangial Cells"], a: 1, type: "easy" },
+        
+        // MODERATE / UHS STYLE
+        { q: "In a healthy adult, the renal threshold for glucose is approximately:", o: ["100 mg/dl", "180 mg/dl", "300 mg/dl", "375 mg/dl"], a: 1, type: "uhs" },
+        { q: "Constriction of the Efferent Arteriole will initially cause:", o: ["Decreased GFR", "Increased GFR", "No change in GFR", "Decreased Glomerular Pressure"], a: 1, type: "uhs" },
+        { q: "Which of the following would DECREASE GFR?", o: ["Dilation of Afferent Arteriole", "Increased Plasma Colloid Osmotic Pressure", "Decreased Bowman's Capsule Pressure", "Increased Glomerular Hydrostatic Pressure"], a: 1, type: "uhs" },
+        { q: "The macula densa senses changes in:", o: ["Potassium concentration", "Magnesium concentration", "Sodium Chloride delivery", "Urea concentration"], a: 2, type: "uhs" },
+        { q: "Which hormone is the primary regulator of erythrocyte production secreted by the kidney?", o: ["Renin", "Aldosterone", "Erythropoietin", "Angiotensin II"], a: 2, type: "uhs" },
+        { q: "Autoregulation of GFR is maintained between arterial pressures of:", o: ["50-100 mmHg", "75-160 mmHg", "100-200 mmHg", "60-120 mmHg"], a: 1, type: "uhs" },
+        { q: "Sympathetic stimulation of the bladder causes:", o: ["Detrusor contraction", "Internal Sphincter relaxation", "Detrusor relaxation (Storage)", "External Sphincter contraction"], a: 2, type: "uhs" },
+        { q: "Filtration Fraction is defined as:", o: ["RPF / GFR", "GFR / RPF", "GFR / Cardiac Output", "Urine Flow / GFR"], a: 1, type: "uhs" },
+        { q: "Minimal Change Nephropathy leads to proteinuria primarily due to:", o: ["Loss of negative charge on barrier", "Increased pore size", "Hypertension", "Basement membrane thickening"], a: 0, type: "uhs" },
+        { q: "NSAIDs can cause Acute Renal Failure by blocking the production of:", o: ["Renin", "Angiotensin II", "Prostaglandins", "Aldosterone"], a: 2, type: "uhs" },
+        
+        // HARD / USMLE STYLE
+        { q: "A 45-year-old male with severe hypertension. Angiotensin II maintains GFR in this state by preferentially constricting:", o: ["Afferent Arteriole", "Efferent Arteriole", "Peritubular Capillaries", "Renal Vein"], a: 1, type: "usmle" },
+        { q: "In a patient with ureteral obstruction (Kidney stone), GFR decreases because:", o: ["Kf decreases", "Glomerular Hydrostatic pressure decreases", "Bowman's Capsule Hydrostatic pressure increases", "Plasma oncotic pressure increases"], a: 2, type: "usmle" },
+        { q: "Calculate the Net Filtration Pressure if PG=60, PB=20, πG=30:", o: ["+10 mmHg", "+50 mmHg", "-10 mmHg", "+20 mmHg"], a: 0, type: "usmle" },
+        { q: "High protein intake increases GFR via tubuloglomerular feedback by:", o: ["Decreasing NaCl at Macula Densa due to high proximal reabsorption", "Increasing NaCl at Macula Densa", "Directly dilating afferent arterioles", "Inhibiting Renin"], a: 0, type: "usmle" },
+        { q: "Severe constriction of the efferent arteriole (3x normal) will likely:", o: ["Maximize GFR", "Decrease GFR due to high Oncotic Pressure", "Have no effect", "Increase RBF"], a: 1, type: "usmle" },
+        { q: "Which part of the renal vasculature contributes the most to Renal Vascular Resistance?", o: ["Renal Artery", "Glomerular Capillaries", "Efferent Arterioles & Afferent Arterioles", "Venules"], a: 2, type: "usmle" },
+        { q: "The micturition reflex is essentially a:", o: ["Somatic reflex", "Self-regenerative autonomic reflex", "Hormonal mechanism", "Purely voluntary process"], a: 1, type: "usmle" },
+        { q: "If Filtration Coefficient (Kf) is reduced by 50% due to Diabetes, what maintains GFR?", o: ["Increased Bowman's Pressure", "Decreased Glomerular Pressure", "Increased Glomerular Hydrostatic Pressure", "Decreased Renal Blood Flow"], a: 2, type: "usmle" },
+        { q: "Adenosine action on the Afferent Arteriole is normally to:", o: ["Dilate", "Constrict", "Increase permeability", "No effect"], a: 1, type: "usmle" },
+        { q: "Which substance has a filterability of 1.0?", o: ["Albumin", "Red Blood Cells", "Sodium", "Hemoglobin"], a: 2, type: "usmle" },
+
+        // MIXED / PAST PAPERS (Simulated)
+        { q: "The micturition center is located in the:", o: ["Hypothalamus", "Midbrain", "Pons", "Medulla"], a: 2, type: "uhs" },
+        { q: "Percentage of plasma filtered (Filtration Fraction) is normally:", o: ["10%", "20%", "30%", "40%"], a: 1, type: "easy" },
+        { q: "Juxtamedullary nephrons constitute what % of total nephrons?", o: ["10-15%", "20-30%", "50%", "85%"], a: 1, type: "uhs" },
+        { q: "Normal hydrostatic pressure in glomerular capillaries is:", o: ["18 mmHg", "32 mmHg", "60 mmHg", "100 mmHg"], a: 2, type: "easy" },
+        { q: "Normal hydrostatic pressure in peritubular capillaries is:", o: ["13 mmHg", "20 mmHg", "60 mmHg", "10 mmHg"], a: 0, type: "hard" },
+        { q: "Which ion is most abundant in the intracellular fluid?", o: ["Sodium", "Potassium", "Calcium", "Chloride"], a: 1, type: "easy" },
+        { q: "Glomerular capillaries are impermeable to proteins because of:", o: ["Small pore size only", "Negative charge of basement membrane", "Positive charge of podocytes", "Active transport"], a: 1, type: "uhs" },
+        { q: "During severe hemorrhage, GFR is maintained by:", o: ["Sympathetic constriction of afferent", "Autoregulation via Ang II", "ANP secretion", "Dopamine"], a: 1, type: "usmle" },
+        { q: "Reabsorption of Glucose occurs primarily in:", o: ["Proximal Convoluted Tubule", "Loop of Henle", "Distal Tubule", "Collecting Duct"], a: 0, type: "easy" },
+        { q: "Which factor does NOT stimulate Renin release?", o: ["Low Blood Pressure", "Low NaCl at Macula Densa", "Sympathetic stimulation", "High Atrial Pressure (ANP)"], a: 3, type: "usmle" },
+
+        // Additional for Drill
+        { q: "Obligatory urine volume is determined by:", o: ["Maximal concentrating ability of kidney", "Daily water intake", "Sweat rate", "GFR"], a: 0, type: "hard" },
+        { q: "The renal cortex contains all except:", o: ["Glomeruli", "Proximal Tubules", "Distal Tubules", "Loop of Henle (descending thin limb of juxtamedullary)"], a: 3, type: "hard" },
+        { q: "Blood flow per gram of tissue is highest in:", o: ["Brain", "Heart", "Liver", "Kidney"], a: 3, type: "easy" },
+        { q: "Oxygen consumption in the kidney is directly proportional to:", o: ["GFR", "Sodium Reabsorption", "Urine flow", "Glucose transport"], a: 1, type: "hard" },
+        { q: "Endothelin is a potent:", o: ["Vasodilator", "Vasoconstrictor", "Diuretic", "Natriuretic"], a: 1, type: "easy" },
+        { q: "Nitric Oxide (NO) in the kidney acts to:", o: ["Decrease GFR", "Prevent excessive vasoconstriction", "Constrict efferent arteriole", "Inhibit renin"], a: 1, type: "uhs" },
+        { q: "In the myogenic mechanism, stretching the vessel wall causes opening of:", o: ["Sodium channels", "Potassium channels", "Calcium channels", "Chloride channels"], a: 2, type: "hard" },
+        { q: "Which layer of the bladder mucosa is smooth?", o: ["Dome", "Neck", "Trigone", "Lateral walls"], a: 2, type: "uhs" },
+        { q: "Parasympathetic fibers to the bladder originate from:", o: ["T10-L2", "S2-S3", "Brainstem", "Cervical cord"], a: 1, type: "easy" },
+        { q: "Somatic nerve supply to external sphincter is via:", o: ["Pelvic nerve", "Pudendal nerve", "Hypogastric nerve", "Sciatic nerve"], a: 1, type: "easy" },
+        { q: "The sensation of bladder fullness is conveyed mainly by:", o: ["Sympathetic fibers", "Parasympathetic fibers", "Somatic fibers", "None"], a: 1, type: "hard" }, /* Actually pelvic/parasymp carry stretch, hypogastric carries pain/fullness too but main stretch is pelvic */
+        { q: "Main stretch sensory pathway:", o: ["Pelvic Nerves", "Hypogastric", "Pudendal", "Phrenic"], a: 0, type: "uhs" },
+        { q: "Glomerular colloid osmotic pressure rises from afferent to efferent end because:", o: ["Proteins are added", "Filtration of protein-free fluid concentrates the blood", "Active transport", "Synthesis of albumin"], a: 1, type: "usmle" },
+        { q: "Normal value of Kf is:", o: ["4.2", "12.5", "100", "125"], a: 1, type: "hard" },
+        { q: "Pressure in renal vein is approx:", o: ["0 mmHg", "3-4 mmHg", "10 mmHg", "20 mmHg"], a: 1, type: "hard" },
+        { q: "Which arteries run between the renal lobes?", o: ["Arcuate", "Interlobar", "Interlobular", "Segmental"], a: 1, type: "easy" },
+        { q: "Which arteries arch over the bases of the pyramids?", o: ["Arcuate", "Interlobar", "Interlobular", "Renal"], a: 0, type: "easy" },
+        { q: "Podocytes are found in:", o: ["Visceral layer of Bowman's capsule", "Parietal layer", "PCT", "Endothelium"], a: 0, type: "easy" },
+        { q: "Slit pores are the gaps between:", o: ["Endothelial cells", "Podocyte foot processes", "Basement membrane mesh", "Mesangial cells"], a: 1, type: "uhs" },
+        { q: "Which molecule size is the cutoff for free filtration?", o: ["4 nm", "8 nm", "6 nm (Albumin is 6nm but charged)", "Normally < 4nm is free, 8nm is blocked"], a: 3, type: "hard" },
+        { q: "Nephrons decrease by what % every 10 years after age 40?", o: ["1%", "5%", "10%", "20%"], a: 2, type: "uhs" },
+        { q: "Macula Densa cells are morphologically part of:", o: ["Proximal Tubule", "Loop of Henle", "Early Distal Tubule", "Collecting Duct"], a: 2, type: "hard" },
+        { q: "Which substance is filtered and secreted but not reabsorbed?", o: ["Glucose", "Sodium", "Creatinine", "PAH (Para-aminohippurate)"], a: 3, type: "hard" },
+        { q: "Which substance is filtered and neither reabsorbed nor secreted?", o: ["PAH", "Glucose", "Inulin/Creatinine", "Potassium"], a: 2, type: "easy" },
+        { q: "The primary function of the Loop of Henle is:", o: ["Glucose reabsorption", "Acid secretion", "Concentrating urine (Countercurrent)", "Hormone production"], a: 2, type: "uhs" },
+        { q: "Vasoconstriction of Afferent Arteriole leads to:", o: ["Increased GFR", "Decreased GFR & Decreased RBF", "Increased RBF", "Increased Glomerular Pressure"], a: 1, type: "usmle" },
+        { q: "Severe sympathetic stimulation (Hemorrhage) causes:", o: ["Increased GFR", "Renal shutdown (Zero GFR)", "Diuresis", "Natriuresis"], a: 1, type: "usmle" },
+        { q: "Prostaglandins (PGE2, PGI2) primarily affect:", o: ["Afferent Arteriole (Vasodilation)", "Efferent Arteriole (Constriction)", "PCT Reabsorption", "Collecting Duct"], a: 0, type: "hard" },
+        { q: "High protein diet increases GFR by increasing release of:", o: ["Renin", "Nitric Oxide & decreasing TGF signal", "Aldosterone", "ADH"], a: 1, type: "hard" },
+        { q: "Normally, glucose does not appear in urine because:", o: ["It is not filtered", "Tm for glucose is high (375 mg/min)", "It is secreted", "It is metabolized"], a: 1, type: "easy" }
+    ];
+
+    // --- RENDER MCQS ---
+    let score = 0;
+    const answeredQs = new Set();
+
+    function renderMCQList() {
+        const list = document.getElementById('mcq-list');
+        list.innerHTML = '';
+        
+        mcqData.forEach((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'mcq-card';
+            
+            // Generate Tag
+            let tagClass = 'tag-easy';
+            if(item.type === 'hard') tagClass = 'tag-hard';
+            if(item.type === 'uhs') tagClass = 'tag-uhs';
+            if(item.type === 'usmle') tagClass = 'tag-usmle';
+            
+            const tag = `<span class="tag ${tagClass}">${item.type.toUpperCase()}</span>`;
+
+            card.innerHTML = `
+                ${tag}
+                <div class="question-text">${idx + 1}. ${item.q}</div>
+                <div class="options-grid" id="opts-${idx}"></div>
+            `;
+            
+            const optsContainer = card.querySelector(`#opts-${idx}`);
+            item.o.forEach((optText, optIdx) => {
+                const btn = document.createElement('div');
+                btn.className = 'option-btn';
+                btn.innerText = optText;
+                btn.onclick = () => checkAnswer(idx, optIdx, item.a, btn);
+                optsContainer.appendChild(btn);
+            });
+            
+            list.appendChild(card);
+        });
+    }
+
+    function checkAnswer(qIdx, optIdx, correctIdx, btnElement) {
+        if(answeredQs.has(qIdx)) return;
+        answeredQs.add(qIdx);
+
+        const parent = btnElement.parentElement;
+        const buttons = parent.getElementsByClassName('option-btn');
+
+        if(optIdx === correctIdx) {
+            btnElement.classList.add('correct');
+            score++;
+            document.getElementById('current-score').innerText = score;
+        } else {
+            btnElement.classList.add('wrong');
+            buttons[correctIdx].classList.add('correct');
+        }
+
+        // Disable all buttons in this question
+        Array.from(buttons).forEach(b => b.classList.add('disabled'));
+    }
+
+    // Initialize
+    renderMCQList();
+
+</script>
+
+</body>
+</html>
