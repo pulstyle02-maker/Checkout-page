@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ModMedicalis | Executive Portal</title>
+    
+    <!-- Professional Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e3a8a;
+            --text-dark: #0f172a;
+            --glass: rgba(255, 255, 255, 0.95);
+            --red-watermark: rgba(220, 38, 38, 0.12); /* Red with low opacity */
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body, html {
+            margin: 0; padding: 0;
+            font-family: 'Outfit', sans-serif;
+            height: 100dvh; /* Dynamic Height for Mobile */
+            overflow: hidden;
+            background-color: #0f172a;
+        }
+
+        /* --- 1. ANIMATED BACKGROUND --- */
+        #login-overlay {
+            position: fixed; inset: 0;
+            background: linear-gradient(125deg, #020617, #0f172a, #172554);
+            background-size: 300% 300%;
+            animation: gradientFlow 12s ease infinite;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- 2. LOGIN CARD --- */
+        .login-card {
+            background: var(--glass);
+            width: 100%; max-width: 360px;
+            padding: 40px 30px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            text-align: center;
+            opacity: 0; transform: translateY(30px) scale(0.95);
+            animation: cardEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation-delay: 0.1s;
+            position: relative;
+        }
+
+        @keyframes cardEnter { to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .brand-logo {
+            font-size: 26px; font-weight: 800; color: var(--text-dark);
+            letter-spacing: -0.5px; margin-bottom: 5px;
+        }
+        .brand-logo span { color: var(--primary); }
+        .brand-tag { 
+            font-size: 11px; font-weight: 600; color: #64748b; 
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 30px; 
+        }
+
+        /* Inputs */
+        .input-group { position: relative; margin-bottom: 15px; text-align: left; }
+        
+        .input-group i {
+            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+            color: #94a3b8; font-size: 16px; transition: 0.3s;
+        }
+        
+        .login-field {
+            width: 100%; padding: 16px 16px 16px 45px;
+            border: 2px solid #e2e8f0; border-radius: 12px;
+            font-size: 15px; font-weight: 500; color: var(--text-dark);
+            background: #f8fafc; outline: none; transition: all 0.2s;
+        }
+        .login-field:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .login-field:focus + i { color: var(--primary); }
+
+        /* Button */
+        .login-btn {
+            width: 100%; padding: 16px; margin-top: 10px;
+            background: var(--primary); color: #fff;
+            border: none; border-radius: 12px;
+            font-size: 16px; font-weight: 700;
+            cursor: pointer; transition: 0.2s;
+            position: relative; overflow: hidden;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        }
+        .login-btn:active { transform: scale(0.98); }
+        .login-btn:disabled { background: #94a3b8; pointer-events: none; box-shadow: none; }
+
+        /* Spinner */
+        .spinner { width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error */
+        .error-banner {
+            background: #fee2e2; color: #ef4444;
+            font-size: 13px; font-weight: 600;
+            padding: 12px; border-radius: 10px;
+            margin-bottom: 15px; display: none;
+            align-items: center; justify-content: center; gap: 6px;
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+
+        .copyright { margin-top: 25px; font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- 3. DASHBOARD --- */
+        #dashboard { display: none; height: 100%; flex-direction: column; background: #334155; }
+
+        nav {
+            height: 60px; background: #fff; flex-shrink: 0;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 20px; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .nav-logo { font-weight: 800; font-size: 16px; color: #0f172a; }
+        .nav-logo span { color: var(--primary); }
+
+        .quiz-toggle {
+            background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+            padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700;
+            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
+        }
+        .quiz-toggle:hover { background: #e2e8f0; color: #0f172a; }
+
+        /* Content */
+        .content-area { flex: 1; position: relative; background: #475569; overflow: hidden; }
+        iframe.pdf-frame { width: 100%; height: 100%; border: none; display: block; }
+        .security-layer { position: absolute; inset: 0; height: 60px; z-index: 40; }
+
+        /* --- 4. RED WATERMARK --- */
+        .watermark {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 8vw;
+            color: var(--red-watermark); /* Red, Low Opacity */
+            pointer-events: none; font-weight: 900; z-index: 30;
+            white-space: nowrap; text-transform: uppercase; user-select: none;
+        }
+
+        /* --- 5. QUIZ OVERLAY --- */
+        #quiz-overlay {
+            position: fixed; inset: 0; background: #fff; z-index: 9999;
+            display: none; flex-direction: column;
+        }
+        .quiz-head {
+            height: 60px; border-bottom: 1px solid #e2e8f0;
+            display: flex; align-items: center; padding: 0 20px;
+        }
+        .back-btn {
+            background: none; border: none; font-weight: 700; font-size: 14px;
+            color: #334155; display: flex; align-items: center; gap: 8px; cursor: pointer;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-overlay">
+        <div class="login-card">
+            <div class="brand-logo">MOD<span>MEDICALIS</span></div>
+            <div class="brand-tag">Secure E-Book Portal</div>
+
+            <div class="error-banner" id="errorMsg">
+                <i class="fa-solid fa-triangle-exclamation"></i> Access Denied
+            </div>
+
+            <form id="loginForm">
+                <div class="input-group">
+                    <input type="text" id="username" class="login-field" placeholder="Registered Name" required autocomplete="off">
+                    <i class="fa-regular fa-user"></i>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="password" class="login-field" placeholder="Pass Code (4 digits)" maxlength="4" required inputmode="numeric">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span id="btnText">Enter Portal</span>
+                    <div class="spinner" id="btnSpinner"></div>
+                </button>
+            </form>
+        </div>
+        <div class="copyright">&copy; 2025 ModMedicalis Protected</div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="dashboard">
+        <nav>
+            <div class="nav-logo">MOD<span>MEDICALIS</span></div>
+            <button class="quiz-toggle" onclick="toggleQuiz(true)">
+                <i class="fa-solid fa-clipboard-question"></i> Quiz
+            </button>
+        </nav>
+
+        <div class="content-area">
+            <div class="security-layer"></div>
+            <div class="watermark">PREVIEW</div>
+            <iframe id="main-pdf" class="pdf-frame" src=""></iframe>
+        </div>
+    </div>
+
+    <!-- QUIZ FRAME -->
+    <div id="quiz-overlay">
+        <div class="quiz-head">
+            <button class="back-btn" onclick="toggleQuiz(false)">
+                <i class="fa-solid fa-arrow-left"></i> Back to Notes
+            </button>
+        </div>
+        <iframe id="quiz-frame" src="" style="flex:1; border:none;"></iframe>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const PDF_ID = "1pg-uTwX0oPL8BFFEwMCHxdR4-YIZtFMU";
+        const PDF_URL = `https://drive.google.com/file/d/${PDF_ID}/preview`;
+
+        // --- 2. HARDCODED CREDENTIALS (Block 4) ---
+        const authorizedUsers = {
+            "ahmed yasin": "7803",
+            "minahil noor": "6962",
+            "ayesha mubeen": "1905",
+            "syeda manal hussain gardezi": "3055",
+            "rumaisa hayat": "8855",
+            "adan siddique": "8036",
+            "muhammad umair": "5610",
+            "maryam akbar": "3628",
+            "ahmad riaz": "7851",
+            "m asad shahzad": "4310",
+            "muhammad ramzan": "5375",
+            "daniya mubashar": "2932",
+            "hadia": "3155",
+            "pasha sohail": "9866",
+            "hira usman": "6239",
+            "ali afzal": "4644",
+            "muhammad ahmad": "4537",
+            "sehar saleem": "1669",
+            "ayesha sial": "9679",
+            "muzamil naveed": "1092",
+            "fatima rehman": "6380",
+            "aleeha abbas": "8049",
+            "afreen fakhar": "7769",
+            "khadija ahmad": "6157",
+            "maryam batool": "6941",
+            "zara batool": "3466"
+        };
+
+        // --- 3. LOGIN LOGIC ---
+        document.getElementById('loginForm').addEventListener('submit', function(e){
+            e.preventDefault();
+            
+            const userIn = document.getElementById('username').value.trim().toLowerCase();
+            const passIn = document.getElementById('password').value.trim();
+            const btn = document.getElementById('loginBtn');
+            const spinner = document.getElementById('btnSpinner');
+            const txt = document.getElementById('btnText');
+            const error = document.getElementById('errorMsg');
+
+            // Loading UI
+            btn.disabled = true;
+            txt.style.display = 'none';
+            spinner.style.display = 'block';
+            error.style.display = 'none';
+
+            // Fake Network Delay (0.8s)
+            setTimeout(() => {
+                if(authorizedUsers[userIn] && authorizedUsers[userIn] === passIn) {
+                    grantAccess(document.getElementById('username').value);
+                } else {
+                    // Fail
+                    error.style.display = 'flex';
+                    // Re-enable button
+                    document.getElementById('password').value = '';
+                    btn.disabled = false;
+                    txt.style.display = 'block';
+                    spinner.style.display = 'none';
+                }
+            }, 800);
+        });
+
+        function grantAccess(name) {
+            const overlay = document.getElementById('login-overlay');
+            // Transition out
+            overlay.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            overlay.style.opacity = '0';
+            overlay.style.transform = 'scale(1.05)';
+            
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                document.getElementById('dashboard').style.display = 'flex';
+                
+                // Set Red Watermark
+                document.querySelector('.watermark').innerText = name;
+                // Load PDF
+                document.getElementById('main-pdf').src = PDF_URL;
+            }, 500);
+        }
+
+        // --- 4. QUIZ LOGIC ---
+        function toggleQuiz(show) {
+            const el = document.getElementById('quiz-overlay');
+            const frame = document.getElementById('quiz-frame');
+            
+            if(show) {
+                frame.src = "https://www.modmedicalis.online/respquiz";
+                el.style.display = 'flex';
+            } else {
+                el.style.display = 'none';
+                frame.src = "";
+            }
+        }
+
+        // --- 5. SECURITY ---
+        document.addEventListener('keydown', e => {
+            if(e.ctrlKey && (e.key === 's' || e.key === 'p' || e.key === 'u')) e.preventDefault();
+        });
+    </script>
+</body>
+</html>
