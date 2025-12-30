@@ -3,533 +3,410 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Notebook Landing Page Builder</title>
-    <!-- Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
-    
+    <title>MODMEDICALIS</title>
+    <!-- Imports: Londrina Solid (Head) & Montserrat (Body) -->
+    <link href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@100;300;400;900&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --panel-width: 320px; --accent: #6366f1; }
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Inter', sans-serif; color: white; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #f4f4f4; 
+            font-family: 'Montserrat', sans-serif;
+        }
         
-        /* CANVAS & PREVIEW AREA */
-        #canvas-container { position: absolute; inset: 0; z-index: 1; transition: background 0.5s; }
-        
-        /* LANDING PAGE TEXT PREVIEW */
-        .lp-content {
-            position: absolute; top: 50%; left: 8%; transform: translateY(-50%);
-            z-index: 10; max-width: 500px; pointer-events: none;
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh; 
+            outline: none;
+            opacity: 0;
+            transition: opacity 1s ease-out;
         }
-        .lp-content h1 {
-            font-size: 3.5rem; line-height: 1.1; margin: 0 0 20px 0; font-weight: 700;
-            background: linear-gradient(to right, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            opacity: 0; transform: translateY(30px);
-        }
-        .lp-content p {
-            font-size: 1.1rem; color: rgba(255,255,255,0.7); line-height: 1.6; margin: 0 0 30px 0;
-            opacity: 0; transform: translateX(-20px);
-        }
-        .lp-btn {
-            padding: 14px 32px; background: white; color: black; border: none; border-radius: 50px;
-            font-weight: 600; font-size: 1rem; cursor: pointer; pointer-events: auto;
-            opacity: 0; transform: translateY(20px); transition: transform 0.2s;
-        }
-        .lp-btn:hover { transform: scale(1.05); }
 
-        /* INTRO LOGO OVERLAY */
+        /* --- INTRO LOGO --- */
         #intro-layer {
-            position: fixed; inset: 0; background: #000; z-index: 100;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; z-index: 99;
             display: flex; align-items: center; justify-content: center;
+        }
+
+        #intro-logo {
+            width: 140px;
+            opacity: 0;
+            transform: scale(0.9);
+            filter: drop-shadow(0 0 10px rgba(204, 119, 34, 0.3));
+        }
+
+        /* --- FINAL UI --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
+            display: flex; flex-direction: column; 
+            justify-content: center;
+            padding-left: 10vw; /* Left aligned text */
+            z-index: 10;
         }
-        #intro-logo { max-width: 150px; opacity: 0; transform: scale(0.8); }
 
-        /* --- EDITOR SIDEBAR --- */
-        .editor-panel {
-            position: fixed; right: 0; top: 0; bottom: 0; width: var(--panel-width);
-            background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px);
-            border-left: 1px solid rgba(255,255,255,0.1); z-index: 200;
-            padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
-            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        .mask-box {
+            overflow: hidden; 
+            position: relative;
+            margin-bottom: 5px;
         }
-        
-        .panel-header { font-size: 0.9rem; font-weight: 700; letter-spacing: 1px; color: var(--accent); text-transform: uppercase; margin-bottom: 5px; }
-        
-        .control-group { margin-bottom: 15px; }
-        .control-group label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 8px; }
-        
-        input[type="text"], textarea {
-            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            color: white; padding: 10px; border-radius: 8px; font-family: inherit; font-size: 0.85rem;
-            box-sizing: border-box; transition: 0.2s;
-        }
-        input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--accent); background: rgba(255,255,255,0.1); }
-        
-        .file-upload-btn {
-            width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2);
-            border-radius: 8px; color: #aaa; font-size: 0.8rem; cursor: pointer; text-align: center; transition: 0.2s;
-        }
-        .file-upload-btn:hover { border-color: var(--accent); color: white; background: rgba(99, 102, 241, 0.1); }
-        
-        .color-picker-row { display: flex; align-items: center; gap: 10px; }
-        input[type="color"] { background: none; border: none; width: 40px; height: 40px; cursor: pointer; }
 
-        .action-row { display: flex; gap: 10px; margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .btn-primary {
-            flex: 1; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px;
-            font-weight: 600; cursor: pointer; transition: 0.2s;
+        h1.hero {
+            font-family: 'Londrina Solid', cursive; /* NEW FONT */
+            font-weight: 900;
+            font-size: 6vw; /* Slightly larger for this font */
+            color: #1a1a1a;
+            margin: 0;
+            line-height: 1.0;
+            transform: translateY(110%);
+            opacity: 1;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
-        .btn-primary:hover { background: #4f46e5; }
-        .btn-secondary {
-            flex: 1; padding: 12px; background: transparent; color: white; border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px; cursor: pointer; transition: 0.2s;
-        }
-        .btn-secondary:hover { background: rgba(255,255,255,0.1); }
 
+        p.sub {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.2rem;
+            color: #cc7722; 
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            font-weight: 600;
+            transform: translateY(110%);
+            margin: 0;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- INTRO LAYER -->
+    <!-- INTRO -->
     <div id="intro-layer">
-        <!-- Default Logo (SVG) -->
-        <img id="intro-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik00IDE5LjVlN2wtM3YzLjUiLz48cGF0aCBkPSJNNCAyMGgxNCIvPjxwYXRoIGQ9Ik0yIDd2MTAiLz48cGF0aCBkPSJNNSAydjE4Ii8+PHBhdGggZD0iTTE5IDJ2MTgiLz48L3N2Zz4=" alt="Logo">
+        <img src="https://i.imgur.com/YZCD8Md.png" id="intro-logo" alt="Logo">
     </div>
 
-    <!-- 3D CANVAS -->
-    <div id="canvas-container"></div>
-
-    <!-- PREVIEW CONTENT -->
-    <div class="lp-content">
-        <h1 id="preview-h1">Create Your<br>Masterpiece.</h1>
-        <p id="preview-p">This is the subtitle area. You can edit this text in the sidebar to match your brand's voice and style.</p>
-        <button id="preview-btn" class="lp-btn">Get Started</button>
-    </div>
-
-    <!-- EDITOR SIDEBAR -->
-    <div class="editor-panel">
-        <div class="panel-header">Design & Colors</div>
-        <div class="control-group">
-            <label>Background Color</label>
-            <div class="color-picker-row">
-                <input type="color" id="input-bg" value="#050505">
-                <span style="font-size: 0.8rem; opacity: 0.7">Click to change</span>
-            </div>
+    <!-- UI -->
+    <div id="ui-layer">
+        <div class="mask-box">
+            <h1 class="hero" id="hero-text">MODMEDICALIS</h1>
         </div>
-        <div class="control-group">
-            <label>Cover Image</label>
-            <div class="file-upload-btn" onclick="document.getElementById('input-cover').click()">
-                📸 Upload Cover Image
-            </div>
-            <input type="file" id="input-cover" hidden accept="image/*">
-        </div>
-
-        <div class="panel-header">Content</div>
-        <div class="control-group">
-            <label>Headline</label>
-            <textarea id="input-h1" rows="2">Create Your&#13;&#10;Masterpiece.</textarea>
-        </div>
-        <div class="control-group">
-            <label>Body Text</label>
-            <textarea id="input-p" rows="4">This is the subtitle area. You can edit this text in the sidebar to match your brand's voice and style.</textarea>
-        </div>
-        <div class="control-group">
-            <label>Button Text</label>
-            <input type="text" id="input-btn" value="Get Started">
-        </div>
-
-        <div class="panel-header">Branding</div>
-        <div class="control-group">
-            <label>Intro Logo (PNG/SVG)</label>
-            <div class="file-upload-btn" onclick="document.getElementById('input-logo').click()">
-                ⭐ Upload Logo
-            </div>
-            <input type="file" id="input-logo" hidden accept="image/*">
-        </div>
-
-        <div class="action-row">
-            <button class="btn-secondary" onclick="playSequence()">▶ Replay</button>
-            <button class="btn-primary" onclick="exportSite()">⬇ Export HTML</button>
+        <div class="mask-box">
+            <p class="sub" id="sub-text">Let the visuals speak</p>
         </div>
     </div>
 
-    <script>
-        // --- GLOBAL STATE ---
-        let scene, camera, renderer, notebookGroup, frontGroup;
-        const config = {
-            bgColor: '#050505',
-            coverData: null,
-            logoData: null,
-            textH1: "Create Your<br>Masterpiece.",
-            textP: "This is the subtitle area. You can edit this text in the sidebar to match your brand's voice and style.",
-            textBtn: "Get Started"
+    <!-- 3D ENGINE -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "gsap": "https://unpkg.com/gsap@3.12.5/index.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import gsap from 'gsap';
+
+        // --- ASSETS ---
+        const ASSETS = {
+            front: 'https://i.imgur.com/JCDfZlU.jpeg',
+            back: 'https://i.imgur.com/O5yAK7B.jpeg',
+            pages: [
+                'https://i.imgur.com/N97nom9.png', 
+                'https://i.imgur.com/kCa9Fsw.png', 
+                'https://i.imgur.com/7Rz20Sw.png', 
+                'https://i.imgur.com/1662Fkj.png', 
+                'https://i.imgur.com/qdJHccQ.png', 
+                'https://i.imgur.com/y7GKgIJ.png', 
+                'https://i.imgur.com/ho92VGT.png'
+            ]
         };
 
-        // --- INIT ---
-        function init() {
-            // Setup Three.js
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(config.bgColor, 0.02);
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf4f4f4); 
+        scene.fog = new THREE.FogExp2(0xf4f4f4, 0.02);
 
-            camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 0, 15);
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 16);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.0;
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0; 
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
 
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
+        // --- POST PROCESSING ---
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        
+        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloom.threshold = 0.85; 
+        bloom.strength = 0.3; 
+        bloom.radius = 0.2;
+        composer.addPass(bloom);
 
-            // Lighting
-            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambient);
-            const spot = new THREE.SpotLight(0xfff5e6, 6);
-            spot.position.set(5, 8, 8); spot.castShadow = true; spot.shadow.mapSize.set(2048, 2048);
-            scene.add(spot);
-            const rim = new THREE.PointLight(0x6366f1, 3);
-            rim.position.set(-5, 2, -5);
-            scene.add(rim);
+        // --- LIGHTING ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambient);
 
-            // Build Book
-            createNotebook(null);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        mainLight.position.set(5, 10, 5);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.radius = 4;
+        scene.add(mainLight);
 
-            // Listeners
-            window.addEventListener('resize', onResize);
-            setupEditorListeners();
-            gsap.ticker.add(animate);
+        const rimLight = new THREE.PointLight(0xff8822, 2.5, 15);
+        rimLight.position.set(0, 3, -6);
+        scene.add(rimLight);
 
-            // Start Animation
-            playSequence();
-        }
+        // Floor
+        const plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.ShadowMaterial({ opacity: 0.05, color: 0x000000 })
+        );
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = -4;
+        plane.receiveShadow = true;
+        scene.add(plane);
 
-        function createNotebook(texSrc) {
-            if(notebookGroup) scene.remove(notebookGroup);
-            notebookGroup = new THREE.Group();
+        // --- LOADING & LOGO ---
+        const manager = new THREE.LoadingManager();
+        const texLoader = new THREE.TextureLoader(manager);
+        
+        const introTl = gsap.timeline({ repeat: -1, repeatDelay: 1 });
+        introTl.to("#intro-logo", { opacity: 1, duration: 0.5 })
+               .to("#intro-logo", { scale: 1.1, duration: 0.1, ease: "power1.out" }) 
+               .to("#intro-logo", { scale: 1.0, duration: 0.1, ease: "power1.in" })
+               .to("#intro-logo", { scale: 1.1, duration: 0.1, ease: "power1.out" }) 
+               .to("#intro-logo", { scale: 1.0, duration: 0.5, ease: "power1.in" });
 
-            let texture;
-            if(texSrc) {
-                texture = new THREE.TextureLoader().load(texSrc);
-            } else {
-                // Default
-                const c = document.createElement('canvas');
-                c.width = 512; c.height = 700;
-                const ctx = c.getContext('2d');
-                ctx.fillStyle = '#4f46e5'; ctx.fillRect(0,0,512,700);
-                ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(20,20,472,660);
-                ctx.fillStyle = 'white'; ctx.font = 'bold 60px Arial'; ctx.textAlign = 'center';
-                ctx.fillText("COVER", 256, 350);
-                texture = new THREE.CanvasTexture(c);
-            }
-            texture.encoding = THREE.sRGBEncoding;
-            texture.anisotropy = 16;
+        const textures = { pages: [] };
+        
+        const loadTex = (url) => {
+            const t = texLoader.load(url);
+            t.colorSpace = THREE.SRGBColorSpace;
+            t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            return t;
+        };
 
-            const h = 4.5; const w = 3.2; const d = 0.08;
+        textures.front = loadTex(ASSETS.front);
+        textures.back = loadTex(ASSETS.back);
+        ASSETS.pages.forEach(url => textures.pages.push(loadTex(url)));
 
-            // Materials (Non-glossy fix)
-            const matCover = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.7, metalness: 0 });
-            const matPaper = new THREE.MeshStandardMaterial({ color: 0xfdfdfd, roughness: 0.9 });
-            const matMetal = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.8 });
+        manager.onLoad = () => {
+            initBook();
+            introTl.kill();
+            gsap.to("#intro-logo", { scale: 0.1, opacity: 0, duration: 0.5, ease: "back.in(1.7)" });
+            gsap.to("#intro-layer", { opacity: 0, duration: 0.8, delay: 0.4, onComplete: () => {
+                document.getElementById('intro-layer').style.display = 'none';
+            }});
+            gsap.to("canvas", { opacity: 1, duration: 1.5, delay: 0.5 });
+            runSequence();
+        };
 
-            // Back
-            const back = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matCover);
-            back.position.set(w/2 + 0.15, 0, 0); back.castShadow = true;
-            notebookGroup.add(back);
+        // --- BOOK GEOMETRY ---
+        const bookGroup = new THREE.Group();
+        const pivotArray = [];
+        let frontCoverGroup;
 
-            // Pages
-            const pages = new THREE.Mesh(new THREE.BoxGeometry(w-0.1, h-0.2, 0.15), matPaper);
-            pages.position.set(w/2 + 0.15, 0, 0.12); pages.castShadow = true;
-            notebookGroup.add(pages);
+        const W = 3.6; 
+        const H = 5.2;
+        const THICKNESS = 0.015;
+        const COVER_THICKNESS = 0.06;
+        
+        function initBook() {
+            scene.add(bookGroup);
+            const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+            const matEdge = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.6 });
+            
+            // Back Cover
+            const backGeo = new THREE.BoxGeometry(W, H, COVER_THICKNESS);
+            backGeo.translate(W/2 + 0.1, 0, 0); 
+            const backMesh = new THREE.Mesh(backGeo, [
+                matEdge, matEdge, matEdge, matEdge,
+                matWhite,
+                new THREE.MeshStandardMaterial({ map: textures.back, roughness: 0.4 })
+            ]);
+            backMesh.castShadow = true;
+            backMesh.receiveShadow = true;
+            bookGroup.add(backMesh);
 
-            // Front Group (Hinge)
-            frontGroup = new THREE.Group();
-            frontGroup.position.set(0.15, 0, 0.24);
-            const front = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [matPaper, matPaper, matPaper, matPaper, matCover, matPaper]);
-            front.position.set(w/2, 0, 0); front.castShadow = true;
-            frontGroup.add(front);
-            notebookGroup.add(frontGroup);
+            // Pages (1 Image per page, no repetition)
+            textures.pages.forEach((tex, i) => {
+                const grp = new THREE.Group();
+                // Z-Stacking
+                const zPos = (COVER_THICKNESS/2) + ((textures.pages.length - i) * THICKNESS);
+                grp.position.z = zPos;
+
+                const pgGeo = new THREE.BoxGeometry(W, H - 0.1, THICKNESS);
+                pgGeo.translate(W/2 + 0.1, 0, 0);
+
+                const pgMat = [
+                    matEdge, matEdge, matEdge, matEdge,
+                    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 }), // Front
+                    matWhite // Back
+                ];
+
+                const mesh = new THREE.Mesh(pgGeo, pgMat);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                grp.add(mesh);
+                bookGroup.add(grp);
+                pivotArray.push(grp);
+            });
+
+            // Front Cover
+            frontCoverGroup = new THREE.Group();
+            frontCoverGroup.position.z = (COVER_THICKNESS/2) + (textures.pages.length * THICKNESS) + THICKNESS + 0.01;
+            bookGroup.add(frontCoverGroup);
+
+            const frontGeo = new THREE.BoxGeometry(W, H, COVER_THICKNESS);
+            frontGeo.translate(W/2 + 0.1, 0, 0);
+            
+            const frontMesh = new THREE.Mesh(frontGeo, [
+                matEdge, matEdge, matEdge, matEdge,
+                new THREE.MeshStandardMaterial({ map: textures.front, roughness: 0.4 }), 
+                matWhite 
+            ]);
+            frontMesh.castShadow = true;
+            frontMesh.receiveShadow = true;
+            frontCoverGroup.add(frontMesh);
 
             // Spiral
-            const spiralC = new THREE.Curve();
-            spiralC.getPoint = (t) => {
-                const a = t * Math.PI * 2 * 25;
-                return new THREE.Vector3(0.18 * Math.cos(a) + 0.08, (t - 0.5) * (h - 0.2), 0.18 * Math.sin(a) + 0.12);
-            };
-            const spiral = new THREE.Mesh(new THREE.TubeGeometry(spiralC, 250, 0.015, 8, false), matMetal);
-            spiral.castShadow = true;
-            notebookGroup.add(spiral);
+            const matSilver = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff, metalness: 1.0, roughness: 0.1 
+            });
+            const spiralH = H * 0.94; 
+            const spiralR = 0.12; 
+            const tubeR = 0.012; 
+            
+            class Helix extends THREE.Curve {
+                getPoint(t) {
+                    const turns = 34;
+                    const angle = 2 * Math.PI * t * turns;
+                    const x = spiralR * Math.cos(angle);
+                    const z = spiralR * Math.sin(angle);
+                    const y = (t - 0.5) * spiralH;
+                    return new THREE.Vector3(x, y, z);
+                }
+            }
+            const tubeGeo = new THREE.TubeGeometry(new Helix(), 400, tubeR, 8, false);
+            const spiralMesh = new THREE.Mesh(tubeGeo, matSilver);
+            spiralMesh.position.set(0, 0, frontCoverGroup.position.z / 2);
+            spiralMesh.castShadow = true;
+            bookGroup.add(spiralMesh);
 
-            scene.add(notebookGroup);
+            bookGroup.position.x = -W/2;
         }
 
         // --- ANIMATION SEQUENCE ---
-        function playSequence() {
-            const tl = gsap.timeline();
-            
-            // Reset
-            gsap.set('#intro-logo', { opacity: 0, scale: 0.8 });
-            gsap.set('#intro-layer', { display: 'flex', opacity: 1 });
-            gsap.set(['#preview-h1', '#preview-p', '#preview-btn'], { opacity: 0, y: 30 });
-            gsap.set(notebookGroup.rotation, { x: 0, y: 0, z: 0 });
-            gsap.set(frontGroup.rotation, { y: 0 });
-            
-            // 1. Logo Intro
-            tl.to('#intro-logo', { opacity: 1, scale: 1, duration: 1, ease: "power2.out" })
-              .to('#intro-logo', { opacity: 0, scale: 1.2, duration: 0.8, delay: 0.5 })
-              .to('#intro-layer', { opacity: 0, duration: 0.5 })
-              .set('#intro-layer', { display: 'none' });
+        function runSequence() {
+            const tl = gsap.timeline({ defaults: { ease: "power2.inOut" }, delay: 0.5 });
 
-            // 2. Book Enter
-            tl.fromTo(notebookGroup.position, { y: -10, x: 0, z: 0 }, { y: 0, duration: 1.5, ease: "power3.out" }, "-=0.2")
-              .fromTo(notebookGroup.rotation, { x: 0.5, y: Math.PI }, { x: 0, y: 0, duration: 1.5, ease: "power3.out" }, "<");
+            // 1. Drop
+            bookGroup.position.y = 10;
+            bookGroup.rotation.set(0.5, 0.5, 0);
+            tl.to(bookGroup.position, { y: 0, duration: 1.5, ease: "bounce.out" })
+              .to(bookGroup.rotation, { x: 0.1, y: -0.2, z: 0, duration: 1.5 }, "<");
+
+            // 2. Spin
+            tl.to(bookGroup.rotation, { y: Math.PI * 2 - 0.2, duration: 2.2 })
+              .to(camera.position, { z: 12, duration: 2.2 }, "<");
 
             // 3. Open
-            tl.to(frontGroup.rotation, { y: -2, duration: 1.5, ease: "power2.inOut" });
+            tl.to(frontCoverGroup.rotation, { y: -3.0, duration: 1.5 })
+              .to(bookGroup.rotation, { y: 0.2, x: 0.1, duration: 1.5 }, "<")
+              .to(camera.position, { x: 2, duration: 1.5 }, "<");
 
-            // 4. Layout Shift (Move book right)
-            tl.to(notebookGroup.position, { x: 2.5, duration: 1.5, ease: "power3.inOut" }, "shift")
-              .to(notebookGroup.rotation, { y: -0.3, x: 0.1, duration: 1.5, ease: "power3.inOut" }, "shift");
+            // 4. Zoom
+            tl.to(camera.position, { x: 1.5, y: 0, z: 6, duration: 1.5 });
 
-            // 5. Text Enter
-            tl.to('#preview-h1', { opacity: 1, y: 0, duration: 0.8 }, "-=1")
-              .to('#preview-p', { opacity: 1, x: 0, duration: 0.8 }, "-=0.6")
-              .to('#preview-btn', { opacity: 1, y: 0, duration: 0.8 }, "-=0.6");
-        }
+            // 5. Flip 1
+            tl.to(pivotArray[0].rotation, { y: -2.95, duration: 1.2 });
 
-        function animate() {
-            if(notebookGroup) notebookGroup.position.y += Math.sin(Date.now() * 0.001) * 0.0015;
-            renderer.render(scene, camera);
-        }
+            // 6. Flip 2 & 3
+            tl.to(pivotArray[1].rotation, { y: -2.9, duration: 0.8 }, "-=0.2")
+              .to(pivotArray[2].rotation, { y: -2.85, duration: 0.8 }, "-=0.4");
 
-        function onResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+            // 7. Aerial
+            tl.to(camera.position, { x: 0, y: 7, z: 5, duration: 2.0 })
+              .to(camera.rotation, { x: -0.8, duration: 2.0 }, "<");
 
-        // --- EDITOR LOGIC ---
-        function setupEditorListeners() {
-            // Background
-            document.getElementById('input-bg').addEventListener('input', (e) => {
-                config.bgColor = e.target.value;
-                document.getElementById('canvas-container').style.background = config.bgColor;
-                scene.fog.color = new THREE.Color(config.bgColor);
+            // 8. FINAL: Move Right & CLOSE BOOK
+            tl.addLabel("closing");
+            // Move book right
+            tl.to(camera.position, { x: 0, y: 0, z: 14, duration: 2.5 }, "closing")
+              .to(camera.rotation, { x: 0, duration: 2.5 }, "closing")
+              .to(bookGroup.position, { x: 3.5, duration: 2.5 }, "closing")
+              .to(bookGroup.rotation, { y: -0.3, x: 0, duration: 2.5 }, "closing");
+
+            // CLOSING ANIMATION (Reverse flips)
+            // Close pages
+            pivotArray.forEach((pivot, i) => {
+                 tl.to(pivot.rotation, { y: 0, duration: 1.5 + (i*0.1) }, "closing");
             });
+            // Close Cover
+            tl.to(frontCoverGroup.rotation, { y: 0, duration: 2.0, ease: "power3.inOut" }, "closing");
 
-            // Text Updates
-            const bindText = (id, targetId, configKey) => {
-                document.getElementById(id).addEventListener('input', (e) => {
-                    let val = e.target.value;
-                    if(id === 'input-h1') val = val.replace(/\n/g, '<br>');
-                    config[configKey] = val;
-                    document.getElementById(targetId).innerHTML = val;
-                });
-            };
-            bindText('input-h1', 'preview-h1', 'textH1');
-            bindText('input-p', 'preview-p', 'textP');
-            bindText('input-btn', 'preview-btn', 'textBtn');
+            // --- TEXT REVEAL ---
+            tl.to("#hero-text", { 
+                y: "0%", 
+                duration: 1.2, 
+                ease: "expo.out" 
+            }, "-=1.0");
 
-            // Cover Upload
-            document.getElementById('input-cover').addEventListener('change', (e) => {
-                const f = e.target.files[0];
-                if(f) {
-                    const r = new FileReader();
-                    r.onload = (evt) => {
-                        config.coverData = evt.target.result;
-                        createNotebook(config.coverData);
-                        // Reset pos for preview
-                        notebookGroup.position.x = 2.5;
-                        notebookGroup.rotation.set(0.1, -0.3, 0);
-                        frontGroup.rotation.y = -2;
-                    };
-                    r.readAsDataURL(f);
-                }
-            });
-
-            // Logo Upload
-            document.getElementById('input-logo').addEventListener('change', (e) => {
-                const f = e.target.files[0];
-                if(f) {
-                    const r = new FileReader();
-                    r.onload = (evt) => {
-                        config.logoData = evt.target.result;
-                        document.getElementById('intro-logo').src = config.logoData;
-                        playSequence();
-                    };
-                    r.readAsDataURL(f);
-                }
+            tl.to("#sub-text", { 
+                y: "0%", 
+                duration: 1.0, 
+                ease: "expo.out" 
+            }, "-=0.8");
+            
+            tl.eventCallback("onComplete", () => {
+                window.addEventListener("mousemove", onMouseMove);
             });
         }
 
-        // --- EXPORT ---
-        function exportSite() {
-            // We use the default logo SVG if none provided
-            const logoSrc = config.logoData || document.getElementById('intro-logo').src;
-            const coverSrc = config.coverData || ''; 
-
-            const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Landing Page</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"><\/script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; overflow: hidden; background: ${config.bgColor}; font-family: 'Inter', sans-serif; color: white; }
-        #canvas-container { position: absolute; inset: 0; z-index: 1; }
-        .lp-content {
-            position: absolute; top: 50%; left: 8%; transform: translateY(-50%);
-            z-index: 10; max-width: 500px;
-        }
-        h1 {
-            font-size: 3.5rem; line-height: 1.1; margin: 0 0 20px 0; font-weight: 700;
-            background: linear-gradient(to right, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            opacity: 0; transform: translateY(30px);
-        }
-        p {
-            font-size: 1.1rem; color: rgba(255,255,255,0.7); line-height: 1.6; margin: 0 0 30px 0;
-            opacity: 0; transform: translateX(-20px);
-        }
-        .btn {
-            padding: 14px 32px; background: white; color: black; border: none; border-radius: 50px;
-            font-weight: 600; font-size: 1rem; cursor: pointer;
-            opacity: 0; transform: translateY(20px); transition: transform 0.2s;
-        }
-        .btn:hover { transform: scale(1.05); }
-        #intro-layer {
-            position: fixed; inset: 0; background: #000; z-index: 100;
-            display: flex; align-items: center; justify-content: center;
-        }
-        #intro-logo { max-width: 150px; opacity: 0; transform: scale(0.8); }
-    </style>
-</head>
-<body>
-    <div id="intro-layer">
-        <img id="intro-logo" src="${logoSrc}" alt="Logo">
-    </div>
-    <div id="canvas-container"></div>
-    <div class="lp-content">
-        <h1>${config.textH1}</h1>
-        <p>${config.textP}</p>
-        <button class="btn">${config.textBtn}</button>
-    </div>
-    <script>
-        const COVER_DATA = "${coverSrc}";
-        const BG_COLOR = "${config.bgColor}";
-        
-        let scene, camera, renderer, notebookGroup, frontGroup;
-        
-        function init() {
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(BG_COLOR, 0.02);
-            camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
-            camera.position.set(0,0,15);
-            renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
-            
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const spot = new THREE.SpotLight(0xfff5e6, 6); spot.position.set(5,8,8); spot.castShadow=true; spot.shadow.mapSize.set(2048,2048); scene.add(spot);
-            scene.add(new THREE.PointLight(0x6366f1, 3).translateY(2).translateX(-5).translateZ(-5));
-            
-            createBook();
-            animate();
-            playSeq();
-            window.onresize = () => {
-                camera.aspect = window.innerWidth/window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            };
-        }
-
-        function createBook() {
-            notebookGroup = new THREE.Group();
-            let tex;
-            if(COVER_DATA) {
-                tex = new THREE.TextureLoader().load(COVER_DATA);
-            } else {
-                const c = document.createElement('canvas'); c.width=512; c.height=700;
-                const ctx=c.getContext('2d'); ctx.fillStyle='#444'; ctx.fillRect(0,0,512,700);
-                tex = new THREE.CanvasTexture(c);
-            }
-            tex.encoding = THREE.sRGBEncoding; tex.anisotropy=16;
-            
-            const matC = new THREE.MeshStandardMaterial({map:tex, roughness:0.7, metalness:0});
-            const matP = new THREE.MeshStandardMaterial({color:0xfdfdfd, roughness:0.9});
-            const matM = new THREE.MeshStandardMaterial({color:0x333, roughness:0.5, metalness:0.8});
-            
-            const h=4.5, w=3.2, d=0.08;
-            const back = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), matC);
-            back.position.set(w/2+0.15,0,0); back.castShadow=true; notebookGroup.add(back);
-            
-            const pages = new THREE.Mesh(new THREE.BoxGeometry(w-0.1,h-0.2,0.15), matP);
-            pages.position.set(w/2+0.15,0,0.12); notebookGroup.add(pages);
-            
-            frontGroup = new THREE.Group();
-            frontGroup.position.set(0.15,0,0.24);
-            const front = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), [matP,matP,matP,matP,matC,matP]);
-            front.position.set(w/2,0,0); front.castShadow=true; frontGroup.add(front);
-            notebookGroup.add(frontGroup);
-            
-            const spiral = new THREE.Mesh(new THREE.TubeGeometry(new THREE.Curve(), 200, 0.015, 8, false), matM);
-            // Spiral math simplified for export
-            const loops=25, r=0.18;
-            const curve = new THREE.Curve();
-            curve.getPoint = (t) => {
-                 const a = t*Math.PI*2*loops;
-                 return new THREE.Vector3(r*Math.cos(a)+0.08, (t-0.5)*(h-0.2), r*Math.sin(a)+0.12);
-            }
-            spiral.geometry = new THREE.TubeGeometry(curve, 250, 0.015, 8, false);
-            spiral.castShadow=true; notebookGroup.add(spiral);
-            
-            scene.add(notebookGroup);
-        }
-
-        function playSeq() {
-            const tl = gsap.timeline();
-            tl.to('#intro-logo', { opacity: 1, scale: 1, duration: 1 })
-              .to('#intro-logo', { opacity: 0, scale: 1.2, duration: 0.8, delay: 0.5 })
-              .to('#intro-layer', { opacity: 0, duration: 0.5 })
-              .set('#intro-layer', { display: 'none' })
-              .fromTo(notebookGroup.position, { y: -10, x: 0 }, { y: 0, duration: 1.5, ease: "power3.out" }, "-=0.2")
-              .fromTo(notebookGroup.rotation, { x: 0.5, y: Math.PI }, { x: 0, y: 0, duration: 1.5, ease: "power3.out" }, "<")
-              .to(frontGroup.rotation, { y: -2, duration: 1.5, ease: "power2.inOut" })
-              .to(notebookGroup.position, { x: 2.5, duration: 1.5, ease: "power3.inOut" }, "s")
-              .to(notebookGroup.rotation, { y: -0.3, x: 0.1, duration: 1.5, ease: "power3.inOut" }, "s")
-              .to('h1', { opacity: 1, y: 0, duration: 0.8 }, "-=1")
-              .to('p', { opacity: 1, x: 0, duration: 0.8 }, "-=0.6")
-              .to('.btn', { opacity: 1, y: 0, duration: 0.8 }, "-=0.6");
+        // --- PARALLAX ---
+        let mouseX = 0, mouseY = 0;
+        function onMouseMove(e) {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            if(notebookGroup) notebookGroup.position.y += Math.sin(Date.now()*0.001)*0.0015;
-            renderer.render(scene, camera);
-        }
-        init();
-    <\/script>
-</body>
-</html>`;
-            const blob = new Blob([html], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'landing-page.html';
-            a.click();
+            const t = performance.now() * 0.001;
+            bookGroup.position.y += Math.sin(t) * 0.001; 
+
+            if(Math.abs(mouseX) > 0) {
+                // Subtle rotation on closed book
+                bookGroup.rotation.y += (mouseX * 0.05 - (bookGroup.rotation.y + 0.3)) * 0.05;
+                bookGroup.rotation.x += (-mouseY * 0.05 - bookGroup.rotation.x) * 0.05;
+            }
+            composer.render();
         }
 
-        window.onload = init;
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
     </script>
 </body>
 </html>
