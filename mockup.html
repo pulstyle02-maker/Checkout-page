@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra Cinematic Notebook Mockup</title>
+    <!-- Three.js and Tween.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --accent: #6366f1; /* Indigo */
+            --bg-dark: #09090b;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #e4e4e7;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: radial-gradient(circle at center, #18181b 0%, #000000 100%);
+        }
+
+        /* UI Overlay */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            padding: 2rem;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Header */
+        .brand {
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 600;
+            opacity: 0.7;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* Camera Controls */
+        .controls-container {
+            position: absolute;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            pointer-events: auto;
+        }
+
+        .cam-btn {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            text-align: right;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cam-btn::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; width: 3px; height: 100%;
+            background: var(--accent);
+            transform: scaleY(0);
+            transition: transform 0.3s;
+        }
+
+        .cam-btn:hover {
+            background: rgba(255,255,255,0.1);
+            padding-right: 24px;
+        }
+        .cam-btn:hover::before { transform: scaleY(1); }
+
+        /* Bottom Bar */
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        .action-btn {
+            background: white;
+            color: black;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .action-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255, 255, 255, 0.4); }
+
+        .secondary-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: all 0.2s;
+        }
+        .secondary-btn:hover { border-color: white; background: rgba(255,255,255,0.05); }
+
+        /* Upload Modal */
+        #upload-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        #upload-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .upload-card {
+            width: 340px;
+            background: #18181b;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7);
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #upload-overlay.active .upload-card { transform: scale(1); }
+
+        .dashed-box {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 40px 20px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .dashed-box:hover { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
+
+        #file-input { display: none; }
+
+        /* Loading Spinner */
+        .loader {
+            position: fixed; inset: 0; background: #000; z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.8s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div class="loader" id="loader">
+        <div style="font-size: 0.8rem; letter-spacing: 0.4em; color: white;">INITIALIZING RENDERER</div>
+    </div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI -->
+    <div class="ui-layer">
+        <div class="brand">HELIX / STUDIO PRO</div>
+
+        <div class="controls-container">
+            <div class="cam-btn" onclick="moveCamera('iso')">Isometric View</div>
+            <div class="cam-btn" onclick="moveCamera('front')">Front Face</div>
+            <div class="cam-btn" onclick="moveCamera('top')">Flat Lay</div>
+            <div class="cam-btn" onclick="moveCamera('hero')">Hero Low</div>
+            <div class="cam-btn" onclick="moveCamera('spine')">Spine Macro</div>
+            <div class="cam-btn" onclick="moveCamera('dutch')">Cinematic Tilt</div>
+        </div>
+
+        <div class="bottom-bar">
+            <div>
+                <button class="secondary-btn" onclick="toggleRotation()" id="pause-btn">Pause</button>
+                <button class="secondary-btn" onclick="resetView()">Reset</button>
+            </div>
+            <button class="action-btn" onclick="openUpload()">Change Cover</button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-overlay">
+        <div class="upload-card">
+            <div class="dashed-box" onclick="document.getElementById('file-input').click()">
+                <div style="font-size: 2rem; margin-bottom: 10px;">+</div>
+                <div style="font-size: 0.9rem; opacity: 0.7;">Click to Upload Cover</div>
+                <div style="font-size: 0.7rem; opacity: 0.4; margin-top: 5px;">Supports PNG, JPG</div>
+            </div>
+            <input type="file" id="file-input" accept="image/*">
+            <button class="secondary-btn" style="width: 100%" onclick="closeUpload()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            paperColor: 0xffffff,
+            spiralColor: 0xcccccc, // Silver/Chrome
+            bgColor: 0x050507,
+            animSpeed: 0.001
+        };
+
+        // --- GLOBALS ---
+        let scene, camera, renderer, clock;
+        let notebookGroup, bookMesh, spiralMesh;
+        let isAnimating = true;
+        let mouse = { x: 0, y: 0 };
+        let targetRotation = { x: 0, y: 0 };
+        
+        // --- INIT ---
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050507, 0.02);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(6, 4, 8);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.physicallyCorrectLights = true;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Lighting System
+            setupLights();
+
+            // Initial Notebook
+            clock = new THREE.Clock();
+            
+            // Default placeholder texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 700;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(0,0,512,700);
+            ctx.fillStyle = '#6366f1'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center';
+            ctx.fillText("UPLOAD COVER", 256, 350);
+            const defaultTex = new THREE.CanvasTexture(canvas);
+            
+            createNotebook(defaultTex);
+
+            // Listeners
+            window.addEventListener('resize', onResize);
+            document.addEventListener('mousemove', onMouseMove);
+            document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            
+            // Remove Loader
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = 0;
+                setTimeout(() => document.getElementById('loader').remove(), 800);
+            }, 500);
+
+            animate();
+        }
+
+        function setupLights() {
+            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambient);
+
+            // Key Light (Warm)
+            const spotLight = new THREE.SpotLight(0xfff0dd, 10);
+            spotLight.position.set(5, 10, 5);
+            spotLight.angle = Math.PI / 6;
+            spotLight.penumbra = 0.3;
+            spotLight.castShadow = true;
+            spotLight.shadow.mapSize.width = 2048;
+            spotLight.shadow.mapSize.height = 2048;
+            spotLight.shadow.bias = -0.0001;
+            scene.add(spotLight);
+
+            // Fill Light (Cool)
+            const fillLight = new THREE.PointLight(0xc7d2fe, 5);
+            fillLight.position.set(-5, 2, 5);
+            scene.add(fillLight);
+
+            // Rim Light (Blueish accent)
+            const rimLight = new THREE.SpotLight(0x6366f1, 8);
+            rimLight.position.set(0, 5, -8);
+            rimLight.lookAt(0, 0, 0);
+            scene.add(rimLight);
+        }
+
+        // --- GEOMETRY GENERATION ---
+
+        function generatePageTexture() {
+            // Creates a stripy texture for the side of the book to look like stacked paper
+            const c = document.createElement('canvas');
+            c.width = 64; c.height = 512;
+            const cx = c.getContext('2d');
+            cx.fillStyle = '#f8fafc';
+            cx.fillRect(0, 0, 64, 512);
+            
+            // Add noise lines
+            for (let i = 0; i < 512; i+=2) {
+                cx.fillStyle = Math.random() > 0.5 ? '#e2e8f0' : '#ffffff';
+                cx.fillRect(0, i, 64, 1);
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        function createNotebook(coverTexture) {
+            // Clean up old model
+            if (notebookGroup) {
+                scene.remove(notebookGroup);
+                // Dispose geometry/materials to free memory would go here in a full app
+            }
+
+            notebookGroup = new THREE.Group();
+
+            // Calculate Dimensions based on Image Aspect Ratio
+            const imgInfo = coverTexture.image;
+            const aspect = imgInfo.width / imgInfo.height;
+            
+            const bookHeight = 4.5;
+            const bookWidth = bookHeight * aspect;
+            const bookDepth = 0.15; // Thickness of the book
+
+            // 1. THE BOOK BODY
+            const geometry = new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth);
+            
+            // Materials
+            const pageSideTex = generatePageTexture();
+            
+            const matCover = new THREE.MeshPhysicalMaterial({
+                map: coverTexture,
+                roughness: 0.4,
+                metalness: 0.1,
+                clearcoat: 0.3,
+                clearcoatRoughness: 0.2
+            });
+
+            const matBack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+            
+            const matPages = new THREE.MeshStandardMaterial({ 
+                map: pageSideTex, 
+                roughness: 0.9,
+                color: 0xffffff
+            });
+
+            // Box UV Mapping order: Right, Left, Top, Bottom, Front, Back
+            const materials = [
+                matPages, // Right (Pages)
+                matPages, // Left (Spine side - covered by spiral, but keep it consistent)
+                matPages, // Top
+                matPages, // Bottom
+                matCover, // Front
+                matBack   // Back
+            ];
+
+            bookMesh = new THREE.Mesh(geometry, materials);
+            bookMesh.castShadow = true;
+            bookMesh.receiveShadow = true;
+            notebookGroup.add(bookMesh);
+
+            // 2. THE SPIRAL (Procedural Helix)
+            const loops = Math.floor(bookHeight * 5); // Density of spiral
+            const radius = 0.16;
+            const tubeRadius = 0.015;
+            
+            // Create a path
+            class HelixCurve extends THREE.Curve {
+                getPoint(t) {
+                    // t goes 0 to 1
+                    const angle = t * Math.PI * 2 * loops;
+                    const x = radius * Math.cos(angle) - (bookWidth/2); // Offset to left edge
+                    const y = (t - 0.5) * bookHeight * 1.05; // Slightly taller than book
+                    const z = radius * Math.sin(angle);
+                    return new THREE.Vector3(x, y, z);
+                }
+            }
+
+            const spiralGeo = new THREE.TubeGeometry(new HelixCurve(), loops * 16, tubeRadius, 8, false);
+            const spiralMat = new THREE.MeshPhysicalMaterial({
+                color: 0xaaaaaa,
+                metalness: 0.9,
+                roughness: 0.3,
+                clearcoat: 1.0
+            });
+
+            spiralMesh = new THREE.Mesh(spiralGeo, spiralMat);
+            spiralMesh.castShadow = true;
+            notebookGroup.add(spiralMesh);
+
+            scene.add(notebookGroup);
+
+            // Initial entrance animation
+            notebookGroup.rotation.y = Math.PI;
+            new TWEEN.Tween(notebookGroup.rotation)
+                .to({ y: 0 }, 1500)
+                .easing(TWEEN.Easing.Elastic.Out)
+                .start();
+        }
+
+
+        // --- CAMERA CONTROL SYSTEM ---
+
+        function moveCamera(preset) {
+            let pos = { x: 0, y: 0, z: 0 };
+            
+            // Dynamic Zoom based on book size (approx) usually works, but hardcoded is safer for this demo
+            switch(preset) {
+                case 'iso': pos = { x: 5, y: 4, z: 6 }; break; // Standard Isometric
+                case 'front': pos = { x: 0, y: 0, z: 6.5 }; break; // Direct Front
+                case 'top': pos = { x: 0, y: 7, z: 0.1 }; break; // Flat Lay (Top Down)
+                case 'hero': pos = { x: 2, y: -3, z: 4 }; break; // Looking Up
+                case 'spine': pos = { x: -2.5, y: 0.5, z: 1.5 }; break; // Macro Detail
+                case 'dutch': pos = { x: 4, y: 2, z: 4 }; break; // Tilted
+            }
+
+            // Animate Position
+            new TWEEN.Tween(camera.position)
+                .to(pos, 1500)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .start();
+
+            // Handle Rotation/LookAt logic in update loop, 
+            // but for Dutch angle specifically, we might rotate the camera roll
+            if(preset === 'dutch') {
+                new TWEEN.Tween(camera.rotation)
+                    .to({ z: -0.2 }, 1500) // Slight roll
+                    .start();
+            } else {
+                new TWEEN.Tween(camera.rotation)
+                    .to({ z: 0 }, 1000)
+                    .start();
+            }
+        }
+
+        function resetView() { moveCamera('iso'); }
+
+        // --- INTERACTION ---
+
+        function onMouseMove(event) {
+            // Normalize mouse -1 to 1
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Show Loading visual if needed
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const texture = new THREE.Texture(img);
+                    texture.needsUpdate = true;
+                    texture.encoding = THREE.sRGBEncoding;
+                    texture.anisotropy = 16; // Crisp textures at angles
+                    createNotebook(texture);
+                    closeUpload();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Modal Logic
+        function openUpload() { document.getElementById('upload-overlay').classList.add('active'); }
+        function closeUpload() { document.getElementById('upload-overlay').classList.remove('active'); }
+        function toggleRotation() { 
+            isAnimating = !isAnimating; 
+            document.getElementById('pause-btn').innerText = isAnimating ? "Pause" : "Resume";
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- ANIMATION LOOP ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update();
+
+            const delta = clock.getDelta();
+
+            if (notebookGroup) {
+                // Smooth Floating Animation
+                const floatY = Math.sin(clock.elapsedTime * 0.8) * 0.1;
+                notebookGroup.position.y = floatY;
+
+                if (isAnimating) {
+                    // Auto Rotation
+                    notebookGroup.rotation.y += 0.002;
+                }
+                
+                // Mouse Parallax Effect (Smooth Lerp)
+                const targetX = mouse.y * 0.1;
+                const targetY = mouse.x * 0.1;
+                
+                // Add mouse influence on top of auto-rotation
+                notebookGroup.rotation.x += (targetX - notebookGroup.rotation.x) * 0.05;
+                // We don't override Y fully, just add to it or influence it depending on state
+            }
+
+            // Ensure camera generally looks at center (unless in specific locked modes)
+            // Note: If using OrbitControls, this conflicts, but for cinematic fly-throughs, LookAt is good.
+            // However, for the "Dutch" angle, we want to respect the roll, so we check rotation.z
+            if (camera.rotation.z === 0) {
+                 camera.lookAt(0, 0, 0);
+            } else {
+                // Manual lookat logic for dutch angle to preserve roll
+                // (Simplified: ThreeJS LookAt resets roll, so we skip it for dutch)
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Start
+        window.onload = init;
+
+    </script>
+</body>
+</html>
