@@ -3,522 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultra Cinematic Notebook Mockup</title>
-    <!-- Three.js and Tween.js -->
+    <title>3D Notebook Landing Page Builder</title>
+    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
-    <!-- Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
     
     <style>
-        :root {
-            --accent: #6366f1; /* Indigo */
-            --bg-dark: #09090b;
-            --glass: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
-            --text-main: #e4e4e7;
+        :root { --panel-width: 320px; --accent: #6366f1; }
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Inter', sans-serif; color: white; }
+        
+        /* CANVAS & PREVIEW AREA */
+        #canvas-container { position: absolute; inset: 0; z-index: 1; transition: background 0.5s; }
+        
+        /* LANDING PAGE TEXT PREVIEW */
+        .lp-content {
+            position: absolute; top: 50%; left: 8%; transform: translateY(-50%);
+            z-index: 10; max-width: 500px; pointer-events: none;
         }
-
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: var(--bg-dark);
-            font-family: 'Inter', sans-serif;
-            color: var(--text-main);
+        .lp-content h1 {
+            font-size: 3.5rem; line-height: 1.1; margin: 0 0 20px 0; font-weight: 700;
+            background: linear-gradient(to right, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            opacity: 0; transform: translateY(30px);
         }
-
-        #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            background: radial-gradient(circle at center, #18181b 0%, #000000 100%);
+        .lp-content p {
+            font-size: 1.1rem; color: rgba(255,255,255,0.7); line-height: 1.6; margin: 0 0 30px 0;
+            opacity: 0; transform: translateX(-20px);
         }
-
-        /* UI Overlay */
-        .ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-            padding: 2rem;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+        .lp-btn {
+            padding: 14px 32px; background: white; color: black; border: none; border-radius: 50px;
+            font-weight: 600; font-size: 1rem; cursor: pointer; pointer-events: auto;
+            opacity: 0; transform: translateY(20px); transition: transform 0.2s;
         }
+        .lp-btn:hover { transform: scale(1.05); }
 
-        /* Header */
-        .brand {
-            font-size: 0.8rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            font-weight: 600;
-            opacity: 0.7;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-        }
-
-        /* Camera Controls */
-        .controls-container {
-            position: absolute;
-            right: 2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-            pointer-events: auto;
-        }
-
-        .cam-btn {
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            color: white;
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            text-align: right;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .cam-btn::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0; width: 3px; height: 100%;
-            background: var(--accent);
-            transform: scaleY(0);
-            transition: transform 0.3s;
-        }
-
-        .cam-btn:hover {
-            background: rgba(255,255,255,0.1);
-            padding-right: 24px;
-        }
-        .cam-btn:hover::before { transform: scaleY(1); }
-
-        /* Bottom Bar */
-        .bottom-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            pointer-events: auto;
-        }
-
-        .action-btn {
-            background: white;
-            color: black;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .action-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255, 255, 255, 0.4); }
-
-        .secondary-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 50px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            margin-right: 10px;
-            transition: all 0.2s;
-        }
-        .secondary-btn:hover { border-color: white; background: rgba(255,255,255,0.05); }
-
-        /* Upload Modal */
-        #upload-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(20px);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s;
-        }
-        #upload-overlay.active { opacity: 1; pointer-events: auto; }
-
-        .upload-card {
-            width: 340px;
-            background: #18181b;
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7);
-            transform: scale(0.9);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        #upload-overlay.active .upload-card { transform: scale(1); }
-
-        .dashed-box {
-            border: 2px dashed rgba(255,255,255,0.2);
-            border-radius: 16px;
-            padding: 40px 20px;
-            margin-bottom: 20px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .dashed-box:hover { border-color: var(--accent); background: rgba(99, 102, 241, 0.05); }
-
-        #file-input { display: none; }
-
-        /* Loading Spinner */
-        .loader {
-            position: fixed; inset: 0; background: #000; z-index: 200;
+        /* INTRO LOGO OVERLAY */
+        #intro-layer {
+            position: fixed; inset: 0; background: #000; z-index: 100;
             display: flex; align-items: center; justify-content: center;
-            transition: opacity 0.8s;
+            pointer-events: none;
         }
+        #intro-logo { max-width: 150px; opacity: 0; transform: scale(0.8); }
+
+        /* --- EDITOR SIDEBAR --- */
+        .editor-panel {
+            position: fixed; right: 0; top: 0; bottom: 0; width: var(--panel-width);
+            background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255,255,255,0.1); z-index: 200;
+            padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+        
+        .panel-header { font-size: 0.9rem; font-weight: 700; letter-spacing: 1px; color: var(--accent); text-transform: uppercase; margin-bottom: 5px; }
+        
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 8px; }
+        
+        input[type="text"], textarea {
+            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: white; padding: 10px; border-radius: 8px; font-family: inherit; font-size: 0.85rem;
+            box-sizing: border-box; transition: 0.2s;
+        }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--accent); background: rgba(255,255,255,0.1); }
+        
+        .file-upload-btn {
+            width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2);
+            border-radius: 8px; color: #aaa; font-size: 0.8rem; cursor: pointer; text-align: center; transition: 0.2s;
+        }
+        .file-upload-btn:hover { border-color: var(--accent); color: white; background: rgba(99, 102, 241, 0.1); }
+        
+        .color-picker-row { display: flex; align-items: center; gap: 10px; }
+        input[type="color"] { background: none; border: none; width: 40px; height: 40px; cursor: pointer; }
+
+        .action-row { display: flex; gap: 10px; margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn-primary {
+            flex: 1; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px;
+            font-weight: 600; cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-secondary {
+            flex: 1; padding: 12px; background: transparent; color: white; border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
     </style>
 </head>
 <body>
 
-    <!-- Loading Screen -->
-    <div class="loader" id="loader">
-        <div style="font-size: 0.8rem; letter-spacing: 0.4em; color: white;">INITIALIZING RENDERER</div>
+    <!-- INTRO LAYER -->
+    <div id="intro-layer">
+        <!-- Default Logo (SVG) -->
+        <img id="intro-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik00IDE5LjVlN2wtM3YzLjUiLz48cGF0aCBkPSJNNCAyMGgxNCIvPjxwYXRoIGQ9Ik0yIDd2MTAiLz48cGF0aCBkPSJNNSAydjE4Ii8+PHBhdGggZD0iTTE5IDJ2MTgiLz48L3N2Zz4=" alt="Logo">
     </div>
 
-    <!-- 3D Canvas -->
+    <!-- 3D CANVAS -->
     <div id="canvas-container"></div>
 
-    <!-- UI -->
-    <div class="ui-layer">
-        <div class="brand">HELIX / STUDIO PRO</div>
-
-        <div class="controls-container">
-            <div class="cam-btn" onclick="moveCamera('iso')">Isometric View</div>
-            <div class="cam-btn" onclick="moveCamera('front')">Front Face</div>
-            <div class="cam-btn" onclick="moveCamera('top')">Flat Lay</div>
-            <div class="cam-btn" onclick="moveCamera('hero')">Hero Low</div>
-            <div class="cam-btn" onclick="moveCamera('spine')">Spine Macro</div>
-            <div class="cam-btn" onclick="moveCamera('dutch')">Cinematic Tilt</div>
-        </div>
-
-        <div class="bottom-bar">
-            <div>
-                <button class="secondary-btn" onclick="toggleRotation()" id="pause-btn">Pause</button>
-                <button class="secondary-btn" onclick="resetView()">Reset</button>
-            </div>
-            <button class="action-btn" onclick="openUpload()">Change Cover</button>
-        </div>
+    <!-- PREVIEW CONTENT -->
+    <div class="lp-content">
+        <h1 id="preview-h1">Create Your<br>Masterpiece.</h1>
+        <p id="preview-p">This is the subtitle area. You can edit this text in the sidebar to match your brand's voice and style.</p>
+        <button id="preview-btn" class="lp-btn">Get Started</button>
     </div>
 
-    <!-- Upload Modal -->
-    <div id="upload-overlay">
-        <div class="upload-card">
-            <div class="dashed-box" onclick="document.getElementById('file-input').click()">
-                <div style="font-size: 2rem; margin-bottom: 10px;">+</div>
-                <div style="font-size: 0.9rem; opacity: 0.7;">Click to Upload Cover</div>
-                <div style="font-size: 0.7rem; opacity: 0.4; margin-top: 5px;">Supports PNG, JPG</div>
+    <!-- EDITOR SIDEBAR -->
+    <div class="editor-panel">
+        <div class="panel-header">Design & Colors</div>
+        <div class="control-group">
+            <label>Background Color</label>
+            <div class="color-picker-row">
+                <input type="color" id="input-bg" value="#050505">
+                <span style="font-size: 0.8rem; opacity: 0.7">Click to change</span>
             </div>
-            <input type="file" id="file-input" accept="image/*">
-            <button class="secondary-btn" style="width: 100%" onclick="closeUpload()">Cancel</button>
+        </div>
+        <div class="control-group">
+            <label>Cover Image</label>
+            <div class="file-upload-btn" onclick="document.getElementById('input-cover').click()">
+                📸 Upload Cover Image
+            </div>
+            <input type="file" id="input-cover" hidden accept="image/*">
+        </div>
+
+        <div class="panel-header">Content</div>
+        <div class="control-group">
+            <label>Headline</label>
+            <textarea id="input-h1" rows="2">Create Your&#13;&#10;Masterpiece.</textarea>
+        </div>
+        <div class="control-group">
+            <label>Body Text</label>
+            <textarea id="input-p" rows="4">This is the subtitle area. You can edit this text in the sidebar to match your brand's voice and style.</textarea>
+        </div>
+        <div class="control-group">
+            <label>Button Text</label>
+            <input type="text" id="input-btn" value="Get Started">
+        </div>
+
+        <div class="panel-header">Branding</div>
+        <div class="control-group">
+            <label>Intro Logo (PNG/SVG)</label>
+            <div class="file-upload-btn" onclick="document.getElementById('input-logo').click()">
+                ⭐ Upload Logo
+            </div>
+            <input type="file" id="input-logo" hidden accept="image/*">
+        </div>
+
+        <div class="action-row">
+            <button class="btn-secondary" onclick="playSequence()">▶ Replay</button>
+            <button class="btn-primary" onclick="exportSite()">⬇ Export HTML</button>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const CONFIG = {
-            paperColor: 0xffffff,
-            spiralColor: 0xcccccc, // Silver/Chrome
-            bgColor: 0x050507,
-            animSpeed: 0.001
+        // --- GLOBAL STATE ---
+        let scene, camera, renderer, notebookGroup, frontGroup;
+        const config = {
+            bgColor: '#050505',
+            coverData: null,
+            logoData: null,
+            textH1: "Create Your<br>Masterpiece.",
+            textP: "This is the subtitle area. You can edit this text in the sidebar to match your brand's voice and style.",
+            textBtn: "Get Started"
         };
 
-        // --- GLOBALS ---
-        let scene, camera, renderer, clock;
-        let notebookGroup, bookMesh, spiralMesh;
-        let isAnimating = true;
-        let mouse = { x: 0, y: 0 };
-        let targetRotation = { x: 0, y: 0 };
-        
         // --- INIT ---
         function init() {
-            // Scene Setup
+            // Setup Three.js
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x050507, 0.02);
+            scene.fog = new THREE.FogExp2(config.bgColor, 0.02);
 
-            // Camera Setup
-            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(6, 4, 8);
+            camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 15);
 
-            // Renderer Setup
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.physicallyCorrectLights = true;
+            renderer.outputEncoding = THREE.sRGBEncoding;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.0;
-            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-            // Lighting System
-            setupLights();
+            // Lighting
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+            const spot = new THREE.SpotLight(0xfff5e6, 6);
+            spot.position.set(5, 8, 8); spot.castShadow = true; spot.shadow.mapSize.set(2048, 2048);
+            scene.add(spot);
+            const rim = new THREE.PointLight(0x6366f1, 3);
+            rim.position.set(-5, 2, -5);
+            scene.add(rim);
 
-            // Initial Notebook
-            clock = new THREE.Clock();
-            
-            // Default placeholder texture
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 700;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#1e293b'; ctx.fillRect(0,0,512,700);
-            ctx.fillStyle = '#6366f1'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center';
-            ctx.fillText("UPLOAD COVER", 256, 350);
-            const defaultTex = new THREE.CanvasTexture(canvas);
-            
-            createNotebook(defaultTex);
+            // Build Book
+            createNotebook(null);
 
             // Listeners
             window.addEventListener('resize', onResize);
-            document.addEventListener('mousemove', onMouseMove);
-            document.getElementById('file-input').addEventListener('change', handleFileUpload);
-            
-            // Remove Loader
-            setTimeout(() => {
-                document.getElementById('loader').style.opacity = 0;
-                setTimeout(() => document.getElementById('loader').remove(), 800);
-            }, 500);
+            setupEditorListeners();
+            gsap.ticker.add(animate);
 
-            animate();
+            // Start Animation
+            playSequence();
         }
 
-        function setupLights() {
-            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(ambient);
-
-            // Key Light (Warm)
-            const spotLight = new THREE.SpotLight(0xfff0dd, 10);
-            spotLight.position.set(5, 10, 5);
-            spotLight.angle = Math.PI / 6;
-            spotLight.penumbra = 0.3;
-            spotLight.castShadow = true;
-            spotLight.shadow.mapSize.width = 2048;
-            spotLight.shadow.mapSize.height = 2048;
-            spotLight.shadow.bias = -0.0001;
-            scene.add(spotLight);
-
-            // Fill Light (Cool)
-            const fillLight = new THREE.PointLight(0xc7d2fe, 5);
-            fillLight.position.set(-5, 2, 5);
-            scene.add(fillLight);
-
-            // Rim Light (Blueish accent)
-            const rimLight = new THREE.SpotLight(0x6366f1, 8);
-            rimLight.position.set(0, 5, -8);
-            rimLight.lookAt(0, 0, 0);
-            scene.add(rimLight);
-        }
-
-        // --- GEOMETRY GENERATION ---
-
-        function generatePageTexture() {
-            // Creates a stripy texture for the side of the book to look like stacked paper
-            const c = document.createElement('canvas');
-            c.width = 64; c.height = 512;
-            const cx = c.getContext('2d');
-            cx.fillStyle = '#f8fafc';
-            cx.fillRect(0, 0, 64, 512);
-            
-            // Add noise lines
-            for (let i = 0; i < 512; i+=2) {
-                cx.fillStyle = Math.random() > 0.5 ? '#e2e8f0' : '#ffffff';
-                cx.fillRect(0, i, 64, 1);
-            }
-            const tex = new THREE.CanvasTexture(c);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            return tex;
-        }
-
-        function createNotebook(coverTexture) {
-            // Clean up old model
-            if (notebookGroup) {
-                scene.remove(notebookGroup);
-                // Dispose geometry/materials to free memory would go here in a full app
-            }
-
+        function createNotebook(texSrc) {
+            if(notebookGroup) scene.remove(notebookGroup);
             notebookGroup = new THREE.Group();
 
-            // Calculate Dimensions based on Image Aspect Ratio
-            const imgInfo = coverTexture.image;
-            const aspect = imgInfo.width / imgInfo.height;
-            
-            const bookHeight = 4.5;
-            const bookWidth = bookHeight * aspect;
-            const bookDepth = 0.15; // Thickness of the book
-
-            // 1. THE BOOK BODY
-            const geometry = new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth);
-            
-            // Materials
-            const pageSideTex = generatePageTexture();
-            
-            const matCover = new THREE.MeshPhysicalMaterial({
-                map: coverTexture,
-                roughness: 0.4,
-                metalness: 0.1,
-                clearcoat: 0.3,
-                clearcoatRoughness: 0.2
-            });
-
-            const matBack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
-            
-            const matPages = new THREE.MeshStandardMaterial({ 
-                map: pageSideTex, 
-                roughness: 0.9,
-                color: 0xffffff
-            });
-
-            // Box UV Mapping order: Right, Left, Top, Bottom, Front, Back
-            const materials = [
-                matPages, // Right (Pages)
-                matPages, // Left (Spine side - covered by spiral, but keep it consistent)
-                matPages, // Top
-                matPages, // Bottom
-                matCover, // Front
-                matBack   // Back
-            ];
-
-            bookMesh = new THREE.Mesh(geometry, materials);
-            bookMesh.castShadow = true;
-            bookMesh.receiveShadow = true;
-            notebookGroup.add(bookMesh);
-
-            // 2. THE SPIRAL (Procedural Helix)
-            const loops = Math.floor(bookHeight * 5); // Density of spiral
-            const radius = 0.16;
-            const tubeRadius = 0.015;
-            
-            // Create a path
-            class HelixCurve extends THREE.Curve {
-                getPoint(t) {
-                    // t goes 0 to 1
-                    const angle = t * Math.PI * 2 * loops;
-                    const x = radius * Math.cos(angle) - (bookWidth/2); // Offset to left edge
-                    const y = (t - 0.5) * bookHeight * 1.05; // Slightly taller than book
-                    const z = radius * Math.sin(angle);
-                    return new THREE.Vector3(x, y, z);
-                }
+            let texture;
+            if(texSrc) {
+                texture = new THREE.TextureLoader().load(texSrc);
+            } else {
+                // Default
+                const c = document.createElement('canvas');
+                c.width = 512; c.height = 700;
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#4f46e5'; ctx.fillRect(0,0,512,700);
+                ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(20,20,472,660);
+                ctx.fillStyle = 'white'; ctx.font = 'bold 60px Arial'; ctx.textAlign = 'center';
+                ctx.fillText("COVER", 256, 350);
+                texture = new THREE.CanvasTexture(c);
             }
+            texture.encoding = THREE.sRGBEncoding;
+            texture.anisotropy = 16;
 
-            const spiralGeo = new THREE.TubeGeometry(new HelixCurve(), loops * 16, tubeRadius, 8, false);
-            const spiralMat = new THREE.MeshPhysicalMaterial({
-                color: 0xaaaaaa,
-                metalness: 0.9,
-                roughness: 0.3,
-                clearcoat: 1.0
-            });
+            const h = 4.5; const w = 3.2; const d = 0.08;
 
-            spiralMesh = new THREE.Mesh(spiralGeo, spiralMat);
-            spiralMesh.castShadow = true;
-            notebookGroup.add(spiralMesh);
+            // Materials (Non-glossy fix)
+            const matCover = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.7, metalness: 0 });
+            const matPaper = new THREE.MeshStandardMaterial({ color: 0xfdfdfd, roughness: 0.9 });
+            const matMetal = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.8 });
+
+            // Back
+            const back = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matCover);
+            back.position.set(w/2 + 0.15, 0, 0); back.castShadow = true;
+            notebookGroup.add(back);
+
+            // Pages
+            const pages = new THREE.Mesh(new THREE.BoxGeometry(w-0.1, h-0.2, 0.15), matPaper);
+            pages.position.set(w/2 + 0.15, 0, 0.12); pages.castShadow = true;
+            notebookGroup.add(pages);
+
+            // Front Group (Hinge)
+            frontGroup = new THREE.Group();
+            frontGroup.position.set(0.15, 0, 0.24);
+            const front = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [matPaper, matPaper, matPaper, matPaper, matCover, matPaper]);
+            front.position.set(w/2, 0, 0); front.castShadow = true;
+            frontGroup.add(front);
+            notebookGroup.add(frontGroup);
+
+            // Spiral
+            const spiralC = new THREE.Curve();
+            spiralC.getPoint = (t) => {
+                const a = t * Math.PI * 2 * 25;
+                return new THREE.Vector3(0.18 * Math.cos(a) + 0.08, (t - 0.5) * (h - 0.2), 0.18 * Math.sin(a) + 0.12);
+            };
+            const spiral = new THREE.Mesh(new THREE.TubeGeometry(spiralC, 250, 0.015, 8, false), matMetal);
+            spiral.castShadow = true;
+            notebookGroup.add(spiral);
 
             scene.add(notebookGroup);
-
-            // Initial entrance animation
-            notebookGroup.rotation.y = Math.PI;
-            new TWEEN.Tween(notebookGroup.rotation)
-                .to({ y: 0 }, 1500)
-                .easing(TWEEN.Easing.Elastic.Out)
-                .start();
         }
 
-
-        // --- CAMERA CONTROL SYSTEM ---
-
-        function moveCamera(preset) {
-            let pos = { x: 0, y: 0, z: 0 };
+        // --- ANIMATION SEQUENCE ---
+        function playSequence() {
+            const tl = gsap.timeline();
             
-            // Dynamic Zoom based on book size (approx) usually works, but hardcoded is safer for this demo
-            switch(preset) {
-                case 'iso': pos = { x: 5, y: 4, z: 6 }; break; // Standard Isometric
-                case 'front': pos = { x: 0, y: 0, z: 6.5 }; break; // Direct Front
-                case 'top': pos = { x: 0, y: 7, z: 0.1 }; break; // Flat Lay (Top Down)
-                case 'hero': pos = { x: 2, y: -3, z: 4 }; break; // Looking Up
-                case 'spine': pos = { x: -2.5, y: 0.5, z: 1.5 }; break; // Macro Detail
-                case 'dutch': pos = { x: 4, y: 2, z: 4 }; break; // Tilted
-            }
+            // Reset
+            gsap.set('#intro-logo', { opacity: 0, scale: 0.8 });
+            gsap.set('#intro-layer', { display: 'flex', opacity: 1 });
+            gsap.set(['#preview-h1', '#preview-p', '#preview-btn'], { opacity: 0, y: 30 });
+            gsap.set(notebookGroup.rotation, { x: 0, y: 0, z: 0 });
+            gsap.set(frontGroup.rotation, { y: 0 });
+            
+            // 1. Logo Intro
+            tl.to('#intro-logo', { opacity: 1, scale: 1, duration: 1, ease: "power2.out" })
+              .to('#intro-logo', { opacity: 0, scale: 1.2, duration: 0.8, delay: 0.5 })
+              .to('#intro-layer', { opacity: 0, duration: 0.5 })
+              .set('#intro-layer', { display: 'none' });
 
-            // Animate Position
-            new TWEEN.Tween(camera.position)
-                .to(pos, 1500)
-                .easing(TWEEN.Easing.Cubic.InOut)
-                .start();
+            // 2. Book Enter
+            tl.fromTo(notebookGroup.position, { y: -10, x: 0, z: 0 }, { y: 0, duration: 1.5, ease: "power3.out" }, "-=0.2")
+              .fromTo(notebookGroup.rotation, { x: 0.5, y: Math.PI }, { x: 0, y: 0, duration: 1.5, ease: "power3.out" }, "<");
 
-            // Handle Rotation/LookAt logic in update loop, 
-            // but for Dutch angle specifically, we might rotate the camera roll
-            if(preset === 'dutch') {
-                new TWEEN.Tween(camera.rotation)
-                    .to({ z: -0.2 }, 1500) // Slight roll
-                    .start();
-            } else {
-                new TWEEN.Tween(camera.rotation)
-                    .to({ z: 0 }, 1000)
-                    .start();
-            }
+            // 3. Open
+            tl.to(frontGroup.rotation, { y: -2, duration: 1.5, ease: "power2.inOut" });
+
+            // 4. Layout Shift (Move book right)
+            tl.to(notebookGroup.position, { x: 2.5, duration: 1.5, ease: "power3.inOut" }, "shift")
+              .to(notebookGroup.rotation, { y: -0.3, x: 0.1, duration: 1.5, ease: "power3.inOut" }, "shift");
+
+            // 5. Text Enter
+            tl.to('#preview-h1', { opacity: 1, y: 0, duration: 0.8 }, "-=1")
+              .to('#preview-p', { opacity: 1, x: 0, duration: 0.8 }, "-=0.6")
+              .to('#preview-btn', { opacity: 1, y: 0, duration: 0.8 }, "-=0.6");
         }
 
-        function resetView() { moveCamera('iso'); }
-
-        // --- INTERACTION ---
-
-        function onMouseMove(event) {
-            // Normalize mouse -1 to 1
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        }
-
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            // Show Loading visual if needed
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const texture = new THREE.Texture(img);
-                    texture.needsUpdate = true;
-                    texture.encoding = THREE.sRGBEncoding;
-                    texture.anisotropy = 16; // Crisp textures at angles
-                    createNotebook(texture);
-                    closeUpload();
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // Modal Logic
-        function openUpload() { document.getElementById('upload-overlay').classList.add('active'); }
-        function closeUpload() { document.getElementById('upload-overlay').classList.remove('active'); }
-        function toggleRotation() { 
-            isAnimating = !isAnimating; 
-            document.getElementById('pause-btn').innerText = isAnimating ? "Pause" : "Resume";
+        function animate() {
+            if(notebookGroup) notebookGroup.position.y += Math.sin(Date.now() * 0.001) * 0.0015;
+            renderer.render(scene, camera);
         }
 
         function onResize() {
@@ -527,49 +312,224 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // --- ANIMATION LOOP ---
+        // --- EDITOR LOGIC ---
+        function setupEditorListeners() {
+            // Background
+            document.getElementById('input-bg').addEventListener('input', (e) => {
+                config.bgColor = e.target.value;
+                document.getElementById('canvas-container').style.background = config.bgColor;
+                scene.fog.color = new THREE.Color(config.bgColor);
+            });
+
+            // Text Updates
+            const bindText = (id, targetId, configKey) => {
+                document.getElementById(id).addEventListener('input', (e) => {
+                    let val = e.target.value;
+                    if(id === 'input-h1') val = val.replace(/\n/g, '<br>');
+                    config[configKey] = val;
+                    document.getElementById(targetId).innerHTML = val;
+                });
+            };
+            bindText('input-h1', 'preview-h1', 'textH1');
+            bindText('input-p', 'preview-p', 'textP');
+            bindText('input-btn', 'preview-btn', 'textBtn');
+
+            // Cover Upload
+            document.getElementById('input-cover').addEventListener('change', (e) => {
+                const f = e.target.files[0];
+                if(f) {
+                    const r = new FileReader();
+                    r.onload = (evt) => {
+                        config.coverData = evt.target.result;
+                        createNotebook(config.coverData);
+                        // Reset pos for preview
+                        notebookGroup.position.x = 2.5;
+                        notebookGroup.rotation.set(0.1, -0.3, 0);
+                        frontGroup.rotation.y = -2;
+                    };
+                    r.readAsDataURL(f);
+                }
+            });
+
+            // Logo Upload
+            document.getElementById('input-logo').addEventListener('change', (e) => {
+                const f = e.target.files[0];
+                if(f) {
+                    const r = new FileReader();
+                    r.onload = (evt) => {
+                        config.logoData = evt.target.result;
+                        document.getElementById('intro-logo').src = config.logoData;
+                        playSequence();
+                    };
+                    r.readAsDataURL(f);
+                }
+            });
+        }
+
+        // --- EXPORT ---
+        function exportSite() {
+            // We use the default logo SVG if none provided
+            const logoSrc = config.logoData || document.getElementById('intro-logo').src;
+            const coverSrc = config.coverData || ''; 
+
+            const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Landing Page</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background: ${config.bgColor}; font-family: 'Inter', sans-serif; color: white; }
+        #canvas-container { position: absolute; inset: 0; z-index: 1; }
+        .lp-content {
+            position: absolute; top: 50%; left: 8%; transform: translateY(-50%);
+            z-index: 10; max-width: 500px;
+        }
+        h1 {
+            font-size: 3.5rem; line-height: 1.1; margin: 0 0 20px 0; font-weight: 700;
+            background: linear-gradient(to right, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            opacity: 0; transform: translateY(30px);
+        }
+        p {
+            font-size: 1.1rem; color: rgba(255,255,255,0.7); line-height: 1.6; margin: 0 0 30px 0;
+            opacity: 0; transform: translateX(-20px);
+        }
+        .btn {
+            padding: 14px 32px; background: white; color: black; border: none; border-radius: 50px;
+            font-weight: 600; font-size: 1rem; cursor: pointer;
+            opacity: 0; transform: translateY(20px); transition: transform 0.2s;
+        }
+        .btn:hover { transform: scale(1.05); }
+        #intro-layer {
+            position: fixed; inset: 0; background: #000; z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #intro-logo { max-width: 150px; opacity: 0; transform: scale(0.8); }
+    </style>
+</head>
+<body>
+    <div id="intro-layer">
+        <img id="intro-logo" src="${logoSrc}" alt="Logo">
+    </div>
+    <div id="canvas-container"></div>
+    <div class="lp-content">
+        <h1>${config.textH1}</h1>
+        <p>${config.textP}</p>
+        <button class="btn">${config.textBtn}</button>
+    </div>
+    <script>
+        const COVER_DATA = "${coverSrc}";
+        const BG_COLOR = "${config.bgColor}";
+        
+        let scene, camera, renderer, notebookGroup, frontGroup;
+        
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(BG_COLOR, 0.02);
+            camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
+            camera.position.set(0,0,15);
+            renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const spot = new THREE.SpotLight(0xfff5e6, 6); spot.position.set(5,8,8); spot.castShadow=true; spot.shadow.mapSize.set(2048,2048); scene.add(spot);
+            scene.add(new THREE.PointLight(0x6366f1, 3).translateY(2).translateX(-5).translateZ(-5));
+            
+            createBook();
+            animate();
+            playSeq();
+            window.onresize = () => {
+                camera.aspect = window.innerWidth/window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            };
+        }
+
+        function createBook() {
+            notebookGroup = new THREE.Group();
+            let tex;
+            if(COVER_DATA) {
+                tex = new THREE.TextureLoader().load(COVER_DATA);
+            } else {
+                const c = document.createElement('canvas'); c.width=512; c.height=700;
+                const ctx=c.getContext('2d'); ctx.fillStyle='#444'; ctx.fillRect(0,0,512,700);
+                tex = new THREE.CanvasTexture(c);
+            }
+            tex.encoding = THREE.sRGBEncoding; tex.anisotropy=16;
+            
+            const matC = new THREE.MeshStandardMaterial({map:tex, roughness:0.7, metalness:0});
+            const matP = new THREE.MeshStandardMaterial({color:0xfdfdfd, roughness:0.9});
+            const matM = new THREE.MeshStandardMaterial({color:0x333, roughness:0.5, metalness:0.8});
+            
+            const h=4.5, w=3.2, d=0.08;
+            const back = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), matC);
+            back.position.set(w/2+0.15,0,0); back.castShadow=true; notebookGroup.add(back);
+            
+            const pages = new THREE.Mesh(new THREE.BoxGeometry(w-0.1,h-0.2,0.15), matP);
+            pages.position.set(w/2+0.15,0,0.12); notebookGroup.add(pages);
+            
+            frontGroup = new THREE.Group();
+            frontGroup.position.set(0.15,0,0.24);
+            const front = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), [matP,matP,matP,matP,matC,matP]);
+            front.position.set(w/2,0,0); front.castShadow=true; frontGroup.add(front);
+            notebookGroup.add(frontGroup);
+            
+            const spiral = new THREE.Mesh(new THREE.TubeGeometry(new THREE.Curve(), 200, 0.015, 8, false), matM);
+            // Spiral math simplified for export
+            const loops=25, r=0.18;
+            const curve = new THREE.Curve();
+            curve.getPoint = (t) => {
+                 const a = t*Math.PI*2*loops;
+                 return new THREE.Vector3(r*Math.cos(a)+0.08, (t-0.5)*(h-0.2), r*Math.sin(a)+0.12);
+            }
+            spiral.geometry = new THREE.TubeGeometry(curve, 250, 0.015, 8, false);
+            spiral.castShadow=true; notebookGroup.add(spiral);
+            
+            scene.add(notebookGroup);
+        }
+
+        function playSeq() {
+            const tl = gsap.timeline();
+            tl.to('#intro-logo', { opacity: 1, scale: 1, duration: 1 })
+              .to('#intro-logo', { opacity: 0, scale: 1.2, duration: 0.8, delay: 0.5 })
+              .to('#intro-layer', { opacity: 0, duration: 0.5 })
+              .set('#intro-layer', { display: 'none' })
+              .fromTo(notebookGroup.position, { y: -10, x: 0 }, { y: 0, duration: 1.5, ease: "power3.out" }, "-=0.2")
+              .fromTo(notebookGroup.rotation, { x: 0.5, y: Math.PI }, { x: 0, y: 0, duration: 1.5, ease: "power3.out" }, "<")
+              .to(frontGroup.rotation, { y: -2, duration: 1.5, ease: "power2.inOut" })
+              .to(notebookGroup.position, { x: 2.5, duration: 1.5, ease: "power3.inOut" }, "s")
+              .to(notebookGroup.rotation, { y: -0.3, x: 0.1, duration: 1.5, ease: "power3.inOut" }, "s")
+              .to('h1', { opacity: 1, y: 0, duration: 0.8 }, "-=1")
+              .to('p', { opacity: 1, x: 0, duration: 0.8 }, "-=0.6")
+              .to('.btn', { opacity: 1, y: 0, duration: 0.8 }, "-=0.6");
+        }
 
         function animate() {
             requestAnimationFrame(animate);
-            TWEEN.update();
-
-            const delta = clock.getDelta();
-
-            if (notebookGroup) {
-                // Smooth Floating Animation
-                const floatY = Math.sin(clock.elapsedTime * 0.8) * 0.1;
-                notebookGroup.position.y = floatY;
-
-                if (isAnimating) {
-                    // Auto Rotation
-                    notebookGroup.rotation.y += 0.002;
-                }
-                
-                // Mouse Parallax Effect (Smooth Lerp)
-                const targetX = mouse.y * 0.1;
-                const targetY = mouse.x * 0.1;
-                
-                // Add mouse influence on top of auto-rotation
-                notebookGroup.rotation.x += (targetX - notebookGroup.rotation.x) * 0.05;
-                // We don't override Y fully, just add to it or influence it depending on state
-            }
-
-            // Ensure camera generally looks at center (unless in specific locked modes)
-            // Note: If using OrbitControls, this conflicts, but for cinematic fly-throughs, LookAt is good.
-            // However, for the "Dutch" angle, we want to respect the roll, so we check rotation.z
-            if (camera.rotation.z === 0) {
-                 camera.lookAt(0, 0, 0);
-            } else {
-                // Manual lookat logic for dutch angle to preserve roll
-                // (Simplified: ThreeJS LookAt resets roll, so we skip it for dutch)
-            }
-
+            if(notebookGroup) notebookGroup.position.y += Math.sin(Date.now()*0.001)*0.0015;
             renderer.render(scene, camera);
         }
+        init();
+    <\/script>
+</body>
+</html>`;
+            const blob = new Blob([html], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'landing-page.html';
+            a.click();
+        }
 
-        // Start
         window.onload = init;
-
     </script>
 </body>
 </html>
