@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModMedicalis Pro Creator</title>
+    <!-- Load Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Merriweather:wght@400;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563EB;
+            --bg: #111827;
+            --sidebar-bg: #FFFFFF;
+            --border: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 400px;
+            background: var(--sidebar-bg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            border-right: 1px solid #374151;
+            z-index: 10;
+        }
+
+        h1 { margin: 0; color: var(--primary); font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+        .badge { background: #DBEAFE; color: #1E40AF; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
+        
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6B7280;
+            font-weight: 800;
+            margin-top: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        label { font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 4px; display: block; }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; }
+
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+
+        /* Style Controls */
+        .style-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .range-wrap { display: flex; align-items: center; gap: 10px; }
+        input[type=range] { flex: 1; padding: 0; }
+
+        /* Buttons */
+        .btn {
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .btn-art { background: linear-gradient(135deg, #8B5CF6, #6D28D9); color: white; } 
+        .btn-dl { background: #059669; color: white; margin-top: auto; font-size: 1.1rem; }
+        .btn-paste { background: #EFF6FF; color: var(--primary); border: 1px solid #BFDBFE; font-size: 0.8rem; width: 100%; margin-top: 5px; padding: 6px;}
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* --- PREVIEW --- */
+        .main {
+            flex: 1;
+            background-color: #1F2937;
+            background-image: radial-gradient(#374151 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        canvas {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-height: 95vh;
+            max-width: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h1>@modmedicalis <span class="badge">PRO</span></h1>
+        
+        <div class="section-title">Design Studio</div>
+        
+        <div class="row">
+            <div class="col">
+                <label>Template Style</label>
+                <select id="templateStyle" onchange="applyTemplate()">
+                    <option value="glass">Glassmorphism</option>
+                    <option value="flat">Clean Flat</option>
+                    <option value="dark">Dark Mode</option>
+                    <option value="paper">Paper Note</option>
+                </select>
+            </div>
+            <div class="col">
+                <label>Font Family</label>
+                <select id="fontFamily" onchange="render()">
+                    <option value="Inter">Modern (Sans)</option>
+                    <option value="Merriweather">Classic (Serif)</option>
+                    <option value="Oswald">Bold (Condensed)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="range-wrap">
+            <label>Roundness</label>
+            <input type="range" id="radiusSlider" min="0" max="60" value="30" oninput="render()">
+        </div>
+        
+        <button class="btn btn-art" onclick="randomizeArt()">🎲 Shuffle Background Art</button>
+
+        <div class="section-title">Content</div>
+        
+        <div class="row">
+            <div class="col">
+                <label>Subject</label>
+                <select id="subject" onchange="render()">
+                    <option>Pathology</option>
+                    <option>Pharmacology</option>
+                    <option>Physiology</option>
+                    <option>Medicine</option>
+                    <option>Anatomy</option>
+                </select>
+            </div>
+            <div class="col">
+                <label>System</label>
+                <select id="system" onchange="handleSystemChange()">
+                    <option value="General">General/Basic</option>
+                    <option value="Renal">Renal (Kidney)</option>
+                    <option value="CVS">Cardiovascular</option>
+                    <option value="Respiratory">Respiratory</option>
+                    <option value="Neuro">Nervous System</option>
+                    <option value="GIT">Gastrointestinal</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="background: #F9FAFB; padding: 10px; border-radius: 8px; border: 1px dashed #D1D5DB;">
+            <label style="color:#2563EB; font-size: 0.75rem;">⚡ SMART PASTE MCQ</label>
+            <textarea id="smartPaste" rows="1" placeholder="Paste full question..."></textarea>
+            <button class="btn btn-paste" onclick="handleSmartPaste()">Auto-Fill</button>
+        </div>
+
+        <label>Question</label>
+        <textarea id="question" rows="3" oninput="render()">A patient presents with hematuria and flank pain...</textarea>
+
+        <div class="style-grid">
+            <input id="optA" placeholder="Option A" value="Renal Calculi" oninput="render()">
+            <input id="optB" placeholder="Option B" value="Pyelonephritis" oninput="render()">
+            <input id="optC" placeholder="Option C" value="Bladder Tumor" oninput="render()">
+            <input id="optD" placeholder="Option D" value="Glomerulonephritis" oninput="render()">
+        </div>
+
+        <button class="btn btn-dl" onclick="downloadImage()">📥 Download Post</button>
+    </div>
+
+    <div class="main">
+        <canvas id="canvas" width="1080" height="1350"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // --- ASSET GENERATION ENGINE ---
+        // We draw icons programmatically to avoid external SVG dependencies
+        
+        const DRAWERS = {
+            'Renal': (ctx, s) => { // Kidney shape
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s*0.6, s, Math.PI/4, 0, 2*Math.PI);
+                ctx.moveTo(s*0.2, -s*0.2); 
+                ctx.fill(); 
+            },
+            'CVS': (ctx, s) => { // Heart
+                ctx.beginPath();
+                const topCurveHeight = s * 0.3;
+                ctx.moveTo(0, topCurveHeight);
+                ctx.bezierCurveTo(0, 0, -s, 0, -s, topCurveHeight);
+                ctx.bezierCurveTo(-s, s, 0, s*1.5, 0, s*1.5);
+                ctx.bezierCurveTo(0, s*1.5, s, s, s, topCurveHeight);
+                ctx.bezierCurveTo(s, 0, 0, 0, 0, topCurveHeight);
+                ctx.fill();
+            },
+            'Respiratory': (ctx, s) => { // Lungs/Lobes
+                ctx.beginPath();
+                ctx.ellipse(-s*0.4, 0, s*0.4, s*0.8, 0, 0, 2*Math.PI);
+                ctx.ellipse(s*0.4, 0, s*0.4, s*0.8, 0, 0, 2*Math.PI);
+                ctx.fill();
+            },
+            'Neuro': (ctx, s) => { // Neuron head
+                ctx.beginPath();
+                ctx.arc(0, 0, s*0.5, 0, Math.PI*2);
+                ctx.fill();
+                ctx.stroke(); // Dendrites handled by loose strokes usually, but kept simple here
+                ctx.moveTo(0, s*0.5); ctx.lineTo(0, s*1.5); ctx.stroke();
+            },
+            'GIT': (ctx, s) => { // Stomach/Tube
+                ctx.beginPath();
+                ctx.moveTo(-s*0.5, -s*0.5);
+                ctx.bezierCurveTo(s, -s*0.5, s, s*0.5, -s*0.2, s*0.8);
+                ctx.bezierCurveTo(-s, s, -s, 0, -s*0.5, -s*0.5);
+                ctx.fill();
+            },
+            'General': (ctx, s) => { // Cross + Pill
+                if(Math.random() > 0.5) {
+                    ctx.fillRect(-s/2, -s/6, s, s/3);
+                    ctx.fillRect(-s/6, -s/2, s/3, s);
+                } else {
+                    ctx.beginPath();
+                    ctx.roundRect(-s/2, -s/4, s, s/2, s/4);
+                    ctx.fill();
+                }
+            }
+        };
+
+        // --- THEME PRESETS ---
+        const THEMES = {
+            'Renal': { colors: ['#FEF9C3', '#FEF3C7'], iconColor: '#D97706' }, // Yellow/Orange
+            'CVS': { colors: ['#FEF2F2', '#FECACA'], iconColor: '#DC2626' },   // Red
+            'Respiratory': { colors: ['#ECFEFF', '#CFFAFE'], iconColor: '#0891B2' }, // Cyan
+            'Neuro': { colors: ['#F5F3FF', '#DDD6FE'], iconColor: '#7C3AED' }, // Purple
+            'GIT': { colors: ['#F0FDF4', '#BBF7D0'], iconColor: '#16A34A' },   // Green
+            'General': { colors: ['#F3F4F6', '#E5E7EB'], iconColor: '#4B5563' } // Grey
+        };
+
+        // --- STATE ---
+        let artElements = [];
+        let currentSystem = 'General';
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            handleSystemChange();
+        };
+
+        function handleSystemChange() {
+            currentSystem = document.getElementById('system').value;
+            randomizeArt();
+        }
+
+        function randomizeArt() {
+            artElements = [];
+            const count = 40; 
+            for(let i=0; i<count; i++) {
+                artElements.push({
+                    x: Math.random() * 1080,
+                    y: Math.random() * 1350,
+                    size: 30 + Math.random() * 80,
+                    rotation: Math.random() * Math.PI * 2,
+                    opacity: 0.05 + Math.random() * 0.08,
+                    drawer: DRAWERS[currentSystem] || DRAWERS['General']
+                });
+            }
+            render();
+        }
+
+        function applyTemplate() {
+            render();
+        }
+
+        // --- RENDER ENGINE ---
+        function render() {
+            const template = document.getElementById('templateStyle').value;
+            const radius = parseInt(document.getElementById('radiusSlider').value);
+            const font = document.getElementById('fontFamily').value;
+            const theme = THEMES[currentSystem] || THEMES['General'];
+            
+            // 1. Draw Background
+            if (template === 'dark') {
+                const grad = ctx.createLinearGradient(0,0, 1080, 1350);
+                grad.addColorStop(0, '#111827');
+                grad.addColorStop(1, '#1F2937');
+                ctx.fillStyle = grad;
+            } else {
+                const grad = ctx.createLinearGradient(0,0, 0, 1350);
+                grad.addColorStop(0, theme.colors[0]);
+                grad.addColorStop(1, theme.colors[1]);
+                ctx.fillStyle = grad;
+            }
+            ctx.fillRect(0,0, 1080, 1350);
+
+            // 2. Draw System Specific Icons
+            artElements.forEach(el => {
+                ctx.save();
+                ctx.translate(el.x, el.y);
+                ctx.rotate(el.rotation);
+                ctx.globalAlpha = el.opacity;
+                
+                if(template === 'dark') {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.strokeStyle = '#FFFFFF';
+                } else {
+                    ctx.fillStyle = theme.iconColor;
+                    ctx.strokeStyle = theme.iconColor;
+                }
+                
+                el.drawer(ctx, el.size);
+                ctx.restore();
+            });
+            ctx.globalAlpha = 1.0;
+
+            // --- DATA GATHERING ---
+            const subject = document.getElementById('subject').value.toUpperCase();
+            const system = document.getElementById('system').value.toUpperCase();
+            const question = document.getElementById('question').value;
+            const opts = [
+                document.getElementById('optA').value,
+                document.getElementById('optB').value,
+                document.getElementById('optC').value,
+                document.getElementById('optD').value
+            ];
+
+            // --- TEXT CONFIG ---
+            const primaryColor = template === 'dark' ? '#F9FAFB' : '#111827';
+            const accentColor  = template === 'dark' ? '#60A5FA' : theme.iconColor;
+            
+            // --- DRAW HEADER ---
+            ctx.font = `900 35px "${font}"`;
+            ctx.textAlign = "center";
+            ctx.fillStyle = accentColor;
+            ctx.fillText(`${subject} • ${system}`, 540, 120);
+
+            // --- QUESTION ---
+            ctx.font = `700 55px "${font}"`;
+            ctx.fillStyle = primaryColor;
+            ctx.textBaseline = "middle";
+            const lines = wrapText(ctx, question, 900);
+            
+            // Optional: Draw a card behind question if it's the "Paper" or "Glass" template
+            let startY = 280;
+            if (template === 'glass') {
+                // Glass Card Behind Text
+                drawCard(ctx, 40, 200, 1000, 300, radius, 'rgba(255,255,255,0.4)', 'rgba(255,255,255,0.6)');
+            } else if (template === 'paper') {
+                drawCard(ctx, 40, 200, 1000, 300, 2, '#FFFBEB', '#D1D5DB');
+            }
+
+            lines.forEach((line, i) => {
+                ctx.fillStyle = primaryColor;
+                ctx.fillText(line, 540, startY + (i * 70));
+            });
+
+            // --- OPTIONS ---
+            const labels = ['A', 'B', 'C', 'D'];
+            let optY = startY + (lines.length * 70) + 60;
+            if(optY < 600) optY = 600;
+
+            opts.forEach((txt, i) => {
+                const y = optY + (i * 150);
+                
+                // Card Logic
+                let fill, border;
+                if (template === 'glass') {
+                    fill = 'rgba(255, 255, 255, 0.25)'; // Higher blur effect
+                    border = 'rgba(255, 255, 255, 0.6)';
+                    ctx.shadowColor = "rgba(0,0,0,0.1)";
+                    ctx.shadowBlur = 20;
+                } else if (template === 'dark') {
+                    fill = '#374151';
+                    border = '#4B5563';
+                } else if (template === 'paper') {
+                    fill = '#FFFFFF';
+                    border = '#111827'; // Thick black border
+                } else { // Flat
+                    fill = '#FFFFFF';
+                    border = 'transparent';
+                    ctx.shadowColor = "rgba(0,0,0,0.05)";
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetY = 4;
+                }
+
+                drawCard(ctx, 80, y, 920, 120, radius, fill, border);
+                ctx.shadowBlur = 0; // Reset shadow
+
+                // Circle Label
+                ctx.beginPath();
+                ctx.arc(160, y + 60, 35, 0, Math.PI*2);
+                ctx.fillStyle = template === 'dark' ? '#1F2937' : (template === 'paper' ? '#000' : '#EFF6FF');
+                ctx.fill();
+
+                ctx.font = `900 40px "${font}"`;
+                ctx.fillStyle = template === 'paper' ? '#FFF' : accentColor;
+                ctx.textAlign = "center";
+                ctx.fillText(labels[i], 160, y + 62);
+
+                // Option Text
+                ctx.font = `400 45px "${font}"`;
+                ctx.fillStyle = primaryColor;
+                ctx.textAlign = "left";
+                ctx.fillText(fitText(ctx, txt, 650), 230, y + 62);
+            });
+
+            // --- FOOTER ---
+            ctx.font = `700 30px "${font}"`;
+            ctx.fillStyle = accentColor;
+            ctx.textAlign = "center";
+            ctx.fillText("@modmedicalis", 540, 1300);
+        }
+
+        // --- DRAWING HELPERS ---
+        function drawCard(ctx, x, y, w, h, r, fill, strokeColor) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, r);
+            ctx.fillStyle = fill;
+            ctx.fill();
+            if(strokeColor && strokeColor !== 'transparent') {
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = strokeColor;
+                ctx.stroke();
+            }
+        }
+
+        function wrapText(context, text, maxWidth) {
+            const words = text.split(' ');
+            let lines = [];
+            let currentLine = words[0];
+            for (let i = 1; i < words.length; i++) {
+                let word = words[i];
+                let width = context.measureText(currentLine + " " + word).width;
+                if (width < maxWidth) {
+                    currentLine += " " + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        function fitText(context, text, maxWidth) {
+            if (!text) return "";
+            if (context.measureText(text).width <= maxWidth) return text;
+            let ellipsis = "...";
+            let truncated = text;
+            while (context.measureText(truncated + ellipsis).width > maxWidth && truncated.length > 0) {
+                truncated = truncated.slice(0, -1);
+            }
+            return truncated + ellipsis;
+        }
+
+        function handleSmartPaste() {
+            const text = document.getElementById('smartPaste').value;
+            if(!text) return;
+            const lines = text.split(/\r?\n/);
+            let qLines = [];
+            let opts = { A: "", B: "", C: "", D: "" };
+            lines.forEach(line => {
+                let l = line.trim();
+                if(l.match(/^A[\.\)]|^1[\.\)]/i)) opts.A = l.replace(/^A[\.\)]|^1[\.\)]\s*/i, '');
+                else if(l.match(/^B[\.\)]|^2[\.\)]/i)) opts.B = l.replace(/^B[\.\)]|^2[\.\)]\s*/i, '');
+                else if(l.match(/^C[\.\)]|^3[\.\)]/i)) opts.C = l.replace(/^C[\.\)]|^3[\.\)]\s*/i, '');
+                else if(l.match(/^D[\.\)]|^4[\.\)]/i)) opts.D = l.replace(/^D[\.\)]|^4[\.\)]\s*/i, '');
+                else if(l.length > 0) qLines.push(l);
+            });
+            document.getElementById('question').value = qLines.join(" ");
+            document.getElementById('optA').value = opts.A;
+            document.getElementById('optB').value = opts.B;
+            document.getElementById('optC').value = opts.C;
+            document.getElementById('optD').value = opts.D;
+            render();
+        }
+
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = `modmedicalis_post_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+        }
+    </script>
+</body>
+</html>
