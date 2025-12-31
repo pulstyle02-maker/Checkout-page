@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .star-rating i.active { color: #fbbf24; }
+        .star-rating i.inactive { color: #d1d5db; }
+
+        /* Animation for deletion */
+        .fade-out {
+            transition: all 0.5s ease;
+            opacity: 0;
+            transform: translateX(20px);
+        }
+    </style>
+</head>
+<body class="bg-gray-200 h-screen w-full flex justify-center items-center font-sans">
+
+    <div class="w-full h-full sm:h-[90vh] sm:max-w-md bg-white sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col relative">
+        
+        <!-- Header -->
+        <div class="bg-blue-600 p-6 pt-8 pb-6 shadow-md z-10 shrink-0">
+            <div class="flex justify-between items-center mb-1">
+                <h1 class="text-white text-xl font-bold tracking-wide" id="pageTitle">Add Review</h1>
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white/80">
+                    <i class="fas fa-database"></i>
+                </div>
+            </div>
+            <p class="text-blue-100 text-xs" id="pageSubtitle">Enter details below</p>
+        </div>
+
+        <!-- Notification Area -->
+        <div id="notification" class="absolute top-24 left-4 right-4 z-50 hidden rounded-lg p-3 text-sm font-medium shadow-lg transition-all duration-300 text-center"></div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto bg-gray-50 relative">
+            
+            <!-- SECTION 1: ADD -->
+            <div id="section-add" class="p-6 space-y-6 pb-24">
+                <form id="reviewForm" class="space-y-5">
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Customer Name</label>
+                        <input type="text" id="customerName" required class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Enter name">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Medical College</label>
+                        <select id="collegeSelect" required class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 outline-none appearance-none bg-white">
+                            <option value="" disabled selected>Select College</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Product</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer"><input type="radio" name="product" value="Block 4" class="peer sr-only" required><div class="p-3 rounded-xl border border-gray-200 text-center text-sm peer-checked:bg-blue-50 peer-checked:border-blue-500 peer-checked:text-blue-600 transition-all">Block 4</div></label>
+                            <label class="cursor-pointer"><input type="radio" name="product" value="Block 5" class="peer sr-only"><div class="p-3 rounded-xl border border-gray-200 text-center text-sm peer-checked:bg-blue-50 peer-checked:border-blue-500 peer-checked:text-blue-600 transition-all">Block 5</div></label>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Rating</label>
+                        <div class="flex space-x-2 star-rating bg-white p-3 rounded-xl border border-gray-200 w-fit">
+                            <i class="fas fa-star text-2xl inactive" data-value="1"></i>
+                            <i class="fas fa-star text-2xl inactive" data-value="2"></i>
+                            <i class="fas fa-star text-2xl inactive" data-value="3"></i>
+                            <i class="fas fa-star text-2xl inactive" data-value="4"></i>
+                            <i class="fas fa-star text-2xl inactive" data-value="5"></i>
+                        </div>
+                        <input type="hidden" id="ratingValue" value="5">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Review</label>
+                        <textarea id="reviewText" rows="3" required class="block w-full p-3 border border-gray-200 rounded-xl outline-none resize-none" placeholder="Write feedback..."></textarea>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                        <span id="btnText">Submit Review</span>
+                        <div id="btnLoader" class="loader hidden"></div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- SECTION 2: LIST -->
+            <div id="section-list" class="hidden p-6 space-y-4 pb-24 min-h-full">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-gray-700">All Reviews</h3>
+                    <button onclick="refreshReviews()" class="text-blue-500 text-xs flex items-center gap-1"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+                <div id="reviewsListLoader" class="hidden flex justify-center py-10"><div class="loader border-blue-500"></div></div>
+                <div id="reviewsContainer" class="space-y-4"></div>
+                <div id="noReviewsMsg" class="hidden text-center text-gray-400 py-10"><p>No reviews found.</p></div>
+            </div>
+
+            <!-- SECTION 3: JSON -->
+            <div id="section-json" class="hidden p-6 pb-24 h-full flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-gray-700 text-sm">JSON Data</h3>
+                    <button onclick="copyJson()" class="bg-gray-200 text-gray-700 px-3 py-1 rounded text-xs font-bold">Copy</button>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 overflow-auto flex-1 border border-gray-700">
+                    <code id="jsonCode" class="text-green-400 text-[10px] font-mono block"></code>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="bg-white border-t border-gray-100 px-6 py-2 pb-4 flex justify-between items-center shrink-0">
+            <button onclick="switchTab('add')" id="nav-add" class="flex flex-col items-center p-2 text-blue-600">
+                <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mb-1"><i class="fas fa-plus"></i></div>
+                <span class="text-[9px] font-bold">ADD</span>
+            </button>
+            <button onclick="switchTab('list')" id="nav-list" class="flex flex-col items-center p-2 text-gray-400">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center mb-1"><i class="fas fa-list"></i></div>
+                <span class="text-[9px] font-bold">LIST</span>
+            </button>
+            <button onclick="switchTab('json')" id="nav-json" class="flex flex-col items-center p-2 text-gray-400">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center mb-1"><i class="fas fa-code"></i></div>
+                <span class="text-[9px] font-bold">JSON</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const BIN_ID = '69547ea043b1c97be90f71fe';
+        const MASTER_KEY = '$2a$10$c2jwTEMgLn/n1ZXEL5qWiOTw4f6Mqr1r1Qd0ah0khbqTrChXEog8u';
+        const BASE_URL = 'https://api.jsonbin.io/v3/b';
+
+        // --- Init ---
+        const collegeSelect = document.getElementById('collegeSelect');
+        const stars = document.querySelectorAll('.star-rating i');
+
+        function populateColleges() {
+            const list = ["Allama Iqbal Medical College, Lahore", "Nishtar Medical College, Multan", "Punjab Medical College, Faisalabad", "Rawalpindi Medical University, Rawalpindi", "Services Institute of Medical Sciences, Lahore", "Khawaja Muhammad Safdar Medical College, Sialkot", "Sargodha Medical College, Sargodha", "Sahiwal Medical College, Sahiwal", "Guernwala Medical College, Gujranwala"];
+            list.forEach(col => {
+                const opt = document.createElement('option');
+                opt.value = col; opt.textContent = col;
+                collegeSelect.appendChild(opt);
+            });
+        }
+
+        function updateStars(val) {
+            stars.forEach(s => {
+                const sVal = parseInt(s.getAttribute('data-value'));
+                s.className = `fas fa-star text-2xl ${sVal <= val ? 'active' : 'inactive'}`;
+            });
+            document.getElementById('ratingValue').value = val;
+        }
+
+        stars.forEach(star => {
+            star.addEventListener('click', () => updateStars(parseInt(star.getAttribute('data-value'))));
+        });
+
+        populateColleges();
+        updateStars(5);
+
+        // --- Core ---
+        function showNotification(msg, isError = false) {
+            const n = document.getElementById('notification');
+            n.textContent = msg;
+            n.className = `absolute top-24 left-4 right-4 z-50 rounded-lg p-3 text-sm font-medium shadow-lg transition-all duration-300 text-center ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
+            n.classList.remove('hidden');
+            setTimeout(() => n.classList.add('hidden'), 3000);
+        }
+
+        function switchTab(tab) {
+            ['add', 'list', 'json'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).className = "flex flex-col items-center p-2 text-gray-400";
+                document.getElementById(`nav-${t}`).firstElementChild.classList.remove('bg-blue-50');
+            });
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.getElementById(`nav-${tab}`).className = "flex flex-col items-center p-2 text-blue-600";
+            document.getElementById(`nav-${tab}`).firstElementChild.classList.add('bg-blue-50');
+            if (tab === 'list') refreshReviews();
+            if (tab === 'json') loadJsonView();
+        }
+
+        async function apiRequest(method, body = null) {
+            const options = {
+                method,
+                headers: { 
+                    'X-Master-Key': MASTER_KEY,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (body) options.body = JSON.stringify(body);
+            const res = await fetch(`${BASE_URL}/${BIN_ID}${method === 'GET' ? '/latest' : ''}`, options);
+            if (!res.ok) throw new Error('API failed');
+            return await res.json();
+        }
+
+        // --- List & Delete ---
+        async function refreshReviews() {
+            const container = document.getElementById('reviewsContainer');
+            const loader = document.getElementById('reviewsListLoader');
+            container.innerHTML = '';
+            loader.classList.remove('hidden');
+            try {
+                const data = await apiRequest('GET');
+                const reviews = data.record.reviews || [];
+                if (reviews.length === 0) document.getElementById('noReviewsMsg').classList.remove('hidden');
+                else {
+                    document.getElementById('noReviewsMsg').classList.add('hidden');
+                    reviews.slice().reverse().forEach(rev => {
+                        const card = document.createElement('div');
+                        card.id = `card-${rev.review_id}`;
+                        card.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100';
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-bold text-sm text-gray-800">${rev.customer_name}</h4>
+                                    <p class="text-[10px] text-gray-400">${rev.college_name}</p>
+                                </div>
+                                <button onclick="deleteNow('${rev.review_id}')" class="text-gray-300 hover:text-red-500 p-1">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-600 bg-gray-50 p-2 rounded mt-2 italic">"${rev.review_text}"</p>
+                        `;
+                        container.appendChild(card);
+                    });
+                }
+            } catch (e) { showNotification("Load failed", true); }
+            finally { loader.classList.add('hidden'); }
+        }
+
+        async function deleteNow(id) {
+            // Direct delete to avoid confirm() issues in iframes
+            if (!id) return;
+            const card = document.getElementById(`card-${id}`);
+            if (card) card.classList.add('fade-out');
+            
+            showNotification("Deleting review...");
+
+            try {
+                const data = await apiRequest('GET');
+                const filtered = (data.record.reviews || []).filter(r => r.review_id !== id);
+                await apiRequest('PUT', { reviews: filtered });
+                showNotification("Deleted successfully");
+                setTimeout(refreshReviews, 500);
+            } catch (e) {
+                showNotification("Delete failed", true);
+                if (card) card.classList.remove('fade-out');
+            }
+        }
+
+        // --- Add ---
+        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            document.getElementById('btnLoader').classList.remove('hidden');
+
+            const entry = {
+                review_id: 'ID' + Date.now() + Math.floor(Math.random()*100),
+                customer_name: document.getElementById('customerName').value,
+                college_name: collegeSelect.value,
+                product_name: document.querySelector('input[name="product"]:checked').value,
+                rating: parseInt(document.getElementById('ratingValue').value),
+                review_text: document.getElementById('reviewText').value,
+                review_date: new Date().toLocaleDateString()
+            };
+
+            try {
+                const data = await apiRequest('GET');
+                const list = data.record.reviews || [];
+                list.push(entry);
+                await apiRequest('PUT', { reviews: list });
+                showNotification("Added!");
+                e.target.reset();
+                updateStars(5);
+            } catch (e) { showNotification("Save failed", true); }
+            finally {
+                btn.disabled = false;
+                document.getElementById('btnLoader').classList.add('hidden');
+            }
+        });
+
+        async function loadJsonView() {
+            const code = document.getElementById('jsonCode');
+            code.innerText = "Loading...";
+            try {
+                const data = await apiRequest('GET');
+                code.innerText = JSON.stringify(data.record, null, 2);
+            } catch (e) { code.innerText = "Error."; }
+        }
+
+        function copyJson() {
+            navigator.clipboard.writeText(document.getElementById('jsonCode').innerText);
+            showNotification("Copied!");
+        }
+    </script>
+</body>
+</html>
+
