@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedMastery Admin | Reliable Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .console { font-family: 'Courier New', Courier, monospace; }
+        /* Smooth fade for status messages */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans flex flex-col">
+
+    <!-- Navbar -->
+    <div class="bg-gray-800 border-b border-gray-700 p-4 shadow-lg flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 w-10 h-10 rounded flex items-center justify-center font-bold text-xl">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Admin Uploader</h1>
+                <p class="text-xs text-gray-400">Safe Mode (Reliable PUT)</p>
+            </div>
+        </div>
+        <div id="connection-status" class="px-3 py-1 bg-red-900/50 text-red-400 text-xs rounded border border-red-700">
+            <i class="fas fa-circle text-[8px] mr-1"></i> Disconnected
+        </div>
+    </div>
+
+    <div class="flex-grow p-4 md:p-8 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- CONFIGURATION PANEL -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Target Selector -->
+            <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 shadow-lg">
+                <h3 class="text-blue-400 font-bold mb-4 uppercase text-xs tracking-wider">Target Selection</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-gray-500 font-bold">BLOCK</label>
+                        <select id="adm-block" onchange="populateModules()" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 outline-none transition"></select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-bold">MODULE</label>
+                        <select id="adm-module" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 outline-none transition"></select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 font-bold">SUBJECT</label>
+                        <select id="adm-subject" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm focus:border-blue-500 outline-none transition"></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Button & Console -->
+            <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 shadow-lg flex flex-col gap-4">
+                <button onclick="safeUpload()" id="btn-action" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded shadow transition transform active:scale-95 flex justify-center items-center gap-2">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload MCQs
+                </button>
+
+                <div class="bg-black rounded p-3 h-48 overflow-y-auto border border-gray-700 text-xs text-green-400 console" id="console">
+                    <span class="text-gray-500">System Ready...<br>Waiting for input...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TEXT INPUT AREA -->
+        <div class="lg:col-span-2 flex flex-col gap-4">
+            <div class="bg-gray-800 rounded-lg p-1 border border-gray-700 shadow-lg flex-grow flex flex-col">
+                <div class="bg-gray-900 p-2 flex justify-between items-center rounded-t border-b border-gray-700">
+                    <span class="text-xs font-bold text-gray-400 ml-2">PASTE AI CONTENT HERE</span>
+                    <button onclick="document.getElementById('raw-text').value=''" class="text-xs text-red-400 hover:text-white px-2">Clear</button>
+                </div>
+                <textarea id="raw-text" class="flex-grow w-full bg-gray-800 text-gray-200 p-4 outline-none font-mono text-sm resize-none" placeholder="Q: Question..."></textarea>
+            </div>
+            
+            <!-- Helper Tip -->
+            <div class="bg-blue-900/20 border border-blue-900/50 p-3 rounded text-xs text-blue-200">
+                <strong><i class="fas fa-info-circle"></i> Prompt Tip:</strong> 
+                Ask AI: "Generate 5 MCQs on [Topic]. Format: Q: Question? A) Opt1 B) Opt2 C) Opt3 D) Opt4 Ans: A Exp: Reason."
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LOGIC -->
+    <script>
+        // --- 1. CREDENTIALS (UPDATED) ---
+        const CONFIG = {
+            id: '69561c83d0ea881f404d2f49',
+            key: '$2a$10$c2jwTEMgLn/n1ZXEL5qWiOTw4f6Mqr1r1Qd0ah0khbqTrChXEog8u',
+            url: 'https://api.jsonbin.io/v3/b'
+        };
+
+        // --- 2. HIERARCHY ---
+        const HIERARCHY = {
+            "Block 4": { modules: ["Git", "Renal"] },
+            "Block 5": { modules: ["Repro endo", "Head & neck"] },
+            "Block 6": { modules: ["Neuro", "Inflammation"] }
+        };
+        const SUBJECTS = [
+            "Gross anatomy", "Physiology", "Histology", "Biochemistry", 
+            "Embryology", "Behaviour sciences", "Pathology", 
+            "Community medicine", "Aging", "Pharmacology"
+        ];
+
+        // --- 3. INIT ---
+        window.onload = () => {
+            const bSel = document.getElementById('adm-block');
+            Object.keys(HIERARCHY).forEach(k => bSel.innerHTML += `<option value="${k}">${k}</option>`);
+            populateModules();
+            const sSel = document.getElementById('adm-subject');
+            SUBJECTS.forEach(s => sSel.innerHTML += `<option value="${s}">${s}</option>`);
+            checkConnection();
+        };
+
+        function populateModules() {
+            const val = document.getElementById('adm-block').value;
+            const mSel = document.getElementById('adm-module');
+            mSel.innerHTML = '';
+            HIERARCHY[val].modules.forEach(m => mSel.innerHTML += `<option value="${m}">${m}</option>`);
+        }
+
+        async function checkConnection() {
+            log("Checking connection to JSONBin...");
+            try {
+                // Lightweight metadata check
+                const res = await fetch(`${CONFIG.url}/${CONFIG.id}/latest?meta=true`, {
+                    headers: { 'X-Master-Key': CONFIG.key }
+                });
+                if(res.ok) {
+                    document.getElementById('connection-status').className = "px-3 py-1 bg-green-900/50 text-green-400 text-xs rounded border border-green-700";
+                    document.getElementById('connection-status').innerHTML = '<i class="fas fa-wifi mr-1"></i> Connected';
+                    log("Server Online. Ready.");
+                } else {
+                    throw new Error(res.statusText);
+                }
+            } catch(e) {
+                log("Connection Failed: " + e.message, true);
+            }
+        }
+
+        // --- 4. PARSER ---
+        function parseText(text, block, mod, sub) {
+            const list = [];
+            const parts = text.split(/\n\s*\n/); // Split by blank lines
+
+            parts.forEach(p => {
+                if(p.length < 10) return;
+                try {
+                    // Flexible Regex to catch most formats
+                    const q = p.match(/Q:\s*(.+?)(?=\n[A-D]\))/s);
+                    const a = p.match(/A\)\s*(.+)/);
+                    const b = p.match(/B\)\s*(.+)/);
+                    const c = p.match(/C\)\s*(.+)/);
+                    const d = p.match(/D\)\s*(.+)/);
+                    const ans = p.match(/Ans:\s*([A-D])/i);
+                    const exp = p.match(/Exp:\s*(.+)/s);
+
+                    if(q && a && ans) {
+                        list.push({
+                            id: Date.now() + Math.random().toString(36).substr(2, 9),
+                            block: block,
+                            module: mod,
+                            subject: sub,
+                            question: q[1].trim().replace(/\n/g, ' '),
+                            options: [
+                                a[1].trim(), 
+                                b ? b[1].trim() : "Option B",
+                                c ? c[1].trim() : "Option C", 
+                                d ? d[1].trim() : "Option D"
+                            ],
+                            answer: ans[1].toUpperCase(),
+                            explanation: exp ? exp[1].trim() : "See notes."
+                        });
+                    }
+                } catch(e) { console.error("Skip", e); }
+            });
+            return list;
+        }
+
+        // --- 5. THE SAFE UPLOAD PROCESS ---
+        async function safeUpload() {
+            const txt = document.getElementById('raw-text').value;
+            if(!txt.trim()) return log("Error: Text area is empty", true);
+
+            const btn = document.getElementById('btn-action');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working...';
+
+            try {
+                // A. Parse Local Data
+                const block = document.getElementById('adm-block').value;
+                const mod = document.getElementById('adm-module').value;
+                const sub = document.getElementById('adm-subject').value;
+                
+                log(`1. Parsing content for ${sub}...`);
+                const newItems = parseText(txt, block, mod, sub);
+                
+                if(newItems.length === 0) throw new Error("Parser found 0 questions. Check format.");
+                log(`> Parsed ${newItems.length} questions successfully.`);
+
+                // B. Fetch Current Database (GET)
+                log("2. Downloading current database...");
+                const getRes = await fetch(`${CONFIG.url}/${CONFIG.id}/latest`, {
+                    headers: { 'X-Master-Key': CONFIG.key }
+                });
+
+                if(!getRes.ok) throw new Error("Download failed. API Error.");
+                
+                let db = await getRes.json();
+                
+                // IMPORTANT: Handle JSONBin Wrapper
+                let actualData = db.record;
+
+                // C. Initialize Logic (If empty)
+                if(!actualData || typeof actualData !== 'object') actualData = {};
+                if(!actualData.users) actualData.users = [];
+                if(!actualData.questions) actualData.questions = [];
+
+                // D. Merge
+                log(`3. Merging with existing ${actualData.questions.length} questions...`);
+                actualData.questions = [...actualData.questions, ...newItems];
+
+                // E. Upload Back (PUT)
+                log("4. Uploading updated database...");
+                const putRes = await fetch(`${CONFIG.url}/${CONFIG.id}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': CONFIG.key
+                    },
+                    body: JSON.stringify(actualData)
+                });
+
+                if(!putRes.ok) throw new Error("Upload failed. Status: " + putRes.status);
+
+                log("SUCCESS! Database Updated.", false, true);
+                document.getElementById('raw-text').value = ''; // Clear
+                alert(`Added ${newItems.length} questions!`);
+
+            } catch(e) {
+                log(e.message, true);
+                alert("Error: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload MCQs';
+            }
+        }
+
+        // Helper
+        function log(msg, isError = false, isSuccess = false) {
+            const c = document.getElementById('console');
+            const color = isError ? 'text-red-400' : (isSuccess ? 'text-white font-bold' : 'text-green-400');
+            c.innerHTML += `<div class="${color} mb-1 border-l-2 ${isError?'border-red-500':'border-green-600'} pl-2 fade-in">
+                <span class="opacity-50 text-[10px]">${new Date().toLocaleTimeString()}</span> ${msg}
+            </div>`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+    </script>
+</body>
+</html>
