@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MedMastery Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Modern Font: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #F8F7F4; 
+            color: #1a1a1a;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Animations */
+        .slide-up { animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Card 3D Flip */
+        .perspective { perspective: 1000px; }
+        .card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; border-radius: 2rem; }
+        .card-back { transform: rotateY(180deg); }
+        .flipped { transform: rotateY(180deg); }
+
+        /* Custom Inputs */
+        .input-pro {
+            background: #F0F0F0;
+            border: 2px solid transparent;
+            transition: 0.3s;
+        }
+        .input-pro:focus {
+            background: white;
+            border-color: #1a1a1a;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        }
+
+        /* Selection Dropdowns */
+        select { background-image: none; }
+        
+        /* Chart Override */
+        canvas { max-height: 150px; }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col">
+
+    <!-- LOADING OVERLAY -->
+    <div id="loader" class="fixed inset-0 z-[60] bg-white flex flex-col items-center justify-center hidden">
+        <div class="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin"></div>
+        <p class="mt-4 font-bold tracking-widest text-xs uppercase">Syncing Data</p>
+    </div>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-[70] bg-[#1a1a1a] text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 transition-transform duration-300 -translate-y-32">
+        <i class="fas fa-info-circle text-yellow-400"></i>
+        <span id="toast-msg" class="text-sm font-semibold">Message</span>
+    </div>
+
+    <!-- 1. AUTH SCREEN -->
+    <section id="auth-screen" class="flex-grow flex flex-col relative bg-white h-full overflow-y-auto">
+        <!-- Decor -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-orange-100 rounded-bl-[100px] opacity-50 z-0"></div>
+        
+        <div class="relative z-10 flex flex-col items-center justify-center min-h-full p-8 w-full max-w-md mx-auto">
+            <div class="text-center mb-10 slide-up">
+                <div class="w-20 h-20 bg-black text-white rounded-3xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl rotate-3">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h1 class="text-4xl font-extrabold tracking-tight mb-2">MedMastery</h1>
+                <p class="text-gray-400 font-medium">Your medical knowledge companion</p>
+            </div>
+
+            <div class="bg-gray-100 p-1.5 rounded-full flex w-full mb-8 slide-up" style="animation-delay: 0.1s">
+                <button onclick="toggleAuth('login')" id="tab-login" class="flex-1 py-3 rounded-full text-sm font-bold shadow-md bg-white text-black transition-all">Log In</button>
+                <button onclick="toggleAuth('register')" id="tab-register" class="flex-1 py-3 rounded-full text-sm font-bold text-gray-500 hover:bg-white/50 transition-all">Sign Up</button>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuth(event)" class="w-full space-y-4 slide-up" style="animation-delay: 0.2s">
+                <input type="text" id="username" placeholder="Username" class="w-full p-4 rounded-2xl input-pro outline-none font-semibold" required>
+                <input type="password" id="password" placeholder="Password" class="w-full p-4 rounded-2xl input-pro outline-none font-semibold" required>
+                <button type="submit" class="w-full bg-black text-white p-5 rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-95 transition shadow-xl shadow-black/20 mt-4">
+                    Let's Go <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- 2. MAIN APP CONTAINER -->
+    <div id="app-container" class="hidden flex-col h-full bg-[#F8F7F4]">
+        
+        <!-- HEADER -->
+        <header class="px-6 pt-8 pb-4 flex justify-between items-center z-20">
+            <div>
+                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Hello,</p>
+                <h2 id="user-display" class="text-2xl font-extrabold text-black">User</h2>
+            </div>
+            <div class="flex gap-3">
+                <div class="bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100 flex items-center gap-2">
+                    <i class="fas fa-gem text-blue-500 text-xs"></i>
+                    <span id="user-score-badge" class="font-bold text-sm">0</span>
+                </div>
+                <button onclick="logout()" class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100">
+                    <i class="fas fa-power-off"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- DASHBOARD CONTENT -->
+        <main id="dashboard-view" class="flex-grow overflow-y-auto px-6 pb-32">
+            
+            <!-- Stats Card -->
+            <div class="bg-[#1a1a1a] text-white rounded-[2rem] p-6 shadow-xl shadow-gray-300 mb-8 relative overflow-hidden">
+                <div class="relative z-10 flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-400 text-sm font-medium mb-1">Performance</p>
+                        <h3 class="text-2xl font-bold">Keep it up! 🚀</h3>
+                    </div>
+                </div>
+                <div class="mt-4 bg-white/5 rounded-xl p-2">
+                    <canvas id="scoreChart"></canvas>
+                </div>
+                <!-- Decor -->
+                <div class="absolute -right-5 -top-5 w-32 h-32 bg-gray-800 rounded-full opacity-30 blur-2xl"></div>
+            </div>
+
+            <!-- Action Grid -->
+            <h3 class="font-bold text-lg mb-4 text-gray-800">Start Learning</h3>
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <!-- Quiz Button -->
+                <div onclick="openSelection('quiz')" class="bg-[#FF6B6B] rounded-[2rem] p-5 text-white shadow-lg shadow-red-200 relative overflow-hidden cursor-pointer hover:scale-[1.02] transition active:scale-95">
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md mb-8">
+                        <i class="fas fa-bolt text-white"></i>
+                    </div>
+                    <h4 class="text-xl font-bold">Quiz</h4>
+                    <p class="text-xs opacity-80 mt-1">Test your skills</p>
+                    <i class="fas fa-question absolute -bottom-4 -right-2 text-6xl opacity-10 rotate-12"></i>
+                </div>
+                <!-- Flashcard Button -->
+                <div onclick="openSelection('flashcard')" class="bg-[#4ECDC4] rounded-[2rem] p-5 text-white shadow-lg shadow-teal-200 relative overflow-hidden cursor-pointer hover:scale-[1.02] transition active:scale-95">
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md mb-8">
+                        <i class="fas fa-layer-group text-white"></i>
+                    </div>
+                    <h4 class="text-xl font-bold">Cards</h4>
+                    <p class="text-xs opacity-80 mt-1">Quick revision</p>
+                    <i class="fas fa-clone absolute -bottom-4 -right-2 text-6xl opacity-10 rotate-12"></i>
+                </div>
+            </div>
+
+            <!-- Weak Topics -->
+            <h3 class="font-bold text-lg mb-4 text-gray-800 flex justify-between">
+                <span>Weak Areas</span>
+                <span class="text-xs text-gray-400 bg-white px-2 py-1 rounded-lg">Based on errors</span>
+            </h3>
+            <div id="weak-topics-list" class="space-y-3">
+                <!-- Injected via JS -->
+                <div class="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm border border-gray-50">
+                    <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-lg">💤</div>
+                    <div>
+                        <h5 class="font-bold text-sm">No data yet</h5>
+                        <p class="text-xs text-gray-400">Play quizzes to track progress</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- FLOATING BOTTOM NAV -->
+        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md border border-white/50 px-8 py-4 rounded-full shadow-2xl z-30 flex items-center gap-10">
+            <button onclick="exitSession()" class="text-black text-xl hover:scale-110 transition"><i class="fas fa-home"></i></button>
+            <div class="w-12 h-12 bg-black rounded-full text-white flex items-center justify-center -mt-8 shadow-lg shadow-black/30 text-xl border-4 border-[#F8F7F4] cursor-pointer" onclick="openSelection('quiz')">
+                <i class="fas fa-plus"></i>
+            </div>
+            <button class="text-gray-400 text-xl hover:text-black transition"><i class="fas fa-user"></i></button>
+        </div>
+
+        <!-- 3. CONFIGURATION MODAL (Bottom Sheet) -->
+        <div id="selection-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center backdrop-blur-sm">
+            <div class="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 slide-up shadow-2xl">
+                <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8"></div>
+                <h3 class="text-2xl font-bold mb-6 text-center">Configure Session</h3>
+                
+                <div class="space-y-4 mb-8">
+                    <div class="relative">
+                        <select id="sel-block" onchange="populateModules()" class="w-full p-4 bg-gray-50 rounded-2xl appearance-none font-bold text-gray-700 outline-none focus:ring-2 focus:ring-black">
+                            <option>Loading Blocks...</option>
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    </div>
+                    <div class="relative">
+                        <select id="sel-module" class="w-full p-4 bg-gray-50 rounded-2xl appearance-none font-bold text-gray-700 outline-none focus:ring-2 focus:ring-black">
+                            <option>Select Module</option>
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    </div>
+                    <div class="relative">
+                        <select id="sel-subject" class="w-full p-4 bg-gray-50 rounded-2xl appearance-none font-bold text-gray-700 outline-none focus:ring-2 focus:ring-black">
+                            <option>Select Subject</option>
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="closeSelection()" class="flex-1 py-4 rounded-2xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200">Cancel</button>
+                    <button onclick="startSession()" class="flex-1 py-4 rounded-2xl font-bold text-white bg-black shadow-lg shadow-black/20 hover:scale-[1.02] transition">Start</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. QUIZ INTERFACE -->
+        <div id="quiz-interface" class="hidden flex-grow flex-col h-full bg-[#F8F7F4] z-40">
+            <!-- Top Bar -->
+            <div class="px-6 py-6 flex justify-between items-center">
+                <button onclick="exitSession()" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-red-500 shadow-sm"><i class="fas fa-times"></i></button>
+                <div class="font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">
+                    <span id="q-current">1</span> <span class="text-gray-300">/</span> <span id="q-total" class="text-gray-400">10</span>
+                </div>
+                <div class="w-10"></div>
+            </div>
+
+            <!-- Progress -->
+            <div class="px-6 mb-2">
+                <div class="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div id="quiz-progress" class="h-full bg-orange-500 w-0 transition-all duration-500"></div>
+                </div>
+            </div>
+
+            <!-- Question Area -->
+            <div class="flex-grow overflow-y-auto px-6 pb-28 pt-4">
+                <div class="bg-white rounded-[2rem] p-6 shadow-xl shadow-gray-200 mb-6 relative">
+                    <span id="q-badge" class="bg-blue-50 text-blue-600 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider mb-3 inline-block">Topic</span>
+                    <h2 id="q-text" class="text-xl font-bold leading-normal text-gray-900">Question Loading?</h2>
+                </div>
+
+                <div id="q-options" class="space-y-3">
+                    <!-- JS Injects Options Here -->
+                </div>
+
+                <div id="q-explanation" class="mt-6 bg-teal-50 border border-teal-100 p-5 rounded-2xl hidden fade-in">
+                    <h4 class="font-bold text-teal-700 text-sm mb-2"><i class="fas fa-lightbulb mr-2"></i>Explanation</h4>
+                    <p id="q-exp-text" class="text-sm text-gray-700 leading-relaxed"></p>
+                </div>
+            </div>
+
+            <!-- Bottom Button -->
+            <div class="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-white via-white to-transparent">
+                <div class="max-w-4xl mx-auto flex gap-3">
+                    <button onclick="navigateQuiz(-1)" class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="fas fa-chevron-left"></i></button>
+                    <button id="btn-next" onclick="navigateQuiz(1)" class="flex-grow bg-black text-white rounded-2xl font-bold shadow-xl shadow-black/20 hover:scale-[1.01] transition">Next Question</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. FLASHCARD INTERFACE -->
+        <div id="flashcard-interface" class="hidden flex-grow flex-col items-center justify-center p-6 h-full z-40 bg-[#F8F7F4]">
+            <button onclick="exitSession()" class="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-red-500 shadow-sm"><i class="fas fa-times"></i></button>
+
+            <div class="perspective w-full max-w-sm h-96 cursor-pointer group" onclick="this.querySelector('.card-inner').classList.toggle('flipped')">
+                <div class="card-inner" id="fc-card">
+                    <!-- Front -->
+                    <div class="card-front bg-white shadow-2xl shadow-gray-200 p-8 flex flex-col items-center justify-center text-center border border-white">
+                        <span id="fc-subject" class="bg-orange-100 text-orange-600 text-xs font-bold px-3 py-1 rounded-full mb-6">Subject</span>
+                        <h2 id="fc-question" class="text-2xl font-bold text-gray-800">Question?</h2>
+                        <div class="mt-auto text-gray-300 text-sm animate-pulse">Tap to flip</div>
+                    </div>
+                    <!-- Back -->
+                    <div class="card-back bg-[#1a1a1a] text-white shadow-2xl p-8 flex flex-col items-center justify-center text-center">
+                        <h2 class="text-2xl font-bold mb-4">Answer</h2>
+                        <div id="fc-answer" class="text-lg text-gray-300">Answer text</div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="nextFlashcard()" class="mt-12 bg-white text-black border-2 border-black px-10 py-4 rounded-full font-bold hover:bg-black hover:text-white transition shadow-lg flex items-center gap-3">
+                Next Card <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // CONFIG
+        const BIN_ID = '69561c83d0ea881f404d2f49';
+        const API_KEY = '$2a$10$c2jwTEMgLn/n1ZXEL5qWiOTw4f6Mqr1r1Qd0ah0khbqTrChXEog8u';
+        const BASE_URL = 'https://api.jsonbin.io/v3/b';
+
+        const HIERARCHY = {
+            "Block 4": { modules: ["Git", "Renal"] },
+            "Block 5": { modules: ["Repro endo", "Head & neck"] },
+            "Block 6": { modules: ["Neuro", "Inflammation"] }
+        };
+
+        const SUBJECTS = [
+            "Gross anatomy", "Physiology", "Histology", "Biochemistry", 
+            "Embryology", "Behaviour sciences", "Pathology", 
+            "Community medicine", "Aging", "Pharmacology"
+        ];
+
+        let appData = { users: [], questions: [] };
+        let currentUser = null;
+        let currentSession = { type: null, questions: [], currentIndex: 0, answers: {}, score: 0 };
+        let isLoginMode = true;
+
+        // --- AUTH & DATA ---
+
+        async function fetchData() {
+            showLoader(true);
+            try {
+                const res = await fetch(`${BASE_URL}/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } });
+                const json = await res.json();
+                appData = json.record;
+                if(!appData.users) appData.users = [];
+                if(!appData.questions) appData.questions = [];
+            } catch(e) {
+                showToast("Connection Error");
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        async function saveData() {
+            try {
+                await fetch(`${BASE_URL}/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                    body: JSON.stringify(appData)
+                });
+            } catch(e) { showToast("Sync failed"); }
+        }
+
+        function toggleAuth(mode) {
+            isLoginMode = mode === 'login';
+            document.getElementById('tab-login').className = isLoginMode ? "flex-1 py-3 rounded-full text-sm font-bold shadow-md bg-white text-black transition-all" : "flex-1 py-3 rounded-full text-sm font-bold text-gray-500 hover:bg-white/50 transition-all";
+            document.getElementById('tab-register').className = !isLoginMode ? "flex-1 py-3 rounded-full text-sm font-bold shadow-md bg-white text-black transition-all" : "flex-1 py-3 rounded-full text-sm font-bold text-gray-500 hover:bg-white/50 transition-all";
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            await fetchData();
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+
+            if(isLoginMode) {
+                const user = appData.users.find(user => user.username === u && user.password === p);
+                if(user) loginUser(user);
+                else showToast("Invalid Credentials");
+            } else {
+                if(appData.users.find(user => user.username === u)) return showToast("User exists");
+                const newUser = { username: u, password: p, weak_topics: {}, history: [] };
+                appData.users.push(newUser);
+                await saveData();
+                loginUser(newUser);
+            }
+        }
+
+        function loginUser(user) {
+            currentUser = user;
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('app-container').classList.add('flex');
+            document.getElementById('user-display').innerText = user.username;
+            updateDashboard();
+        }
+
+        function logout() { location.reload(); }
+
+        // --- DASHBOARD ---
+
+        function updateDashboard() {
+            // Badge
+            const totalScore = currentUser.history.reduce((acc, curr) => acc + curr.score, 0);
+            document.getElementById('user-score-badge').innerText = totalScore;
+
+            // Weak Topics
+            const list = document.getElementById('weak-topics-list');
+            list.innerHTML = '';
+            const sorted = Object.entries(currentUser.weak_topics || {}).sort((a,b) => b[1] - a[1]);
+            
+            if(sorted.length === 0) {
+                list.innerHTML = `<div class="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm"><div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-lg">✨</div><div><h5 class="font-bold text-sm">Fresh Start</h5><p class="text-xs text-gray-400">Take a quiz to see analytics</p></div></div>`;
+            } else {
+                sorted.slice(0, 3).forEach(([topic, count]) => {
+                    list.innerHTML += `
+                    <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center font-bold text-sm">${count}</div>
+                            <h5 class="font-bold text-sm text-gray-800">${topic}</h5>
+                        </div>
+                        <i class="fas fa-exclamation-circle text-gray-300"></i>
+                    </div>`;
+                });
+            }
+
+            // Chart
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            if(window.myChart) window.myChart.destroy();
+            
+            const labels = currentUser.history.slice(-5).map((h, i) => `Q${i+1}`);
+            const data = currentUser.history.slice(-5).map(h => (h.score/h.total)*100);
+
+            window.myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Score %',
+                        data: data,
+                        borderColor: 'white',
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointBackgroundColor: 'white'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, min: 0, max: 100 }
+                    }
+                }
+            });
+        }
+
+        // --- SELECTION & SESSION ---
+
+        function openSelection(type) {
+            currentSession.type = type;
+            document.getElementById('selection-modal').classList.remove('hidden');
+            const blockSel = document.getElementById('sel-block');
+            blockSel.innerHTML = '<option value="all">All Blocks</option>';
+            Object.keys(HIERARCHY).forEach(b => blockSel.innerHTML += `<option value="${b}">${b}</option>`);
+            populateModules();
+        }
+
+        function populateModules() {
+            const block = document.getElementById('sel-block').value;
+            const modSel = document.getElementById('sel-module');
+            modSel.innerHTML = '<option value="all">All Modules</option>';
+            if(block !== 'all' && HIERARCHY[block]) {
+                HIERARCHY[block].modules.forEach(m => modSel.innerHTML += `<option value="${m}">${m}</option>`);
+            }
+            const subSel = document.getElementById('sel-subject');
+            subSel.innerHTML = '<option value="all">All Subjects</option>';
+            SUBJECTS.forEach(s => subSel.innerHTML += `<option value="${s}">${s}</option>`);
+        }
+
+        function closeSelection() { document.getElementById('selection-modal').classList.add('hidden'); }
+
+        function startSession() {
+            const block = document.getElementById('sel-block').value;
+            const module = document.getElementById('sel-module').value;
+            const subject = document.getElementById('sel-subject').value;
+
+            let pool = appData.questions.filter(q => {
+                let match = true;
+                if(block !== 'all' && q.block !== block) match = false;
+                if(module !== 'all' && q.module !== module) match = false;
+                if(subject !== 'all' && q.subject !== subject) match = false;
+                return match;
+            });
+
+            if(pool.length === 0) return showToast("No questions found.");
+
+            pool.sort(() => Math.random() - 0.5);
+            currentSession.questions = pool;
+            currentSession.currentIndex = 0;
+            currentSession.score = 0;
+            currentSession.answers = {};
+
+            closeSelection();
+            document.getElementById('dashboard-view').classList.add('hidden');
+
+            if(currentSession.type === 'quiz') {
+                document.getElementById('quiz-interface').classList.remove('hidden');
+                document.getElementById('quiz-interface').classList.add('flex');
+                loadQuizQuestion();
+            } else {
+                document.getElementById('flashcard-interface').classList.remove('hidden');
+                document.getElementById('flashcard-interface').classList.add('flex');
+                loadFlashcard();
+            }
+        }
+
+        function exitSession() {
+            if(currentSession.type === 'quiz' && Object.keys(currentSession.answers).length > 0) {
+                currentUser.history.push({ date: new Date(), score: currentSession.score, total: currentSession.questions.length });
+                const idx = appData.users.findIndex(u => u.username === currentUser.username);
+                appData.users[idx] = currentUser;
+                saveData();
+            }
+            document.getElementById('quiz-interface').classList.remove('flex');
+            document.getElementById('quiz-interface').classList.add('hidden');
+            document.getElementById('flashcard-interface').classList.remove('flex');
+            document.getElementById('flashcard-interface').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            updateDashboard();
+        }
+
+        // --- QUIZ LOGIC ---
+
+        function loadQuizQuestion() {
+            const q = currentSession.questions[currentSession.currentIndex];
+            document.getElementById('q-current').innerText = currentSession.currentIndex + 1;
+            document.getElementById('q-total').innerText = currentSession.questions.length;
+            document.getElementById('q-badge').innerText = q.subject;
+            document.getElementById('q-text').innerText = q.question;
+            document.getElementById('q-explanation').classList.add('hidden');
+            document.getElementById('btn-next').innerText = currentSession.currentIndex === currentSession.questions.length - 1 ? "Finish Quiz" : "Next Question";
+
+            // Progress Bar
+            const pct = ((currentSession.currentIndex) / currentSession.questions.length) * 100;
+            document.getElementById('quiz-progress').style.width = `${pct}%`;
+
+            const optDiv = document.getElementById('q-options');
+            optDiv.innerHTML = '';
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 rounded-xl border-2 border-transparent bg-gray-50 hover:bg-white font-medium text-gray-700 transition shadow-sm text-sm";
+                btn.innerHTML = `<span class="font-bold mr-2 text-gray-400">${"ABCD"[idx]}</span> ${opt}`;
+                btn.onclick = () => selectOption(idx, btn);
+                btn.id = `opt-${idx}`;
+                optDiv.appendChild(btn);
+            });
+
+            if(currentSession.answers[q.id]) {
+                const ans = currentSession.answers[q.id];
+                const btns = optDiv.children;
+                btns[ans.selected].classList.add(ans.selected === ans.correct ? 'bg-green-100' : 'bg-red-100');
+                btns[ans.selected].classList.add(ans.selected === ans.correct ? 'border-green-500' : 'border-red-500');
+                btns[ans.correct].classList.add('bg-green-100', 'border-green-500');
+                document.getElementById('q-exp-text').innerText = q.explanation;
+                document.getElementById('q-explanation').classList.remove('hidden');
+            }
+        }
+
+        function selectOption(idx, btn) {
+            const q = currentSession.questions[currentSession.currentIndex];
+            if(currentSession.answers[q.id]) return;
+
+            const correctIdx = "ABCD".indexOf(q.answer);
+            currentSession.answers[q.id] = { selected: idx, correct: correctIdx };
+
+            const allBtns = document.getElementById('q-options').children;
+            
+            if(idx === correctIdx) {
+                btn.className = "w-full text-left p-4 rounded-xl border-2 border-green-500 bg-green-50 font-medium text-green-700 transition shadow-sm text-sm";
+                currentSession.score++;
+                showToast("Correct! 🎉");
+            } else {
+                btn.className = "w-full text-left p-4 rounded-xl border-2 border-red-500 bg-red-50 font-medium text-red-700 transition shadow-sm text-sm";
+                allBtns[correctIdx].className = "w-full text-left p-4 rounded-xl border-2 border-green-500 bg-green-50 font-medium text-green-700 transition shadow-sm text-sm";
+                
+                if(!currentUser.weak_topics[q.subject]) currentUser.weak_topics[q.subject] = 0;
+                currentUser.weak_topics[q.subject]++;
+            }
+
+            document.getElementById('q-exp-text').innerText = q.explanation;
+            document.getElementById('q-explanation').classList.remove('hidden');
+        }
+
+        function navigateQuiz(dir) {
+            const newIdx = currentSession.currentIndex + dir;
+            if(newIdx >= 0 && newIdx < currentSession.questions.length) {
+                currentSession.currentIndex = newIdx;
+                loadQuizQuestion();
+            } else if (newIdx >= currentSession.questions.length) {
+                exitSession();
+                showToast(`Quiz Finished! Score: ${currentSession.score}`);
+            }
+        }
+
+        // --- FLASHCARD LOGIC ---
+
+        function loadFlashcard() {
+             if (currentSession.currentIndex >= currentSession.questions.length) currentSession.currentIndex = 0;
+             const q = currentSession.questions[currentSession.currentIndex];
+             document.getElementById('fc-subject').innerText = q.subject;
+             document.getElementById('fc-question').innerText = q.question;
+             document.getElementById('fc-answer').innerHTML = `<span class="font-bold block mb-2 text-white">${q.answer}</span><span class="text-sm text-gray-400 block">${q.explanation}</span>`;
+             document.querySelector('.card-inner').classList.remove('flipped');
+        }
+
+        function nextFlashcard() {
+            currentSession.currentIndex++;
+            loadFlashcard();
+        }
+
+        // --- UTILS ---
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.remove('-translate-y-32');
+            t.classList.add('translate-y-0');
+            setTimeout(() => {
+                t.classList.remove('translate-y-0');
+                t.classList.add('-translate-y-32');
+            }, 2500);
+        }
+
+        function showLoader(show) {
+            document.getElementById('loader').className = show ? "fixed inset-0 z-[60] bg-white flex flex-col items-center justify-center" : "hidden";
+        }
+
+    </script>
+</body>
+</html>
