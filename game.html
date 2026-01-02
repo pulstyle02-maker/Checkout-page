@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Hand Shooter (Fixed)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #video-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; transform: scaleX(-1); }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; transform: scaleX(-1); }
+        #ui {
+            position: absolute; top: 20px; left: 20px; z-index: 2; color: #00ffcc; 
+            font-size: 24px; text-shadow: 0 0 5px #000; pointer-events: none;
+        }
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-size: 20px; z-index: 10; text-align: center;
+            background: rgba(0,0,0,0.7); padding: 20px; border-radius: 10px;
+        }
+        #error-msg { color: #ff4444; font-size: 16px; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="loading">
+        Loading AI Models...
+        <div id="error-msg"></div>
+    </div>
+    
+    <div id="ui">Score: <span id="score">0</span><br><small>Index to Aim. Pinch to Shoot.</small></div>
+    
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline></video>
+    </div>
+
+    <!-- Import Map to handle libraries reliably -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+
+        // --- Configuration ---
+        const VIDEO_ELEMENT = document.getElementById('webcam');
+        const SCORE_ELEMENT = document.getElementById('score');
+        const LOADING_DIV = document.getElementById('loading');
+        const ERROR_MSG = document.getElementById('error-msg');
+        
+        let score = 0;
+        let lastVideoTime = -1;
+        let handLandmarker = undefined;
+        let camera, scene, renderer;
+        let cursorMesh;
+        const shapes = [];
+        const projectiles = [];
+
+        // --- 1. Initialize Three.js ---
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(5, 5, 5);
+            scene.add(dirLight);
+
+            // Cursor
+            const cursorGeo = new THREE.RingGeometry(0.1, 0.15, 32);
+            const cursorMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+            cursorMesh = new THREE.Mesh(cursorGeo, cursorMat);
+            scene.add(cursorMesh);
+        }
+
+        // --- 2. Initialize MediaPipe (The Fix) ---
+        async function initHandTracking() {
+            try {
+                // We manually specify the WASM location to avoid loading errors
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                );
+                
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1
+                });
+                
+                // If we got here, AI is ready. Now start camera.
+                startWebcam();
+                
+            } catch (error) {
+                showError("AI Load Failed: " + error.message);
+            }
+        }
+
+        function startWebcam() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError("Browser does not support Webcam access.");
+                return;
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+                VIDEO_ELEMENT.srcObject = stream;
+                VIDEO_ELEMENT.addEventListener("loadeddata", () => {
+                    LOADING_DIV.style.display = "none";
+                    initThreeJS();
+                    spawnLoop();
+                    animate();
+                });
+            }).catch(err => {
+                showError("Camera denied: " + err.message);
+            });
+        }
+
+        function showError(msg) {
+            LOADING_DIV.style.display = 'block';
+            ERROR_MSG.style.display = 'block';
+            ERROR_MSG.innerText = msg + "\n(Try using Chrome or Edge)";
+        }
+
+        // --- 3. Game Logic ---
+        function spawnShape() {
+            const geometry = new THREE.IcosahedronGeometry(0.5, 0);
+            const material = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
+            const shape = new THREE.Mesh(geometry, material);
+            
+            shape.position.x = (Math.random() - 0.5) * 8;
+            shape.position.y = (Math.random() - 0.5) * 6;
+            shape.position.z = -5 - Math.random() * 5; 
+
+            shape.userData = { 
+                velocity: new THREE.Vector3(0, 0, 0.05 + Math.random() * 0.05),
+                rotSpeed: { x: Math.random()*0.05, y: Math.random()*0.05 }
+            };
+
+            scene.add(shape);
+            shapes.push(shape);
+        }
+
+        function shoot(startPos) {
+            const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const bullet = new THREE.Mesh(geometry, material);
+            bullet.position.copy(startPos);
+            bullet.userData = { velocity: new THREE.Vector3(0, 0, -0.5) }; 
+            scene.add(bullet);
+            projectiles.push(bullet);
+        }
+
+        function spawnLoop() {
+            setInterval(() => {
+                if(shapes.length < 10) spawnShape();
+            }, 1000);
+        }
+
+        function getVectorFromHand(point) {
+            const x = (point.x - 0.5) * 2; 
+            const y = -(point.y - 0.5) * 2; 
+            return new THREE.Vector3(x * 4, y * 3, 0); 
+        }
+
+        let isPinching = false;
+        function detectGesture(landmarks) {
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const distance = Math.sqrt(
+                Math.pow(thumbTip.x - indexTip.x, 2) + 
+                Math.pow(thumbTip.y - indexTip.y, 2)
+            );
+
+            const aimPos = getVectorFromHand(indexTip);
+            cursorMesh.position.copy(aimPos);
+
+            // Pinch Threshold
+            if (distance < 0.06) {
+                if (!isPinching) {
+                    isPinching = true;
+                    cursorMesh.material.color.set(0xff0000);
+                    shoot(aimPos);
+                }
+            } else {
+                isPinching = false;
+                cursorMesh.material.color.set(0x00ff00);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // AI Detection
+            if (handLandmarker && VIDEO_ELEMENT.currentTime !== lastVideoTime) {
+                lastVideoTime = VIDEO_ELEMENT.currentTime;
+                const results = handLandmarker.detectForVideo(VIDEO_ELEMENT, performance.now());
+                if (results.landmarks.length > 0) detectGesture(results.landmarks[0]);
+            }
+
+            // Game Updates
+            shapes.forEach((shape, index) => {
+                shape.position.add(shape.userData.velocity);
+                shape.rotation.x += shape.userData.rotSpeed.x;
+                shape.rotation.y += shape.userData.rotSpeed.y;
+                if (shape.position.z > 5) {
+                    shape.position.z = -10;
+                    shape.position.x = (Math.random() - 0.5) * 8;
+                }
+            });
+
+            projectiles.forEach((bullet, bIndex) => {
+                bullet.position.add(bullet.userData.velocity);
+                shapes.forEach((shape, sIndex) => {
+                    if (bullet.position.distanceTo(shape.position) < 0.6) {
+                        scene.remove(shape);
+                        scene.remove(bullet);
+                        shapes.splice(sIndex, 1);
+                        projectiles.splice(bIndex, 1);
+                        score += 10;
+                        SCORE_ELEMENT.innerText = score;
+                    }
+                });
+                if (bullet.position.z < -20) {
+                    scene.remove(bullet);
+                    projectiles.splice(bIndex, 1);
+                }
+            });
+
+            if(renderer) renderer.render(scene, camera);
+        }
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            if(camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        // Start
+        initHandTracking();
+
+    </script>
+</body>
+</html>
