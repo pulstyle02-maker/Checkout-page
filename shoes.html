@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nike Orbit System | Fixed</title>
+    
+    <!-- GSAP Core & ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* CORE STYLES */
+        :root {
+            --c-dark: #0e0e0e;
+            --font-head: 'Anton', sans-serif;
+            --font-body: 'Manrope', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            background-color: var(--c-dark); 
+            font-family: var(--font-body); 
+            overflow-x: hidden;
+            color: white;
+            height: auto;
+        }
+
+        /* DYNAMIC BACKGROUND */
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #2a2a2a 0%, #000 100%);
+            z-index: -2;
+            transition: background 1s ease;
+        }
+
+        .ambient-glow {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw; height: 80vw;
+            background: radial-gradient(closest-side, rgba(255,255,255,0.15), transparent);
+            filter: blur(80px);
+            z-index: -1;
+            transition: background 0.8s ease;
+            pointer-events: none;
+        }
+
+        /* NAV */
+        nav {
+            position: fixed;
+            top: 0; width: 100%;
+            padding: 2rem 5vw;
+            display: flex;
+            justify-content: space-between;
+            z-index: 100;
+            mix-blend-mode: difference;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        /* MAIN SCROLL CONTAINER */
+        .scroll-stage {
+            height: 250vh; /* Determines scroll length */
+            position: relative;
+        }
+
+        /* STICKY WRAPPER */
+        .viewport {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* HERO TEXT */
+        .hero-text {
+            position: absolute;
+            text-align: center;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .hero-text h1 {
+            font-family: var(--font-head);
+            font-size: 15vw;
+            line-height: 0.8;
+            opacity: 0.1;
+            white-space: nowrap;
+            transition: color 0.5s ease;
+        }
+        .hero-text p {
+            font-size: 1.2rem;
+            letter-spacing: 0.5rem;
+            text-transform: uppercase;
+            margin-top: 1rem;
+            opacity: 0; /* Animated in via JS */
+        }
+
+        /* 3D CAROUSEL CONTAINER */
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px; /* Essential for 3D */
+            z-index: 10;
+        }
+
+        .shoe-card {
+            position: absolute;
+            width: 50vw;
+            max-width: 600px;
+            transform-style: preserve-3d;
+            /* Default State: Hidden/Centered to start, set via JS */
+            opacity: 0; 
+        }
+
+        .shoe-img {
+            width: 100%;
+            display: block;
+            filter: drop-shadow(0 40px 30px rgba(0,0,0,0.6));
+            will-change: transform;
+        }
+
+        /* CONTROLS */
+        .controls {
+            position: absolute;
+            bottom: 10%;
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+        }
+        .btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-family: var(--font-head);
+            letter-spacing: 1px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: white;
+            color: black;
+            box-shadow: 0 0 25px rgba(255,255,255,0.3);
+        }
+
+        /* FEATURE TAGS (Right Side) */
+        .features-list {
+            position: absolute;
+            right: 8vw;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            z-index: 20;
+            pointer-events: none; /* Allows click-through initially */
+        }
+        .tag {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            padding: 12px 24px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0; /* Hidden initially */
+            transform: translateX(50px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem;
+            opacity: 0.5;
+            font-size: 0.8rem;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+
+    </style>
+</head>
+<body>
+
+    <div class="bg-gradient"></div>
+    <div class="ambient-glow"></div>
+
+    <nav>
+        <div>Nike Orbit</div>
+        <div>Menu</div>
+    </nav>
+
+    <div class="scroll-stage">
+        <div class="viewport">
+            
+            <div class="hero-text">
+                <h1>JUST DO IT</h1>
+                <p>Scroll to Explore Features</p>
+            </div>
+
+            <!-- CAROUSEL AREA -->
+            <div class="carousel-container">
+                <!-- RED (Index 0) -->
+                <div class="shoe-card" id="shoe-0">
+                    <img src="https://parspng.com/wp-content/uploads/2023/02/shoespng.parspng.com-6.png" class="shoe-img">
+                </div>
+                <!-- BLUE (Index 1) -->
+                <div class="shoe-card" id="shoe-1">
+                    <img src="https://parspng.com/wp-content/uploads/2023/02/shoespng.parspng.com-6.png" class="shoe-img" style="filter: hue-rotate(220deg) drop-shadow(0 40px 30px rgba(0,0,0,0.6));">
+                </div>
+                <!-- GREEN (Index 2) -->
+                <div class="shoe-card" id="shoe-2">
+                    <img src="https://parspng.com/wp-content/uploads/2023/02/shoespng.parspng.com-6.png" class="shoe-img" style="filter: hue-rotate(90deg) drop-shadow(0 40px 30px rgba(0,0,0,0.6));">
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" id="prevBtn">Prev</button>
+                <button class="btn" id="nextBtn">Next</button>
+            </div>
+
+            <div class="features-list">
+                <div class="tag" style="color:#fff;"><div class="dot"></div>Adaptive Fit</div>
+                <div class="tag" style="color:#fff;"><div class="dot"></div>ZoomX Foam</div>
+                <div class="tag" style="color:#fff;"><div class="dot"></div>Carbon Plate</div>
+                <div class="tag" style="color:#fff;"><div class="dot"></div>Lightweight</div>
+            </div>
+
+            <div class="scroll-hint">SCROLL DOWN</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            gsap.registerPlugin(ScrollTrigger);
+
+            // --- CONFIG ---
+            const shoes = [
+                document.getElementById('shoe-0'),
+                document.getElementById('shoe-1'),
+                document.getElementById('shoe-2')
+            ];
+            
+            const glow = document.querySelector('.ambient-glow');
+            const title = document.querySelector('.hero-text h1');
+            const subTitle = document.querySelector('.hero-text p');
+
+            // Color Data for Orbit [Red, Blue, Green]
+            const colorMap = [
+                { color: "rgba(208, 61, 40, 0.6)", hex: "#d03d28" },
+                { color: "rgba(40, 95, 208, 0.6)", hex: "#285fd0" },
+                { color: "rgba(139, 208, 40, 0.6)", hex: "#8bd028" }
+            ];
+
+            let activeIndex = 0;
+            let isAnimating = false;
+
+            // --- 1. INITIAL POSITIONING ---
+            function initPositions() {
+                // Shoe 0 (Center)
+                gsap.set(shoes[0], { xPercent: 0, scale: 1.2, zIndex: 10, opacity: 1, filter: "blur(0px)" });
+                // Shoe 1 (Right)
+                gsap.set(shoes[1], { xPercent: 120, scale: 0.6, zIndex: 1, opacity: 0.6, filter: "blur(5px) brightness(0.5)" });
+                // Shoe 2 (Left)
+                gsap.set(shoes[2], { xPercent: -120, scale: 0.6, zIndex: 1, opacity: 0.6, filter: "blur(5px) brightness(0.5)" });
+                
+                // Set initial ambient color
+                gsap.set(glow, { background: `radial-gradient(closest-side, ${colorMap[0].color}, transparent)` });
+                gsap.to(subTitle, { opacity: 1, y: 0, duration: 1, delay: 0.5 });
+            }
+            initPositions();
+
+            // --- 2. ORBIT LOGIC (THE FIX) ---
+            function rotateCarousel(direction) {
+                if(isAnimating) return;
+                isAnimating = true;
+
+                // Update Index
+                let prevIndex = activeIndex;
+                if (direction === 'next') {
+                    activeIndex = (activeIndex + 1) % 3;
+                } else {
+                    activeIndex = (activeIndex - 1 + 3) % 3;
+                }
+
+                // Determine Roles based on new Active Index
+                const center = activeIndex;
+                const right = (activeIndex + 1) % 3;
+                const left = (activeIndex - 1 + 3) % 3;
+
+                // Background Color Transition
+                gsap.to(glow, { 
+                    background: `radial-gradient(closest-side, ${colorMap[center].color}, transparent)`, 
+                    duration: 1 
+                });
+                gsap.to(title, { color: colorMap[center].hex, opacity: 0.2, duration: 0.5 });
+
+                const tl = gsap.timeline({
+                    onComplete: () => isAnimating = false
+                });
+
+                // ANIMATION RULES
+                // 1. New Center (Coming from side) -> Becomes Big, Clear, Top Layer
+                tl.to(shoes[center], {
+                    xPercent: 0,
+                    scale: 1.2,
+                    zIndex: 10,
+                    opacity: 1,
+                    filter: "blur(0px) brightness(1)",
+                    duration: 0.8,
+                    ease: "power2.inOut"
+                }, 0);
+
+                // 2. New Right (Was Center or Left) -> Becomes Small, Blurred, Side
+                tl.to(shoes[right], {
+                    xPercent: 120,
+                    scale: 0.6,
+                    zIndex: 1, // Drop z-index so Center passes over
+                    opacity: 0.6,
+                    filter: "blur(5px) brightness(0.5)",
+                    duration: 0.8,
+                    ease: "power2.inOut"
+                }, 0);
+
+                // 3. New Left (Was Center or Right) -> Becomes Small, Blurred, Side
+                tl.to(shoes[left], {
+                    xPercent: -120,
+                    scale: 0.6,
+                    zIndex: 1, // Drop z-index
+                    opacity: 0.6,
+                    filter: "blur(5px) brightness(0.5)",
+                    duration: 0.8,
+                    ease: "power2.inOut"
+                }, 0);
+
+                // **THE SPECIAL FIX**: 
+                // If an element moves from Right (120) to Left (-120) or vice-versa, 
+                // it visually crosses the center (0). 
+                // We must ensure its z-index is LOWER than the element entering Center.
+                // The zIndex: 1 set above handles this against the Center (zIndex: 10).
+                // However, to make it look like a true orbit behind, we can dip the scale slightly in the middle of the tween,
+                // but simpler is trusting the z-index 10 of the center item to cover it.
+            }
+
+            document.getElementById('prevBtn').addEventListener('click', () => rotateCarousel('prev'));
+            document.getElementById('nextBtn').addEventListener('click', () => rotateCarousel('next'));
+
+
+            // --- 3. SCROLL TRIGGER ANIMATION ---
+            
+            const scrollTl = gsap.timeline({
+                scrollTrigger: {
+                    trigger: ".scroll-stage",
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1.5,
+                    // markers: true
+                }
+            });
+
+            // Step A: Hide Controls & Move Title Away
+            scrollTl.to(".controls", { y: 100, opacity: 0, duration: 1 }, 0)
+                    .to(".hero-text", { y: -100, opacity: 0, duration: 1 }, 0);
+
+            // Step B: Move Shoes to the Left "Dock"
+            // We target ALL shoes so the currently active one moves correctly.
+            scrollTl.to(".shoe-card", {
+                xPercent: -60, // Move to left side
+                yPercent: -10,
+                scale: 0.8, // Slightly smaller than hero size
+                rotation: -25, // Tilt
+                duration: 3,
+                ease: "power1.inOut"
+            }, 0);
+
+            // Step C: If any shoe is in the "back" (blurred), fade it out completely so only the hero remains
+            // We dynamically decide this by ensuring the Active one stays full opacity
+            // Since we can't easily conditionally tween inside a scrub timeline based on dynamic JS state,
+            // we will simply accept that all orbit items move to the side. 
+            // *Enhancement*: Force the non-active shoes to fade out faster.
+            // But for simplicity in this structure, moving them all looks like a "squad" moving.
+
+            // Step D: Reveal Feature Tags
+            scrollTl.to(".tag", {
+                x: 0,
+                opacity: 1,
+                stagger: 0.3,
+                duration: 2,
+                ease: "back.out(1.7)"
+            }, 1);
+
+            // --- 4. MOUSE PARALLAX (Subtle Float) ---
+            document.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 15;
+                const y = (e.clientY / window.innerHeight - 0.5) * 15;
+                
+                // Only float if not scrolled down
+                if(window.scrollY < 100) {
+                    gsap.to(".carousel-container", { 
+                        rotationY: x, 
+                        rotationX: -y, 
+                        duration: 1 
+                    });
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>
