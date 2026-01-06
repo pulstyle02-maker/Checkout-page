@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultrafast PDF Text Extractor</title>
+    <!-- PDF.js for extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--surface);
+            width: 100%;
+            max-width: 800px;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .controls {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            text-align: center;
+            padding: 2rem;
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            transition: border-color 0.2s;
+        }
+
+        .file-input-wrapper:hover {
+            border-color: var(--primary);
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .range-inputs {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        input[type="number"] {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 80px;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .secondary-btn {
+            background-color: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .secondary-btn:hover {
+            background-color: var(--bg);
+        }
+
+        #output {
+            width: 100%;
+            height: 300px;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            resize: vertical;
+            font-family: monospace;
+            box-sizing: border-box;
+            margin-top: 1rem;
+        }
+
+        .progress-container {
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .status-text {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>PDF Text Extractor</h1>
+    
+    <div class="controls">
+        <div class="file-input-wrapper">
+            <span id="file-label">Click to select PDF or drag & drop here</span>
+            <input type="file" id="fileInput" accept="application/pdf">
+        </div>
+
+        <div class="range-inputs">
+            <div class="input-group">
+                <label for="startPage">Start Page</label>
+                <input type="number" id="startPage" min="1" placeholder="1">
+            </div>
+            <div class="input-group">
+                <label for="endPage">End Page</label>
+                <input type="number" id="endPage" min="1" placeholder="All">
+            </div>
+            <div class="input-group" style="justify-content: flex-end;">
+                <button id="extractBtn" disabled>Extract Text</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="status-text" id="statusText">Ready</div>
+    </div>
+
+    <textarea id="output" placeholder="Extracted text will appear here..." readonly></textarea>
+
+    <div class="actions">
+        <button id="copyBtn" class="secondary-btn" disabled>Copy to Clipboard</button>
+        <button id="downloadTxtBtn" class="secondary-btn" disabled>Download .txt</button>
+        <button id="downloadPdfBtn" class="secondary-btn" disabled>Download .pdf</button>
+    </div>
+</div>
+
+<script>
+    // Initialize PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const fileInput = document.getElementById('fileInput');
+    const extractBtn = document.getElementById('extractBtn');
+    const outputArea = document.getElementById('output');
+    const statusText = document.getElementById('statusText');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressFill = document.getElementById('progressFill');
+    const startPageInput = document.getElementById('startPage');
+    const endPageInput = document.getElementById('endPage');
+    
+    // Action buttons
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadTxtBtn = document.getElementById('downloadTxtBtn');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+
+    let currentPdf = null;
+    let extractedText = '';
+
+    // Handle File Selection
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('file-label').textContent = `Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+        
+        extractBtn.disabled = true;
+        setLoading(true, 'Loading PDF structure...');
+        
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+            currentPdf = await loadingTask.promise;
+            
+            endPageInput.placeholder = currentPdf.numPages;
+            endPageInput.max = currentPdf.numPages;
+            startPageInput.max = currentPdf.numPages;
+            
+            statusText.textContent = `Loaded ${currentPdf.numPages} pages. Ready to extract.`;
+            extractBtn.disabled = false;
+        } catch (err) {
+            console.error(err);
+            statusText.textContent = 'Error loading PDF. Please try a different file.';
+        }
+        setLoading(false);
+    });
+
+    // Handle Extraction
+    extractBtn.addEventListener('click', async () => {
+        if (!currentPdf) return;
+
+        const start = parseInt(startPageInput.value) || 1;
+        const end = parseInt(endPageInput.value) || currentPdf.numPages;
+
+        if (start > end || start < 1 || end > currentPdf.numPages) {
+            alert('Invalid page range.');
+            return;
+        }
+
+        setLoading(true, 'Initializing extraction...');
+        outputArea.value = '';
+        extractedText = '';
+        
+        // Disable buttons during process
+        toggleActionButtons(false);
+
+        let textAccumulator = [];
+        const totalPagesToProcess = end - start + 1;
+
+        // Processing loop
+        for (let i = start; i <= end; i++) {
+            try {
+                const page = await currentPdf.getPage(i);
+                const textContent = await page.getTextContent();
+                
+                // Combine items with a space, then add a double newline for the page break
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                textAccumulator.push(pageText);
+
+                // Update Progress
+                const percent = Math.round(((i - start + 1) / totalPagesToProcess) * 100);
+                progressFill.style.width = `${percent}%`;
+                statusText.textContent = `Processing page ${i} of ${end}...`;
+
+                // Small delay to allow UI to update (crucial for large files)
+                if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+
+            } catch (err) {
+                console.error(`Error on page ${i}`, err);
+                textAccumulator.push(`[Error extracting page ${i}]`);
+            }
+        }
+
+        extractedText = textAccumulator.join('\n\n');
+        outputArea.value = extractedText;
+        statusText.textContent = 'Extraction complete!';
+        toggleActionButtons(true);
+        setLoading(false);
+    });
+
+    // Copy to Clipboard
+    copyBtn.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(extractedText);
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = originalText, 2000);
+        } catch (err) {
+            alert('Failed to copy text.');
+        }
+    });
+
+    // Download TXT
+    downloadTxtBtn.addEventListener('click', () => {
+        const blob = new Blob([extractedText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'extracted_text.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Download PDF (Using jsPDF)
+    downloadPdfBtn.addEventListener('click', () => {
+        statusText.textContent = 'Generating PDF...';
+        
+        // Wait a tick to let UI update
+        setTimeout(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 10;
+            const maxWidth = pageWidth - (margin * 2);
+            const lineHeight = 7;
+            let cursorY = margin;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(11);
+
+            // Split text into lines that fit the page width
+            const lines = doc.splitTextToSize(extractedText, maxWidth);
+
+            // Add lines to PDF, adding pages as needed
+            lines.forEach((line) => {
+                if (cursorY + lineHeight > pageHeight - margin) {
+                    doc.addPage();
+                    cursorY = margin;
+                }
+                doc.text(line, margin, cursorY);
+                cursorY += lineHeight;
+            });
+
+            doc.save('extracted_text.pdf');
+            statusText.textContent = 'PDF Downloaded!';
+        }, 100);
+    });
+
+    // Helper: Toggle UI state
+    function setLoading(isLoading, text) {
+        if (isLoading) {
+            progressContainer.style.display = 'block';
+            if(text) statusText.textContent = text;
+        } 
+    }
+
+    function toggleActionButtons(enable) {
+        copyBtn.disabled = !enable;
+        downloadTxtBtn.disabled = !enable;
+        downloadPdfBtn.disabled = !enable;
+        extractBtn.disabled = !enable;
+        fileInput.disabled = !enable;
+    }
+
+</script>
+
+</body>
+</html>
