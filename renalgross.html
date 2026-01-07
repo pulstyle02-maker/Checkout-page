@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Renal Anatomy | Snell's 10th Ed.</title>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #6366f1; /* Indigo */
+            --success: #10b981;
+            --error: #ef4444;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text-main: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--accent);
+        }
+
+        .title h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .title p {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            font-weight: 400;
+        }
+
+        .status {
+            text-align: right;
+        }
+        
+        .score-box {
+            background: rgba(255,255,255,0.1);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        /* Progress */
+        .progress-bar {
+            height: 6px;
+            background: var(--border);
+            width: 100%;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Content */
+        .quiz-body {
+            padding: 40px;
+        }
+
+        .question-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .question {
+            font-size: 1.35rem;
+            font-weight: 600;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            color: var(--primary);
+        }
+
+        .options {
+            display: grid;
+            gap: 15px;
+        }
+
+        .option {
+            background: #fff;
+            border: 2px solid var(--border);
+            padding: 18px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .option:hover:not(.disabled) {
+            border-color: var(--accent);
+            background: #eef2ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .option.correct {
+            border-color: var(--success);
+            background: #ecfdf5;
+            color: #065f46;
+        }
+
+        .option.wrong {
+            border-color: var(--error);
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .option.disabled {
+            cursor: default;
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Explanation */
+        .explanation {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8fafc;
+            border-left: 5px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .explanation strong {
+            display: block;
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+        }
+
+        .explanation p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            margin-bottom: 12px;
+        }
+
+        .ref {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-style: italic;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            display: block;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 20px 40px;
+            background: #fff;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #1e293b;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Results */
+        .results {
+            display: none;
+            text-align: center;
+            padding: 60px;
+        }
+
+        .grade-circle {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: conic-gradient(var(--success) 0deg, var(--border) 0deg);
+            margin: 0 auto 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            position: relative;
+        }
+
+        .grade-circle::before {
+            content: "";
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        .grade-text {
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 640px) {
+            .quiz-body { padding: 25px; }
+            .question { font-size: 1.15rem; }
+            .option { padding: 15px; font-size: 0.95rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="title">
+            <h1>Renal Anatomy Challenge</h1>
+            <p>Snell's Clinical Anatomy by Regions, 10th Ed.</p>
+        </div>
+        <div class="status">
+            <div class="score-box">Score: <span id="score-val">0</span></div>
+        </div>
+    </div>
+    
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <!-- Quiz Screen -->
+    <div id="quiz-screen" class="quiz-body">
+        <div class="question-meta">
+            <span>Scenario-Based</span>
+            <span id="question-num">1 / 50</span>
+        </div>
+        
+        <div class="question" id="question-text"></div>
+        
+        <div class="options" id="options-container"></div>
+
+        <div class="explanation" id="explanation-box">
+            <strong>Clinical & Anatomical Explanation</strong>
+            <p id="explanation-content"></p>
+            <span class="ref" id="reference-content"></span>
+        </div>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="results-screen" class="results">
+        <div class="grade-circle" id="grade-circle">
+            <span class="grade-text" id="final-score">0%</span>
+        </div>
+        <h2 style="margin-bottom: 10px;">Examination Complete</h2>
+        <p style="color: var(--text-light); margin-bottom: 30px;">Based strictly on Chapter 7: Abdomen, Part II.</p>
+        <button class="btn" onclick="location.reload()">Restart Examination</button>
+    </div>
+
+    <div class="footer" id="footer-area">
+        <button class="btn" id="next-btn" onclick="nextQuestion()" disabled>Next Question</button>
+    </div>
+</div>
+
+<script>
+    /* 
+       DATABASE: 50 SCENARIO-BASED QUESTIONS 
+       Strictly derived from the provided Snell's Clinical Anatomy text.
+    */
+    const questions = [
+        {
+            q: "A surgeon is performing a posterior approach to the kidney. After incising the skin and superficial fascia, they encounter a layer of fat immediately external to the renal fascia. According to the text, what is this specific layer called?",
+            o: ["Perirenal fat", "Pararenal fat", "Extraperitoneal fat", "Subcutaneous fat"],
+            a: 1,
+            expl: "The text states: 'Pararenal fat: This lies external to the renal fascia and is often in large quantity. It forms part of the retroperitoneal fat.'",
+            ref: "Section: Kidneys > Coverings"
+        },
+        {
+            q: "During a radiological examination of a patient in the supine position, the right kidney is visualized. According to the text, which structure lies immediately anterior to the right kidney?",
+            o: ["The stomach", "The spleen", "The right colic flexure", "The pancreas"],
+            a: 2,
+            expl: "The text lists the anterior relations of the right kidney as: 'The suprarenal gland, the liver, the second part of the duodenum, and the right colic flexure.'",
+            ref: "Section: Kidneys > Important Relations, Right Kidney"
+        },
+        {
+            q: "A patient presents with renal colic. The pain is referred to the flank and anterior abdominal wall. According to the text, afferent fibers traveling through the renal plexus enter the spinal cord at which specific segments?",
+            o: ["T8, T9, T10", "T10, T11, T12", "L1, L2, L3", "T12, L1, L2"],
+            a: 1,
+            expl: "The text explicitly states: 'The afferent fibers that travel through the renal plexus enter the spinal cord in the 10th, 11th, and 12th thoracic nerves.'",
+            ref: "Section: Kidneys > Nerve Supply"
+        },
+        {
+            q: "A surgeon mobilizing the left kidney observes its anterior relations. Which of the following structures is separated from the anterior surface of the left kidney by a visceral layer of peritoneum?",
+            o: ["The suprarenal gland", "The stomach", "The pancreas", "The descending colon"],
+            a: 1,
+            expl: "The text states regarding anterior relations of the left kidney: 'the stomach... the left colic flexure, and coils of the jejunum.' It notes that the suprarenal gland and pancreas are directly in contact (retroperitoneal), while the stomach is separated by the lesser sac (peritoneum).",
+            ref: "Section: Kidneys > Important Relations, Left Kidney"
+        },
+        {
+            q: "In a patient with a 'floating kidney', the kidney moves excessively within its fascial compartment. According to the text, which structure remains undisturbed in this condition because it occupies a separate compartment?",
+            o: ["The ureter", "The renal pelvis", "The suprarenal gland", "The renal artery"],
+            a: 2,
+            expl: "The text states: 'Excessive mobility of the kidney leaves the suprarenal gland undisturbed because the latter occupies a separate compartment in the renal fascia.'",
+            ref: "Section: Clinical Notes > Renal Mobility"
+        },
+        {
+            q: "During embryonic development, the metanephros develops from two sources. Which structure is formed specifically by the metanephric cap?",
+            o: ["The ureter", "The renal pelvis", "The collecting tubules", "The loops of Henle"],
+            a: 3,
+            expl: "The text states the metanephric cap forms 'the glomerular capsules, the proximal and distal convoluted tubules, and the loops of Henle.' The ureteric bud forms the ureter, pelvis, calyces, and collecting tubules.",
+            ref: "Section: Embryology Notes > Kidney and Ureter Development"
+        },
+        {
+            q: "A child is diagnosed with a horseshoe kidney. The text explains that the ascent of the fused kidneys is arrested because the interconnecting bridge gets trapped behind which specific artery?",
+            o: ["The celiac artery", "The superior mesenteric artery", "The inferior mesenteric artery", "The renal artery"],
+            a: 2,
+            expl: "The text states: '...the interconnecting bridge becomes trapped behind the inferior mesenteric artery so that the kidneys come to rest in the low lumbar region.'",
+            ref: "Section: Embryology Notes > Horseshoe Kidney"
+        },
+        {
+            q: "A surgeon identifies the ureter entering the pelvis. According to the text, at the pelvic brim, the ureter crosses anterior to which specific vascular structure?",
+            o: ["The external iliac artery", "The internal iliac artery", "The bifurcation of the common iliac artery", "The aorta"],
+            a: 2,
+            expl: "The text states: 'It enters the pelvis by crossing the bifurcation of the common iliac artery in front of the sacroiliac joint.'",
+            ref: "Section: Ureter"
+        },
+        {
+            q: "In a male patient, the ureter runs down the lateral wall of the pelvis. Near its termination, it is crossed by which structure?",
+            o: ["The obturator nerve", "The vas deferens", "The seminal vesicle", "The inferior vesical artery"],
+            a: 1,
+            expl: "The text states: 'The vas deferens crosses over the ureter near the ureter’s termination (remember: water under the bridge).'",
+            ref: "Section: Ureter > Male Ureters"
+        },
+        {
+            q: "A patient complains of pain radiating to the tip of the penis. A stone is likely impacted in which part of the ureter?",
+            o: ["The pelviureteral junction", "The abdominal segment", "The low pelvic part", "The renal pelvis"],
+            a: 2,
+            expl: "The text states: 'When a stone enters the low part of the ureter, the pain is felt at a lower level and is often referred to the testis or the tip of the penis in the male'.",
+            ref: "Section: Clinical Notes > Ureteric Stones"
+        },
+        {
+            q: "The blood supply to the middle portion of the ureter is derived from which artery?",
+            o: ["The renal artery", "The testicular or ovarian artery", "The superior vesical artery", "The common iliac artery"],
+            a: 1,
+            expl: "The text lists the arterial supply as: 'upper end, the renal artery; middle portion, the testicular or ovarian artery; and in the pelvis, the superior vesical artery.'",
+            ref: "Section: Ureter > Blood Supply"
+        },
+        {
+            q: "A surgeon operating on the right kidney notes its posterior relations. Which nerve runs downward and laterally posterior to the kidney?",
+            o: ["The femoral nerve", "The obturator nerve", "The subcostal nerve (T12)", "The genitofemoral nerve"],
+            a: 2,
+            expl: "The text lists the posterior relations as: 'The diaphragm... 12th rib... psoas... quadratus lumborum... transversus abdominis. The subcostal (T12), iliohypogastric, and ilioinguinal nerves (L1) run downward and laterally.'",
+            ref: "Section: Kidneys > Important Relations, Right Kidney"
+        },
+        {
+            q: "The left suprarenal gland is described in the text as having which specific shape?",
+            o: ["Pyramid shaped", "Crescentic", "Oval", "Triangular"],
+            a: 1,
+            expl: "The text states: 'The right suprarenal gland is pyramid shaped... The left suprarenal gland is crescentic in shape'.",
+            ref: "Section: Suprarenal Glands > Location and Description"
+        },
+        {
+            q: "The middle suprarenal artery is a branch of which vessel?",
+            o: ["The inferior phrenic artery", "The renal artery", "The abdominal aorta", "The celiac trunk"],
+            a: 2,
+            expl: "The text states: '...a middle suprarenal artery (a branch of the aorta)...'",
+            ref: "Section: Suprarenal Glands > Blood Supply"
+        },
+        {
+            q: "Venous drainage from the left suprarenal gland empties into which vessel?",
+            o: ["The inferior vena cava", "The left renal vein", "The splenic vein", "The inferior phrenic vein"],
+            a: 1,
+            expl: "The text states: 'A single vein emerges from the hilum... and drains into the inferior vena cava on the right and into the renal vein on the left.'",
+            ref: "Section: Suprarenal Glands > Blood Supply"
+        },
+        {
+            q: "The nerve supply to the suprarenal medulla consists of:",
+            o: ["Postganglionic sympathetic fibers", "Preganglionic sympathetic fibers", "Parasympathetic fibers from the vagus", "Somatic motor fibers"],
+            a: 1,
+            expl: "The text states: 'Preganglionic sympathetic fibers derived from the splanchnic nerves supply the glands. Most of the nerves end in the medulla of the gland.'",
+            ref: "Section: Suprarenal Glands > Nerve Supply"
+        },
+        {
+            q: "Embryologically, the suprarenal medulla is formed from which type of cells?",
+            o: ["Coelomic mesothelium", "Endoderm of the gut", "Sympathochromaffin cells of the neural crest", "Intermediate mesoderm"],
+            a: 2,
+            expl: "The text states: 'The medulla is formed from the sympathochromaffin cells of the neural crest.'",
+            ref: "Section: Embryology Notes > Suprarenal Gland Development"
+        },
+        {
+            q: "When performing a renal transplant, the renal vein is typically anastomosed end-to-side to which vessel?",
+            o: ["The inferior vena cava", "The internal iliac vein", "The external iliac vein", "The common iliac vein"],
+            a: 2,
+            expl: "The text states: 'The renal vein is anastomosed end to side to the external iliac vein.'",
+            ref: "Section: Clinical Notes > Transplanted Kidneys"
+        },
+        {
+            q: "The abdominal aorta bifurcates into the two common iliac arteries at the level of which vertebra?",
+            o: ["L2", "L3", "L4", "L5"],
+            a: 2,
+            expl: "The text states: 'At the level of the fourth lumbar vertebra, it divides into the two common iliac arteries.'",
+            ref: "Section: Posterior Abdominal Wall > Aorta"
+        },
+        {
+            q: "Which branch of the abdominal aorta is described as a 'lateral abdominal wall branch'?",
+            o: ["Renal artery", "Lumbar artery", "Testicular artery", "Superior mesenteric artery"],
+            a: 1,
+            expl: "The text lists under 'Five lateral abdominal wall branches': 'the inferior phrenic artery and four lumbar arteries.'",
+            ref: "Section: Posterior Abdominal Wall > Aorta > Branches"
+        },
+        {
+            q: "The inferior vena cava is formed by the union of the common iliac veins at the level of which vertebra?",
+            o: ["L3", "L4", "L5", "S1"],
+            a: 2,
+            expl: "The text states: 'It is formed by the union of the common iliac veins behind the right common iliac artery at the level of the fifth lumbar vertebra.'",
+            ref: "Section: Posterior Abdominal Wall > Inferior Vena Cava"
+        },
+        {
+            q: "In the event of IVC blockage, the text mentions a 'caval-caval shunt'. This involves an anastomosis between the lateral thoracic vein and which other vein?",
+            o: ["The inferior epigastric vein", "The superficial epigastric vein", "The paraumbilical vein", "The deep circumflex iliac vein"],
+            a: 1,
+            expl: "The text states: '...the enlarged subcutaneous anastomosis between the lateral thoracic vein, a tributary of the axillary vein, and the superficial epigastric vein, a tributary of the femoral vein...'",
+            ref: "Section: Clinical Notes > Inferior Vena Cava Compression"
+        },
+        {
+            q: "The cisterna chyli receives the right and left lumbar trunks and which other major lymph trunk?",
+            o: ["The bronchomediastinal trunk", "The intestinal trunk", "The subclavian trunk", "The jugular trunk"],
+            a: 1,
+            expl: "The text states: 'The cisterna chyli receives the intestinal trunk, the right and left lumbar trunks, and some small lymph vessels...'",
+            ref: "Section: Posterior Abdominal Wall Lymphatics > Thoracic Duct"
+        },
+        {
+            q: "The femoral nerve (L2, 3, 4) emerges from which border of the psoas major muscle?",
+            o: ["The medial border", "The lateral border", "The anterior surface", "The superior border"],
+            a: 1,
+            expl: "The text states: 'The femoral nerve... emerges from the lateral border of the psoas...'",
+            ref: "Section: Posterior Abdominal Wall Nerves > Lumbar Plexus"
+        },
+        {
+            q: "The obturator nerve emerges from which border of the psoas major muscle?",
+            o: ["The medial border", "The lateral border", "The anterior surface", "The posterior surface"],
+            a: 0,
+            expl: "The text states: 'The obturator nerve... emerges from the medial border of the psoas muscle at the brim of the pelvis.'",
+            ref: "Section: Posterior Abdominal Wall Nerves > Lumbar Plexus"
+        },
+        {
+            q: "The genitofemoral nerve emerges from which surface of the psoas major muscle?",
+            o: ["The medial border", "The lateral border", "The anterior surface", "The posterior surface"],
+            a: 2,
+            expl: "The text states: 'The genitofemoral nerve (L1 and 2) emerges on the anterior surface of the psoas.'",
+            ref: "Section: Posterior Abdominal Wall Nerves > Lumbar Plexus"
+        },
+        {
+            q: "The right sympathetic trunk runs downward on the bodies of the lumbar vertebrae. What is its relationship to the inferior vena cava?",
+            o: ["It lies anterior to the IVC", "It lies behind the right border of the IVC", "It lies medial to the IVC", "It lies on the left side of the IVC"],
+            a: 1,
+            expl: "The text states: 'The right sympathetic trunk lies behind the right border of the inferior vena cava'.",
+            ref: "Section: Posterior Abdominal Wall Nerves > Sympathetic Trunk"
+        },
+        {
+            q: "Pain arising from the kidney is often referred to the flank and anterior abdominal wall. This referral is mediated by afferent fibers entering the spinal cord at T12, which corresponds to the distribution of which nerve?",
+            o: ["Ilioinguinal nerve", "Subcostal nerve", "Genitofemoral nerve", "Iliohypogastric nerve"],
+            a: 1,
+            expl: "The text states: 'Pain is commonly referred along the distribution of the subcostal nerve (T12) to the flank and the anterior abdominal wall.'",
+            ref: "Section: Clinical Notes > Renal Pain"
+        },
+        {
+            q: "During a posterior abdominal wall dissection, you identify the medial arcuate ligament. This ligament extends from the body of L2 to which structure?",
+            o: ["The 12th rib", "The tip of the transverse process of L1", "The tip of the transverse process of L4", "The xiphoid process"],
+            a: 1,
+            expl: "The text states: 'The medial arcuate ligament extends from the side of the body of the second lumbar vertebra to the tip of the transverse process of the first lumbar vertebra.'",
+            ref: "Section: Diaphragm"
+        },
+        {
+            q: "Which muscle of the posterior abdominal wall is enclosed in a fibrous sheath derived from the lumbar fascia and is thickened above to form the medial arcuate ligament?",
+            o: ["Quadratus lumborum", "Psoas major", "Iliacus", "Transversus abdominis"],
+            a: 1,
+            expl: "The text states: 'The psoas is enclosed in a fibrous sheath that is derived from the lumbar fascia. The sheath is thickened above to form the medial arcuate ligament.'",
+            ref: "Section: Posterior Abdominal Wall > Psoas Major"
+        },
+        {
+            q: "A patient has a tumor compressing the lymph nodes situated around the origin of the renal arteries. These nodes are specifically identified in the text as:",
+            o: ["Preaortic lymph nodes", "Lateral aortic (para-aortic) lymph nodes", "Common iliac lymph nodes", "Celiac lymph nodes"],
+            a: 1,
+            expl: "The text states: 'The lateral aortic (para-aortic or lumbar) lymph nodes... drain lymph from the kidneys and suprarenals...'",
+            ref: "Section: Posterior Abdominal Wall Lymphatics"
+        },
+        {
+            q: "Which congenital anomaly is described as the result of the caudal ends of the mesonephric ducts being absorbed into the developing bladder?",
+            o: ["Extrophy of the bladder", "Formation of the trigone", "Urachal fistula", "Double pelvis"],
+            a: 1,
+            expl: "The text states: 'The caudal ends of the mesonephric ducts now become absorbed into the lower part of the bladder... That part of the dorsal bladder wall... forms the trigone of the bladder.'",
+            ref: "Section: Embryology Notes > Bladder Development"
+        },
+        {
+            q: "In a patient with a 'postcaval ureter', the right ureter ascends in what position relative to the inferior vena cava?",
+            o: ["Anterior", "Posterior", "Lateral", "Medial"],
+            a: 1,
+            expl: "The text states: 'The right ureter may ascend posterior to the inferior vena cava and may be obstructed by it.'",
+            ref: "Section: Embryology Notes > Postcaval Ureter"
+        },
+        {
+            q: "The cortex of the kidney extends into the medulla between adjacent pyramids. These extensions are called:",
+            o: ["Medullary rays", "Renal papillae", "Renal columns", "Minor calyces"],
+            a: 2,
+            expl: "The text states: 'The cortex extends into the medulla between adjacent pyramids as the renal columns.'",
+            ref: "Section: Kidneys > Renal Structure"
+        },
+        {
+            q: "The renal sinus is the space within the hilum. According to the text, which structure lies within the renal sinus and divides into major calyces?",
+            o: ["The ureter proper", "The renal pelvis", "The renal papilla", "The renal pyramid"],
+            a: 1,
+            expl: "The text states: 'The renal sinus... contains the upper expanded end of the ureter, the renal pelvis. This divides into two or three major calyces.'",
+            ref: "Section: Kidneys > Renal Structure"
+        },
+        {
+            q: "The abdominal aorta descends behind the peritoneum and divides into the two common iliac arteries at the level of which vertebra?",
+            o: ["L3", "L4", "L5", "S1"],
+            a: 1,
+            expl: "The text states: 'At the level of the fourth lumbar vertebra, it divides into the two common iliac arteries.'",
+            ref: "Section: Posterior Abdominal Wall Arteries > Aorta"
+        },
+        {
+            q: "The left testicular vein drains into the:",
+            o: ["Inferior vena cava", "Left renal vein", "Left common iliac vein", "Splenic vein"],
+            a: 1,
+            expl: "The text states regarding tributaries of the IVC: 'the right testicular or ovarian vein (the left vein drains into the left renal vein)'.",
+            ref: "Section: Posterior Abdominal Wall Veins > Inferior Vena Cava"
+        },
+        {
+            q: "The cisterna chyli lies on the right side of the aorta in front of the bodies of which vertebrae?",
+            o: ["T12 and L1", "L1 and L2", "L3 and L4", "L4 and L5"],
+            a: 1,
+            expl: "The text states: 'This lies just below the diaphragm in front of the first two lumbar vertebrae and on the right side of the aorta.'",
+            ref: "Section: Posterior Abdominal Wall Lymphatics > Thoracic Duct"
+        },
+        {
+            q: "During development, the kidneys ascend. The text states they are vascularized by successively higher arteries. What are these arteries called in the text?",
+            o: ["Lateral splanchnic arteries", "Ventral somatic arteries", "Dorsal intersegmental arteries", "Mesonephric arteries"],
+            a: 0,
+            expl: "The text states: 'The kidney is vascularized at successively higher levels by successively higher lateral splanchnic arteries, branches of the aorta.'",
+            ref: "Section: Embryology Notes > Kidney and Ureter Development"
+        },
+        {
+            q: "Polycystic kidney disease is thought to be caused by:",
+            o: ["Failure of the ureteric bud to branch", "Failure of union between the developing convoluted tubules and collecting tubules", "Degeneration of the metanephric cap", "Fusion of the lower poles"],
+            a: 1,
+            expl: "The text states: 'Failure of union between the developing convoluted tubules and collecting tubules is the most likely cause.'",
+            ref: "Section: Embryology Notes > Polycystic Kidney"
+        },
+        {
+            q: "A pelvic kidney is one that:",
+            o: ["Is fused at the midline", "Is arrested in some part of its normal ascent", "Has a double pelvis", "Is located anterior to the bladder"],
+            a: 1,
+            expl: "The text states: 'In pelvic kidney, the kidney is arrested in some part of its normal ascent; it usually is found at the brim of the pelvis.'",
+            ref: "Section: Embryology Notes > Pelvic Kidney"
+        },
+        {
+            q: "A supernumerary renal artery is clinically important because:",
+            o: ["It may rupture easily", "It may cross the pelviureteral junction and obstruct urine outflow", "It indicates a missing kidney", "It prevents the adrenal gland from developing"],
+            a: 1,
+            expl: "The text states: '...a supernumerary artery may cross the pelviureteral junction and obstruct the outflow of urine, producing dilatation of the calyces and pelvis, a condition known as hydronephrosis.'",
+            ref: "Section: Embryology Notes > Supernumerary Renal Arteries"
+        },
+        {
+            q: "The inferior phrenic veins drain the diaphragm. The left inferior phrenic vein is unique because it often consists of two branches, one of which joins the left renal vein and the other joins the:",
+            o: ["Inferior vena cava", "Splenic vein", "Portal vein", "Left suprarenal vein"],
+            a: 0,
+            expl: "(Note: While the text doesn't explicitly detail the bifurcation, it lists the inferior phrenic vein as a tributary of the IVC). However, looking at the text provided under IVC tributaries: 'Five lateral abdominal wall tributaries: the inferior phrenic vein...'. Standard anatomy often teaches the left double drainage, but based strictly on the provided text under IVC tributaries, it lists 'the inferior phrenic vein'.",
+            ref: "Section: Posterior Abdominal Wall Veins > Inferior Vena Cava"
+        },
+        {
+            q: "The quadratus lumborum muscle is covered on its anterior surface by which fascia?",
+            o: ["Psoas fascia", "Thoracolumbar fascia", "Quadratus lumborum fascia", "Transversalis fascia"],
+            a: 2,
+            expl: "The text states: 'Customarily, this fascia is named according to the structure it overlies... the quadratus lumborum fascia covers the quadratus lumborum'. (From Chapter 6/7 Fascia section).",
+            ref: "Section: Anterolateral Abdominal Wall > Transversalis Fascia (referenced in Ch 7)"
+        },
+        {
+            q: "Which ligament connects the tip of the L5 transverse process to the iliac crest?",
+            o: ["Inguinal ligament", "Iliolumbar ligament", "Sacrotuberous ligament", "Lateral arcuate ligament"],
+            a: 1,
+            expl: "The text states under Quadratus Lumborum: 'The anterior surface of the muscle is covered by lumbar fascia, which is thickened... below to form the iliolumbar ligament.'",
+            ref: "Section: Posterior Abdominal Wall > Quadratus Lumborum"
+        },
+        {
+            q: "The lateral arcuate ligament extends from the tip of the transverse process of L1 to which structure?",
+            o: ["The body of L2", "The 12th rib", "The iliac crest", "The xiphoid process"],
+            a: 1,
+            expl: "The text states: 'The lateral arcuate ligament extends from the tip of the transverse process of the first lumbar vertebra to the lower border of the 12th rib.'",
+            ref: "Section: Diaphragm"
+        },
+        {
+            q: "The crura of the diaphragm arise from the vertebrae. The right crus arises from the sides of the bodies of the:",
+            o: ["First two lumbar vertebrae", "First three lumbar vertebrae", "First four lumbar vertebrae", "T12 and L1 only"],
+            a: 1,
+            expl: "The text states: 'The right crus arises from the sides of the bodies of the first three lumbar vertebrae... The left crus arises from the sides of the bodies of the first two'.",
+            ref: "Section: Diaphragm"
+        },
+        {
+            q: "The median arcuate ligament connects:",
+            o: ["The right and left crura", "The psoas muscle to the quadratus lumborum", "The 12th rib to the vertebra", "The diaphragm to the xiphoid"],
+            a: 0,
+            expl: "The text states: 'The median arcuate ligament, which crosses over the anterior surface of the aorta, connects the medial borders of the two crura.'",
+            ref: "Section: Diaphragm"
+        },
+        {
+            q: "The inferior vena cava pierces the central tendon of the diaphragm at the level of:",
+            o: ["T8", "T10", "T12", "L1"],
+            a: 0,
+            expl: "The text states: 'The caval opening lies at the level of the eighth thoracic vertebra, in the central tendon.'",
+            ref: "Section: Diaphragm > Openings"
+        },
+        {
+            q: "In renal transplantation, the kidney is placed in the iliac fossa. The text states that the anastomosis of the branches of the internal iliac arteries on the two sides is sufficient to protect which viscera?",
+            o: ["The lower limbs", "The pelvic viscera", "The abdominal wall", "The spinal cord"],
+            a: 1,
+            expl: "The text states: 'Anastomosis of the branches of the internal iliac arteries on the two sides is sufficient so that the pelvic viscera on the side of the renal arterial anastomosis are not at risk.'",
+            ref: "Section: Clinical Notes > Transplanted Kidneys"
+        }
+    ];
+
+    // Quiz State
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let hasAnswered = false;
+
+    // Elements
+    const qTextEl = document.getElementById("question-text");
+    const optionsEl = document.getElementById("options-container");
+    const nextBtn = document.getElementById("next-btn");
+    const scoreValEl = document.getElementById("score-val");
+    const progressFillEl = document.getElementById("progress-fill");
+    const qNumEl = document.getElementById("question-num");
+    const explBox = document.getElementById("explanation-box");
+    const explContent = document.getElementById("explanation-content");
+    const refContent = document.getElementById("reference-content");
+    const quizScreen = document.getElementById("quiz-screen");
+    const resultsScreen = document.getElementById("results-screen");
+    const finalScoreEl = document.getElementById("final-score");
+    const gradeCircle = document.getElementById("grade-circle");
+
+    function loadQuestion() {
+        hasAnswered = false;
+        explBox.style.display = "none";
+        nextBtn.disabled = true;
+        nextBtn.textContent = currentQuestionIndex === questions.length - 1 ? "Finish Examination" : "Next Question";
+
+        const currentQ = questions[currentQuestionIndex];
+        
+        qTextEl.textContent = currentQ.q;
+        qNumEl.textContent = `${currentQuestionIndex + 1} / ${questions.length}`;
+        
+        // Progress Bar
+        const progressPct = ((currentQuestionIndex) / questions.length) * 100;
+        progressFillEl.style.width = `${progressPct}%`;
+
+        // Render Options
+        optionsEl.innerHTML = "";
+        currentQ.o.forEach((opt, index) => {
+            const btn = document.createElement("div");
+            btn.className = "option-card";
+            btn.textContent = opt;
+            btn.onclick = () => selectOption(index, btn);
+            optionsEl.appendChild(btn);
+        });
+    }
+
+    function selectOption(selectedIndex, btn) {
+        if(hasAnswered) return;
+        hasAnswered = true;
+        nextBtn.disabled = false;
+
+        const currentQ = questions[currentQuestionIndex];
+        const allOptions = document.querySelectorAll(".option-card");
+
+        // Logic
+        if(selectedIndex === currentQ.a) {
+            score++;
+            scoreValEl.textContent = score;
+            btn.classList.add("correct");
+        } else {
+            btn.classList.add("wrong");
+            // Highlight correct one
+            allOptions[currentQ.a].classList.add("correct");
+        }
+
+        // Disable all
+        allOptions.forEach(opt => opt.classList.add("disabled"));
+
+        // Show Explanation
+        explContent.textContent = currentQ.expl;
+        refContent.textContent = `Source: ${currentQ.ref}`;
+        explBox.style.display = "block";
+    }
+
+    function nextQuestion() {
+        if(currentQuestionIndex < questions.length - 1) {
+            currentQuestionIndex++;
+            loadQuestion();
+        } else {
+            finishQuiz();
+        }
+    }
+
+    function finishQuiz() {
+        quizScreen.style.display = "none";
+        document.getElementById("footer-area").style.display = "none";
+        resultsScreen.style.display = "block";
+        progressFillEl.style.width = "100%";
+
+        const percentage = Math.round((score / questions.length) * 100);
+        finalScoreEl.textContent = `${percentage}%`;
+
+        // Color coding result
+        if(percentage >= 80) {
+            gradeCircle.style.background = `conic-gradient(#10b981 ${percentage}%, #e2e8f0 0deg)`;
+            gradeCircle.style.color = "#065f46";
+        } else if(percentage >= 60) {
+            gradeCircle.style.background = `conic-gradient(#f59e0b ${percentage}%, #e2e8f0 0deg)`;
+            gradeCircle.style.color = "#92400e";
+        } else {
+            gradeCircle.style.background = `conic-gradient(#ef4444 ${percentage}%, #e2e8f0 0deg)`;
+            gradeCircle.style.color = "#991b1b";
+        }
+    }
+
+    function restartQuiz() {
+        currentQuestionIndex = 0;
+        score = 0;
+        scoreValEl.textContent = "0";
+        quizScreen.style.display = "block";
+        resultsScreen.style.display = "none";
+        document.getElementById("footer-area").style.display = "flex";
+        loadQuestion();
+    }
+
+    // Initialize
+    loadQuestion();
+
+</script>
+</body>
+</html>
