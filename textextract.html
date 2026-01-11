@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant PDF Text Extractor</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Tesseract.js (OCR Engine) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom Scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .loader {
+            border-top-color: #3b82f6;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Prevent layout shift during loading */
+        .pdf-container {
+            min-height: 500px;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 shadow-sm z-10 flex-none">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i data-lucide="scan-text" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">OCR Pro</h1>
+                    <p class="text-xs text-slate-500 font-medium">Local PDF Text Extractor</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <label for="file-upload" class="cursor-pointer group flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-full transition-all border border-blue-200 font-medium text-sm">
+                    <i data-lucide="upload" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+                    <span>Open PDF</span>
+                    <input id="file-upload" type="file" accept="application/pdf" class="hidden" />
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Left Panel: PDF Viewer -->
+        <div class="flex-1 flex flex-col border-r border-slate-200 bg-slate-100/50 relative">
+            <!-- Toolbar -->
+            <div class="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4 flex-none">
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium">Page:</span>
+                    <button id="prev-page" class="p-1 hover:bg-slate-100 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <input type="number" id="page-num-input" value="0" min="1" class="w-12 text-center border border-slate-300 rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                    <span class="text-slate-400">/</span>
+                    <span id="page-count">0</span>
+                    <button id="next-page" class="p-1 hover:bg-slate-100 rounded disabled:opacity-30 disabled:cursor-not-allowed">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="text-xs font-mono text-slate-400 truncate max-w-[200px]" id="file-name">
+                    No file selected
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="pdf-scroll-container" class="flex-1 overflow-auto p-4 md:p-8 flex justify-center items-start pdf-container relative">
+                <!-- Placeholder State -->
+                <div id="empty-state" class="text-center mt-20">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm inline-block mb-4 border border-slate-100">
+                        <i data-lucide="file-up" class="w-12 h-12 text-blue-500 mx-auto mb-2"></i>
+                        <p class="text-slate-600 font-medium">Upload a PDF to start</p>
+                        <p class="text-slate-400 text-sm mt-1">Supports scanned docs & images up to 100MB+</p>
+                    </div>
+                </div>
+
+                <!-- Actual Canvas -->
+                <canvas id="the-canvas" class="shadow-2xl border border-slate-200 hidden"></canvas>
+            </div>
+        </div>
+
+        <!-- Right Panel: Extracted Text -->
+        <div class="w-full md:w-[450px] bg-white flex flex-col shadow-xl z-20 flex-none absolute md:relative h-full translate-x-full md:translate-x-0 transition-transform duration-300" id="text-panel">
+            
+            <!-- Mobile Toggle Handle (Visible only on mobile) -->
+            <button id="mobile-toggle" class="md:hidden absolute -left-12 top-4 bg-white p-3 rounded-l-xl shadow-lg border-y border-l border-slate-200 text-blue-600">
+                <i data-lucide="panel-left" class="w-6 h-6"></i>
+            </button>
+
+            <div class="h-12 border-b border-slate-200 flex items-center justify-between px-4 bg-slate-50 flex-none">
+                <h2 class="font-semibold text-slate-700 flex items-center gap-2">
+                    <i data-lucide="text-select" class="w-4 h-4 text-blue-500"></i>
+                    Extracted Text
+                </h2>
+                <div class="flex gap-2">
+                    <button id="copy-btn" class="text-xs flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded border border-slate-200 transition-colors shadow-sm disabled:opacity-50">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                        Copy
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 relative bg-white">
+                <textarea id="output-text" class="w-full h-full p-4 resize-none focus:outline-none text-slate-600 leading-relaxed font-mono text-sm" placeholder="Text extracted from the current page will appear here..."></textarea>
+                
+                <!-- Loading Overlay -->
+                <div id="processing-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-10 hidden">
+                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-10 w-10 mb-4"></div>
+                    <h3 class="font-semibold text-slate-800">Extracting Text...</h3>
+                    <p class="text-sm text-slate-500 mt-1" id="status-message">Initializing engine...</p>
+                    <div class="w-48 bg-slate-200 rounded-full h-1.5 mt-4 overflow-hidden">
+                        <div id="progress-bar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex-none">
+                
+                <!-- Range Selector UI -->
+                <div class="mb-4 bg-slate-100 p-3 rounded-lg border border-slate-200">
+                     <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Extraction Scope</label>
+                     <div class="flex flex-col gap-2">
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="radio" name="range-mode" value="current" checked class="text-blue-600 focus:ring-blue-500">
+                            Current Page Only
+                        </label>
+                        <div class="flex flex-col gap-2">
+                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input type="radio" name="range-mode" value="custom" class="text-blue-600 focus:ring-blue-500">
+                                Page Range
+                            </label>
+                            <input id="custom-range-input" type="text" placeholder="e.g. 1-3, 5, 8-10" class="w-full border border-slate-300 rounded px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-slate-200 disabled:text-slate-400 transition-colors" disabled>
+                        </div>
+                     </div>
+                </div>
+
+                <button id="extract-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg shadow-sm shadow-blue-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    Start Extraction
+                </button>
+                <div class="mt-3 flex items-start gap-2 text-[10px] text-slate-400">
+                    <i data-lucide="info" class="w-3 h-3 flex-none mt-0.5"></i>
+                    <p>Hybrid Engine: Automatically uses direct text layer if available, otherwise switches to OCR for images.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Initialization ---
+        lucide.createIcons();
+
+        // PDF.js worker setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // State
+        const state = {
+            pdfDoc: null,
+            pageNum: 1,
+            pageRendering: false,
+            pageNumPending: null,
+            scale: 1.5, // Zoom level
+            canvas: document.getElementById('the-canvas'),
+            ctx: document.getElementById('the-canvas').getContext('2d'),
+            isProcessing: false,
+            worker: null // Tesseract worker
+        };
+
+        // DOM Elements
+        const els = {
+            fileInput: document.getElementById('file-upload'),
+            prevBtn: document.getElementById('prev-page'),
+            nextBtn: document.getElementById('next-page'),
+            pageNumInput: document.getElementById('page-num-input'),
+            pageCountSpan: document.getElementById('page-count'),
+            fileName: document.getElementById('file-name'),
+            extractBtn: document.getElementById('extract-btn'),
+            outputText: document.getElementById('output-text'),
+            copyBtn: document.getElementById('copy-btn'),
+            processingOverlay: document.getElementById('processing-overlay'),
+            statusMessage: document.getElementById('status-message'),
+            progressBar: document.getElementById('progress-bar'),
+            emptyState: document.getElementById('empty-state'),
+            mobileToggle: document.getElementById('mobile-toggle'),
+            textPanel: document.getElementById('text-panel'),
+            // New Range Elements
+            rangeRadios: document.getElementsByName('range-mode'),
+            rangeInput: document.getElementById('custom-range-input')
+        };
+
+        // --- Range Input Handling ---
+        Array.from(els.rangeRadios).forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'custom') {
+                    els.rangeInput.disabled = false;
+                    els.rangeInput.focus();
+                } else {
+                    els.rangeInput.disabled = true;
+                }
+            });
+        });
+
+        // --- PDF Rendering Logic ---
+
+        async function renderPage(num) {
+            state.pageRendering = true;
+            const page = await state.pdfDoc.getPage(num);
+            const viewport = page.getViewport({scale: state.scale});
+            state.canvas.height = viewport.height;
+            state.canvas.width = viewport.width;
+
+            const renderContext = {
+                canvasContext: state.ctx,
+                viewport: viewport
+            };
+            
+            try {
+                await page.render(renderContext).promise;
+                state.pageRendering = false;
+                els.pageNumInput.value = num;
+                els.prevBtn.disabled = num <= 1;
+                els.nextBtn.disabled = num >= state.pdfDoc.numPages;
+
+                if (state.pageNumPending !== null) {
+                    renderPage(state.pageNumPending);
+                    state.pageNumPending = null;
+                }
+                
+                // Clear text only if looking at current page and not appending range
+                // But for simplicity, we don't clear on page turn automatically to preserve extracted data
+                // els.outputText.value = ''; 
+
+            } catch (err) {
+                console.error("Render error:", err);
+                state.pageRendering = false;
+            }
+        }
+
+        function queueRenderPage(num) {
+            if (state.pageRendering) {
+                state.pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+
+        function onPrevPage() {
+            if (state.pageNum <= 1) return;
+            state.pageNum--;
+            queueRenderPage(state.pageNum);
+        }
+
+        function onNextPage() {
+            if (state.pageNum >= state.pdfDoc.numPages) return;
+            state.pageNum++;
+            queueRenderPage(state.pageNum);
+        }
+
+        function onPageNumChange() {
+            const num = parseInt(els.pageNumInput.value);
+            if (num > 0 && num <= state.pdfDoc.numPages) {
+                state.pageNum = num;
+                queueRenderPage(state.pageNum);
+            } else {
+                els.pageNumInput.value = state.pageNum;
+            }
+        }
+
+        // --- File Handling ---
+
+        els.fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            els.fileName.textContent = file.name;
+            els.emptyState.classList.add('hidden');
+            state.canvas.classList.remove('hidden');
+            els.extractBtn.disabled = false;
+
+            const fileReader = new FileReader();
+            
+            fileReader.onload = function() {
+                const typedarray = new Uint8Array(this.result);
+                pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
+                    state.pdfDoc = pdfDoc_;
+                    els.pageCountSpan.textContent = state.pdfDoc.numPages;
+                    els.pageNumInput.max = state.pdfDoc.numPages;
+                    state.pageNum = 1;
+                    renderPage(state.pageNum);
+                }).catch(err => {
+                    alert('Error loading PDF: ' + err.message);
+                });
+            };
+
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        // --- Core Extraction Logic ---
+
+        function parseRange(rangeStr, maxPages) {
+            const pages = new Set();
+            const parts = rangeStr.split(',');
+            
+            for (const part of parts) {
+                const trimmed = part.trim();
+                if (trimmed.includes('-')) {
+                    const [start, end] = trimmed.split('-').map(n => parseInt(n));
+                    if (!isNaN(start) && !isNaN(end)) {
+                        for (let i = start; i <= end; i++) {
+                            if (i > 0 && i <= maxPages) pages.add(i);
+                        }
+                    }
+                } else {
+                    const page = parseInt(trimmed);
+                    if (!isNaN(page) && page > 0 && page <= maxPages) {
+                        pages.add(page);
+                    }
+                }
+            }
+            return Array.from(pages).sort((a, b) => a - b);
+        }
+
+        /**
+         * Main Driver function for extraction
+         */
+        async function startExtraction() {
+            if (!state.pdfDoc || state.isProcessing) return;
+
+            setLoading(true);
+            els.outputText.value = ""; // Clear previous
+            
+            // Determine pages to process
+            let pagesToProcess = [];
+            const mode = Array.from(els.rangeRadios).find(r => r.checked).value;
+
+            if (mode === 'current') {
+                pagesToProcess = [state.pageNum];
+            } else {
+                const rangeStr = els.rangeInput.value;
+                if (!rangeStr) {
+                    alert("Please enter a page range (e.g., 1-5)");
+                    setLoading(false);
+                    return;
+                }
+                pagesToProcess = parseRange(rangeStr, state.pdfDoc.numPages);
+                if (pagesToProcess.length === 0) {
+                    alert("Invalid page range.");
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // Shared canvas for background processing
+            const offscreenCanvas = document.createElement('canvas');
+            
+            try {
+                for (let i = 0; i < pagesToProcess.length; i++) {
+                    const pageNum = pagesToProcess[i];
+                    const progress = Math.round(((i) / pagesToProcess.length) * 100);
+                    updateStatus(`Processing page ${pageNum} (${i+1}/${pagesToProcess.length})...`, progress);
+
+                    const text = await extractTextFromPage(pageNum, offscreenCanvas);
+                    
+                    // Append text
+                    els.outputText.value += `--- Page ${pageNum} ---\n${text}\n\n`;
+                    
+                    // Auto-scroll to bottom
+                    els.outputText.scrollTop = els.outputText.scrollHeight;
+                }
+                updateStatus("Completed!", 100);
+            } catch (error) {
+                console.error("Batch extraction error:", error);
+                els.outputText.value += `\n[Error occurred during extraction]`;
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        /**
+         * Extracts text from a single page using Hybrid Strategy
+         */
+        async function extractTextFromPage(num, sharedCanvas) {
+            const page = await state.pdfDoc.getPage(num);
+            
+            // 1. Try Text Content (Fast)
+            const textContent = await page.getTextContent();
+            let extractedString = textContent.items.map(item => item.str + (item.hasEOL ? '\n' : ' ')).join('');
+            
+            const isLikelyImage = extractedString.replace(/\s/g, '').length < 20;
+
+            if (!isLikelyImage) {
+                return cleanText(extractedString);
+            }
+
+            // 2. Fallback to OCR (Slow)
+            updateStatus(`OCR scanning page ${num}...`, null); // null keeps previous percentage
+            
+            // Render to offscreen canvas
+            const viewport = page.getViewport({scale: 1.5}); // Lower scale for speed/mem compromise
+            sharedCanvas.height = viewport.height;
+            sharedCanvas.width = viewport.width;
+            
+            const ctx = sharedCanvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+            // Convert to blob and OCR
+            return new Promise((resolve, reject) => {
+                sharedCanvas.toBlob(async (blob) => {
+                    try {
+                        if (!state.worker) {
+                            state.worker = await Tesseract.createWorker('eng', 1);
+                        }
+                        const { data: { text } } = await state.worker.recognize(blob);
+                        resolve(text);
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            });
+        }
+
+        function cleanText(text) {
+            return text.replace(/\s+/g, ' ').trim();
+        }
+
+        // --- UI Helper Functions ---
+
+        function setLoading(isLoading) {
+            state.isProcessing = isLoading;
+            if (isLoading) {
+                els.processingOverlay.classList.remove('hidden');
+                els.extractBtn.disabled = true;
+                els.fileInput.disabled = true;
+                // Disable range inputs
+                els.rangeInput.disabled = true;
+                Array.from(els.rangeRadios).forEach(r => r.disabled = true);
+            } else {
+                els.processingOverlay.classList.add('hidden');
+                els.extractBtn.disabled = false;
+                els.fileInput.disabled = false;
+                // Re-enable range inputs based on selection
+                Array.from(els.rangeRadios).forEach(r => r.disabled = false);
+                const isCustom = Array.from(els.rangeRadios).find(r => r.checked && r.value === 'custom');
+                if(isCustom) els.rangeInput.disabled = false;
+            }
+        }
+
+        function updateStatus(msg, percent) {
+            els.statusMessage.textContent = msg;
+            if (percent !== null) els.progressBar.style.width = `${percent}%`;
+        }
+
+        // --- Event Listeners ---
+
+        els.prevBtn.addEventListener('click', onPrevPage);
+        els.nextBtn.addEventListener('click', onNextPage);
+        els.pageNumInput.addEventListener('change', onPageNumChange);
+        els.extractBtn.addEventListener('click', startExtraction);
+        
+        els.copyBtn.addEventListener('click', () => {
+            els.outputText.select();
+            document.execCommand('copy');
+            const originalText = els.copyBtn.innerHTML;
+            els.copyBtn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Copied!`;
+            setTimeout(() => {
+                els.copyBtn.innerHTML = originalText;
+                lucide.createIcons();
+            }, 2000);
+        });
+
+        // Mobile Panel Toggle
+        let isPanelOpen = false;
+        els.mobileToggle.addEventListener('click', () => {
+            isPanelOpen = !isPanelOpen;
+            if (isPanelOpen) {
+                els.textPanel.classList.remove('translate-x-full');
+                els.textPanel.classList.add('translate-x-0');
+            } else {
+                els.textPanel.classList.add('translate-x-full');
+                els.textPanel.classList.remove('translate-x-0');
+            }
+        });
+
+    </script>
+</body>
+</html>
+
+
