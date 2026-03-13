@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MODMEDICALIS - Student Portal</title>
+    
+    <!-- Premium Font: Plus Jakarta Sans & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- STRICT BLUE & BLACK DARK THEME (WITH YELLOW ACCENT) --- */
+        :root {
+            --bg-deep: #05070a;
+            --bg-app: #0a0f1c;
+            --bg-card: #111827;
+            --bg-card-hover: #1e293b;
+            
+            --blue-neon: #3b82f6;
+            --blue-primary: #2563eb;
+            --blue-dark: #1e3a8a;
+            --blue-glow: rgba(59, 130, 246, 0.4);
+            --blue-light-glass: rgba(59, 130, 246, 0.1);
+
+            --yellow-accent: #f59e0b;
+            --yellow-glow: rgba(245, 158, 11, 0.4);
+            --danger: #ef4444;
+            
+            --text-white: #ffffff;
+            --text-gray: #94a3b8;
+            --text-dim: #475569;
+            
+            --border-dark: #1e293b;
+            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; scroll-behavior: smooth; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        body { background-color: var(--bg-deep); color: var(--text-white); min-height: 100vh; display: flex; overflow: hidden; }
+
+        /* --- APP SHELL --- */
+        .app-container { width: 100%; height: 100vh; background-color: var(--bg-app); display: flex; flex-direction: column; position: relative; }
+
+        /* --- SIDEBAR & BOTTOM NAV --- */
+        .sidebar-nav { display: none; width: 260px; background: var(--bg-deep); border-right: 1px solid var(--border-dark); padding: 30px 20px; flex-direction: column; gap: 10px; z-index: 50;}
+        .sidebar-nav .logo { font-size: 24px; font-weight: 800; color: var(--text-white); margin-bottom: 40px; text-align: center; }
+        .sidebar-nav .logo span { color: var(--yellow-accent); }
+        
+        .bottom-nav { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: rgba(10, 15, 28, 0.95); backdrop-filter: blur(20px); border-top: 1px solid var(--border-dark); display: flex; justify-content: space-around; align-items: center; padding-bottom: 10px; z-index: 100; }
+        
+        .nav-item { display: flex; align-items: center; gap: 15px; color: var(--text-gray); cursor: pointer; transition: var(--transition); padding: 12px; border-radius: 12px; }
+        .bottom-nav .nav-item { flex-direction: column; gap: 6px; padding: 0; border-radius: 0; }
+        
+        .nav-item i { font-size: 20px; }
+        .nav-item span { font-size: 14px; font-weight: 600; }
+        .bottom-nav .nav-item span { font-size: 11px; }
+        
+        .nav-item.active { color: var(--blue-neon); background: var(--blue-light-glass); }
+        .bottom-nav .nav-item.active { background: transparent; text-shadow: 0 0 10px var(--blue-glow); transform: translateY(-3px); }
+
+        /* --- NOTIFICATION PANEL (NEW) --- */
+        .notif-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 998; opacity: 0; pointer-events: none; transition: var(--transition); }
+        .notif-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .notif-panel { position: fixed; top: 0; right: -350px; width: 320px; height: 100vh; background: var(--bg-deep); border-left: 1px solid var(--border-dark); z-index: 999; transition: var(--transition); padding: 25px 20px; box-shadow: -10px 0 30px rgba(0,0,0,0.8); overflow-y: auto; }
+        .notif-panel.active { right: 0; }
+        .notif-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .notif-header h3 { font-size: 18px; color: var(--text-white); display: flex; align-items: center; gap: 10px; }
+        .notif-header i.close-btn { color: var(--text-gray); font-size: 20px; cursor: pointer; transition: var(--transition); }
+        .notif-header i.close-btn:hover { color: var(--danger); transform: scale(1.1); }
+        
+        .notif-card { background: var(--bg-card); border: 1px solid var(--border-dark); padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 3px solid var(--blue-neon); }
+        .notif-card.urgent { border-left-color: var(--yellow-accent); }
+        .notif-card h4 { font-size: 14px; color: var(--text-white); margin-bottom: 5px; }
+        .notif-card p { font-size: 12px; color: var(--text-gray); line-height: 1.4; }
+
+        /* Main Content Area */
+        .main-content { flex: 1; position: relative; overflow-y: auto; padding: 20px 20px 100px 20px; }
+        .page-wrapper { max-width: 1000px; margin: 0 auto; } 
+
+        .page { display: none; animation: fadeSlide 0.4s ease forwards; }
+        .page.active { display: block; }
+        @keyframes fadeSlide { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- LOGIN PAGE --- */
+        #view-login { display: flex; flex-direction: column; justify-content: center; height: 100%; align-items: center; }
+        .login-box { width: 100%; max-width: 400px; }
+        .login-logo { font-size: 38px; font-weight: 800; color: var(--text-white); margin-bottom: 10px; text-shadow: 0 0 20px rgba(255,255,255,0.1); text-align: center; }
+        .login-logo span { color: var(--yellow-accent); text-shadow: 0 0 20px var(--yellow-glow); }
+        
+        .input-group { position: relative; margin-bottom: 15px; }
+        .input-group i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-gray); }
+        .app-input { width: 100%; padding: 18px 18px 18px 50px; background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 16px; color: var(--text-white); font-size: 15px; transition: var(--transition); }
+        .app-input:focus { border-color: var(--blue-neon); outline: none; box-shadow: 0 0 15px var(--blue-light-glass); }
+        .app-input:focus + i { color: var(--blue-neon); }
+
+        .btn { width: 100%; padding: 18px; border-radius: 16px; border: none; background: linear-gradient(135deg, var(--blue-primary), var(--blue-neon)); color: var(--text-white); font-weight: 700; font-size: 16px; cursor: pointer; transition: var(--transition); box-shadow: 0 10px 20px var(--blue-glow); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 15px 25px var(--blue-glow); filter: brightness(1.1); }
+        .btn i.fa-bolt { color: var(--yellow-accent); } 
+
+        /* --- DASHBOARD COMPONENTS --- */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .avatar { width: 50px; height: 50px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--blue-neon); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
+        .greeting p { color: var(--text-gray); font-size: 13px; margin-bottom: 2px; }
+        .greeting h1 { font-size: 20px; font-weight: 700; }
+        
+        .notification-btn { width: 45px; height: 45px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border-dark); display: flex; align-items: center; justify-content: center; color: var(--text-white); position: relative; cursor: pointer; transition: var(--transition); }
+        .notification-btn:hover { background: var(--border-dark); }
+        .notification-btn::after { content: ''; position: absolute; top: 12px; right: 14px; width: 6px; height: 6px; background: var(--yellow-accent); border-radius: 50%; box-shadow: 0 0 8px var(--yellow-glow); } 
+
+        .hero-banner { background: linear-gradient(135deg, var(--blue-dark), var(--blue-primary)); border-radius: 20px; padding: 30px; margin-bottom: 30px; position: relative; overflow: hidden; box-shadow: 0 10px 30px var(--blue-glow); border: 1px solid var(--blue-neon); }
+        .hero-banner::before { content: ''; position: absolute; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; top: -50px; right: -50px; filter: blur(30px); }
+        .hero-banner h2 { font-size: 24px; font-weight: 800; margin-bottom: 20px; line-height: 1.3; position: relative; z-index: 1; }
+        .search-bar { background: rgba(0,0,0,0.3); padding: 14px 20px; border-radius: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.1); position: relative; z-index: 1; }
+        .search-bar input { background: transparent; border: none; color: white; width: 100%; outline: none; font-size: 15px; }
+
+        /* Sections */
+        .section-wrap { scroll-margin-top: 20px; margin-bottom: 35px; } 
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .section-header h3 { font-size: 18px; font-weight: 700; color: var(--text-white); display: flex; align-items: center; gap: 10px; }
+        .section-header h3 i { color: var(--blue-neon); }
+
+        .mode-grid { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; }
+        .tab-btn { padding: 14px 24px; background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 12px; color: var(--text-gray); font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 10px; }
+        .tab-btn i { font-size: 16px; }
+        .tab-btn.active { background: var(--blue-light-glass); border-color: var(--blue-neon); color: var(--blue-neon); box-shadow: 0 0 20px var(--blue-light-glass); }
+
+        .block-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .list-card { background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 16px; padding: 20px; display: flex; align-items: center; justify-content: space-between; transition: var(--transition); cursor: pointer; }
+        .list-card.selected { border-color: var(--blue-neon); background: var(--blue-light-glass); transform: scale(1.02); }
+        .list-card-left { display: flex; align-items: center; gap: 15px; }
+        .list-icon { width: 45px; height: 45px; border-radius: 12px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; color: var(--blue-neon); font-size: 20px; }
+        .list-card.selected .list-icon { color: var(--yellow-accent); background: rgba(245, 158, 11, 0.1); } 
+        .list-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: var(--text-white); }
+        .list-card p { font-size: 13px; color: var(--text-gray); }
+        .radio-circle { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-dim); display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+        .list-card.selected .radio-circle { border-color: var(--blue-neon); }
+        .list-card.selected .radio-circle::after { content: ''; width: 12px; height: 12px; background: var(--blue-neon); border-radius: 50%; box-shadow: 0 0 5px var(--blue-neon); }
+
+        .subject-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .subject-pill { background: var(--bg-card); border: 1px solid var(--border-dark); padding: 14px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; color: var(--text-gray); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: var(--transition); }
+        input[type="checkbox"] { display: none; }
+        input:checked + .subject-pill { border-color: var(--blue-neon); color: var(--text-white); background: var(--blue-light-glass); }
+        input:checked + .subject-pill i.fa-check { opacity: 1; transform: scale(1); color: var(--yellow-accent); } 
+        .subject-pill i.fa-check { opacity: 0; transform: scale(0.5); transition: var(--transition); font-size: 14px; }
+
+        /* --- QUIZ & TIMER INTERFACE --- */
+        #view-quiz .page-wrapper, #view-flashcards .page-wrapper { max-width: 800px; margin: 0 auto; }
+        .quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        
+        .timer-box { font-size: 18px; font-weight: 800; color: var(--yellow-accent); background: rgba(245, 158, 11, 0.1); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--yellow-glow); display: none; align-items: center; gap: 8px; }
+        .timer-box.danger { color: var(--danger); background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); }
+
+        .progress-bar { width: 100%; height: 8px; background: var(--bg-card); border-radius: 10px; margin-bottom: 30px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--blue-neon); width: 0%; box-shadow: 0 0 15px var(--blue-neon); transition: width 0.4s; }
+        .q-text { font-size: 20px; font-weight: 600; line-height: 1.6; margin-bottom: 30px; }
+        
+        .opt-btn { width: 100%; padding: 20px; margin-bottom: 15px; background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 14px; text-align: left; color: var(--text-white); font-size: 15px; cursor: pointer; transition: var(--transition); display: flex; justify-content: space-between; align-items: center; }
+        .opt-btn:hover { border-color: var(--blue-neon); transform: translateX(5px); }
+        
+        /* Instant Feedback (Practice) */
+        .opt-btn.correct { background: var(--blue-dark); border-color: var(--blue-neon); box-shadow: 0 0 20px var(--blue-glow); }
+        .opt-btn.correct::after { content: '\f058'; font-family: 'FontAwesome'; color: var(--yellow-accent); font-size: 22px; } 
+        .opt-btn.wrong { background: #05070a; border-color: var(--border-dark); color: var(--text-dim); text-decoration: line-through; }
+        .opt-btn.wrong::after { content: '\f057'; font-family: 'FontAwesome'; color: var(--text-dim); font-size: 22px; text-decoration: none;}
+        
+        /* Mock Exam Selection */
+        .opt-btn.mock-selected { background: var(--blue-dark); border-color: var(--blue-neon); box-shadow: 0 0 10px var(--blue-glow); }
+
+        .exp-box { display: none; padding: 25px; background: var(--blue-light-glass); border-left: 4px solid var(--blue-neon); border-radius: 12px; margin-top: 30px; font-size: 15px; line-height: 1.6; color: var(--text-gray); }
+
+        /* --- FLASHCARDS & RESULTS --- */
+        .score-display { text-align: center; margin-bottom: 40px; padding: 40px; background: var(--bg-card); border-radius: 24px; border: 1px solid var(--border-dark); }
+        .score-display h1 { font-size: 48px; color: var(--yellow-accent); text-shadow: 0 0 30px var(--yellow-glow); margin-top: 10px; }
+        
+        .fc-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        .fc { height: 250px; perspective: 1000px; cursor: pointer; }
+        .fc-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
+        .fc.flipped .fc-inner { transform: rotateY(180deg); }
+        .fc-front, .fc-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; padding: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid var(--border-dark); background: var(--bg-card); }
+        .fc-front i { font-size: 35px; color: var(--text-dim); margin-bottom: 20px; }
+        .fc-front h4 { font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--text-white); }
+        
+        .fc-back { background: var(--blue-dark); border-color: var(--blue-neon); transform: rotateY(180deg); box-shadow: 0 0 30px var(--blue-glow); }
+        .fc-back h4 { font-size: 18px; font-weight: 700; margin-bottom: 15px; color: var(--yellow-accent); }
+        .fc-back p { font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.6; }
+
+        @media (min-width: 768px) {
+            .app-container { flex-direction: row; }
+            .sidebar-nav { display: flex; } 
+            .bottom-nav { display: none !important; } 
+            .main-content { padding: 40px 50px; }
+            .mode-grid { display: grid; grid-template-columns: repeat(4, 1fr); overflow: visible; }
+            .tab-btn { justify-content: center; padding: 18px; }
+            .block-grid { grid-template-columns: repeat(3, 1fr); }
+            .subject-grid { grid-template-columns: repeat(4, 1fr); gap: 15px; }
+            .fc-grid { grid-template-columns: repeat(2, 1fr); }
+            .hero-banner { padding: 40px; }
+            .hero-banner h2 { font-size: 32px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- SIDEBAR (Desktop) -->
+        <div class="sidebar-nav" id="sidebar-nav">
+            <div class="logo">MOD<span>MED</span></div>
+            <div class="nav-item active" onclick="navTo('dashboard')"><i class="fa-solid fa-house"></i> <span>Dashboard</span></div>
+            <!-- Updated Request 1: Library -> Exam Mode, Analytics -> Viva -->
+            <div class="nav-item"><i class="fa-solid fa-file-lines"></i> <span>Exam Mode</span></div>
+            <div class="nav-item"><i class="fa-solid fa-comments"></i> <span>Viva</span></div>
+            <div class="nav-item" style="margin-top: auto;" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span>Logout</span></div>
+        </div>
+
+        <!-- NOTIFICATION OVERLAY & PANEL (Request 5) -->
+        <div class="notif-overlay" id="notif-overlay" onclick="toggleNotif()"></div>
+        <div class="notif-panel" id="notif-panel">
+            <div class="notif-header">
+                <h3><i class="fa-solid fa-bell" style="color: var(--yellow-accent);"></i> Updates</h3>
+                <i class="fa-solid fa-xmark close-btn" onclick="toggleNotif()"></i>
+            </div>
+            <div class="notif-card urgent">
+                <h4>System Update</h4>
+                <p>New Mock Exams for CVS Module have been added to your dashboard.</p>
+            </div>
+            <div class="notif-card">
+                <h4>Flashcard Deck</h4>
+                <p>You have 15 cards due for review in Pathology.</p>
+            </div>
+            <div class="notif-card">
+                <h4>Leaderboard</h4>
+                <p>You're in the top 10% of your class this week. Keep it up, Doctor!</p>
+            </div>
+        </div>
+
+        <div class="main-content no-scrollbar" id="main-scroll-area">
+            
+            <!-- PAGE 1: LOGIN -->
+            <div id="view-login" class="page active">
+                <div class="login-box">
+                    <h1 class="login-logo">MOD<span>MED</span></h1>
+                    <p style="color: var(--text-gray); margin-bottom: 40px; font-size: 15px; text-align: center;">Professional Medical Portal</p>
+                    
+                    <div class="input-group">
+                        <i class="fa-solid fa-user-doctor"></i>
+                        <input type="text" id="usernameInput" class="app-input" placeholder="Full Name (e.g. Dr. House)" required>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 30px;">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" class="app-input" placeholder="Password" required>
+                    </div>
+                    
+                    <button class="btn" onclick="handleLogin()">Sign In <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- PAGE 2: DASHBOARD -->
+            <div id="view-dashboard" class="page">
+                <div class="page-wrapper">
+                    
+                    <div class="header">
+                        <div class="user-info">
+                            <div class="avatar" id="avatar-letter">D</div>
+                            <div class="greeting">
+                                <p>Good Evening,</p>
+                                <h1 id="greeting-name">Dr. Name</h1>
+                            </div>
+                        </div>
+                        <div class="notification-btn" onclick="toggleNotif()"><i class="fa-regular fa-bell"></i></div>
+                    </div>
+
+                    <div class="hero-banner">
+                        <h2>Master Medicine<br>Today.</h2>
+                        <div class="search-bar">
+                            <i class="fa-solid fa-magnifying-glass" style="color: rgba(255,255,255,0.6);"></i>
+                            <input type="text" placeholder="Search modules, diseases, or topics...">
+                        </div>
+                    </div>
+
+                    <!-- STUDY MODE (SECTION 1) -->
+                    <div class="section-wrap" id="sec-mode">
+                        <div class="section-header">
+                            <h3><i class="fa-solid fa-bullseye"></i> 1. Select Study Mode</h3>
+                        </div>
+                        <div class="mode-grid no-scrollbar">
+                            <div class="tab-btn" data-mode="flashcards" onclick="switchTab(this)"><i class="fa-solid fa-layer-group"></i> Flashcards</div>
+                            <div class="tab-btn active" data-mode="practice" onclick="switchTab(this)"><i class="fa-solid fa-stethoscope"></i> Practice MCQs</div>
+                            <div class="tab-btn" data-mode="past" onclick="switchTab(this)"><i class="fa-solid fa-clock-rotate-left"></i> Past Mistakes</div>
+                            <div class="tab-btn" data-mode="mock" onclick="switchTab(this)"><i class="fa-solid fa-stopwatch"></i> Mock Exam</div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCKS (SECTION 2) -->
+                    <div class="section-wrap" id="sec-block">
+                        <div class="section-header">
+                            <h3><i class="fa-solid fa-cubes"></i> 2. Select Study Block</h3>
+                        </div>
+                        <div class="block-grid">
+                            <div class="list-card selected" onclick="selectBlock(this)">
+                                <div class="list-card-left">
+                                    <div class="list-icon"><i class="fa-solid fa-dna"></i></div>
+                                    <div><h4>Block 1</h4><p>Foundation & H&L</p></div>
+                                </div>
+                                <div class="radio-circle"></div>
+                            </div>
+                            <div class="list-card" onclick="selectBlock(this)">
+                                <div class="list-card-left">
+                                    <div class="list-icon"><i class="fa-solid fa-bone"></i></div>
+                                    <div><h4>Block 2</h4><p>MSK Module</p></div>
+                                </div>
+                                <div class="radio-circle"></div>
+                            </div>
+                            <div class="list-card" onclick="selectBlock(this)">
+                                <div class="list-card-left">
+                                    <div class="list-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                                    <div><h4>Block 3</h4><p>CVS & Resp Module</p></div>
+                                </div>
+                                <div class="radio-circle"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBJECTS (SECTION 3) -->
+                    <div class="section-wrap" id="sec-subject">
+                        <div class="section-header">
+                            <h3><i class="fa-solid fa-microscope"></i> 3. Basic Sciences</h3>
+                            <span style="font-size: 12px; color: var(--blue-neon); cursor: pointer;">Select All</span>
+                        </div>
+                        <div class="subject-grid">
+                            <label><input type="checkbox" checked><div class="subject-pill">Anatomy <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox" checked><div class="subject-pill">Physiology <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox"><div class="subject-pill">Biochemistry <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox"><div class="subject-pill">Pathology <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox"><div class="subject-pill">Pharmacology <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox"><div class="subject-pill">Embryology <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox"><div class="subject-pill">Histology <i class="fa-solid fa-check"></i></div></label>
+                            <label><input type="checkbox"><div class="subject-pill">Comm. Med <i class="fa-solid fa-check"></i></div></label>
+                        </div>
+                    </div>
+
+                    <button class="btn" style="margin-top: 10px;" onclick="startSession()">Begin Session <i class="fa-solid fa-bolt"></i></button>
+                </div>
+            </div>
+
+            <!-- PAGE 3: QUIZ VIEW (Practice / Mock) -->
+            <div id="view-quiz" class="page">
+                <div class="page-wrapper">
+                    <div class="quiz-header">
+                        <div style="width: 45px; height: 45px; border-radius: 12px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--border-dark);" onclick="navTo('dashboard')"><i class="fa-solid fa-arrow-left"></i></div>
+                        <h3 style="font-size: 18px; color: var(--text-gray);" id="quiz-title-text">Practice Mode</h3>
+                        <span id="quiz-counter" style="color: var(--blue-neon); font-weight: 700; font-size: 16px;">1/3</span>
+                    </div>
+
+                    <!-- Timer Box (Only shows in Mock Exam) -->
+                    <div class="timer-box" id="quiz-timer">
+                        <i class="fa-regular fa-clock"></i> <span id="time-display">00:00</span>
+                    </div>
+
+                    <div class="progress-bar"><div class="progress-fill" id="quiz-progress"></div></div>
+
+                    <h2 class="q-text" id="q-text">Loading clinical vignette...</h2>
+                    
+                    <div id="options-container"></div>
+                    
+                    <div class="exp-box" id="exp-box">
+                        <strong style="color: var(--blue-neon); font-size: 16px;"><i class="fa-solid fa-lightbulb" style="color: var(--yellow-accent);"></i> Clinical Concept:</strong><br><br>
+                        <span id="exp-text"></span>
+                    </div>
+
+                    <button class="btn" id="btn-next" style="display: none; margin-top: 30px;" onclick="nextQuestion()">Next Question <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- PAGE 4: FLASHCARD STUDY MODE (Dynamic Request 4) -->
+            <div id="view-flashcards" class="page">
+                <div class="page-wrapper">
+                    <div class="quiz-header" style="margin-bottom: 30px;">
+                        <div style="width: 45px; height: 45px; border-radius: 12px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid var(--border-dark);" onclick="navTo('dashboard')"><i class="fa-solid fa-arrow-left"></i></div>
+                        <h3 style="font-size: 18px; color: var(--text-gray);">Flashcard Mode</h3>
+                        <i class="fa-solid fa-layer-group" style="color: var(--blue-neon); font-size: 20px;"></i>
+                    </div>
+                    <div class="fc-grid" id="study-fc-container"></div>
+                </div>
+            </div>
+
+            <!-- PAGE 5: RESULTS -->
+            <div id="view-results" class="page">
+                <div class="page-wrapper">
+                    <div class="score-display">
+                        <p style="color: var(--text-gray); font-weight: 700; text-transform: uppercase; font-size: 14px; letter-spacing: 2px;">Session Complete</p>
+                        <h1 id="score-text">0/0</h1>
+                    </div>
+
+                    <div id="flashcards-section" style="display: none;">
+                        <div class="section-header">
+                            <h3 style="font-size: 22px;"><i class="fa-solid fa-layer-group" style="color: var(--blue-neon);"></i> Spaced Repetition</h3>
+                        </div>
+                        <p style="font-size: 15px; color: var(--text-dim); margin-bottom: 25px;">Tap cards to reveal. Added to your review deck.</p>
+                        
+                        <div class="fc-grid" id="fc-container"></div>
+                    </div>
+
+                    <button class="btn" style="margin-top: 50px;" onclick="navTo('dashboard')">Back to Home <i class="fa-solid fa-house"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION (Visible on Mobile) -->
+        <div class="bottom-nav" id="bottom-nav" style="display: none;">
+            <div class="nav-item active" onclick="navTo('dashboard')">
+                <i class="fa-solid fa-house"></i><span>Home</span>
+            </div>
+            <!-- Updated Request 1: Library -> Exam Mode, Analytics -> Viva -->
+            <div class="nav-item">
+                <i class="fa-solid fa-file-lines"></i><span>Exam Mode</span>
+            </div>
+            <div class="nav-item">
+                <i class="fa-solid fa-comments"></i><span>Viva</span>
+            </div>
+            <div class="nav-item" onclick="logout()">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const quizData = [
+            {
+                question: "A 45-year-old female presents with fatigue and a malar rash. Urinalysis reveals proteinuria. Her serum is positive for ANA. Which autoantibody confirms the pathogenesis of her renal damage?",
+                options: ["Anti-mitochondrial antibodies", "Anti-centromere antibodies", "Anti-dsDNA", "Rheumatoid Factor"],
+                correctIndex: 2,
+                explanation: "Anti-dsDNA is highly specific for SLE and correlates strongly with disease activity, specifically Lupus Nephritis, explaining her proteinuria."
+            },
+            {
+                question: "Minutes after vascular anastomosis in a kidney transplant, the organ becomes cyanotic and mottled. This hyperacute rejection is primarily mediated by:",
+                options: ["Host CD8+ T-lymphocytes", "Preformed host antibodies", "Donor macrophages", "Obliterative vascular fibrosis"],
+                correctIndex: 1,
+                explanation: "Hyperacute rejection is a Type II hypersensitivity reaction caused by pre-existing host antibodies reacting against donor endothelial antigens, causing thrombosis."
+            },
+            {
+                question: "A premature neonate develops severe hemolytic anemia. Peripheral smear shows acanthocytes due to lipid peroxidation. Deficiency of which vitamin is the cause?",
+                options: ["Vitamin C", "Vitamin B12", "Vitamin A", "Vitamin E"],
+                correctIndex: 3,
+                explanation: "Vitamin E is a lipid-soluble antioxidant. Without it, polyunsaturated fatty acids in the RBC membrane suffer oxidative damage, leading to hemolysis."
+            }
+        ];
+
+        let userName = "";
+        let currentQ = 0;
+        let score = 0;
+        let wrongList = [];
+        let answered = false;
+        
+        let studyMode = 'practice'; // Tracks selected mode
+        let timerInterval;
+        let timeRemaining = 0;
+        
+        const scrollArea = document.getElementById('main-scroll-area');
+
+        // REQUEST 2: Persistent Login via LocalStorage
+        window.onload = () => {
+            const savedUser = localStorage.getItem('modmed_user');
+            if(savedUser) {
+                userName = savedUser;
+                setupDashboard();
+                document.getElementById('view-login').classList.remove('active');
+                document.getElementById('view-dashboard').classList.add('active');
+            }
+        };
+
+        function handleLogin() {
+            const input = document.getElementById('usernameInput').value.trim();
+            if (!input) return alert("Please enter your name.");
+            userName = input;
+            localStorage.setItem('modmed_user', userName); // Save session
+            setupDashboard();
+            navTo('dashboard');
+        }
+
+        function setupDashboard() {
+            document.getElementById('greeting-name').innerText = `Dr. ${userName.split(' ')[0]}`;
+            document.getElementById('avatar-letter').innerText = userName.charAt(0).toUpperCase();
+            if (window.innerWidth < 768) { document.getElementById('bottom-nav').style.display = 'flex'; }
+        }
+
+        function logout() {
+            localStorage.removeItem('modmed_user'); // Clear session
+            location.reload();
+        }
+
+        // REQUEST 5: Notification Slide Bar
+        function toggleNotif() {
+            document.getElementById('notif-panel').classList.toggle('active');
+            document.getElementById('notif-overlay').classList.toggle('active');
+        }
+
+        function navTo(viewId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            scrollArea.scrollTo(0,0);
+            
+            if(viewId === 'dashboard') {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                document.querySelectorAll('.sidebar-nav .nav-item')[0].classList.add('active'); 
+                if(document.querySelectorAll('.bottom-nav .nav-item').length > 0) {
+                    document.querySelectorAll('.bottom-nav .nav-item')[0].classList.add('active'); 
+                }
+            }
+        }
+
+        function switchTab(el) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            el.classList.add('active');
+            studyMode = el.getAttribute('data-mode'); // Update the tracker
+            
+            setTimeout(() => {
+                const target = document.getElementById('sec-block');
+                scrollArea.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+            }, 200);
+        }
+
+        function selectBlock(el) {
+            document.querySelectorAll('.list-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            setTimeout(() => {
+                const target = document.getElementById('sec-subject');
+                scrollArea.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+            }, 250);
+        }
+
+        // REQUEST 4: Dynamic Session Start based on mode
+        function startSession() {
+            currentQ = 0; score = 0; wrongList = [];
+            clearInterval(timerInterval); // Reset timer
+            
+            if(studyMode === 'flashcards') {
+                buildFlashcardStudy();
+                navTo('flashcards');
+            } else {
+                navTo('quiz');
+                setupQuizMode();
+                loadQuestion();
+            }
+        }
+
+        function buildFlashcardStudy() {
+            const container = document.getElementById('study-fc-container');
+            container.innerHTML = '';
+            quizData.forEach(q => {
+                const card = document.createElement('div');
+                card.className = 'fc';
+                card.onclick = function() { this.classList.toggle('flipped'); };
+                card.innerHTML = `
+                    <div class="fc-inner">
+                        <div class="fc-front">
+                            <i class="fa-solid fa-clipboard-question"></i>
+                            <h4>${q.question}</h4>
+                            <p style="margin-top:15px; font-size:12px; color:var(--blue-neon);"><i class="fa-solid fa-arrow-pointer"></i> Tap to flip</p>
+                        </div>
+                        <div class="fc-back">
+                            <h4 style="color:var(--yellow-accent); margin-bottom:10px;">Correct Answer</h4>
+                            <h4 style="font-size:15px; margin-bottom:10px;">${q.options[q.correctIndex]}</h4>
+                            <p style="font-size:12px;">${q.explanation}</p>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function setupQuizMode() {
+            const titleText = document.getElementById('quiz-title-text');
+            const timerBox = document.getElementById('quiz-timer');
+            
+            if(studyMode === 'mock') {
+                titleText.innerText = 'Mock Exam';
+                timerBox.style.display = 'flex';
+                // REQUEST 3: Time restriction 1 min per MCQ
+                startTimer(quizData.length * 60); 
+            } else {
+                titleText.innerText = studyMode === 'past' ? 'Past Mistakes' : 'Practice Mode';
+                timerBox.style.display = 'none';
+            }
+        }
+
+        function startTimer(seconds) {
+            timeRemaining = seconds;
+            updateTimerUI();
+            
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerUI();
+                
+                if(timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    alert("Time is up! Submitting your exam.");
+                    showResults();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+            const s = (timeRemaining % 60).toString().padStart(2, '0');
+            const display = document.getElementById('time-display');
+            const box = document.getElementById('quiz-timer');
+            
+            display.innerText = `${m}:${s}`;
+            
+            if(timeRemaining <= 60 && timeRemaining > 0) {
+                box.classList.add('danger'); // Turns red in last minute
+            } else {
+                box.classList.remove('danger');
+            }
+        }
+
+        function loadQuestion() {
+            answered = false;
+            document.getElementById('btn-next').style.display = 'none';
+            document.getElementById('exp-box').style.display = 'none';
+            
+            const q = quizData[currentQ];
+            document.getElementById('quiz-counter').innerText = `${currentQ + 1}/${quizData.length}`;
+            document.getElementById('quiz-progress').style.width = `${((currentQ) / quizData.length) * 100}%`;
+            document.getElementById('q-text').innerText = q.question;
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'opt-btn';
+                btn.innerHTML = `<span>${opt}</span>`;
+                btn.onclick = () => handleAnswer(idx, btn, q);
+                container.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(idx, btn, q) {
+            if(answered && studyMode !== 'mock') return;
+            if(answered) return; // Prevent double clicks in mock mode too
+            answered = true;
+            
+            const btns = document.querySelectorAll('.opt-btn');
+            const isCorrect = (idx === q.correctIndex);
+
+            // Logic branch based on Study Mode (Request 3 & 4)
+            if(studyMode === 'mock') {
+                // Mock Mode: No immediate feedback, just select it
+                btn.classList.add('mock-selected');
+                
+                if(!isCorrect) {
+                    wrongList.push({ q: q.question, a: q.options[q.correctIndex], exp: q.explanation });
+                } else {
+                    score++;
+                }
+                
+                document.getElementById('btn-next').style.display = 'flex';
+                document.getElementById('quiz-progress').style.width = `${((currentQ + 1) / quizData.length) * 100}%`;
+            } else {
+                // Practice / Past Mistakes Mode: Immediate Feedback
+                btns[q.correctIndex].classList.add('correct');
+                
+                if(!isCorrect) {
+                    btn.classList.add('wrong');
+                    wrongList.push({ q: q.question, a: q.options[q.correctIndex], exp: q.explanation });
+                } else {
+                    score++;
+                }
+
+                document.getElementById('exp-text').innerText = q.explanation;
+                document.getElementById('exp-box').style.display = 'block';
+                document.getElementById('btn-next').style.display = 'flex';
+                document.getElementById('quiz-progress').style.width = `${((currentQ + 1) / quizData.length) * 100}%`;
+                
+                setTimeout(() => {
+                    scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
+                }, 100);
+            }
+        }
+
+        function nextQuestion() {
+            currentQ++;
+            if(currentQ < quizData.length) {
+                loadQuestion();
+            } else {
+                clearInterval(timerInterval); // Stop timer if they finish early
+                showResults();
+            }
+        }
+
+        function showResults() {
+            navTo('results');
+            document.getElementById('score-text').innerText = `${score}/${quizData.length}`;
+
+            const fs = document.getElementById('flashcards-section');
+            const fc = document.getElementById('fc-container');
+            fc.innerHTML = '';
+
+            if(wrongList.length > 0) {
+                fs.style.display = 'block';
+                wrongList.forEach(w => {
+                    const card = document.createElement('div');
+                    card.className = 'fc';
+                    card.onclick = function() { this.classList.toggle('flipped'); };
+                    card.innerHTML = `
+                        <div class="fc-inner">
+                            <div class="fc-front">
+                                <i class="fa-solid fa-clipboard-question"></i>
+                                <h4>${w.q}</h4>
+                            </div>
+                            <div class="fc-back">
+                                <h4>${w.a}</h4>
+                                <p>${w.exp}</p>
+                            </div>
+                        </div>
+                    `;
+                    fc.appendChild(card);
+                });
+            } else {
+                fs.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
