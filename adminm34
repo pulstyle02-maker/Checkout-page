@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - MODMEDICALIS Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root { --bg-dark:#12141D; --accent-blue:#2D98DA; --text-white:#FFF; --accent-red:#FA3E54; --bg-panel:#1A1D2A; --border:#2A3043;}
+body { font-family:'Plus Jakarta Sans',sans-serif; background:var(--bg-dark); color:var(--text-white); padding:30px; margin:0;}
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:20px;}
+.header h1 { color:var(--text-white); font-weight:800; font-size:28px;} .header span { color:var(--accent-red); }
+.btn { padding:12px 24px; background:var(--accent-blue); color:white; font-weight:800; border:none; border-radius:12px; cursor:pointer; font-size:15px; transition:0.2s; box-shadow:0 5px 0 #227093; display:inline-flex; gap:8px; align-items:center;}
+.btn:active { transform:translateY(5px); box-shadow:0 0 0 #227093;}
+.btn-red { background:var(--accent-red); box-shadow:0 5px 0 #C92437; } .btn-red:active { box-shadow:0 0 0 #C92437; }
+.card { background:var(--bg-panel); padding:30px; border-radius:20px; margin-bottom:30px; border:2px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.card h2 { margin-bottom:20px; color:var(--accent-blue); font-weight:800; font-size:20px; display:flex; align-items:center; gap:10px;}
+input, select, textarea { width:100%; padding:15px; margin-bottom:15px; background:#12141D; border:2px solid var(--border); color:white; border-radius:12px; font-family:inherit; outline:none; font-weight:600;}
+input:focus, select:focus, textarea:focus { border-color:var(--accent-blue); }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:15px; } .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; }
+table { width:100%; text-align:left; border-collapse:collapse; margin-top:10px;}
+th, td { padding:15px; border-bottom:1px solid var(--border); font-size:14px; }
+th { background:#12141D; color:var(--accent-blue); }
+.tag { background:#232738; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:bold; color:var(--accent-red);}
+.tag.online { color:#20BF6B; background:rgba(32,191,107,0.1); }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>MODMEDICALIS <span>ADMIN</span></h1>
+    <div>
+        <button class="btn btn-red" onclick="fetchData()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync from Cloud</button>
+        <button class="btn" onclick="saveToBin()"><i class="fa-solid fa-cloud-arrow-up"></i> Publish Changes</button>
+    </div>
+</div>
+
+<!-- 1. LIVE USERS & NOTIFICATIONS -->
+<div class="grid-2">
+    <div class="card">
+        <h2><i class="fa-solid fa-users"></i> Users & Live Status</h2>
+        <table id="userTable" style="margin-bottom:20px;"><tr><th>User</th><th>Name</th><th>Status</th></tr></table>
+        <h3 style="font-size:16px; margin-bottom:10px;">Register User</h3>
+        <div class="grid-2">
+            <input type="text" id="u-user" placeholder="Username"> <input type="text" id="u-pass" placeholder="Password">
+            <input type="text" id="u-name" placeholder="Full Name">
+            <select id="u-avatar"><option value="👨‍⚕️">👨‍⚕️ Male Doc</option><option value="👩‍⚕️">👩‍⚕️ Female Doc</option></select>
+        </div>
+        <button class="btn" onclick="addUser()">Add User</button>
+    </div>
+
+    <div class="card">
+        <h2><i class="fa-solid fa-bell"></i> App Engagement</h2>
+        <h3 style="font-size:16px; margin-bottom:10px;">Daily Motivation Banner</h3>
+        <input type="text" id="m-text" placeholder="Enter daily motivation quote...">
+        <button class="btn" onclick="updateMotivation()" style="margin-bottom:30px;">Update Banner</button>
+
+        <h3 style="font-size:16px; margin-bottom:10px;">Send Notification</h3>
+        <input type="text" id="n-title" placeholder="Notification Title">
+        <textarea id="n-msg" placeholder="Notification Message" rows="2"></textarea>
+        <label style="display:flex; align-items:center; gap:10px; margin-bottom:15px;"><input type="checkbox" id="n-urgent" style="width:auto; margin:0;"> Urgent (Red Border)</label>
+        <button class="btn" onclick="sendNotif()">Send to Portal</button>
+    </div>
+</div>
+
+<!-- 2. SYLLABUS MANAGER -->
+<div class="card">
+    <h2><i class="fa-solid fa-sitemap"></i> Syllabus Manager (Blocks, Modules, Subjects, LOs)</h2>
+    <p style="color:#747D8C; margin-bottom:20px; font-size:14px;">Define the hierarchy. This dynamically builds the UI on the student portal.</p>
+    
+    <div class="grid-3" style="background:#12141D; padding:20px; border-radius:15px; border:1px solid var(--border); margin-bottom:20px;">
+        <div>
+            <label>Block (e.g. block1)</label>
+            <input type="text" id="s-block" placeholder="Enter Block ID">
+        </div>
+        <div>
+            <label>Module (e.g. foundation)</label>
+            <input type="text" id="s-module" placeholder="Enter Module ID">
+        </div>
+        <div>
+            <label>Subject (e.g. anatomy)</label>
+            <input type="text" id="s-subject" placeholder="Enter Subject Name">
+        </div>
+    </div>
+    <input type="text" id="s-lo" placeholder="Enter Learning Objective (LO) text...">
+    <button class="btn" onclick="addSyllabusItem()">Inject to Syllabus Database</button>
+</div>
+
+<!-- 3. BULK CONTENT CREATOR -->
+<div class="card">
+    <h2><i class="fa-solid fa-layer-group"></i> Content Uploader (Add up to 20 at once)</h2>
+    
+    <div class="grid-3" style="margin-bottom:20px;">
+        <select id="c-block" onchange="updateSyllabusDropdowns()"><option value="">-- Select Block --</option></select>
+        <select id="c-module" onchange="updateSyllabusDropdowns()"><option value="">-- Select Module --</option></select>
+        <select id="c-subject" onchange="updateSyllabusDropdowns()"><option value="">-- Select Subject --</option></select>
+    </div>
+    <select id="c-lo" style="border-color:var(--accent-red);"><option value="">-- First Select Hierarchy Above --</option></select>
+
+    <select id="c-type" onchange="toggleContentForm()"><option value="mcq">MCQ (5 Options)</option><option value="flashcard">Flashcard</option></select>
+
+    <div id="form-mcq">
+        <textarea id="m-q" placeholder="Clinical Vignette / Question..." rows="3"></textarea>
+        <div class="grid-2">
+            <input type="text" id="m-o1" placeholder="Option A"> <input type="text" id="m-o2" placeholder="Option B">
+            <input type="text" id="m-o3" placeholder="Option C"> <input type="text" id="m-o4" placeholder="Option D">
+            <input type="text" id="m-o5" placeholder="Option E">
+            <select id="m-correct"><option value="0">Correct: A</option><option value="1">Correct: B</option><option value="2">Correct: C</option><option value="3">Correct: D</option><option value="4">Correct: E</option></select>
+        </div>
+        <textarea id="m-exp" placeholder="Educational Explanation..." rows="2"></textarea>
+    </div>
+
+    <div id="form-fc" style="display:none;">
+        <textarea id="f-front" placeholder="Flashcard Front..." rows="2"></textarea>
+        <textarea id="f-back" placeholder="Flashcard Back..." rows="2"></textarea>
+    </div>
+
+    <div style="display:flex; gap:15px; margin-top:15px;">
+        <button class="btn" onclick="addToStaging()"><i class="fa-solid fa-plus"></i> Add to Batch</button>
+        <button class="btn btn-red" onclick="pushStaging()"><i class="fa-solid fa-rocket"></i> Publish Batch to Cloud</button>
+    </div>
+
+    <h3 style="margin-top:30px; font-size:16px;">Staged Content (<span id="stage-count">0</span>/20)</h3>
+    <table id="stagingTable"><tr><th>Type</th><th>Question / Front</th></tr></table>
+</div>
+
+<!-- 4. CONTENT MANAGER -->
+<div class="card">
+    <h2><i class="fa-solid fa-pen-to-square"></i> Content Editor & Deletions</h2>
+    <div class="grid-2">
+        <select id="edit-type" onchange="renderContentTable()"><option value="mcqs">Manage MCQs</option><option value="flashcards">Manage Flashcards</option></select>
+        <select id="edit-lo" onchange="renderContentTable()"><option value="ALL">All LOs</option></select>
+    </div>
+    <table id="contentTable"><tr><th>ID / Snippet</th><th>Actions</th></tr></table>
+</div>
+
+<script>
+const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
+const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.'; 
+
+let appData = { users:[], syllabus:{}, mcqs:[], flashcards:[], notifications:[], motivation:"" };
+let stagingArea = [];
+
+function fetchData() {
+    document.body.style.opacity = '0.5';
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } })
+        .then(res => res.json())
+        .then(data => {
+            if(data.record) {
+                appData = data.record;
+                if(!appData.syllabus) appData.syllabus = {};
+                renderDashboard();
+                alert("Database Synced!");
+            }
+        }).finally(() => document.body.style.opacity = '1');
+}
+
+function saveToBin() {
+    document.body.style.opacity = '0.5';
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify(appData)
+    }).then(() => alert("Successfully Published!")).finally(() => document.body.style.opacity = '1');
+}
+
+function renderDashboard() {
+    renderUsers();
+    document.getElementById('m-text').value = appData.motivation || "";
+    populateSyllabusSelectors();
+    renderContentTable();
+}
+
+// --- USERS ---
+function renderUsers() {
+    let html = '<tr><th>User</th><th>Name</th><th>Status</th></tr>';
+    appData.users.forEach(u => { 
+        let isOnline = false, timeText = "Never";
+        if(u.lastActive) {
+            const diff = (new Date() - new Date(u.lastActive)) / 60000;
+            if(diff < 15) isOnline = true;
+            timeText = new Date(u.lastActive).toLocaleString();
+        }
+        html += `<tr><td>${u.avatar} ${u.username}</td><td>${u.name}</td><td><span class="tag ${isOnline ? 'online' : ''}">${isOnline ? 'ONLINE' : timeText}</span></td></tr>`; 
+    });
+    document.getElementById('userTable').innerHTML = html;
+}
+function addUser() {
+    const u = document.getElementById('u-user').value.trim();
+    if(!u) return;
+    appData.users.push({ username: u, password: document.getElementById('u-pass').value.trim(), name: document.getElementById('u-name').value.trim() || "Dr.", avatar: document.getElementById('u-avatar').value, lastActive: null });
+    renderUsers(); alert("User Added. Remember to Publish Changes.");
+}
+
+// --- NOTIFS & MOTIVATION ---
+function updateMotivation() { appData.motivation = document.getElementById('m-text').value; alert("Motivation updated. Publish to deploy."); }
+function sendNotif() {
+    const t = document.getElementById('n-title').value; if(!t) return;
+    if(!appData.notifications) appData.notifications = [];
+    appData.notifications.unshift({ title: t, message: document.getElementById('n-msg').value, urgent: document.getElementById('n-urgent').checked });
+    document.getElementById('n-title').value=''; document.getElementById('n-msg').value='';
+    alert("Notification queued. Publish to send to all users.");
+}
+
+// --- SYLLABUS MANAGER ---
+function addSyllabusItem() {
+    const b = document.getElementById('s-block').value.trim().toLowerCase().replace(/\s+/g,'_');
+    const m = document.getElementById('s-module').value.trim().toLowerCase().replace(/\s+/g,'_');
+    const s = document.getElementById('s-subject').value.trim().toLowerCase().replace(/\s+/g,'_');
+    const lo = document.getElementById('s-lo').value.trim();
+
+    if(!b || !m || !s || !lo) return alert("Fill all syllabus fields.");
+
+    if(!appData.syllabus[b]) appData.syllabus[b] = {};
+    if(!appData.syllabus[b][m]) appData.syllabus[b][m] = {};
+    if(!appData.syllabus[b][m][s]) appData.syllabus[b][m][s] = [];
+    
+    if(!appData.syllabus[b][m][s].includes(lo)) appData.syllabus[b][m][s].push(lo);
+    
+    populateSyllabusSelectors();
+    alert("Added to Syllabus. Publish to deploy.");
+}
+
+function populateSyllabusSelectors() {
+    const cb = document.getElementById('c-block'); cb.innerHTML='<option value="">-- Block --</option>';
+    const elo = document.getElementById('edit-lo'); elo.innerHTML='<option value="ALL">All LOs</option>';
+    
+    Object.keys(appData.syllabus).forEach(b => cb.innerHTML += `<option value="${b}">${b}</option>`);
+    
+    // Flatten all LOs for Content Manager Filter
+    let allLOs = [];
+    Object.values(appData.syllabus).forEach(mods => {
+        Object.values(mods).forEach(subs => {
+            Object.values(subs).forEach(los => allLOs.push(...los));
+        });
+    });
+    [...new Set(allLOs)].forEach(lo => elo.innerHTML += `<option value="${lo}">${lo}</option>`);
+}
+
+function updateSyllabusDropdowns() {
+    const b = document.getElementById('c-block').value, m = document.getElementById('c-module').value, s = document.getElementById('c-subject').value;
+    const cm = document.getElementById('c-module'), cs = document.getElementById('c-subject'), clo = document.getElementById('c-lo');
+    
+    if(b && !m) { cm.innerHTML='<option value="">-- Module --</option>'; Object.keys(appData.syllabus[b]||{}).forEach(mod => cm.innerHTML += `<option value="${mod}">${mod}</option>`); }
+    if(b && m && !s) { cs.innerHTML='<option value="">-- Subject --</option>'; Object.keys(appData.syllabus[b][m]||{}).forEach(sub => cs.innerHTML += `<option value="${sub}">${sub}</option>`); }
+    if(b && m && s) { clo.innerHTML='<option value="">-- LO --</option>'; (appData.syllabus[b][m][s]||[]).forEach(lo => clo.innerHTML += `<option value="${lo}">${lo}</option>`); }
+}
+
+// --- BULK CONTENT UPLOADER ---
+function toggleContentForm() {
+    const t = document.getElementById('c-type').value;
+    document.getElementById('form-mcq').style.display = t === 'mcq' ? 'block' : 'none';
+    document.getElementById('form-fc').style.display = t === 'flashcard' ? 'block' : 'none';
+}
+
+function addToStaging() {
+    if(stagingArea.length >= 20) return alert("Batch full. Push first.");
+    const type = document.getElementById('c-type').value, lo = document.getElementById('c-lo').value;
+    if(!lo) return alert("Select an LO first.");
+
+    let item = { id: "id_"+Date.now(), lo: lo };
+    if(type === 'mcq') {
+        if(!document.getElementById('m-q').value) return;
+        item.question = document.getElementById('m-q').value;
+        item.options = [document.getElementById('m-o1').value, document.getElementById('m-o2').value, document.getElementById('m-o3').value, document.getElementById('m-o4').value, document.getElementById('m-o5').value];
+        item.correctIndex = parseInt(document.getElementById('m-correct').value);
+        item.explanation = document.getElementById('m-exp').value;
+        document.getElementById('m-q').value = '';
+    } else {
+        if(!document.getElementById('f-front').value) return;
+        item.front = document.getElementById('f-front').value; item.back = document.getElementById('f-back').value;
+        document.getElementById('f-front').value = ''; document.getElementById('f-back').value = '';
+    }
+    
+    stagingArea.push({type, data: item});
+    updateStagingTable();
+}
+
+function updateStagingTable() {
+    document.getElementById('stage-count').innerText = stagingArea.length;
+    let html = '<tr><th>Type</th><th>Question / Front</th></tr>';
+    stagingArea.forEach(s => html += `<tr><td>${s.type.toUpperCase()}</td><td>${s.data.question || s.data.front}</td></tr>`);
+    document.getElementById('stagingTable').innerHTML = html;
+}
+
+function pushStaging() {
+    if(stagingArea.length === 0) return;
+    if(!appData.mcqs) appData.mcqs = []; if(!appData.flashcards) appData.flashcards = [];
+    
+    stagingArea.forEach(s => {
+        if(s.type === 'mcq') appData.mcqs.push(s.data); else appData.flashcards.push(s.data);
+    });
+    stagingArea = []; updateStagingTable(); renderContentTable(); saveToBin();
+}
+
+// --- CONTENT EDITOR / DELETIONS ---
+function renderContentTable() {
+    const type = document.getElementById('edit-type').value; // 'mcqs' or 'flashcards'
+    const loFilter = document.getElementById('edit-lo').value;
+    const table = document.getElementById('contentTable');
+    let html = '<tr><th>Target LO</th><th>Snippet</th><th>Actions</th></tr>';
+    
+    let dataset = appData[type] || [];
+    dataset.forEach((item, idx) => {
+        if(loFilter === 'ALL' || item.lo === loFilter) {
+            const snippet = item.question ? item.question.substring(0,50) : item.front.substring(0,50);
+            html += `<tr>
+                <td><span class="tag">${item.lo.substring(0,20)}...</span></td>
+                <td>${snippet}...</td>
+                <td><button class="btn btn-red" style="padding:8px 12px; font-size:12px;" onclick="deleteContent('${type}', ${idx})">Delete</button></td>
+            </tr>`;
+        }
+    });
+    table.innerHTML = html;
+}
+
+function deleteContent(type, idx) {
+    if(confirm("Permanently delete this item?")) {
+        appData[type].splice(idx, 1);
+        renderContentTable();
+        alert("Deleted locally. Click 'Publish Changes' to sync.");
+    }
+}
+
+window.onload = fetchData;
+</script>
+</body>
+</html>
