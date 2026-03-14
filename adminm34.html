@@ -7,8 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-:root { --bg-dark:#12141D; --accent-blue:#2D98DA; --text-white:#FFF; --accent-red:#FA3E54; --bg-panel:#1A1D2A; --border:#2A3043;}
-body { font-family:'Plus Jakarta Sans',sans-serif; background:var(--bg-dark); color:var(--text-white); padding:30px; margin:0;}
+:root { --bg-dark:#12141D; --accent-blue:#2D98DA; --text-white:#FFF; --accent-red:#FA3E54; --bg-panel:#1A1D2A; --border:#2A3043; --accent-green:#20BF6B;}
+body { font-family:'Plus Jakarta Sans',sans-serif; background:var(--bg-dark); color:var(--text-white); padding:30px; margin:0; padding-bottom:100px;}
 .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:20px;}
 .header h1 { color:var(--text-white); font-weight:800; font-size:28px;} .header span { color:var(--accent-red); }
 .btn { padding:12px 24px; background:var(--accent-blue); color:white; font-weight:800; border:none; border-radius:12px; cursor:pointer; font-size:15px; transition:0.2s; box-shadow:0 5px 0 #227093; display:inline-flex; gap:8px; align-items:center;}
@@ -24,16 +24,22 @@ th, td { padding:15px; border-bottom:1px solid var(--border); font-size:14px; }
 th { background:#12141D; color:var(--accent-blue); }
 .tag { background:#232738; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:bold; color:var(--accent-red);}
 .tag.online { color:#20BF6B; background:rgba(32,191,107,0.1); }
-.tag.pro { color:white; background:var(--accent-purple); }
+
+/* Custom Toast Notification System */
+#toast { position:fixed; bottom:30px; right:30px; background:var(--accent-green); color:white; padding:18px 30px; border-radius:12px; font-weight:800; font-size:15px; transform:translateY(150px); opacity:0; transition:0.4s cubic-bezier(0.25, 0.8, 0.25, 1); z-index:1000; box-shadow:0 10px 30px rgba(0,0,0,0.5); border:2px solid rgba(255,255,255,0.2); pointer-events:none; }
+#toast.show { transform:translateY(0); opacity:1; }
+#toast.error { background:var(--accent-red); }
 </style>
 </head>
 <body>
 
+<div id="toast"><i class="fa-solid fa-circle-check"></i> Action Successful!</div>
+
 <div class="header">
     <h1>MODMEDICALIS <span>ADMIN</span></h1>
     <div>
-        <button class="btn btn-red" onclick="fetchData()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync from Cloud</button>
-        <button class="btn" onclick="saveToBin()"><i class="fa-solid fa-cloud-arrow-up"></i> Publish Changes</button>
+        <button type="button" class="btn btn-red" onclick="fetchData()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync from Cloud</button>
+        <button type="button" class="btn" onclick="saveToBin(false)"><i class="fa-solid fa-cloud-arrow-up"></i> Publish Changes</button>
     </div>
 </div>
 
@@ -50,27 +56,50 @@ th { background:#12141D; color:var(--accent-blue); }
         <h2><i class="fa-solid fa-bell"></i> App Engagement</h2>
         <h3 style="font-size:16px; margin-bottom:10px;">Daily Motivation Banner</h3>
         <input type="text" id="m-text" placeholder="Enter daily motivation quote...">
-        <button class="btn" onclick="updateMotivation()" style="margin-bottom:30px;">Update Banner</button>
+        <button type="button" class="btn" onclick="updateMotivation()" style="margin-bottom:30px;">Update Banner</button>
 
         <h3 style="font-size:16px; margin-bottom:10px;">Send Notification</h3>
         <input type="text" id="n-title" placeholder="Notification Title">
         <textarea id="n-msg" placeholder="Notification Message" rows="2"></textarea>
         <label style="display:flex; align-items:center; gap:10px; margin-bottom:15px;"><input type="checkbox" id="n-urgent" style="width:auto; margin:0;"> Urgent (Red Border)</label>
-        <button class="btn" onclick="sendNotif()">Send to Portal</button>
+        <button type="button" class="btn" onclick="sendNotif()">Send & Sync</button>
+
+        <h3 style="font-size:16px; margin-top:30px; margin-bottom:10px;">Active Notifications</h3>
+        <table id="notifTable" style="min-width: 100%;">
+            <tr><th>Title / Message</th><th>Urgent</th><th>Actions</th></tr>
+        </table>
     </div>
 
     <!-- 2. SYLLABUS MANAGER -->
     <div class="card">
-        <h2><i class="fa-solid fa-sitemap"></i> Syllabus Builder (Add LOs)</h2>
-        <p style="color:#747D8C; margin-bottom:20px; font-size:14px;">Blocks & Subjects are pre-configured. Use this to add new Learning Objectives directly.</p>
+        <h2><i class="fa-solid fa-sitemap"></i> Syllabus Builder</h2>
+        <p style="color:#747D8C; margin-bottom:20px; font-size:14px;">Select from dropdowns (retrieved from JSON) or type a new name to add to the structure.</p>
         
         <div style="background:#12141D; padding:20px; border-radius:15px; border:1px solid var(--border); margin-bottom:20px;">
-            <label>Block ID</label> <input type="text" id="s-block" placeholder="block_1, block_2_msk...">
-            <label>Module</label> <input type="text" id="s-module" placeholder="foundation, msk, cvs...">
-            <label>Subject</label> <input type="text" id="s-subject" placeholder="anatomy, pathology...">
+            <datalist id="list-blocks"></datalist>
+            <datalist id="list-modules"></datalist>
+            <datalist id="list-subjects"></datalist>
+
+            <label>Block ID</label> 
+            <input type="text" id="s-block" list="list-blocks" oninput="updateBuilderDatalists()" placeholder="Select existing or type new block...">
+            
+            <label>Module</label> 
+            <input type="text" id="s-module" list="list-modules" oninput="updateBuilderDatalists()" placeholder="Select existing or type new module...">
+            
+            <label>Subject</label> 
+            <input type="text" id="s-subject" list="list-subjects" placeholder="Select existing or type new subject...">
+            
             <label>Learning Objective (LO)</label>
             <input type="text" id="s-lo" placeholder="Enter Learning Objective text...">
-            <button class="btn" style="width:100%; justify-content:center;" onclick="addSyllabusItem()">Add LO</button>
+            
+            <button type="button" class="btn" style="width:100%; justify-content:center;" onclick="addSyllabusItem()">Add / Update LO & Sync</button>
+        </div>
+
+        <hr style="border-color:var(--border); margin:20px 0;">
+        <h3 style="font-size:16px; margin-bottom:10px; color:var(--accent-red);"><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</h3>
+        <div style="display:flex; gap:10px;">
+            <select id="delete-block-select" style="margin-bottom:0;"><option value="">-- Select Block to Delete --</option></select>
+            <button type="button" class="btn btn-red" onclick="deleteBlock()">Delete Block</button>
         </div>
     </div>
 </div>
@@ -105,12 +134,12 @@ th { background:#12141D; color:var(--accent-blue); }
     </div>
 
     <div style="display:flex; gap:15px; margin-top:15px;">
-        <button class="btn" onclick="addToStaging()"><i class="fa-solid fa-plus"></i> Add to Batch</button>
-        <button class="btn btn-red" onclick="pushStaging()"><i class="fa-solid fa-rocket"></i> Publish Batch to Cloud</button>
+        <button type="button" class="btn" onclick="addToStaging()"><i class="fa-solid fa-plus"></i> Add to Batch</button>
+        <button type="button" class="btn btn-red" onclick="pushStaging()"><i class="fa-solid fa-rocket"></i> Publish Batch to Cloud</button>
     </div>
 
     <h3 style="margin-top:30px; font-size:16px;">Staged Content (<span id="stage-count">0</span>/20)</h3>
-    <table id="stagingTable"><tr><th>Type</th><th>Question / Front</th></tr></table>
+    <table id="stagingTable" style="min-width: 100%;"><tr><th>Type</th><th>Question / Front</th></tr></table>
 </div>
 
 <!-- 4. CONTENT MANAGER -->
@@ -127,18 +156,16 @@ th { background:#12141D; color:var(--accent-blue); }
 const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
 const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.'; 
 
-// Base object matching the portal exactly
-const baseSubjects = { "anatomy":[], "physiology":[], "biochemistry":[], "pathology":[], "pharmacology":[], "embryology":[], "histology":[], "community_medicine":[], "behavioural_sciences":[], "aging":[] };
-let appData = { 
-    users:[], notifications:[], mcqs:[], flashcards:[], motivation:"",
-    syllabus: {
-        "block_1": { "foundation": JSON.parse(JSON.stringify(baseSubjects)), "h_&_l": JSON.parse(JSON.stringify(baseSubjects)) },
-        "block_2_msk": { "msk": JSON.parse(JSON.stringify(baseSubjects)) },
-        "block_3_cvs_resp": { "cvs": JSON.parse(JSON.stringify(baseSubjects)), "resp": JSON.parse(JSON.stringify(baseSubjects)) }
-    }
-};
-
+let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"", syllabus: {} };
 let stagingArea = [];
+
+// --- Custom Toast UI System ---
+function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.innerHTML = isError ? `<i class="fa-solid fa-triangle-exclamation"></i> ${msg}` : `<i class="fa-solid fa-circle-check"></i> ${msg}`;
+    toast.className = isError ? 'error show' : 'show';
+    setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
 
 function fetchData() {
     document.body.style.opacity = '0.5';
@@ -147,27 +174,34 @@ function fetchData() {
         .then(data => {
             if(data.record) {
                 appData = data.record;
-                // Force seed structure if empty
-                if(!appData.syllabus || Object.keys(appData.syllabus).length === 0) appData.syllabus = {
-                    "block_1": { "foundation": baseSubjects, "h_&_l": baseSubjects }, "block_2_msk": { "msk": baseSubjects }, "block_3_cvs_resp": { "cvs": baseSubjects, "resp": baseSubjects }
-                };
+                if(!appData.syllabus) appData.syllabus = {};
                 renderDashboard();
+                showToast("Cloud Database Synced Successfully");
             }
-        }).finally(() => document.body.style.opacity = '1');
+        }).catch(err => showToast("Network Error: Failed to fetch JSON.", true))
+        .finally(() => document.body.style.opacity = '1');
 }
 
-function saveToBin() {
+function saveToBin(silent = false) {
     document.body.style.opacity = '0.5';
+    if(!silent) showToast("Pushing to cloud...");
+    
     fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
         body: JSON.stringify(appData)
-    }).then(() => alert("Successfully Published!")).finally(() => document.body.style.opacity = '1');
+    }).then(res => {
+        if(res.ok) showToast("Live Cloud Database Updated!");
+        else showToast("Error connecting to database.", true);
+    }).catch(err => {
+        showToast("Connection failed.", true);
+    }).finally(() => document.body.style.opacity = '1');
 }
 
 function renderDashboard() {
     renderUsers();
     document.getElementById('m-text').value = appData.motivation || "";
+    renderNotifications();
     populateSyllabusSelectors();
     renderContentTable();
 }
@@ -175,7 +209,8 @@ function renderDashboard() {
 // --- USERS ---
 function renderUsers() {
     let html = '<tr><th>User</th><th>Details</th><th>Status</th><th>Receipt</th><th>Subscription Plan</th></tr>';
-    appData.users.forEach(u => { 
+    let users = Array.isArray(appData.users) ? appData.users : [];
+    users.forEach(u => { 
         let isOnline = false, timeText = "Never";
         if(u.lastActive) {
             const diff = (new Date() - new Date(u.lastActive)) / 60000;
@@ -184,7 +219,7 @@ function renderUsers() {
         }
         
         html += `<tr>
-            <td><div style="font-weight:800;">${u.avatar} ${u.name}</div><div style="font-size:12px; color:#747D8C;">@${u.username}</div></td>
+            <td><div style="font-weight:800;">${u.avatar || ''} ${u.name || 'Unknown'}</div><div style="font-size:12px; color:#747D8C;">@${u.username}</div></td>
             <td><div style="font-weight:600; color:var(--accent-blue);">${u.classInfo || 'N/A'}</div><div style="font-size:12px; color:#A4B0BE;">${u.college || 'N/A'}</div></td>
             <td><span class="tag ${isOnline ? 'online' : ''}">${isOnline ? 'ONLINE' : timeText}</span></td>
             <td><span class="tag" style="background:#1A1D2A; border:1px solid #2A3043; color:white;">${u.receipt || 'None'}</span></td>
@@ -201,21 +236,59 @@ function renderUsers() {
 }
 
 function updateUserPlan(username, newPlan) {
+    if(!appData.users) return;
     const idx = appData.users.findIndex(u => u.username === username);
     if(idx !== -1) {
         appData.users[idx].plan = newPlan;
-        saveToBin(); // Auto save when admin changes plan
+        saveToBin(true); 
     }
 }
 
 // --- NOTIFS & MOTIVATION ---
-function updateMotivation() { appData.motivation = document.getElementById('m-text').value; alert("Motivation updated. Publish to deploy."); }
+function updateMotivation() { 
+    appData.motivation = document.getElementById('m-text').value; 
+    saveToBin(false);
+}
+
+function renderNotifications() {
+    let html = '<tr><th>Title / Message</th><th>Urgent</th><th>Actions</th></tr>';
+    let notifs = Array.isArray(appData.notifications) ? appData.notifications : [];
+    
+    notifs.forEach((n, idx) => {
+        html += `<tr>
+            <td><strong>${n.title || ''}</strong><br><span style="font-size:12px; color:#747D8C;">${n.message || ''}</span></td>
+            <td>${n.urgent ? '<span class="tag" style="background:var(--accent-red); color:white;">Yes</span>' : 'No'}</td>
+            <td><button type="button" class="btn btn-red" style="padding:6px 12px; font-size:12px;" onclick="deleteNotif(${idx})">Delete</button></td>
+        </tr>`;
+    });
+    document.getElementById('notifTable').innerHTML = html;
+}
+
 function sendNotif() {
-    const t = document.getElementById('n-title').value; if(!t) return;
-    if(!appData.notifications) appData.notifications = [];
-    appData.notifications.unshift({ title: t, message: document.getElementById('n-msg').value, urgent: document.getElementById('n-urgent').checked });
-    document.getElementById('n-title').value=''; document.getElementById('n-msg').value='';
-    alert("Notification queued. Publish to send to all users.");
+    const t = document.getElementById('n-title').value; 
+    if(!t) { showToast("Notification title is required", true); return; }
+    if(!Array.isArray(appData.notifications)) appData.notifications = [];
+    
+    appData.notifications.unshift({ 
+        title: t, 
+        message: document.getElementById('n-msg').value, 
+        urgent: document.getElementById('n-urgent').checked 
+    });
+    
+    document.getElementById('n-title').value=''; 
+    document.getElementById('n-msg').value='';
+    
+    renderNotifications();
+    saveToBin(true); // Auto-sync to database immediately
+    showToast("Notification Sent & Synced");
+}
+
+function deleteNotif(idx) {
+    if(!Array.isArray(appData.notifications)) return;
+    appData.notifications.splice(idx, 1);
+    renderNotifications();
+    saveToBin(true); // Auto-sync to database instantly
+    showToast("Notification Deleted Successfully");
 }
 
 // --- SYLLABUS MANAGER ---
@@ -225,32 +298,92 @@ function addSyllabusItem() {
     const s = document.getElementById('s-subject').value.trim().toLowerCase().replace(/\s+/g,'_');
     const lo = document.getElementById('s-lo').value.trim();
 
-    if(!b || !m || !s || !lo) return alert("Fill all syllabus fields.");
+    if(!b || !m || !s || !lo) { showToast("Fill all syllabus fields first", true); return; }
 
+    if(!appData.syllabus) appData.syllabus = {};
     if(!appData.syllabus[b]) appData.syllabus[b] = {};
     if(!appData.syllabus[b][m]) appData.syllabus[b][m] = {};
-    if(!appData.syllabus[b][m][s]) appData.syllabus[b][m][s] = [];
+    if(!Array.isArray(appData.syllabus[b][m][s])) appData.syllabus[b][m][s] = [];
     
     if(!appData.syllabus[b][m][s].includes(lo)) appData.syllabus[b][m][s].push(lo);
     
     populateSyllabusSelectors();
     document.getElementById('s-lo').value = '';
-    alert("Added LO to Syllabus. Publish to deploy.");
+    
+    saveToBin(true); // Auto-sync to db instantly
+    showToast("Learning Objective Added & Synced");
+}
+
+function deleteBlock() {
+    const blockId = document.getElementById('delete-block-select').value;
+    if(!blockId) { showToast("Select a block to delete first.", true); return; }
+    
+    if(confirm(`Are you absolutely sure you want to permanently delete "${blockId}"?`)) {
+        if(appData.syllabus && appData.syllabus[blockId]) {
+            delete appData.syllabus[blockId];
+            populateSyllabusSelectors();
+            saveToBin(true); // Auto-sync to db instantly
+            showToast(`Block "${blockId}" Deleted Permanently`);
+        }
+    }
 }
 
 function populateSyllabusSelectors() {
     const cb = document.getElementById('c-block'); cb.innerHTML='<option value="">-- Block --</option>';
     const elo = document.getElementById('edit-lo'); elo.innerHTML='<option value="ALL">All LOs</option>';
-    
-    Object.keys(appData.syllabus).forEach(b => cb.innerHTML += `<option value="${b}">${b}</option>`);
+    const delBlock = document.getElementById('delete-block-select'); delBlock.innerHTML='<option value="">-- Select Block to Delete --</option>';
+    const listB = document.getElementById('list-blocks'); listB.innerHTML = '';
     
     let allLOs = [];
-    Object.values(appData.syllabus).forEach(mods => {
+    Object.keys(appData.syllabus || {}).forEach(b => {
+        cb.innerHTML += `<option value="${b}">${b}</option>`;
+        delBlock.innerHTML += `<option value="${b}">${b}</option>`;
+        listB.innerHTML += `<option value="${b}">`;
+        
+        const mods = appData.syllabus[b] || {};
         Object.values(mods).forEach(subs => {
-            Object.values(subs).forEach(los => allLOs.push(...los));
+            if (typeof subs === 'object' && subs !== null) {
+                Object.values(subs).forEach(los => {
+                    if(Array.isArray(los)) allLOs.push(...los);
+                });
+            }
         });
     });
+    
     [...new Set(allLOs)].forEach(lo => elo.innerHTML += `<option value="${lo}">${lo}</option>`);
+    updateBuilderDatalists();
+}
+
+function updateBuilderDatalists() {
+    const b = document.getElementById('s-block').value.trim();
+    const m = document.getElementById('s-module').value.trim();
+    const listM = document.getElementById('list-modules'); listM.innerHTML = '';
+    const listS = document.getElementById('list-subjects'); listS.innerHTML = '';
+
+    if (b && appData.syllabus && appData.syllabus[b]) {
+        Object.keys(appData.syllabus[b]).forEach(mod => listM.innerHTML += `<option value="${mod}">`);
+        if (m && appData.syllabus[b][m]) {
+            Object.keys(appData.syllabus[b][m]).forEach(sub => listS.innerHTML += `<option value="${sub}">`);
+        } else {
+            let subs = new Set();
+            Object.values(appData.syllabus[b]).forEach(mods => {
+                if(typeof mods === 'object' && mods !== null) { Object.keys(mods).forEach(s => subs.add(s)); }
+            });
+            subs.forEach(s => listS.innerHTML += `<option value="${s}">`);
+        }
+    } else {
+        let mods = new Set(), subs = new Set();
+        Object.values(appData.syllabus || {}).forEach(blk => {
+            if(typeof blk === 'object' && blk !== null) {
+                Object.keys(blk).forEach(mod => mods.add(mod));
+                Object.values(blk).forEach(modObj => {
+                    if(typeof modObj === 'object' && modObj !== null) Object.keys(modObj).forEach(s => subs.add(s));
+                });
+            }
+        });
+        mods.forEach(mod => listM.innerHTML += `<option value="${mod}">`);
+        subs.forEach(sub => listS.innerHTML += `<option value="${sub}">`);
+    }
 }
 
 function updateSyllabusDropdowns() {
@@ -270,9 +403,9 @@ function toggleContentForm() {
 }
 
 function addToStaging() {
-    if(stagingArea.length >= 20) return alert("Batch full. Push first.");
+    if(stagingArea.length >= 20) { showToast("Batch is full. Publish first.", true); return; }
     const type = document.getElementById('c-type').value, lo = document.getElementById('c-lo').value;
-    if(!lo) return alert("Select an LO first.");
+    if(!lo) { showToast("Map Content to an LO from the dropdown first.", true); return; }
 
     let item = { id: "id_"+Date.now(), lo: lo };
     if(type === 'mcq') {
@@ -290,6 +423,7 @@ function addToStaging() {
     
     stagingArea.push({type, data: item});
     updateStagingTable();
+    showToast("Added to staging area!");
 }
 
 function updateStagingTable() {
@@ -300,13 +434,18 @@ function updateStagingTable() {
 }
 
 function pushStaging() {
-    if(stagingArea.length === 0) return;
-    if(!appData.mcqs) appData.mcqs = []; if(!appData.flashcards) appData.flashcards = [];
+    if(stagingArea.length === 0) { showToast("Staging batch is empty.", true); return; }
+    if(!Array.isArray(appData.mcqs)) appData.mcqs = []; 
+    if(!Array.isArray(appData.flashcards)) appData.flashcards = [];
     
     stagingArea.forEach(s => {
-        if(s.type === 'mcq') appData.mcqs.push(s.data); else appData.flashcards.push(s.data);
+        if(s.type === 'mcq') appData.mcqs.push(s.data); 
+        else appData.flashcards.push(s.data);
     });
-    stagingArea = []; updateStagingTable(); renderContentTable(); saveToBin();
+    stagingArea = []; 
+    updateStagingTable(); 
+    renderContentTable(); 
+    saveToBin(false);
 }
 
 // --- CONTENT EDITOR / DELETIONS ---
@@ -316,14 +455,14 @@ function renderContentTable() {
     const table = document.getElementById('contentTable');
     let html = '<tr><th>Target LO</th><th>Snippet</th><th>Actions</th></tr>';
     
-    let dataset = appData[type] || [];
+    let dataset = Array.isArray(appData[type]) ? appData[type] : [];
     dataset.forEach((item, idx) => {
         if(loFilter === 'ALL' || item.lo === loFilter) {
-            const snippet = item.question ? item.question.substring(0,50) : item.front.substring(0,50);
+            const snippet = item.question ? item.question.substring(0,50) : (item.front ? item.front.substring(0,50) : 'No Text');
             html += `<tr>
-                <td><span class="tag" style="background:#1A1D2A; border:1px solid #2A3043;">${item.lo.substring(0,25)}...</span></td>
+                <td><span class="tag" style="background:#1A1D2A; border:1px solid #2A3043;">${(item.lo || '').substring(0,25)}...</span></td>
                 <td>${snippet}...</td>
-                <td><button class="btn btn-red" style="padding:8px 12px; font-size:12px;" onclick="deleteContent('${type}', ${idx})">Delete</button></td>
+                <td><button type="button" class="btn btn-red" style="padding:8px 12px; font-size:12px;" onclick="deleteContent('${type}', ${idx})">Delete</button></td>
             </tr>`;
         }
     });
@@ -331,11 +470,13 @@ function renderContentTable() {
 }
 
 function deleteContent(type, idx) {
-    if(confirm("Permanently delete this item?")) {
-        appData[type].splice(idx, 1);
-        renderContentTable();
-        alert("Deleted locally. Click 'Publish Changes' to sync.");
-    }
+    if(!Array.isArray(appData[type])) return;
+    
+    // Perform delete and Sync Instantly
+    appData[type].splice(idx, 1);
+    renderContentTable();
+    saveToBin(true); // Auto-sync to database instantly
+    showToast("Content Deleted & Synced to Cloud");
 }
 
 window.onload = fetchData;
