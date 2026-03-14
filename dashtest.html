@@ -81,6 +81,10 @@ select.app-input { appearance: none; padding-left: 60px; }
 .btn-alt { background: linear-gradient(180deg, #232738 0%, #1A1D2A 100%); box-shadow: 0 6px 0 #0A0C12, var(--highlight-top-dark); border: 2px solid #2F354A; color: var(--text-white); margin-top:15px; }
 .btn-alt:active { transform: translateY(6px); box-shadow: 0 0 0 #0A0C12; }
 
+/* Golden Button Modifier */
+.btn-gold { background: linear-gradient(180deg, #FFC048 0%, #FFA502 100%); box-shadow: 0 6px 0 #D18700, var(--highlight-top); }
+.btn-gold:active { transform: translateY(6px); box-shadow: 0 0px 0 #D18700, 0 5px 10px rgba(255,165,2,0.3), inset 0 2px 4px rgba(0,0,0,0.2); }
+
 /* Dashboard and Components */
 .curved-header { background:linear-gradient(180deg,var(--bg-dark) 0%,var(--bg-dark-panel) 100%); border-bottom-right-radius:50px; border-bottom-left-radius:15px; padding:40px 30px; color:var(--text-white); position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.08); border-bottom:2px solid #2A3043; z-index:2;}
 .page-wrapper { max-width:900px; margin:0 auto; width:100%; padding:30px 25px 130px; position:relative; z-index:1;}
@@ -468,12 +472,11 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
                 <div class="wizard-header"><div class="wizard-back" onclick="navTo('step-subject')"><i class="fa-solid fa-arrow-left"></i> Back</div></div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-end;">
                     <h2 class="hero-title" style="margin:0;">Select Learning<br>Objectives</h2>
-                    <label class="toggle-switch"><input type="checkbox" id="randomizeToggle" checked> Randomize</label>
+                    <button class="btn btn-gold" style="max-width:120px; padding:12px 15px; font-size:14px; margin-bottom:5px; border:none;" onclick="startSession()">Begin <i class="fa-solid fa-bolt"></i></button>
                 </div>
             </div>
             <div class="page-wrapper">
                 <div id="lo-container" style="display:flex; flex-direction:column; gap:15px; margin-bottom:35px;"></div>
-                <button class="btn" style="max-width:100%;" onclick="startSession()">Begin Session <i class="fa-solid fa-bolt"></i></button>
             </div>
         </div>
 
@@ -483,7 +486,10 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
                 <div class="quiz-header">
                     <div class="close-quiz" onclick="navTo('dashboard')"><i class="fa-solid fa-xmark"></i></div>
                     <h3 style="font-size:18px; font-weight:800; letter-spacing:0.5px;" id="quiz-title-text">Practice</h3>
-                    <span id="quiz-counter" style="font-weight:800; font-size:14px; background:#232738; padding:8px 16px; border-radius:14px; border:2px solid #32384D; box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);">1/3</span>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <label class="toggle-switch" style="padding:6px 10px; font-size:12px; border-radius:10px;"><input type="checkbox" id="quizRandom" onchange="shuffleSession()"> Random</label>
+                        <span id="quiz-counter" style="font-weight:800; font-size:14px; background:#232738; padding:6px 12px; border-radius:10px; border:2px solid #32384D; box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);">1/3</span>
+                    </div>
                 </div>
                 <div class="timer-box" id="quiz-timer"><i class="fa-solid fa-stopwatch"></i> <span id="time-display">00:00</span></div>
                 <div class="progress-bar"><div class="progress-fill" id="quiz-progress"></div></div>
@@ -508,7 +514,7 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
                 <div class="quiz-header" style="margin-bottom:0;">
                     <div class="close-quiz" onclick="navTo('dashboard')"><i class="fa-solid fa-xmark"></i></div>
                     <h3 style="font-size:20px; font-weight:800;">Review Deck</h3>
-                    <div style="width:50px; height:50px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-layer-group" style="font-size:26px; color:var(--accent-purple);"></i></div>
+                    <label class="toggle-switch" style="padding:6px 10px; font-size:12px; border-radius:10px;"><input type="checkbox" id="fcRandom" onchange="shuffleSession()"> Random</label>
                 </div>
             </div>
             <div class="page-wrapper">
@@ -554,9 +560,9 @@ const baseSubjects = { "anatomy":[], "physiology":[], "biochemistry":[], "pathol
 let appData = { 
     users:[], notifications:[], mcqs:[], flashcards:[], motivation:"Keep pushing! You got this.",
     syllabus: {
-        "block_1": { "foundation": JSON.parse(JSON.stringify(baseSubjects)), "h_&_l": JSON.parse(JSON.stringify(baseSubjects)) },
-        "block_2_msk": { "msk": JSON.parse(JSON.stringify(baseSubjects)) },
-        "block_3_cvs_resp": { "cvs": JSON.parse(JSON.stringify(baseSubjects)), "resp": JSON.parse(JSON.stringify(baseSubjects)) }
+        "Block_1": { "Foundation": JSON.parse(JSON.stringify(baseSubjects)), "H_&_L": JSON.parse(JSON.stringify(baseSubjects)) },
+        "Block_2": {},
+        "Block_3": {}
     }
 };
 
@@ -580,7 +586,7 @@ window.onload = () => {
             if(data.record) {
                 appData = data.record;
                 if(!appData.syllabus || Object.keys(appData.syllabus).length === 0) appData.syllabus = {
-                    "block_1": { "foundation": baseSubjects, "h_&_l": baseSubjects }, "block_2_msk": { "msk": baseSubjects }, "block_3_cvs_resp": { "cvs": baseSubjects, "resp": baseSubjects }
+                    "Block_1": { "Foundation": baseSubjects, "H_&_L": baseSubjects }, "Block_2": {}, "Block_3": {}
                 };
                 localStorage.setItem('modmed_db', JSON.stringify(appData));
                 if(currentUser) {
@@ -694,26 +700,52 @@ function navToPayment() { closeModals(); navTo('payment'); }
 /* --- SYLLABUS & CORE LOGIC --- */
 function renderDynamicSyllabus() {
     const bc = document.getElementById('dynamic-blocks-container'); bc.innerHTML = '';
-    if(!appData.syllabus) return;
-    Object.keys(appData.syllabus).forEach((b, idx) => {
-        let colorClass = dynColors[idx % dynColors.length]; let iconClass = dynIcons[idx % dynIcons.length];
-        bc.innerHTML += `<div class="list-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${colorClass}"><i class="fa-solid ${iconClass}"></i></div><div><h4>${b.replace(/_/g, ' ')}</h4><p>Tap to view modules</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
+    if(!appData.syllabus) appData.syllabus = {};
+    
+    // Explicitly mapping specific blocks to avoid duplicates from raw database structure
+    const allowedBlocks = ['Block_1', 'Block_2', 'Block_3'];
+    
+    allowedBlocks.forEach((b, idx) => {
+        if (!appData.syllabus[b]) appData.syllabus[b] = {};
+        let colorClass = dynColors[idx % dynColors.length]; 
+        let iconClass = dynIcons[idx % dynIcons.length];
+        let blockName = b.replace(/_/g, ' ');
+        
+        bc.innerHTML += `<div class="list-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${colorClass}"><i class="fa-solid ${iconClass}"></i></div><div><h4>${blockName}</h4><p>Tap to view modules</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
     });
 }
+
 function selectBlock(b, element){
+    if(b === 'Block_2' || b === 'Block_3') {
+        alert("Will be uploaded soon");
+        return;
+    }
     document.querySelectorAll('#view-step-block .list-card').forEach(c=>c.classList.remove('selected')); element.classList.add('selected'); studyBlock=b;
-    const mc = document.getElementById('dynamic-modules-container'); mc.innerHTML = ''; const modules = appData.syllabus[studyBlock] || {};
-    Object.keys(modules).forEach((m, idx) => {
+    const mc = document.getElementById('dynamic-modules-container'); mc.innerHTML = ''; 
+    
+    // Explicitly enforcing Block 1 modules structure
+    if (b === 'Block_1') {
+        if(!appData.syllabus[b]['Foundation']) appData.syllabus[b]['Foundation'] = JSON.parse(JSON.stringify(baseSubjects));
+        if(!appData.syllabus[b]['H_&_L']) appData.syllabus[b]['H_&_L'] = JSON.parse(JSON.stringify(baseSubjects));
+    }
+
+    const allowedModules = b === 'Block_1' ? ['Foundation', 'H_&_L'] : Object.keys(appData.syllabus[b] || {});
+    
+    allowedModules.forEach((m, idx) => {
         let colorClass = dynColors[(idx+1) % dynColors.length];
-        mc.innerHTML += `<div class="list-card" onclick="selectModule('${m}', this)"><div class="list-card-left"><div class="list-icon ${colorClass}"><i class="fa-solid fa-book-medical"></i></div><div><h4>${m.replace(/_/g, ' ')}</h4><p>Tap to view subjects</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
+        let modName = m.replace(/_/g, ' ');
+        if (m === 'H_&_L') modName = 'H & L'; // Cleaner presentation for UI
+        
+        mc.innerHTML += `<div class="list-card" onclick="selectModule('${m}', this)"><div class="list-card-left"><div class="list-icon ${colorClass}"><i class="fa-solid fa-book-medical"></i></div><div><h4>${modName}</h4><p>Tap to view subjects</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
     });
     setTimeout(()=>navTo('step-module'), 40); 
 }
+
 function selectModule(m, element){
-    if(currentUser.plan !== 'pro' && !m.includes('foundation')) { showPaywallModal(); return; }
+    if(currentUser.plan !== 'pro' && !m.toLowerCase().includes('foundation')) { showPaywallModal(); return; }
     document.querySelectorAll('#view-step-module .list-card').forEach(c=>c.classList.remove('selected')); element.classList.add('selected'); studyModule=m;
     const sc = document.getElementById('dynamic-subjects-container'); sc.innerHTML = ''; const subjects = appData.syllabus[studyBlock][studyModule] || {};
-    Object.keys(subjects).forEach((s) => { sc.innerHTML += `<label><input type="checkbox" value="${s}" checked><div class="subject-pill">${s.replace(/_/g, ' ')} <i class="fa-solid fa-circle-check"></i></div></label>`; });
+    Object.keys(subjects).forEach((s) => { sc.innerHTML += `<label><input type="checkbox" value="${s}"><div class="subject-pill">${s.replace(/_/g, ' ')} <i class="fa-solid fa-circle-check"></i></div></label>`; });
     setTimeout(()=>navTo('step-subject'), 40); 
 }
 
@@ -725,7 +757,7 @@ function goToLO(){
         const los = appData.syllabus[studyBlock]?.[studyModule]?.[sub] || [];
         if(los.length > 0) {
             container.innerHTML += `<h3 style="color:var(--text-dark); font-size:16px; font-weight:800; margin-top:10px; text-transform:uppercase;">${sub.replace(/_/g, ' ')}</h3>`;
-            los.forEach(lo => { container.innerHTML += `<label class="lo-label"><input type="checkbox" checked value="${lo}"><div class="lo-card"><h4>${lo}</h4><i class="fa-solid fa-circle-check"></i></div></label>`; });
+            los.forEach(lo => { container.innerHTML += `<label class="lo-label"><input type="checkbox" value="${lo}"><div class="lo-card"><h4>${lo}</h4><i class="fa-solid fa-circle-check"></i></div></label>`; });
         }
     });
     if(container.innerHTML === '') container.innerHTML = '<p>No specific LOs available yet.</p>';
@@ -735,13 +767,16 @@ function goToLO(){
 function startSession(){
     currentQ=0; score=0; wrongList=[]; userAnswers={}; clearInterval(timerInterval); 
     const selectedLOs = Array.from(document.querySelectorAll('#lo-container input:checked')).map(cb=>cb.value);
-    const isRandom = document.getElementById('randomizeToggle').checked;
     
+    if(selectedLOs.length === 0) return alert("Select at least one Learning Objective to begin.");
+
     if(studyMode === 'practice' || studyMode === 'mock' || studyMode === 'past') { sessionData = appData.mcqs.filter(m => selectedLOs.includes(m.lo)); } 
     else { sessionData = appData.flashcards.filter(f => selectedLOs.includes(f.lo)); }
 
     if(sessionData.length === 0) return alert("No questions found for the selected LOs.");
-    if(isRandom) sessionData.sort(() => Math.random() - 0.5);
+    
+    const qR = document.getElementById('quizRandom'); if(qR) qR.checked = false;
+    const fR = document.getElementById('fcRandom'); if(fR) fR.checked = false;
 
     // Free Limit Check
     if(currentUser.plan !== 'pro' && sessionData.length > 10) {
@@ -750,6 +785,18 @@ function startSession(){
     }
 
     if(studyMode==='flashcards'){ navTo('flashcards'); loadFC(); } else { navTo('quiz'); setupQuizMode(); loadQuestion(); }
+}
+
+function shuffleSession() {
+    if (!sessionData || sessionData.length === 0) return;
+    sessionData.sort(() => Math.random() - 0.5);
+    currentQ = 0; score = 0; wrongList = []; userAnswers = {};
+    if (studyMode === 'flashcards') { loadFC(); } 
+    else {
+        document.getElementById('exp-box').style.display = 'none';
+        document.getElementById('btn-next').style.display = 'none';
+        loadQuestion(); 
+    }
 }
 
 /* --- UTILS --- */
@@ -778,7 +825,6 @@ function selectMode(mode, element){
     element.classList.add('active'); studyMode=mode; setTimeout(()=>navTo('step-block'),40); 
 }
 
-/* Flashcard & Quiz Execution omitted for length, identical logic to previous version */
 function loadFC() { document.getElementById('fc-counter').innerText = `${currentQ+1} / ${sessionData.length}`; const container = document.getElementById('fc-single-container'); const q = sessionData[currentQ]; container.innerHTML = `<div class="fc" onclick="this.classList.toggle('flipped')"><div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question" style="font-size:60px; color:var(--accent-purple); margin-bottom:20px;"></i><h4 style="font-size:20px; font-weight:800; line-height:1.5; color:var(--text-dark);">${q.front}</h4><p style="margin-top:25px; font-size:14px; color:var(--text-light-gray); font-weight:800;"><i class="fa-solid fa-arrow-pointer"></i> Tap to flip</p></div><div class="fc-back"><h4 style="color:var(--accent-red); margin-bottom:12px; font-size:14px; text-transform:uppercase; letter-spacing:1px;">Concept</h4><h4 style="font-size:20px; font-weight:800; margin-bottom:15px; color:var(--text-white);">${q.back}</h4></div></div></div>`; }
 function prevFC() { if(currentQ > 0) { currentQ--; loadFC(); } }
 function nextFC() { if(currentQ < sessionData.length - 1) { currentQ++; loadFC(); } else { alert("Flashcard Deck Completed!"); navTo('dashboard'); } }
