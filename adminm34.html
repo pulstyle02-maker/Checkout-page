@@ -81,13 +81,13 @@ th { background:#12141D; color:var(--accent-blue); }
             <datalist id="list-subjects"></datalist>
 
             <label>Block ID</label> 
-            <input type="text" id="s-block" list="list-blocks" oninput="updateBuilderDatalists()" placeholder="Select existing or type new block...">
+            <input type="text" id="s-block" list="list-blocks" oninput="updateBuilderDatalists()" placeholder="e.g. Block 1, Block 2...">
             
             <label>Module</label> 
-            <input type="text" id="s-module" list="list-modules" oninput="updateBuilderDatalists()" placeholder="Select existing or type new module...">
+            <input type="text" id="s-module" list="list-modules" oninput="updateBuilderDatalists()" placeholder="e.g. Foundation, H & L...">
             
             <label>Subject</label> 
-            <input type="text" id="s-subject" list="list-subjects" placeholder="Select existing or type new subject...">
+            <input type="text" id="s-subject" list="list-subjects" placeholder="e.g. Anatomy, Physiology...">
             
             <label>Learning Objective (LO)</label>
             <input type="text" id="s-lo" placeholder="Enter Learning Objective text...">
@@ -109,9 +109,9 @@ th { background:#12141D; color:var(--accent-blue); }
     <h2><i class="fa-solid fa-layer-group"></i> Content Uploader (Add up to 20 at once)</h2>
     
     <div class="grid-3" style="margin-bottom:20px;">
-        <select id="c-block" onchange="updateSyllabusDropdowns()"><option value="">-- Select Block --</option></select>
-        <select id="c-module" onchange="updateSyllabusDropdowns()"><option value="">-- Select Module --</option></select>
-        <select id="c-subject" onchange="updateSyllabusDropdowns()"><option value="">-- Select Subject --</option></select>
+        <select id="c-block" onchange="updateSyllabusDropdowns('block')"><option value="">-- Select Block --</option></select>
+        <select id="c-module" onchange="updateSyllabusDropdowns('module')"><option value="">-- Select Module --</option></select>
+        <select id="c-subject" onchange="updateSyllabusDropdowns('subject')"><option value="">-- Select Subject --</option></select>
     </div>
     <select id="c-lo" style="border-color:var(--accent-red);"><option value="">-- First Select Hierarchy Above --</option></select>
 
@@ -156,6 +156,9 @@ th { background:#12141D; color:var(--accent-blue); }
 const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
 const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.'; 
 
+// Base structural subjects for portal logic
+const baseSubjects = { "anatomy":[], "physiology":[], "biochemistry":[], "pathology":[], "pharmacology":[], "embryology":[], "histology":[], "community_medicine":[], "behavioural_sciences":[], "aging":[] };
+
 let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"", syllabus: {} };
 let stagingArea = [];
 
@@ -167,6 +170,26 @@ function showToast(msg, isError = false) {
     setTimeout(() => { toast.classList.remove('show'); }, 3000);
 }
 
+// Ensure the structure accurately matches what the Portal expects
+function enforceStructure() {
+    if(!appData.syllabus) appData.syllabus = {};
+    if(!appData.syllabus['Block_1']) appData.syllabus['Block_1'] = {};
+    if(!appData.syllabus['Block_2']) appData.syllabus['Block_2'] = {};
+    if(!appData.syllabus['Block_3']) appData.syllabus['Block_3'] = {};
+
+    if(!appData.syllabus['Block_1']['Foundation']) appData.syllabus['Block_1']['Foundation'] = {};
+    if(!appData.syllabus['Block_1']['H_&_L']) appData.syllabus['Block_1']['H_&_L'] = {};
+
+    // Do not overwrite existing arrays, just add missing keys.
+    ['Foundation', 'H_&_L'].forEach(mod => {
+        Object.keys(baseSubjects).forEach(sub => {
+            if(!appData.syllabus['Block_1'][mod][sub]) {
+                appData.syllabus['Block_1'][mod][sub] = [];
+            }
+        });
+    });
+}
+
 function fetchData() {
     document.body.style.opacity = '0.5';
     fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } })
@@ -174,7 +197,7 @@ function fetchData() {
         .then(data => {
             if(data.record) {
                 appData = data.record;
-                if(!appData.syllabus) appData.syllabus = {};
+                enforceStructure();
                 renderDashboard();
                 showToast("Cloud Database Synced Successfully");
             }
@@ -279,7 +302,7 @@ function sendNotif() {
     document.getElementById('n-msg').value='';
     
     renderNotifications();
-    saveToBin(true); // Auto-sync to database immediately
+    saveToBin(true); 
     showToast("Notification Sent & Synced");
 }
 
@@ -287,15 +310,39 @@ function deleteNotif(idx) {
     if(!Array.isArray(appData.notifications)) return;
     appData.notifications.splice(idx, 1);
     renderNotifications();
-    saveToBin(true); // Auto-sync to database instantly
+    saveToBin(true); 
     showToast("Notification Deleted Successfully");
 }
 
-// --- SYLLABUS MANAGER ---
+// --- SYLLABUS MANAGER LOGIC ---
+// Formats strings securely into the exact portal-accepted JSON keys
+function formatKey(str, type) {
+    let val = str.trim();
+    if(!val) return '';
+    
+    if (type === 'block') {
+        val = val.replace(/\s+/g, '_');
+        if(val.toLowerCase() === 'block_1') return 'Block_1';
+        if(val.toLowerCase() === 'block_2') return 'Block_2';
+        if(val.toLowerCase() === 'block_3') return 'Block_3';
+        return val.charAt(0).toUpperCase() + val.slice(1);
+    }
+    if (type === 'module') {
+        val = val.replace(/\s+/g, '_');
+        if(val.toLowerCase() === 'foundation') return 'Foundation';
+        if(val.toLowerCase() === 'h_&_l' || val.toLowerCase() === 'h&l' || val.toLowerCase() === 'h_and_l') return 'H_&_L';
+        return val.charAt(0).toUpperCase() + val.slice(1);
+    }
+    if (type === 'subject') {
+        return val.toLowerCase().replace(/\s+/g, '_');
+    }
+    return val;
+}
+
 function addSyllabusItem() {
-    const b = document.getElementById('s-block').value.trim().toLowerCase().replace(/\s+/g,'_');
-    const m = document.getElementById('s-module').value.trim().toLowerCase().replace(/\s+/g,'_');
-    const s = document.getElementById('s-subject').value.trim().toLowerCase().replace(/\s+/g,'_');
+    let b = formatKey(document.getElementById('s-block').value, 'block');
+    let m = formatKey(document.getElementById('s-module').value, 'module');
+    let s = formatKey(document.getElementById('s-subject').value, 'subject');
     const lo = document.getElementById('s-lo').value.trim();
 
     if(!b || !m || !s || !lo) { showToast("Fill all syllabus fields first", true); return; }
@@ -310,7 +357,7 @@ function addSyllabusItem() {
     populateSyllabusSelectors();
     document.getElementById('s-lo').value = '';
     
-    saveToBin(true); // Auto-sync to db instantly
+    saveToBin(true); 
     showToast("Learning Objective Added & Synced");
 }
 
@@ -318,27 +365,31 @@ function deleteBlock() {
     const blockId = document.getElementById('delete-block-select').value;
     if(!blockId) { showToast("Select a block to delete first.", true); return; }
     
-    if(confirm(`Are you absolutely sure you want to permanently delete "${blockId}"?`)) {
+    if(confirm(`Are you absolutely sure you want to permanently delete "${blockId.replace(/_/g, ' ')}"?`)) {
         if(appData.syllabus && appData.syllabus[blockId]) {
             delete appData.syllabus[blockId];
+            enforceStructure(); // Make sure Block 1,2,3 remain initialized
             populateSyllabusSelectors();
-            saveToBin(true); // Auto-sync to db instantly
-            showToast(`Block "${blockId}" Deleted Permanently`);
+            saveToBin(true); 
+            showToast(`Block "${blockId.replace(/_/g, ' ')}" Deleted Permanently`);
         }
     }
 }
 
 function populateSyllabusSelectors() {
-    const cb = document.getElementById('c-block'); cb.innerHTML='<option value="">-- Block --</option>';
-    const elo = document.getElementById('edit-lo'); elo.innerHTML='<option value="ALL">All LOs</option>';
-    const delBlock = document.getElementById('delete-block-select'); delBlock.innerHTML='<option value="">-- Select Block to Delete --</option>';
-    const listB = document.getElementById('list-blocks'); listB.innerHTML = '';
+    const cb = document.getElementById('c-block'); 
+    cb.innerHTML='<option value="">-- Select Block --</option>';
+    const delBlock = document.getElementById('delete-block-select'); 
+    delBlock.innerHTML='<option value="">-- Select Block to Delete --</option>';
+    const listB = document.getElementById('list-blocks'); 
+    listB.innerHTML = '';
     
     let allLOs = [];
+    
     Object.keys(appData.syllabus || {}).forEach(b => {
-        cb.innerHTML += `<option value="${b}">${b}</option>`;
-        delBlock.innerHTML += `<option value="${b}">${b}</option>`;
-        listB.innerHTML += `<option value="${b}">`;
+        cb.innerHTML += `<option value="${b}">${b.replace(/_/g, ' ')}</option>`;
+        delBlock.innerHTML += `<option value="${b}">${b.replace(/_/g, ' ')}</option>`;
+        listB.innerHTML += `<option value="${b.replace(/_/g, ' ')}">`;
         
         const mods = appData.syllabus[b] || {};
         Object.values(mods).forEach(subs => {
@@ -350,26 +401,35 @@ function populateSyllabusSelectors() {
         });
     });
     
+    const elo = document.getElementById('edit-lo'); 
+    elo.innerHTML='<option value="ALL">All LOs</option>';
     [...new Set(allLOs)].forEach(lo => elo.innerHTML += `<option value="${lo}">${lo}</option>`);
+
+    // Reset sub-dropdowns in Uploader
+    document.getElementById('c-module').innerHTML = '<option value="">-- Select Module --</option>';
+    document.getElementById('c-subject').innerHTML = '<option value="">-- Select Subject --</option>';
+    document.getElementById('c-lo').innerHTML = '<option value="">-- First Select Hierarchy Above --</option>';
+    
     updateBuilderDatalists();
 }
 
 function updateBuilderDatalists() {
-    const b = document.getElementById('s-block').value.trim();
-    const m = document.getElementById('s-module').value.trim();
+    let b = formatKey(document.getElementById('s-block').value, 'block');
+    let m = formatKey(document.getElementById('s-module').value, 'module');
+
     const listM = document.getElementById('list-modules'); listM.innerHTML = '';
     const listS = document.getElementById('list-subjects'); listS.innerHTML = '';
 
     if (b && appData.syllabus && appData.syllabus[b]) {
-        Object.keys(appData.syllabus[b]).forEach(mod => listM.innerHTML += `<option value="${mod}">`);
+        Object.keys(appData.syllabus[b]).forEach(mod => listM.innerHTML += `<option value="${mod.replace(/_/g, ' ')}">`);
         if (m && appData.syllabus[b][m]) {
-            Object.keys(appData.syllabus[b][m]).forEach(sub => listS.innerHTML += `<option value="${sub}">`);
+            Object.keys(appData.syllabus[b][m]).forEach(sub => listS.innerHTML += `<option value="${sub.replace(/_/g, ' ')}">`);
         } else {
             let subs = new Set();
             Object.values(appData.syllabus[b]).forEach(mods => {
                 if(typeof mods === 'object' && mods !== null) { Object.keys(mods).forEach(s => subs.add(s)); }
             });
-            subs.forEach(s => listS.innerHTML += `<option value="${s}">`);
+            subs.forEach(s => listS.innerHTML += `<option value="${s.replace(/_/g, ' ')}">`);
         }
     } else {
         let mods = new Set(), subs = new Set();
@@ -381,18 +441,45 @@ function updateBuilderDatalists() {
                 });
             }
         });
-        mods.forEach(mod => listM.innerHTML += `<option value="${mod}">`);
-        subs.forEach(sub => listS.innerHTML += `<option value="${sub}">`);
+        mods.forEach(mod => listM.innerHTML += `<option value="${mod.replace(/_/g, ' ')}">`);
+        subs.forEach(sub => listS.innerHTML += `<option value="${sub.replace(/_/g, ' ')}">`);
     }
 }
 
-function updateSyllabusDropdowns() {
-    const b = document.getElementById('c-block').value, m = document.getElementById('c-module').value, s = document.getElementById('c-subject').value;
-    const cm = document.getElementById('c-module'), cs = document.getElementById('c-subject'), clo = document.getElementById('c-lo');
+function updateSyllabusDropdowns(level) {
+    const b = document.getElementById('c-block').value;
+    const m = document.getElementById('c-module').value;
+    const s = document.getElementById('c-subject').value;
     
-    if(b && !m) { cm.innerHTML='<option value="">-- Module --</option>'; Object.keys(appData.syllabus[b]||{}).forEach(mod => cm.innerHTML += `<option value="${mod}">${mod}</option>`); }
-    if(b && m && !s) { cs.innerHTML='<option value="">-- Subject --</option>'; Object.keys(appData.syllabus[b][m]||{}).forEach(sub => cs.innerHTML += `<option value="${sub}">${sub}</option>`); }
-    if(b && m && s) { clo.innerHTML='<option value="">-- LO --</option>'; (appData.syllabus[b][m][s]||[]).forEach(lo => clo.innerHTML += `<option value="${lo}">${lo}</option>`); }
+    const cm = document.getElementById('c-module');
+    const cs = document.getElementById('c-subject');
+    const clo = document.getElementById('c-lo');
+
+    if (level === 'block') {
+        cm.innerHTML = '<option value="">-- Select Module --</option>';
+        cs.innerHTML = '<option value="">-- Select Subject --</option>';
+        clo.innerHTML = '<option value="">-- First Select Hierarchy Above --</option>';
+        if(b && appData.syllabus[b]) {
+            Object.keys(appData.syllabus[b]).forEach(mod => {
+                cm.innerHTML += `<option value="${mod}">${mod.replace(/_/g, ' ')}</option>`;
+            });
+        }
+    } else if (level === 'module') {
+        cs.innerHTML = '<option value="">-- Select Subject --</option>';
+        clo.innerHTML = '<option value="">-- First Select Hierarchy Above --</option>';
+        if(b && m && appData.syllabus[b][m]) {
+            Object.keys(appData.syllabus[b][m]).forEach(sub => {
+                cs.innerHTML += `<option value="${sub}">${sub.replace(/_/g, ' ')}</option>`;
+            });
+        }
+    } else if (level === 'subject') {
+        clo.innerHTML = '<option value="">-- Select LO --</option>';
+        if(b && m && s && appData.syllabus[b][m][s]) {
+            appData.syllabus[b][m][s].forEach(lo => {
+                clo.innerHTML += `<option value="${lo}">${lo}</option>`;
+            });
+        }
+    }
 }
 
 // --- BULK CONTENT UPLOADER ---
@@ -472,10 +559,9 @@ function renderContentTable() {
 function deleteContent(type, idx) {
     if(!Array.isArray(appData[type])) return;
     
-    // Perform delete and Sync Instantly
     appData[type].splice(idx, 1);
     renderContentTable();
-    saveToBin(true); // Auto-sync to database instantly
+    saveToBin(true); 
     showToast("Content Deleted & Synced to Cloud");
 }
 
