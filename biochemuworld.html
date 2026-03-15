@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UWorld Biochemistry MCQ Bank</title>
+    <style>
+        :root {
+            --uw-blue: #0f3d6e;
+            --uw-toolbar: #f4f5f7;
+            --uw-border: #d3d3d3;
+            --text-main: #222;
+            --text-muted: #666;
+            --correct-bg: #e6f4ea;
+            --correct-border: #34a853;
+            --incorrect-bg: #fce8e6;
+            --incorrect-border: #ea4335;
+            --bg-main: #ffffff;
+            --bg-pane: #ffffff;
+        }
+
+        body.dark-mode {
+            --uw-blue: #1e1e1e;
+            --uw-toolbar: #2d2d2d;
+            --uw-border: #444;
+            --text-main: #d4d4d4;
+            --text-muted: #aaa;
+            --correct-bg: rgba(52, 168, 83, 0.15);
+            --incorrect-bg: rgba(234, 67, 53, 0.15);
+            --bg-main: #121212;
+            --bg-pane: #1e1e1e;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        body {
+            margin: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background-color: var(--uw-blue);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        .header-controls { display: flex; gap: 15px; align-items: center; }
+        
+        .header button {
+            background: transparent;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            cursor: pointer;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .header button:hover { background-color: rgba(255,255,255,0.1); }
+
+        /* Toolbar */
+        .toolbar {
+            background-color: var(--uw-toolbar);
+            border-bottom: 1px solid var(--uw-border);
+            display: flex;
+            padding: 8px 20px;
+            gap: 20px;
+            font-size: 13px;
+            color: #555;
+        }
+        body.dark-mode .toolbar { color: #aaa; }
+        .toolbar div { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .toolbar div:hover { color: #0f3d6e; }
+        body.dark-mode .toolbar div:hover { color: #fff; }
+
+        /* Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .pane {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            background-color: var(--bg-pane);
+        }
+
+        .right-pane {
+            border-left: 2px solid var(--uw-border);
+            display: none; /* Hidden until submitted */
+        }
+
+        /* Question & Options */
+        .question-text {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .options-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border: 1px solid var(--uw-border);
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: 0.2s;
+        }
+
+        .option-item:hover:not(.disabled) { background-color: rgba(0,0,0,0.03); }
+        body.dark-mode .option-item:hover:not(.disabled) { background-color: rgba(255,255,255,0.05); }
+        .option-item.disabled { cursor: default; }
+
+        .option-item input[type="radio"] { margin-right: 15px; transform: scale(1.2); cursor: pointer; z-index: 2; }
+        .option-text { font-size: 15px; z-index: 2; user-select: none; }
+        
+        /* Strikethrough (Right Click) */
+        .crossed-out .option-text { text-decoration: line-through; color: var(--text-muted); opacity: 0.6; }
+
+        /* Status Styling */
+        .option-item.correct { background-color: var(--correct-bg); border-color: var(--correct-border); }
+        .option-item.incorrect { background-color: var(--incorrect-bg); border-color: var(--incorrect-border); }
+        
+        .percent-bar {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.05);
+            z-index: 1;
+        }
+        body.dark-mode .percent-bar { background-color: rgba(255,255,255,0.05); }
+
+        .percent-text {
+            margin-left: auto;
+            font-weight: bold;
+            font-size: 13px;
+            z-index: 2;
+        }
+        .correct-text { color: var(--correct-border); }
+        .incorrect-text { color: var(--incorrect-border); }
+
+        .btn-submit {
+            margin-top: 25px;
+            background-color: #0f3d6e;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        body.dark-mode .btn-submit { background-color: #4a90e2; }
+
+        /* Explanations */
+        .explanation-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #0f3d6e;
+        }
+        body.dark-mode .explanation-header { color: #4a90e2; }
+        
+        .exp-text { font-size: 15px; line-height: 1.6; margin-bottom: 20px; }
+        
+        .objective-box {
+            background-color: #fdfad5;
+            border-left: 4px solid #f1c40f;
+            padding: 15px;
+            border-radius: 0 4px 4px 0;
+            color: #333;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        body.dark-mode .objective-box { background-color: #2a281a; color: #eee; border-color: #d4af37; }
+        .obj-title { font-weight: bold; margin-bottom: 5px; color: #8a6d3b; }
+        body.dark-mode .obj-title { color: #d4af37; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-controls">
+            <strong>UWorld MCQ Bank</strong>
+            <span id="tracker">Item 1 of 40</span>
+        </div>
+        <div class="header-controls">
+            <button onclick="navigate(-1)">&#9664; Previous</button>
+            <button onclick="navigate(1)">Next &#9654;</button>
+        </div>
+        <div class="header-controls">
+            <span id="timer">Time: 00:00</span>
+            <button onclick="alert('Block Suspended')">Suspend</button>
+            <button onclick="alert('Block Ended')">End Block</button>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div onclick="alert('Lab values popup placeholder')">🧪 Lab values</div>
+        <div onclick="alert('Notes popup placeholder')">📝 Notes</div>
+        <div onclick="alert('Calculator placeholder')">🧮 Calculator</div>
+        <div onclick="toggleDarkMode()">🌓 Reverse Color</div>
+        <div onclick="alert('Text Zoom placeholder')">🔍 Text Zoom</div>
+    </div>
+
+    <div class="main-container">
+        <!-- Question Pane -->
+        <div class="pane">
+            <div id="q-text" class="question-text"></div>
+            <ul id="options-container" class="options-list"></ul>
+            <button id="submit-btn" class="btn-submit" onclick="submitAnswer()">Submit</button>
+        </div>
+
+        <!-- Explanation Pane -->
+        <div class="pane right-pane" id="exp-pane">
+            <div class="explanation-header">Explanation</div>
+            <div id="exp-text" class="exp-text"></div>
+            <div class="objective-box">
+                <div class="obj-title">Educational Objective:</div>
+                <div id="obj-text"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// Extracted 40 Questions Database
+const questions = [
+    {
+        q: "Foreign antigen recognition at the cell surface by cytotoxic T-lymphocytes stimulates a response that results in rapid cell death. Which of the following act as effectors of this response?",
+        opts: ["Matrix metalloproteinases", "Acid hydrolases", "Caspases", "Phospholipase A2", "Protein kinase A"],
+        ans: 2,
+        exp: "Apoptosis is helpful in the elimination of cells that are no longer necessary. Both intrinsic and extrinsic apoptotic pathways converge in the activation of caspases. Caspases are proteolytic enzymes that destroy cell components by cleaving aspartic acid residues.",
+        obj: "Apoptosis can occur through either the intrinsic (mitochondria-mediated) pathway or the extrinsic (receptor-initiated) pathway. Both pathways converge in the activation of caspases, which are proteolytic enzymes that cleave cellular proteins."
+    },
+    {
+        q: "A 5-day-old boy is diagnosed with hyperphenylalaninemia by newborn screening. He is placed on a special phenylalanine-restricted diet with tyrosine supplementation. Several months later, laboratory results indicate a normal serum phenylalanine level. Careful examination, however, shows progressive neurologic abnormalities, including axial hypotonia, and elevated prolactin. Impaired synthesis of a cofactor essential for the metabolism of aromatic amino acids is suspected. Which of the following enzymes is most likely deficient in this patient?",
+        opts: ["Dihydropteridine reductase", "Dopamine beta-hydroxylase", "Phenylalanine hydroxylase", "Phenylethanolamine N-methyltransferase", "Tyrosinase"],
+        ans: 0,
+        exp: "This patient developed progressive neurologic findings despite normal phenylalanine levels, suggestive of impaired tetrahydrobiopterin (BH4) synthesis. BH4 is an essential cofactor for hydroxylase enzymes. Deficient dihydropteridine reductase impairs BH4 regeneration, stopping the conversion of tyrosine to L-dopa (leading to dopamine depletion and hyperprolactinemia) and tryptophan to serotonin.",
+        obj: "Although hyperphenylalaninemia is most commonly due to phenylketonuria, progressive neurologic injury despite appropriate treatment should raise concern for impaired tetrahydrobiopterin synthesis. This is often due to dihydropteridine reductase deficiency."
+    },
+    {
+        q: "A 54-year-old man comes to the ED with a 3-month history of fatigue and exertional dyspnea. Physical examination shows palpable splenomegaly. Reverse transcription polymerase chain reaction (RT-PCR) is used to diagnose chronic myelogenous leukemia in this patient. Which of the following is most likely to be detected by this test?",
+        opts: ["Chromosomal position of the BCR and ABL genes", "DNA rearrangement in the BCR promoter region", "Fusion protein containing BCR and ABL domains", "Messenger RNA transcript containing BCR and ABL exons", "Point mutation in the ABL enhancer region"],
+        ans: 3,
+        exp: "RT-PCR is used to detect and quantify levels of messenger RNA (mRNA) in a sample. It uses reverse transcription to create a complementary DNA template that is then amplified. CML is caused by a translocation that forms the BCR-ABL fusion gene. RT-PCR identifies the mRNA transcribed from this fusion gene.",
+        obj: "Reverse transcription polymerase chain reaction (RT-PCR) is used to detect and quantify levels of mRNA in a sample. It can diagnose CML by identifying an mRNA transcript containing both BCR and ABL exons."
+    },
+    {
+        q: "Nutrition researchers investigate fructose consumption. A 23-year-old man is found to excrete large amounts of fructose in his urine despite maintaining moderate intake. Further evaluation shows a hereditary defect in fructose metabolism, but he is asymptomatic. This patient most likely remains able to metabolize fructose due to the compensatory activity of which of the following enzymes?",
+        opts: ["Aldolase B", "Aldose reductase", "Fructokinase", "Hexokinase", "UDP-galactose-4-epimerase"],
+        ans: 3,
+        exp: "Fructokinase deficiency (essential fructosuria) is a benign, autosomal recessive disorder that causes dietary fructose to be excreted unchanged in the urine. In fructokinase deficiency, hexokinase takes over the role of fructose metabolism, converting dietary fructose into fructose-6-phosphate, which can enter glycolysis.",
+        obj: "Essential fructosuria is a benign disorder of fructose metabolism caused by fructokinase deficiency. In these patients, some dietary fructose is converted by hexokinase to fructose-6-phosphate, entering glycolysis."
+    },
+    {
+        q: "Healthy volunteers undergo a 12-hour fast and then drink a solution containing radiolabeled alanine. Initial blood samples detect radiolabeled alanine, but later samples show the radiotracer is present primarily as glucose. Before alanine can be converted to glucose, its amino group is transferred to which of the following?",
+        opts: ["a-Ketoglutarate", "L-citrulline", "Malate", "Citrate", "Oxaloacetate"],
+        ans: 0,
+        exp: "Alanine is the major amino acid responsible for transferring nitrogen to the liver for disposal. In the liver, alanine is transaminated by alanine aminotransferase to pyruvate, with the amino group being transferred to a-ketoglutarate to form glutamate.",
+        obj: "During the catabolism of proteins, amino groups are transferred to a-ketoglutarate to form glutamate. Glutamate is then processed in the liver to form urea."
+    },
+    {
+        q: "The resting membrane potential for an isolated muscle cell is determined to be -70 mV. Equilibrium potentials are: E_Na = +60 mV, E_K = -90 mV, E_Cl = -75 mV, E_Ca = +125 mV. If physiologic conditions are maintained, which of the following ions would most likely flow OUT of the cell after opening of their respective ion channels?",
+        opts: ["Magnesium and calcium", "Magnesium and chloride", "Potassium and chloride", "Potassium only", "Sodium and calcium"],
+        ans: 3,
+        exp: "When an ion channel opens, the ion flows to bring the resting membrane potential (-70 mV) closer to its equilibrium potential. Potassium has an E_K of -90 mV, so opening K+ channels causes positive K+ ions to flow OUT of the cell to make the inside more negative. Chloride (E_Cl = -75 mV) would flow IN to make the cell more negative.",
+        obj: "When a specific ion channel opens, the respective ions will flow across the membrane in a direction that brings the resting membrane potential closer to that ion's equilibrium potential. Intracellular K+ concentration is higher, so K+ flows out."
+    },
+    {
+        q: "Biochemists show that in the presence of insulin, D-glucose transport across the plasma membrane of adipocytes is much faster than L-glucose transport. Which of the following transport processes best describes the mechanism for glucose entry into these cells?",
+        opts: ["Simple diffusion", "Receptor-mediated endocytosis", "Carrier-mediated transport", "Primary active transport", "Co-transport"],
+        ans: 2,
+        exp: "Glucose requires carrier proteins (GLUT) to aid its crossing of the cell membrane. Transport that is facilitated by transmembrane proteins without the expenditure of ATP is called facilitated diffusion (a type of carrier-mediated transport). Carrier proteins are stereoselective and prefer D-glucose over L-glucose.",
+        obj: "Transport of glucose into the cells of most tissues occurs by means of facilitated diffusion. These transmembrane carrier proteins (GLUT) are stereoselective and have a preference for D-glucose."
+    },
+    {
+        q: "Researchers synthesize complementary DNA (cDNA) from an mRNA template. After insertion into bacterial hosts, the bacteria produce large quantities of a protein containing a domain that binds to a specific DNA sequence. This protein is most likely the receptor for which of the following hormones?",
+        opts: ["Glucagon", "Growth hormone", "Insulin", "Insulin-like growth factor", "Parathyroid hormone", "Progesterone"],
+        ans: 5,
+        exp: "The protein produced has a DNA-binding domain. Of the choices listed, only the progesterone receptor acts as a transcription factor that can directly bind to DNA. Steroid hormones (like progesterone) have intracellular receptors that translocate to the nucleus and attach to hormone response elements on DNA.",
+        obj: "DNA-binding proteins include transcription factors, steroid hormone receptors (cortisol, aldosterone, progesterone), thyroid hormone receptors, and fat-soluble vitamin receptors."
+    },
+    {
+        q: "Reaction velocity of succinate dehydrogenase is measured with and without malate as succinate concentration increases. Results show Vmax remains at 400, but Km increases from 8 to 16 mM with malate. Which is the most accurate statement about malate?",
+        opts: ["It alters the maximal velocity of the reaction", "It binds the enzyme at a different site than succinate", "It covalently binds the enzyme", "It decreases affinity of the enzyme for succinate", "It is a competitive inhibitor of the enzyme"],
+        ans: 4,
+        exp: "Malate increases the apparent Km (from 8 to 16) but does not change the Vmax (400). This is the hallmark of a competitive inhibitor, which competes with the substrate for the active binding site.",
+        obj: "Competitive inhibitors compete with substrate for active binding sites. Additional substrate is required to achieve the same rate of reaction, increasing the measured Km. Vmax remains unchanged."
+    },
+    {
+        q: "Two graphs illustrate the transport rate of solutes. Line 1 flattens out (saturates) at higher concentrations, while Line 2 remains linear. Which of the following best explains the difference?",
+        opts: ["Different amounts of membrane surface area for diffusion", "Different degrees of membrane thickness", "The 2 solutes have different molecular weights", "The 2 solutes have different oil/water partition coefficients", "The presence of a protein transporter"],
+        ans: 4,
+        exp: "Line 1 displays saturable kinetics, which occurs in carrier-mediated transport (facilitated diffusion or active transport) because there is a finite number of carrier proteins in the cell membrane. Line 2 represents simple diffusion.",
+        obj: "Carrier-mediated transport includes facilitated diffusion and active transport. Movement depends on carrier proteins that can become saturated at high substrate concentrations."
+    },
+    {
+        q: "A 24-year-old woman reports that her skin bruises and scars easily. Her family is 'very flexible', and her brother works in a circus as a contortionist. This patient most likely has an inherited defect in which of the following proteins?",
+        opts: ["Collagen", "Elastin", "Fibrillin-1", "Hyaluronic acid", "Laminin", "Proteoglycan"],
+        ans: 0,
+        exp: "This patient has Ehlers-Danlos syndrome, characterized by hypermobile joints, overelastic skin, and fragile tissue susceptible to bruising. It is caused by defective collagen synthesis (often deficiencies of lysyl hydroxylase or procollagen peptidase).",
+        obj: "Ehlers-Danlos syndrome (EDS) is a heritable connective tissue disease associated with abnormal collagen formation. It manifests as hypermobile joints, hyperelastic skin, and fragile tissue."
+    },
+    {
+        q: "A 14-month-old boy is evaluated for failure to thrive. He has severe developmental delay, megaloblastic anemia, and urine specimens contain large amounts of orotic acid crystals. Blood ammonia is normal. Supplementation with which of the following would most likely benefit this patient?",
+        opts: ["Ascorbic acid", "Folic acid", "Guanine", "Iron", "Pyridoxine", "Uridine"],
+        ans: 5,
+        exp: "This patient has hereditary orotic aciduria, an autosomal recessive disorder of de novo pyrimidine synthesis (defect in UMP synthase). Because ammonia is normal, it is not OTC deficiency. Uridine supplementation bypasses the enzymatic defect and improves symptoms.",
+        obj: "Orotic aciduria is a disorder of de novo pyrimidine synthesis due to a defect in UMP synthase. Children present with developmental delay, megaloblastic anemia, and urinary orotic acid. Uridine supplementation is the treatment."
+    },
+    {
+        q: "A 4-month-old recently adopted boy appears tremulous. He has episodes of upward eye deviation and arm shaking. Examination shows a fair-skinned infant with blue eyes and a musty body odor. This patient is most likely to require supplementation with which of the following amino acids?",
+        opts: ["Cysteine", "Isoleucine", "Leucine", "Phenylalanine", "Tyrosine", "Valine"],
+        ans: 4,
+        exp: "This patient has phenylketonuria (PKU), caused by a deficiency of phenylalanine hydroxylase. Tyrosine becomes an essential amino acid because it cannot be synthesized from phenylalanine. Treatment involves a phenylalanine-restricted diet and tyrosine supplementation.",
+        obj: "Untreated phenylketonuria leads to irreversible neurologic abnormalities, reduced melanin production, and a musty odor. Treatment includes a phenylalanine-restricted diet and supplemental tyrosine."
+    },
+    {
+        q: "A 7-day-old neonate presents with progressive lethargy, vomiting, and poor feeding. Lab studies reveal an elevated anion gap metabolic acidosis, ketosis, and hypoglycemia. Evaluation reveals elevated propionic acid level due to defective conversion of propionyl-CoA to methylmalonyl-CoA. This patient is unable to use which of the following amino acids for energy?",
+        opts: ["Alanine", "Aspartate", "Glutamate", "Lysine", "Phenylalanine", "Valine"],
+        ans: 5,
+        exp: "The patient has propionic acidemia due to a deficiency in propionyl-CoA carboxylase. Propionyl-CoA is derived from the catabolism of Valine, Isoleucine, Methionine, Threonine (VOMIT), and odd-chain fatty acids. Lysine and leucine are strictly ketogenic.",
+        obj: "Propionyl-CoA is derived from the metabolism of valine, isoleucine, methionine, threonine, and odd-chain fatty acids. Deficiency of propionyl-CoA carboxylase leads to propionic acidemia."
+    },
+    {
+        q: "Hepatocytes are homogenized and centrifuged. The remaining supernatant contains only cytosol and cytosolic proteins. Activity of which of the following enzymes will most likely be detectable in this supernatant?",
+        opts: ["3-Hydroxy-3-methylglutaryl-CoA lyase", "Ornithine transcarbamylase", "Pyruvate carboxylase", "Succinate dehydrogenase", "Transketolase"],
+        ans: 4,
+        exp: "The cytosol is home to enzymes necessary for glycolysis, fatty acid synthesis, and the pentose phosphate pathway. Transketolase is an enzyme of the pentose phosphate pathway. The other enzymes listed are located in the mitochondria.",
+        obj: "Beta-oxidation of fatty acids, the TCA cycle, and the carboxylation of pyruvate all occur within the mitochondria. Glycolysis, fatty acid synthesis, and the pentose phosphate pathway reside in the cytosol."
+    },
+    {
+        q: "A man is stuck in the desert without food. During this ordeal, his liver synthesizes large quantities of glucose. As part of this process, phosphoenolpyruvate is formed from oxaloacetate in a reaction requiring a nucleoside triphosphate cofactor. Which TCA cycle reaction directly synthesizes this cofactor?",
+        opts: ["Citrate to Isocitrate", "Isocitrate to a-Ketoglutarate", "a-Ketoglutarate to Succinyl-CoA", "Succinyl-CoA to Succinate", "Succinate to Fumarate"],
+        ans: 3,
+        exp: "Gluconeogenesis requires GTP for the conversion of oxaloacetate to phosphoenolpyruvate (by PEPCK). In the TCA cycle, GTP is generated via substrate-level phosphorylation during the conversion of Succinyl-CoA to Succinate by succinyl-CoA synthetase.",
+        obj: "GTP is synthesized by succinyl-CoA synthetase during the conversion of succinyl-CoA to succinate in the citric acid cycle. Phosphoenolpyruvate carboxykinase uses this GTP during gluconeogenesis."
+    },
+    {
+        q: "A 42-year-old woman has Parkinson disease. Genetic analysis shows a loss-of-function mutation leading to accumulation of misfolded proteins. Which of the following biochemical processes is most likely defective?",
+        opts: ["Acetylation", "Gamma-carboxylation", "Glucuronidation", "Phosphorylation", "Ubiquitination"],
+        ans: 4,
+        exp: "Ubiquitination attaches ubiquitin monomers to target proteins, marking them for degradation by the proteasome. Impairment of the ubiquitin-proteasome system leads to aggregation of misfolded proteins, contributing to neurodegenerative disorders like Parkinson disease.",
+        obj: "Ubiquitin is a protein that undergoes attachment to other proteins, labeling them for degradation by proteasomes. Impairment leads to accumulation of misfolded proteins."
+    },
+    {
+        q: "A 5-year-old girl has fatigue, difficulty walking, an S3 gallop, and cardiomegaly. Muscle biopsy shows very low carnitine content. This patient most likely has deficient synthesis of which of the following?",
+        opts: ["Acetoacetate", "Arachidonic acid", "Glutathione", "Homocysteine", "Lactate", "Palmitate"],
+        ans: 0,
+        exp: "This patient has primary carnitine deficiency, which impairs the transport of fatty acids into the mitochondria. Without beta-oxidation of fatty acids, tissues cannot generate ATP or Acetyl-CoA, leading to an inability of the liver to synthesize ketone bodies (like acetoacetate) during fasting.",
+        obj: "Carnitine deficiency impairs fatty acid transport into mitochondria, preventing beta-oxidation. This leads to cardiac and skeletal myocyte injury and impaired ketone body production (hypoketotic hypoglycemia)."
+    },
+    {
+        q: "A protein involved in the cellular response to TSH contains multiple alpha-helical regions composed primarily of valine, alanine, and isoleucine. This particular region of the protein most likely performs which function?",
+        opts: ["Anchoring to the cell membrane", "Binding to an extracellular ligand", "Binding to intranuclear DNA", "Interacting with metal ions", "Phosphorylating tyrosine residues"],
+        ans: 0,
+        exp: "G protein-coupled receptors contain transmembrane domains made up of nonpolar, hydrophobic amino acids (alanine, valine, leucine, isoleucine) arranged in alpha helices. These domains anchor the receptor to the hydrophobic core of the phospholipid bilayer.",
+        obj: "Integral membrane proteins contain transmembrane domains composed of alpha helices with hydrophobic amino acid residues. These anchor the protein to the phospholipid bilayer."
+    },
+    {
+        q: "A mutation is believed to affect the expression of a fetal gene. Which of the following is the best method to determine if this gene is being transcribed in cultures of isolated cells?",
+        opts: ["Northern blot", "Western blot", "Southern blot", "Southwestern blot", "Enzyme-linked immunosorbent assay"],
+        ans: 0,
+        exp: "Transcription is the process of producing mRNA from DNA. To determine if a gene is actively being transcribed, one must detect its mRNA transcript. A Northern blot detects specific mRNA sequences in a sample.",
+        obj: "Northern blots detect target mRNA in a sample and can be used to assess the degree of gene transcription."
+    },
+    {
+        q: "A 2-month-old exclusively breastfed boy is brought to the ED. His mother had gastric bypass surgery. The patient has cardiomegaly, increased lactate, and decreased erythrocyte transketolase activity. Which of the following additional enzymes is most likely impaired?",
+        opts: ["Alpha-1,4-glucosidase", "Alpha-L-iduronidase", "Galactose-1-phosphate uridyltransferase", "Glucose-6-phosphatase", "Pyruvate dehydrogenase"],
+        ans: 4,
+        exp: "Decreased erythrocyte transketolase activity diagnoses thiamine (Vitamin B1) deficiency, likely due to maternal gastric bypass. Thiamine is also a required cofactor for Pyruvate Dehydrogenase and a-Ketoglutarate Dehydrogenase. Infant presents with Wet Beriberi (heart failure).",
+        obj: "Decreased erythrocyte transketolase activity indicates thiamine deficiency. Thiamine is a cofactor for transketolase, pyruvate dehydrogenase, and alpha-ketoglutarate dehydrogenase."
+    },
+    {
+        q: "A 5-month-old boy has hypotonia, a gallop rhythm, and severe cardiomegaly. Muscle biopsy shows enlarged lysosomes containing PAS-positive material. Which enzyme is most likely deficient?",
+        opts: ["Acid alpha-glucosidase", "Galactokinase", "Glucose-6-phosphatase", "Glycogen debrancher enzyme", "Glycogen phosphorylase"],
+        ans: 0,
+        exp: "This patient has Pompe disease (Glycogen Storage Disease Type II), caused by a deficiency of lysosomal acid alpha-glucosidase (acid maltase). This leads to glycogen accumulation within lysosomes, severely affecting cardiac and skeletal muscle.",
+        obj: "Acid maltase (alpha-glucosidase) deficiency presents in early infancy with cardiomegaly, macroglossia, and profound hypotonia. Abnormal glycogen accumulation within lysosomal vesicles is diagnostic."
+    },
+    {
+        q: "A 34-year-old man with a family history of early MI has a homozygous mutation in the MTHFR gene leading to decreased enzymatic activity. He most likely has impairment converting homocysteine to which of the following?",
+        opts: ["Cystathionine", "Cysteine", "Methionine", "Methylmalonyl-CoA", "Succinyl-CoA"],
+        ans: 2,
+        exp: "MTHFR deficiency impairs the conversion of homocysteine to methionine. MTHFR generates 5-methyl-THF, which donates a methyl group to cobalamin (B12) so that methionine synthase can convert homocysteine to methionine. This leads to hyperhomocysteinemia, a risk factor for thrombotic events.",
+        obj: "Homocysteine can be metabolized to methionine via remethylation (requiring folate and B12) or to cystathionine via transsulfuration (requiring B6). MTHFR mutations impair remethylation to methionine."
+    },
+    {
+        q: "An 11-year-old girl is evaluated for blurry vision. Urine is positive for reducing substances. She has bilateral lens opacities but is otherwise normal and asymptomatic. Deficient activity of which enzyme is the most likely cause?",
+        opts: ["Aldolase B", "Alpha-galactosidase A", "Fructokinase", "Galactokinase", "Glucose-6-phosphatase", "Hexosaminidase A"],
+        ans: 3,
+        exp: "This patient has galactokinase deficiency. Without galactokinase, galactose accumulates and is converted into galactitol by aldose reductase. Galactitol accumulates in the lens, causing cataracts. Unlike classic galactosemia (GALT deficiency), there are no systemic symptoms.",
+        obj: "Lenticular accumulation of galactitol in the lenses of patients with galactosemia can cause cataracts. Cataracts are frequently the only manifestation of galactokinase deficiency."
+    },
+    {
+        q: "A 4-day-old boy presents with lethargy, vomiting, hyperreflexia, and clonus. Investigation reveals impaired transport of ornithine from the cytosol to the mitochondria. Nutritional restriction of which of the following substances can improve this condition?",
+        opts: ["Branched-chain amino acids", "Fructose", "Galactose", "Medium-chain triglycerides", "Phenylalanine", "Proteins"],
+        ans: 5,
+        exp: "Impaired ornithine transport causes a defect in the urea cycle, preventing the excretion of ammonia generated from amino acid catabolism. The resulting hyperammonemia causes neurologic damage. Treatment involves a strict protein-restricted diet.",
+        obj: "Ornithine transport into mitochondria is necessary for the urea cycle, the major disposal pathway for waste nitrogen generated by amino acid catabolism. Protein restriction improves hyperammonemia."
+    },
+    {
+        q: "A 6-month-old boy presents with lethargy and vomiting. He was breastfed until 2 days ago when homemade pureed food was introduced. Serum glucose is 30 mg/dL. Testing confirms aldolase B deficiency. Which of the following should be removed from his diet?",
+        opts: ["Amylose", "Cellulose", "Galactose", "Glucose", "Lactose", "Maltose", "Sucrose"],
+        ans: 6,
+        exp: "Aldolase B deficiency causes hereditary fructose intolerance. Introduction of fructose causes accumulation of fructose-1-phosphate, depleting intracellular phosphate and inhibiting gluconeogenesis and glycogenolysis (causing profound hypoglycemia). Sucrose is a disaccharide of fructose and glucose and must be strictly avoided.",
+        obj: "Aldolase B deficiency causes hereditary fructose intolerance, presenting with severe hypoglycemia and vomiting after fructose or sucrose consumption. Treatment is strict removal of fructose and sucrose."
+    },
+    {
+        q: "An autopsy is performed on a 4-year-old boy who died of an MI. He had intellectual disability, a broad nose, corneal clouding, and hepatosplenomegaly. Sampling of the coronary arteries is most likely to reveal accumulation of?",
+        opts: ["Cholesterol", "Glucocerebroside", "Glycogen", "Heparan sulfate", "Sphingomyelin"],
+        ans: 3,
+        exp: "The patient had Hurler syndrome, a mucopolysaccharidosis caused by alpha-L-iduronidase deficiency. This leads to the accumulation of glycosaminoglycans, specifically dermatan sulfate and heparan sulfate, which can deposit in coronary arteries leading to early ischemia.",
+        obj: "Hurler syndrome is caused by a deficiency of alpha-L-iduronidase, leading to accumulation of heparan and dermatan sulfate. Features include intellectual disability, coarse facies, corneal clouding, and cardiac complications."
+    },
+    {
+        q: "A 15-year-old boy has severe muscle cramping and red urine after weight lifting. His exercise tolerance improves greatly by drinking an oral glucose solution before activity. He is most likely deficient in an enzyme that catalyzes which conversion?",
+        opts: ["Glycogen to Glucose-1-phosphate", "Glucose-1-phosphate to Glucose-6-phosphate", "Glucose-6-phosphate to Glucose", "Glucose to Glucose-6-phosphate"],
+        ans: 0,
+        exp: "This patient has McArdle disease (glycogen storage disease type V), caused by a deficiency in myophosphorylase (muscle glycogen phosphorylase). This enzyme normally cleaves glycogen into glucose-1-phosphate to fuel contracting muscles.",
+        obj: "Myophosphorylase deficiency (McArdle disease) causes failure of muscle glycogenolysis, resulting in decreased exercise tolerance, muscle cramping, and myoglobinuria (red urine) after physical activity."
+    },
+    {
+        q: "A 14-year-old boy is incidentally found to have mild hypercalcemia. Several family members have the same finding. He has a borderline high PTH and very low urinary calcium. A mutation in which type of receptor is responsible?",
+        opts: ["Intracellular receptor", "Membrane-bound receptor coupled with a G protein", "Transmembrane ligand-gated ion channel", "Transmembrane receptor with tyrosine kinase activity", "JAK/STAT pathway receptor"],
+        ans: 1,
+        exp: "Familial hypocalciuric hypercalcemia is an autosomal dominant disorder caused by defective Calcium-Sensing Receptors (CaSR) in the parathyroid gland and kidneys. CaSRs are transmembrane Gq protein-coupled receptors.",
+        obj: "Calcium-sensing receptors are G protein-coupled receptors that regulate the secretion of PTH. Defective receptors cause familial hypocalciuric hypercalcemia, requiring higher calcium levels to suppress PTH."
+    },
+    {
+        q: "A 54-year-old woman has colon adenocarcinoma. Molecular testing reveals a KRAS gene mutation that results in constitutive activation of the Ras protein. Under normal circumstances, this protein is active only when bound to which of the following?",
+        opts: ["ATP", "Ca2+", "cAMP", "GTP", "IP3"],
+        ans: 3,
+        exp: "Ras is a G-protein involved in signal transduction. It is inactive when bound to GDP, and active when bound to GTP. Mutations in the RAS gene can impair intrinsic GTPase activity, leaving Ras constitutively bound to GTP and promoting unregulated cell proliferation.",
+        obj: "Regulation of the Ras-MAPK pathway requires a balance between active (GTP-bound) and inactive (GDP-bound) Ras proteins. Constitutively activated Ras is implicated in many malignancies."
+    },
+    {
+        q: "A 6-month-old boy has vomiting, irritability, and jaundice. He was breast-fed exclusively until 1 week ago when cereals and fruit juices were introduced. He has hepatomegaly. Which enzyme is most likely deficient?",
+        opts: ["Galactose-1-phosphate uridyl transferase", "Aldolase B", "Fructokinase", "Galactokinase", "Acid alpha-glucosidase"],
+        ans: 1,
+        exp: "The timeline (onset after introducing fruit juices) and severe symptoms (jaundice, vomiting, hepatomegaly) are classic for hereditary fructose intolerance, caused by Aldolase B deficiency.",
+        obj: "Aldolase B deficiency manifests after introduction of fructose into the diet (juices/fruit). It causes severe hypoglycemia, vomiting, jaundice, and hepatomegaly due to accumulation of toxic fructose-1-phosphate."
+    },
+    {
+        q: "A 35-year-old man develops dark urine and back pain 2 days after eating fava beans. He has jaundice and anemia. He has a deficiency of an enzyme that converts glucose-6-phosphate to ribulose-5-phosphate. The substance generated during this reaction is necessary for which process?",
+        opts: ["ADP phosphorylation", "Fatty acid synthesis", "Glycogen storage", "Ketone body synthesis", "Protein degradation"],
+        ans: 1,
+        exp: "The patient has G6PD deficiency. G6PD catalyzes the rate-limiting step of the pentose phosphate pathway, which generates NADPH. NADPH is required to reduce glutathione (protecting RBCs) and is also essential for reductive biosynthesis like fatty acid and cholesterol synthesis.",
+        obj: "The pentose phosphate pathway generates NADPH. NADPH is necessary for reducing glutathione (to prevent oxidative RBC damage) and for the biosynthesis of cholesterol, fatty acids, and steroids."
+    },
+    {
+        q: "A 64-year-old man with mesenteric ischemia develops severe lactic acidosis (pH 7.30, Lactate 6.2). Decreased activity of which of the following enzymes best explains this patient's acid-base disorder?",
+        opts: ["Enolase", "Lactate dehydrogenase", "Pyruvate carboxylase", "Pyruvate dehydrogenase", "Pyruvate kinase"],
+        ans: 3,
+        exp: "Ischemia creates an anaerobic environment, inhibiting the TCA cycle and causing NADH accumulation. The high NADH/NAD+ ratio inhibits Pyruvate Dehydrogenase (preventing entry into the TCA cycle) and stimulates Lactate Dehydrogenase to convert pyruvate into lactate.",
+        obj: "Hypoxia/ischemia elevates the NADH/NAD+ ratio, which inhibits pyruvate dehydrogenase and shifts pyruvate metabolism toward lactate production by lactate dehydrogenase, causing lactic acidosis."
+    },
+    {
+        q: "A 20-year-old woman with celiac disease is noncompliant with her diet. She has macrocytic anemia, low folate, and normal B12. Oral folic acid is prescribed. Which biochemical changes will occur (Homocysteine, Methionine, Methylmalonic Acid)?",
+        opts: ["Down, Up, No change", "Down, Down, Up", "Up, Down, No change", "Up, Down, Up", "No change, No change, Up"],
+        ans: 0,
+        exp: "Folate is required to convert homocysteine to methionine. Folate deficiency causes high homocysteine and low methionine. Giving folic acid will decrease homocysteine and increase methionine. Methylmalonic acid requires B12, not folate, so it remains unchanged.",
+        obj: "Folate serves as a methyl donor in the synthesis of methionine from homocysteine. Treating folate deficiency decreases homocysteine and increases methionine. MMA is unaffected."
+    },
+    {
+        q: "A 52-year-old man with a 20-year history of alcohol use disorder has watery diarrhea, dementia, and a photosensitive rash. Symptoms are due to lack of a specific nutrient. Which enzyme is most likely directly affected?",
+        opts: ["Citrate synthase", "Hexokinase", "Isocitrate dehydrogenase", "Phosphoglycerate kinase", "Succinate dehydrogenase"],
+        ans: 2,
+        exp: "The patient has pellagra (diarrhea, dementia, dermatitis) due to Niacin (B3) deficiency. Niacin is the precursor to NAD and NADP. Isocitrate dehydrogenase (along with a-KG dehydrogenase and malate dehydrogenase in the TCA cycle) requires NAD+ as a cofactor.",
+        obj: "Niacin is a precursor for NAD and NADP. Niacin deficiency (pellagra) impairs dehydrogenase enzymes in the TCA cycle, such as isocitrate dehydrogenase."
+    },
+    {
+        q: "Liver cells exposed to transient ischemia have reduced numbers of ribosomes attached to the rough endoplasmic reticulum (RER). This structural change is most likely to impair which of the following cellular functions?",
+        opts: ["ATP production", "Drug detoxification", "Synthesis of cell membrane proteins", "Synthesis of cytosolic proteins", "Synthesis of steroid hormones"],
+        ans: 2,
+        exp: "Attached ribosomes on the RER synthesize secretory proteins, integral membrane proteins of the cell membrane, and proteins of the ER, Golgi, and lysosomes. Free ribosomes in the cytosol synthesize cytosolic proteins.",
+        obj: "The rough endoplasmic reticulum (RER) is covered with ribosomes and synthesizes proteins destined for the cell membrane, lysosomes, or extracellular secretion."
+    },
+    {
+        q: "A fitness trainer consumes carbs before weightlifting. During active skeletal muscle contraction, the rate of glycogenolysis increases several hundredfold. Which substance is most responsible for increasing the reaction rate during active contraction?",
+        opts: ["ATP", "Ca2+", "cAMP", "Glucose-6-phosphate", "Lactate"],
+        ans: 1,
+        exp: "In skeletal muscle, increased intracellular calcium during contraction is a powerful activator of phosphorylase kinase, which in turn phosphorylates and activates glycogen phosphorylase. This synchronizes muscle contraction with glycogen breakdown.",
+        obj: "Synchronization of glycogen degradation with skeletal muscle contraction occurs due to the release of sarcoplasmic calcium, which strongly activates phosphorylase kinase."
+    },
+    {
+        q: "A 23-year-old man was told his whole life he has 'a problem metabolizing sugar'. He eats a normal diet. Urine shows a positive copper reduction test, but a glucose oxidase dipstick is negative. Which enzyme is most likely deficient?",
+        opts: ["Acid a-glucosidase", "Aldolase B", "Fructokinase", "GALT", "Lactase"],
+        ans: 2,
+        exp: "This asymptomatic patient has essential fructosuria caused by a fructokinase deficiency. Fructose is a reducing sugar, which yields a positive copper reduction test, but standard urine dipsticks use glucose oxidase and only detect glucose.",
+        obj: "Essential fructosuria (fructokinase deficiency) is a benign disorder. Patients are asymptomatic, but their urine tests positive for a reducing sugar due to unmetabolized fructose."
+    },
+    {
+        q: "A 35-year-old woman is fasting for 24 hours. Maintenance of blood glucose is facilitated by hepatic conversion of pyruvate into glucose. Which substance directly stimulates the first enzyme involved in this process?",
+        opts: ["Acetyl-CoA", "Alanine", "Citrate", "Fructose 2,6-bisphosphate", "Lactate", "Oxaloacetate"],
+        ans: 0,
+        exp: "The first step of gluconeogenesis is the conversion of pyruvate to oxaloacetate by pyruvate carboxylase. Pyruvate carboxylase is allosterically activated by Acetyl-CoA, ensuring gluconeogenesis is upregulated when acetyl-CoA levels are high (from fatty acid oxidation).",
+        obj: "Acetyl-CoA strongly stimulates gluconeogenesis by acting as an allosteric activator of pyruvate carboxylase."
+    },
+    {
+        q: "Researchers isolate small circular DNA molecules from eukaryotic cells that resemble a bacterial chromosome. These molecules code for proteins, tRNA, and rRNA. From which cellular structure did these DNA molecules originate?",
+        opts: ["Nucleus", "Ribosome", "Endoplasmic reticulum", "Mitochondria", "Golgi apparatus"],
+        ans: 3,
+        exp: "Mitochondria contain their own circular DNA (mtDNA) that resembles prokaryotic DNA, supporting the endosymbiotic theory. mtDNA is maternally inherited and codes for several mitochondrial proteins and RNAs.",
+        obj: "Mitochondrial DNA (mtDNA) is the most common non-nuclear DNA found in eukaryotic cells. It exists as a small circular chromosome and is maternally derived."
+    }
+];
+
+// --- APP LOGIC ---
+let currentQ = 0;
+let answered = false;
+
+function loadQuestion(index) {
+    answered = false;
+    const q = questions[index];
+    document.getElementById("tracker").innerText = `Item ${index + 1} of ${questions.length}`;
+    document.getElementById("q-text").innerHTML = q.q;
+    
+    const optionsContainer = document.getElementById("options-container");
+    optionsContainer.innerHTML = "";
+    
+    q.opts.forEach((opt, i) => {
+        const char = String.fromCharCode(65 + i);
+        const li = document.createElement("li");
+        li.className = "option-item";
+        li.id = `opt-${i}`;
+        li.onclick = () => selectOption(i);
+        
+        // Right click to cross out
+        li.oncontextmenu = (e) => {
+            e.preventDefault();
+            if(!answered) li.classList.toggle("crossed-out");
+        };
+
+        li.innerHTML = `
+            <div class="percent-bar" id="bar-${i}" style="width: 0;"></div>
+            <input type="radio" name="mcq" id="radio-${i}">
+            <div class="option-text"><strong>${char}.</strong> ${opt}</div>
+            <div class="percent-text" id="pct-${i}"></div>
+        `;
+        optionsContainer.appendChild(li);
+    });
+
+    document.getElementById("exp-pane").style.display = "none";
+    document.getElementById("submit-btn").style.display = "block";
+}
+
+function selectOption(index) {
+    if (answered) return;
+    document.querySelectorAll(".option-item").forEach(el => el.classList.remove("crossed-out"));
+    document.getElementById(`radio-${index}`).checked = true;
+}
+
+function submitAnswer() {
+    const selected = document.querySelector('input[name="mcq"]:checked');
+    if (!selected && !answered) {
+        alert("Please select an answer.");
+        return;
+    }
+    if (answered) return;
+    
+    answered = true;
+    const selectedIndex = parseInt(selected.id.split("-")[1]);
+    const correctIndex = questions[currentQ].ans;
+
+    document.getElementById("submit-btn").style.display = "none";
+    
+    // Generate realistic fake percentages mimicking UWorld
+    let percentages = new Array(questions[currentQ].opts.length).fill(0);
+    let remaining = 100;
+    
+    // Give correct answer between 45% and 85%
+    let correctPct = Math.floor(Math.random() * 40) + 45; 
+    percentages[correctIndex] = correctPct;
+    remaining -= correctPct;
+
+    for(let i = 0; i < percentages.length; i++) {
+        if(i !== correctIndex) {
+            let p = Math.floor(Math.random() * remaining * 0.8);
+            if(i === percentages.length - 1 && i !== correctIndex) p = remaining;
+            percentages[i] = p;
+            remaining -= p;
+        }
+    }
+
+    // Apply styles
+    for(let i=0; i < questions[currentQ].opts.length; i++) {
+        const item = document.getElementById(`opt-${i}`);
+        const bar = document.getElementById(`bar-${i}`);
+        const pctText = document.getElementById(`pct-${i}`);
+        
+        item.classList.add("disabled");
+        bar.style.width = percentages[i] + "%";
+        pctText.innerText = percentages[i] + "%";
+
+        if(i === correctIndex) {
+            item.classList.add("correct");
+            pctText.classList.add("correct-text");
+            item.innerHTML = item.innerHTML.replace("<strong>", "✔️ <strong>");
+        } else if (i === selectedIndex) {
+            item.classList.add("incorrect");
+            pctText.classList.add("incorrect-text");
+            item.innerHTML = item.innerHTML.replace("<strong>", "❌ <strong>");
+        }
+    }
+
+    // Show Explanation
+    document.getElementById("exp-pane").style.display = "block";
+    document.getElementById("exp-text").innerHTML = questions[currentQ].exp;
+    document.getElementById("obj-text").innerHTML = questions[currentQ].obj;
+}
+
+function navigate(dir) {
+    const newIndex = currentQ + dir;
+    if(newIndex >= 0 && newIndex < questions.length) {
+        currentQ = newIndex;
+        loadQuestion(currentQ);
+    }
+}
+
+function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+}
+
+// Timer logic
+let seconds = 0;
+setInterval(() => {
+    seconds++;
+    let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    let s = (seconds % 60).toString().padStart(2, '0');
+    document.getElementById("timer").innerText = `Time: ${m}:${s}`;
+}, 1000);
+
+// Initialize
+window.onload = () => loadQuestion(currentQ);
+
+</script>
+</body>
+</html>
