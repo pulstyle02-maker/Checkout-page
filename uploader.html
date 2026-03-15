@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODMED - Content Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --bg-dark:#0B0E14; --bg-panel:#151A23; --bg-light:#F4F7FB; 
+        --accent-blue:#2D98DA; --accent-red:#FA3E54; --accent-green:#20BF6B; --accent-orange:#FA8231;
+        --text-white:#FFFFFF; --text-gray:#747D8C; --text-dark:#1A1D2A;
+        --border:#2A3043; --transition:all 0.2s ease;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Plus Jakarta Sans',sans-serif; }
+    body { background-color:var(--bg-dark); color:var(--text-white); display:flex; height:100vh; overflow:hidden; }
+    
+    /* Sidebar */
+    .sidebar { width:260px; background:var(--bg-panel); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:30px 20px; }
+    .logo { font-size:24px; font-weight:800; color:white; margin-bottom:40px; text-align:center; }
+    .logo span { color:var(--accent-blue); }
+    .nav-btn { background:transparent; border:none; color:var(--text-gray); padding:15px; text-align:left; font-size:15px; font-weight:600; border-radius:12px; cursor:pointer; transition:var(--transition); margin-bottom:10px; display:flex; gap:12px; align-items:center; }
+    .nav-btn:hover, .nav-btn.active { background:#1E2532; color:white; }
+    .nav-btn.active i { color:var(--accent-blue); }
+
+    /* Main Content */
+    .main { flex:1; display:flex; flex-direction:column; overflow-y:auto; padding:40px; }
+    .header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:30px; }
+    .header-top h1 { font-size:28px; font-weight:800; }
+    
+    /* Status Badge */
+    .status-badge { padding:8px 16px; border-radius:20px; font-size:13px; font-weight:700; background:#1E2532; border:1px solid var(--border); display:flex; align-items:center; gap:8px;}
+    .status-badge.syncing i { color:var(--accent-orange); animation:spin 1s linear infinite; }
+    .status-badge.online i { color:var(--accent-green); }
+    @keyframes spin { 100% { transform:rotate(360deg); } }
+
+    /* Views */
+    .view { display:none; animation:fadeIn 0.3s ease forwards; }
+    .view.active { display:block; }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+    /* Cards & Inputs */
+    .card { background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:30px; margin-bottom:20px; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+    .input-row { display:flex; gap:20px; margin-bottom:20px; }
+    .input-group { flex:1; display:flex; flex-direction:column; gap:8px; }
+    .input-group label { font-size:13px; font-weight:700; color:var(--text-gray); text-transform:uppercase; letter-spacing:1px; }
+    select, input, textarea { width:100%; padding:15px; border-radius:12px; border:1px solid var(--border); background:#0B0E14; color:white; font-size:15px; outline:none; transition:var(--transition); }
+    select:focus, input:focus, textarea:focus { border-color:var(--accent-blue); }
+    textarea { height:300px; resize:vertical; font-family:monospace; line-height:1.5; }
+
+    /* Buttons */
+    .btn { padding:15px 24px; border-radius:12px; border:none; font-weight:700; font-size:15px; cursor:pointer; transition:var(--transition); display:inline-flex; align-items:center; gap:8px; }
+    .btn-primary { background:var(--accent-blue); color:white; box-shadow:0 4px 15px rgba(45,152,218,0.3); }
+    .btn-primary:hover { background:#227093; transform:translateY(-2px); }
+    .btn-danger { background:var(--accent-red); color:white; padding:8px 12px; font-size:13px; border-radius:8px;}
+    .btn-edit { background:#1E2532; color:white; padding:8px 12px; font-size:13px; border-radius:8px; border:1px solid var(--border);}
+
+    /* Table */
+    table { width:100%; border-collapse:collapse; margin-top:20px; }
+    th, td { padding:15px; text-align:left; border-bottom:1px solid var(--border); font-size:14px; }
+    th { color:var(--text-gray); font-weight:700; text-transform:uppercase; font-size:12px; letter-spacing:1px; }
+    tr:hover td { background:#1E2532; }
+    
+    .diff-badge { padding:4px 10px; border-radius:8px; font-size:11px; font-weight:800; text-transform:uppercase; }
+    .diff-Easy { background:rgba(32,191,107,0.2); color:var(--accent-green); border:1px solid var(--accent-green); }
+    .diff-Moderate { background:rgba(250,130,49,0.2); color:var(--accent-orange); border:1px solid var(--accent-orange); }
+    .diff-Hard { background:rgba(250,62,84,0.2); color:var(--accent-red); border:1px solid var(--accent-red); }
+
+    /* Modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; align-items:center; justify-content:center; z-index:100; backdrop-filter:blur(5px); }
+    .modal-overlay.active { display:flex; }
+    .modal-content { background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:30px; width:90%; max-width:600px; max-height:90vh; overflow-y:auto; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">MOD<span>MED</span> Admin</div>
+    <button class="nav-btn active" onclick="switchView('view-list')"><i class="fa-solid fa-list-check"></i> Manage MCQs</button>
+    <button class="nav-btn" onclick="switchView('view-import')"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Bulk Import</button>
+    <div style="margin-top:auto; font-size:12px; color:var(--text-gray); text-align:center;">Connected to MCQ Database</div>
+</div>
+
+<div class="main">
+    <div class="header-top">
+        <h1 id="page-title">Manage Content</h1>
+        <div class="status-badge online" id="db-status"><i class="fa-solid fa-circle-check"></i> Database Synced</div>
+    </div>
+
+    <!-- LIST VIEW -->
+    <div id="view-list" class="view active">
+        <div class="card">
+            <div class="input-row" style="margin-bottom:0;">
+                <div class="input-group"><input type="text" id="searchBar" placeholder="Search questions or LO codes..." onkeyup="renderTable()"></div>
+                <div class="input-group" style="max-width:200px;">
+                    <select id="filterBlock" onchange="renderTable()">
+                        <option value="All">All Blocks</option>
+                        <option value="Block_1">Block 1</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table id="mcqTable">
+                <thead><tr><th>Question</th><th>LO Code</th><th>Difficulty</th><th>Module</th><th>Actions</th></tr></thead>
+                <tbody id="mcqTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- IMPORT VIEW -->
+    <div id="view-import" class="view">
+        <div class="card">
+            <h2 style="margin-bottom:20px; font-size:18px;">Local AI Importer</h2>
+            <p style="color:var(--text-gray); font-size:14px; margin-bottom:20px;">Paste your raw text. Our local heuristic agent will parse the format, map LOs, and auto-detect difficulty levels.</p>
+            
+            <div class="input-row">
+                <div class="input-group">
+                    <label>Target Block</label>
+                    <select id="importBlock"><option value="Block_1">Block 1</option><option value="Block_2">Block 2</option></select>
+                </div>
+                <div class="input-group">
+                    <label>Target Module</label>
+                    <select id="importModule"><option value="Foundation">Foundation</option><option value="H_&_L">H & L</option></select>
+                </div>
+            </div>
+            
+            <div class="input-group" style="margin-bottom:20px;">
+                <label>Paste Raw Content Format</label>
+                <textarea id="rawInput" placeholder="[LO]: F-P-001 Cell Biology&#10;[Q]: Question text here?&#10;[A]: Option 1&#10;[B]: Option 2&#10;[C]: Option 3&#10;[D]: Option 4&#10;[ANS]: C&#10;[EXP]: Explanation..."></textarea>
+            </div>
+            
+            <button class="btn btn-primary" onclick="processAIImport()"><i class="fa-solid fa-robot"></i> Parse & Analyze Data</button>
+        </div>
+        
+        <div id="previewArea" style="display:none;">
+            <h3 style="margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+                Parsed Preview <button class="btn btn-primary" style="padding:10px 20px; font-size:14px; background:var(--accent-green);" onclick="saveImportToDB()"><i class="fa-solid fa-cloud-arrow-up"></i> Push to Database</button>
+            </h3>
+            <div class="card" style="padding:0; overflow:hidden;">
+                <table id="previewTable">
+                    <thead><tr><th>Status</th><th>LO Target</th><th>Question Sneak Peak</th><th>Detected Difficulty</th></tr></thead>
+                    <tbody id="previewTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-content">
+        <h2 style="margin-bottom:20px;">Edit MCQ</h2>
+        <input type="hidden" id="editIndex">
+        <div class="input-group" style="margin-bottom:15px;"><label>Question</label><textarea id="editQ" style="height:100px;"></textarea></div>
+        <div class="input-group" style="margin-bottom:15px;"><label>LO Code</label><input type="text" id="editLO"></div>
+        <div class="input-row">
+            <div class="input-group"><label>Difficulty</label><select id="editDiff"><option value="Easy">Easy</option><option value="Moderate">Moderate</option><option value="Hard">Hard</option></select></div>
+            <div class="input-group"><label>Correct Ans Index (0=A, 1=B..)</label><input type="number" id="editAns" min="0" max="4"></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+            <button class="btn btn-edit" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// API Configurations
+const BIN_ID = '69b67029c3097a1dd528115f'; // NEW MCQ DB
+const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.';
+let database = { mcqs: [] };
+let parsedCache = [];
+
+window.onload = () => { fetchDatabase(); };
+
+function setStatus(state) {
+    const el = document.getElementById('db-status');
+    if(state === 'syncing') { el.className = 'status-badge syncing'; el.innerHTML = '<i class="fa-solid fa-spinner"></i> Syncing to Cloud...'; }
+    else if(state === 'online') { el.className = 'status-badge online'; el.innerHTML = '<i class="fa-solid fa-circle-check"></i> Database Synced'; }
+    else { el.className = 'status-badge diff-Hard'; el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error'; }
+}
+
+function fetchDatabase() {
+    setStatus('syncing');
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } })
+        .then(r => r.json())
+        .then(data => { database.mcqs = data.record.mcqs || []; renderTable(); setStatus('online'); })
+        .catch(e => { console.error(e); setStatus('error'); });
+}
+
+function saveToCloud() {
+    setStatus('syncing');
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        body: JSON.stringify(database)
+    }).then(() => setStatus('online')).catch(() => setStatus('error'));
+}
+
+/* --- UI Logic --- */
+function switchView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    document.getElementById('page-title').innerText = viewId === 'view-list' ? 'Manage Content' : 'AI Bulk Import';
+}
+
+function renderTable() {
+    const tbody = document.getElementById('mcqTableBody');
+    tbody.innerHTML = '';
+    const qF = document.getElementById('searchBar').value.toLowerCase();
+    const bF = document.getElementById('filterBlock').value;
+
+    database.mcqs.forEach((m, idx) => {
+        if(bF !== 'All' && m.block !== bF) return;
+        if(qF && !m.question.toLowerCase().includes(qF) && !m.lo.toLowerCase().includes(qF)) return;
+
+        let diff = m.difficulty || 'Moderate';
+        let snippet = m.question.length > 50 ? m.question.substring(0,50)+'...' : m.question;
+        
+        tbody.innerHTML += `<tr>
+            <td><strong>${snippet}</strong></td>
+            <td style="color:var(--accent-blue); font-family:monospace;">${m.lo}</td>
+            <td><span class="diff-badge diff-${diff}">${diff}</span></td>
+            <td>${m.module || 'Foundation'}</td>
+            <td>
+                <button class="btn-edit" onclick="openEdit(${idx})"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn-danger" onclick="deleteMCQ(${idx})"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+}
+
+function deleteMCQ(idx) {
+    if(confirm('Are you sure you want to delete this MCQ?')) {
+        database.mcqs.splice(idx, 1); renderTable(); saveToCloud();
+    }
+}
+
+function openEdit(idx) {
+    const m = database.mcqs[idx];
+    document.getElementById('editIndex').value = idx;
+    document.getElementById('editQ').value = m.question;
+    document.getElementById('editLO').value = m.lo;
+    document.getElementById('editDiff').value = m.difficulty || 'Moderate';
+    document.getElementById('editAns').value = m.correctIndex;
+    document.getElementById('editModal').classList.add('active');
+}
+function closeModal() { document.getElementById('editModal').classList.remove('active'); }
+function saveEdit() {
+    const idx = document.getElementById('editIndex').value;
+    database.mcqs[idx].question = document.getElementById('editQ').value;
+    database.mcqs[idx].lo = document.getElementById('editLO').value;
+    database.mcqs[idx].difficulty = document.getElementById('editDiff').value;
+    database.mcqs[idx].correctIndex = parseInt(document.getElementById('editAns').value);
+    closeModal(); renderTable(); saveToCloud();
+}
+
+/* --- LOCAL AI HEURISTIC ENGINE (NO API REQ) --- */
+function processAIImport() {
+    const text = document.getElementById('rawInput').value;
+    const block = document.getElementById('importBlock').value;
+    const module = document.getElementById('importModule').value;
+    if(!text) return alert("Paste some text first!");
+
+    parsedCache = [];
+    // Regex splitting mechanism to handle loose formatting
+    const chunks = text.split(/\[LO\]:/i).filter(c => c.trim().length > 10);
+
+    chunks.forEach(chunk => {
+        try {
+            // Extract sections
+            let loPart = chunk.split(/\[Q\]:/i)[0].trim();
+            let rest1 = chunk.split(/\[Q\]:/i)[1];
+            
+            let qPart = rest1.split(/\[A\]:/i)[0].trim();
+            let rest2 = rest1.split(/\[A\]:/i)[1];
+
+            let aPart = rest2.split(/\[B\]:/i)[0].trim();
+            let rest3 = rest2.split(/\[B\]:/i)[1];
+
+            let bPart = rest3.split(/\[C\]:/i)[0].trim();
+            let rest4 = rest3.split(/\[C\]:/i)[1];
+
+            let cPart = rest4.split(/\[D\]:/i)[0].trim();
+            let rest5 = rest4.split(/\[D\]:/i)[1];
+
+            let dPart = rest5.split(/\[ANS\]:/i)[0].trim();
+            let rest6 = rest5.split(/\[ANS\]:/i)[1];
+
+            let ansStr = rest6.split(/\[EXP\]:/i)[0].trim().toUpperCase();
+            let expPart = rest6.split(/\[EXP\]:/i)[1].trim();
+
+            // Map Letter to Index
+            let correctIndex = 0;
+            if(ansStr.includes('B')) correctIndex = 1;
+            else if(ansStr.includes('C')) correctIndex = 2;
+            else if(ansStr.includes('D')) correctIndex = 3;
+
+            // --- AI Difficulty Assessment Heuristic ---
+            let diffScore = 0;
+            if(qPart.length > 120) diffScore += 1; // Long stem
+            if(/except|least likely|most likely|calculated|ratio|formula/i.test(qPart)) diffScore += 2; // Tricky syntax
+            if(expPart.length > 200) diffScore += 1; // Complex explanation
+            
+            let difficulty = 'Easy';
+            if(diffScore === 1 || diffScore === 2) difficulty = 'Moderate';
+            if(diffScore >= 3) difficulty = 'Hard';
+
+            parsedCache.push({
+                question: qPart,
+                options: [aPart, bPart, cPart, dPart],
+                correctIndex: correctIndex,
+                explanation: expPart,
+                lo: loPart,
+                block: block,
+                module: module,
+                difficulty: difficulty
+            });
+        } catch(err) {
+            console.log("Skipped a chunk due to bad formatting.", err);
+        }
+    });
+
+    renderPreview();
+}
+
+function renderPreview() {
+    const tbody = document.getElementById('previewTableBody');
+    tbody.innerHTML = '';
+    parsedCache.forEach(m => {
+        let snippet = m.question.length > 40 ? m.question.substring(0,40)+'...' : m.question;
+        tbody.innerHTML += `<tr>
+            <td><i class="fa-solid fa-circle-check" style="color:var(--accent-green);"></i> Ready</td>
+            <td>${m.lo}</td>
+            <td>${snippet}</td>
+            <td><span class="diff-badge diff-${m.difficulty}">${m.difficulty}</span></td>
+        </tr>`;
+    });
+    document.getElementById('previewArea').style.display = 'block';
+}
+
+function saveImportToDB() {
+    if(parsedCache.length === 0) return alert("Nothing to save.");
+    database.mcqs = [...database.mcqs, ...parsedCache];
+    saveToCloud();
+    alert(`Successfully pushed ${parsedCache.length} MCQs to cloud!`);
+    document.getElementById('rawInput').value = '';
+    document.getElementById('previewArea').style.display = 'none';
+    parsedCache = [];
+    switchView('view-list');
+    renderTable();
+}
+</script>
+</body>
+</html>
