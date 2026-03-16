@@ -270,6 +270,10 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
         <div class="nav-item active" data-nav="dashboard" onclick="navTo('dashboard')"><i class="fa-solid fa-house"></i><span>Dashboard</span></div>
         <div class="nav-item" data-nav="exam" onclick="navTo('exam')"><i class="fa-solid fa-file-signature"></i><span>Exam Mode</span></div>
         <div class="nav-item" data-nav="viva" onclick="navTo('viva')"><i class="fa-solid fa-comments"></i><span>Viva Voice</span></div>
+        
+        <!-- NEW SYNC BUTTON -->
+        <div class="nav-item" onclick="forceSync()"><i class="fa-solid fa-rotate"></i><span id="sync-btn-txt-desktop">Sync Content</span></div>
+
         <div class="nav-item" style="margin-top:auto;" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></div>
     </div>
 
@@ -569,10 +573,13 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
         </div>
     </div>
 
+    <!-- BOTTOM NAV WITH SYNC BUTTON -->
     <div class="bottom-nav" id="bottom-nav" style="display:none;">
         <div class="nav-item active" data-nav="dashboard" onclick="navTo('dashboard')"><i class="fa-solid fa-house"></i><span>Home</span></div>
         <div class="nav-item" data-nav="exam" onclick="navTo('exam')"><i class="fa-solid fa-file-signature"></i><span>Exam</span></div>
-        <div class="nav-item" data-nav="viva" onclick="navTo('viva')"><i class="fa-solid fa-comments"></i><span>Viva</span></div>
+        
+        <div class="nav-item" onclick="forceSync()"><i class="fa-solid fa-rotate"></i><span id="sync-btn-txt-mobile">Sync Data</span></div>
+        
         <div class="nav-item" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></div>
     </div>
 </div>
@@ -609,8 +616,9 @@ const HARDCODED_SYLLABUS = {
     "Block_3": {}
 };
 
-const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
-const MCQ_BIN_ID = '69b67029c3097a1dd528115f'; 
+// MULTI-BIN ARCHITECTURE
+const BIN_ID = '69b48ec2c3097a1dd52292b8'; // Users / Notifications
+const MCQ_BIN_ID = '69b67029c3097a1dd528115f'; // MCQs
 const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.';
 
 let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"Keep pushing! You got this." };
@@ -621,32 +629,46 @@ const dynColors = ['icon-1', 'icon-2', 'icon-3'];
 const dynIcons = ['fa-dna', 'fa-bone', 'fa-heart-pulse', 'fa-brain', 'fa-lungs', 'fa-microscope'];
 
 // =================================================================
-// 🚨 THE ULTIMATE FUZZY MATCHER FOR STUDENT PORTAL 🚨
-// This guarantees that "F-P-001. Cell biology" matched with
-// either "F-P-001" or "Cell Biology" uploaded by the Admin.
+// 🚨 THE ULTIMATE BULLETPROOF MATCHER FOR STUDENT PORTAL 🚨
 // =================================================================
-function isLOMatch(syllabusStr, dbStr) {
-    if(!syllabusStr || !dbStr) return false;
+function isLOMatch(syllabusStr, dbMcq) {
+    if(!syllabusStr || !dbMcq) return false;
     
-    // Convert both to purely alphanumeric, lowercase strings
-    let cleanSyllabus = syllabusStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
-    let cleanDb = dbStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); 
+    // We only care about the ID code (e.g. F-A-010)
+    let sylId = syllabusStr.split('.')[0].trim().toLowerCase();
     
-    // 1. Check exact match
-    if(cleanSyllabus === cleanDb) return true;
+    // Check against the database LO string
+    let dbStr = (dbMcq.lo || dbMcq.loId || "").trim().toLowerCase();
+    let dbId = dbStr.split('.')[0].trim();
     
-    // 2. Check if DB text is inside Syllabus text (e.g. Admin uploaded "CellBiology")
-    if(cleanDb.length > 3 && cleanSyllabus.includes(cleanDb)) return true;
+    if(sylId === dbId) return true; // EXACT MATCH GUARANTEED
     
-    // 3. Check if Syllabus text is inside DB text (e.g. Admin uploaded "FP001CellBiology")
-    if(cleanSyllabus.length > 3 && cleanDb.includes(cleanSyllabus)) return true;
-
-    // 4. Extract codes (like FP001) and match just the codes
-    let sylMatch = cleanSyllabus.match(/(f|hl)p?\d{3}/);
-    let dbMatch = cleanDb.match(/(f|hl)p?\d{3}/);
-    if(sylMatch && dbMatch && sylMatch[0] === dbMatch[0]) return true;
-
     return false;
+}
+
+// FORCE SYNC FUNCTION FOR INSTANT UPDATES
+async function forceSync() {
+    const btn1 = document.getElementById('sync-btn-txt-desktop');
+    const btn2 = document.getElementById('sync-btn-txt-mobile');
+    if(btn1) btn1.innerText = "Syncing...";
+    if(btn2) btn2.innerText = "Syncing...";
+    
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${MCQ_BIN_ID}/latest?t=${Date.now()}`, { 
+            headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } 
+        });
+        const data = await res.json();
+        if(data.record && data.record.mcqs) {
+            appData.mcqs = data.record.mcqs;
+            localStorage.setItem('modmed_db', JSON.stringify(appData));
+            alert(`Sync Complete! Successfully loaded ${appData.mcqs.length} MCQs from the cloud.`);
+        }
+    } catch(e) {
+        alert("Network error during sync.");
+    }
+    
+    if(btn1) btn1.innerText = "Sync Content";
+    if(btn2) btn2.innerText = "Sync Data";
 }
 
 window.onload = () => {
@@ -654,7 +676,6 @@ window.onload = () => {
     if(localDb) { appData = JSON.parse(localDb); renderDynamicSyllabus(); }
     
     // FETCH 1: Users & Notifications 
-    // ONLY READS (GET)
     fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest?t=${Date.now()}`, { 
         headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
     })
@@ -675,7 +696,6 @@ window.onload = () => {
     }).catch(err => console.log("Offline mode"));
 
     // FETCH 2: MCQs 
-    // ONLY READS (GET). NEVER WRITES.
     fetch(`https://api.jsonbin.io/v3/b/${MCQ_BIN_ID}/latest?t=${Date.now()}`, { 
         headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
     })
@@ -803,19 +823,19 @@ function startSession(){
     
     if(selectedLOs.length === 0) return alert("Select at least one Learning Objective to begin.");
 
-    // FILTER ENGINE USING THE NEW FUZZY MATCHER
+    // FILTER ENGINE USING THE NEW BULLETPROOF MATCHER
     if(studyMode === 'practice' || studyMode === 'mock' || studyMode === 'past') { 
         sessionData = appData.mcqs.filter(dbMcq => {
-            return selectedLOs.some(syllabusLo => isLOMatch(syllabusLo, dbMcq.lo));
+            return selectedLOs.some(syllabusLo => isLOMatch(syllabusLo, dbMcq));
         }); 
     } else { 
         sessionData = appData.flashcards.filter(dbFc => {
-            return selectedLOs.some(syllabusLo => isLOMatch(syllabusLo, dbFc.lo));
+            return selectedLOs.some(syllabusLo => isLOMatch(syllabusLo, dbFc));
         }); 
     }
 
     if(sessionData.length === 0) {
-        return alert(`0 MCQs found for the selected topics. The database currently has ${appData.mcqs.length} total MCQs. Please wait 5 seconds and press Begin again in case the cloud is still downloading.`);
+        return alert(`0 MCQs found for this topic.\n\nTotal MCQs in Cloud Memory: ${appData.mcqs.length}\nIf you just uploaded MCQs, please click the "Sync Content" button in the menu first!`);
     }
     
     const qR = document.getElementById('quizRandom'); if(qR) qR.checked = false;
@@ -890,7 +910,10 @@ function loadQuestion(){
     
     const container=document.getElementById('options-container'); 
     container.innerHTML=''; 
+    
+    // RENDERS UP TO 5 OPTIONS (A, B, C, D, E)
     q.options.forEach((opt,idx)=>{ 
+        if(!opt || opt.trim() === '') return; 
         const btn=document.createElement('button'); 
         btn.className='opt-btn'; 
         btn.innerHTML=`<span>${opt}</span>`; 
@@ -902,9 +925,9 @@ function loadQuestion(){
         const btns = container.querySelectorAll('.opt-btn'); 
         const selectedIdx = userAnswers[currentQ]; 
         btns.forEach(b => b.style.pointerEvents = 'none'); 
-        btns[q.correctIndex].classList.add('correct'); 
-        if(selectedIdx !== q.correctIndex) btns[selectedIdx].classList.add('wrong'); 
-        document.getElementById('exp-text').innerText = q.explanation; 
+        if(btns[q.correctIndex]) btns[q.correctIndex].classList.add('correct'); 
+        if(selectedIdx !== q.correctIndex && btns[selectedIdx]) btns[selectedIdx].classList.add('wrong'); 
+        document.getElementById('exp-text').innerText = q.explanation || "No explanation provided."; 
         document.getElementById('exp-box').style.display = 'block'; 
     } 
 }
@@ -922,14 +945,14 @@ function handleAnswer(idx, btn, q){
         document.getElementById('btn-next').style.display='flex'; 
     } else { 
         btns.forEach(b => b.style.pointerEvents = 'none'); 
-        btns[q.correctIndex].classList.add('correct'); 
+        if(btns[q.correctIndex]) btns[q.correctIndex].classList.add('correct'); 
         if(!isCorrect) { 
             btn.classList.add('wrong'); 
             wrongList.push({q:q.question, a:q.options[q.correctIndex], exp:q.explanation}); 
         } else {
             score++; 
         }
-        document.getElementById('exp-text').innerText=q.explanation; 
+        document.getElementById('exp-text').innerText=q.explanation || "No explanation provided."; 
         document.getElementById('exp-box').style.display='block'; 
         document.getElementById('btn-next').style.display='flex'; 
         setTimeout(()=>scrollArea.scrollTo({top:scrollArea.scrollHeight, behavior:'smooth'}),50); 
