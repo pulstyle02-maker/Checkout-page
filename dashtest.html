@@ -609,7 +609,7 @@ const HARDCODED_SYLLABUS = {
     "Block_3": {}
 };
 
-const BIN_ID = '69b48ec2c3097a1dd52292b8'; // Users / Notifications
+const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
 const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.';
 
 let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"Keep pushing! You got this." };
@@ -620,18 +620,18 @@ const dynColors = ['icon-1', 'icon-2', 'icon-3'];
 const dynIcons = ['fa-dna', 'fa-bone', 'fa-heart-pulse', 'fa-brain', 'fa-lungs', 'fa-microscope'];
 
 // =================================================================
-// 🚨 BULLETPROOF MATCHER: IGNORES EXTRA DOTS AND SPACES
+// 🚨 BULLETPROOF MATCHER FOR SYLLABUS vs DB
 // =================================================================
 function isLOMatch(syllabusStr, dbMcq) {
     if(!syllabusStr || !dbMcq) return false;
     
-    // "F-A-010. Cell division..." -> "f-a-010"
+    // Convert syllabus "F-A-010. Gametogenesis..." into -> "f-a-010"
     let sylId = syllabusStr.split('.')[0].trim().toLowerCase(); 
     
-    // Check against DB string. Replace trailing dot just in case.
-    let dbStr = (dbMcq.lo || dbMcq.loId || "").trim().toLowerCase(); 
+    // Read from DB (lo or loId). Replace any trailing dot just in case. -> "f-a-010"
+    let dbStr = (dbMcq.lo || dbMcq.loId || "").replace(/\.$/, '').trim().toLowerCase(); 
     
-    return dbStr.includes(sylId) || sylId.includes(dbStr.replace(/\.$/, ''));
+    return sylId === dbStr;
 }
 
 window.onload = () => {
@@ -658,60 +658,35 @@ window.onload = () => {
         }
     }).catch(err => console.log("Offline mode"));
 
-    // FETCH 2: Embryology JSON with NO CUSTOM HEADERS (to prevent CORS block)
-    // ?t=Date.now() forces browser to skip cache and get latest file instantly
+    // FETCH 2: Embryology JSON directly from your GitHub 
+    // Added ?t=${Date.now()} to bust GitHub caching
     fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/embryology.json?t=${Date.now()}`)
     .then(res => {
-        if (!res.ok) throw new Error("Network error fetching MCQs");
+        if (!res.ok) throw new Error("Network response was not ok");
         return res.json();
     })
     .then(data => {
-        // Securely handle if it's an array directly or inside an object
-        let rawArray = [];
-        if (Array.isArray(data)) rawArray = data;
-        else if (data.mcqs && Array.isArray(data.mcqs)) rawArray = data.mcqs;
-        else if (data.record && Array.isArray(data.record)) rawArray = data.record;
+        let rawArray = Array.isArray(data) ? data : (data.mcqs || data.record?.mcqs || []);
 
         if(rawArray.length > 0) {
+            // Save the natively formatted MCQs directly
+            appData.mcqs = rawArray;
             
-            // AUTO-MAPPER: Convert Custom JSON format to App Format
-            const mappedMcqs = rawArray.map(item => {
-                const optsObj = item.Options || {};
-                const optionsArray = [];
-                let correctIndex = 0;
-                
-                const letters = ['A', 'B', 'C', 'D', 'E'];
-                letters.forEach((letter) => {
-                    if(optsObj[letter]) {
-                        optionsArray.push(optsObj[letter]);
-                        if(item.ANS && item.ANS.trim().toUpperCase() === letter) {
-                            correctIndex = optionsArray.length - 1; 
-                        }
-                    }
-                });
-
+            // Automatically generate Flashcards so Flashcard mode works
+            appData.flashcards = rawArray.map(m => {
+                let correctAnsText = "See explanation";
+                if (m.options && m.options[m.correctIndex]) {
+                    correctAnsText = m.options[m.correctIndex];
+                }
                 return {
-                    lo: item.LO || "", 
-                    question: item.Q || "",
-                    options: optionsArray,
-                    correctIndex: correctIndex,
-                    explanation: item.EXP || "",
-                    difficulty: "Moderate"
+                    lo: m.lo,
+                    front: m.question,
+                    back: correctAnsText + "\n\n" + (m.explanation || "")
                 };
             });
 
-            // Save structured MCQs
-            appData.mcqs = mappedMcqs;
-            
-            // AUTO-GENERATE FLASHCARDS too, so Flashcard mode works
-            appData.flashcards = mappedMcqs.map(m => ({
-                lo: m.lo,
-                front: m.question,
-                back: m.options[m.correctIndex] + "\n\n" + m.explanation
-            }));
-
             localStorage.setItem('modmed_db', JSON.stringify(appData));
-            console.log("Loaded & Mapped latest MCQs. Total:", appData.mcqs.length);
+            console.log("Successfully loaded latest MCQs from GitHub. Total:", appData.mcqs.length);
         }
     })
     .catch(err => console.log("Failed to load Embryology MCQs", err));
@@ -832,6 +807,7 @@ function startSession(){
     
     if(selectedLOs.length === 0) return alert("Select at least one Learning Objective to begin.");
 
+    // FILTER ENGINE
     if(studyMode === 'practice' || studyMode === 'mock' || studyMode === 'past') { 
         sessionData = appData.mcqs.filter(dbMcq => {
             return selectedLOs.some(syllabusLo => isLOMatch(syllabusLo, dbMcq));
@@ -919,14 +895,16 @@ function loadQuestion(){
     const container=document.getElementById('options-container'); 
     container.innerHTML=''; 
     
-    q.options.forEach((opt,idx)=>{ 
-        if(!opt || opt.trim() === '') return; 
-        const btn=document.createElement('button'); 
-        btn.className='opt-btn'; 
-        btn.innerHTML=`<span>${opt}</span>`; 
-        btn.onclick=()=>handleAnswer(idx, btn, q); 
-        container.appendChild(btn); 
-    }); 
+    if (q.options && Array.isArray(q.options)) {
+        q.options.forEach((opt,idx)=>{ 
+            if(!opt || opt.trim() === '') return; 
+            const btn=document.createElement('button'); 
+            btn.className='opt-btn'; 
+            btn.innerHTML=`<span>${opt}</span>`; 
+            btn.onclick=()=>handleAnswer(idx, btn, q); 
+            container.appendChild(btn); 
+        }); 
+    }
     
     if(userAnswers[currentQ] !== undefined) { 
         const btns = container.querySelectorAll('.opt-btn'); 
@@ -968,7 +946,26 @@ function handleAnswer(idx, btn, q){
 
 function prevQuestion() { if(currentQ > 0) { currentQ--; loadQuestion(); } }
 function nextQuestion() { document.getElementById('quiz-progress').style.width=`${((currentQ+1)/sessionData.length)*100}%`; if(currentQ < sessionData.length - 1) { currentQ++; loadQuestion(); } else { clearInterval(timerInterval); showResults(); } }
-function showResults(){ navTo('results'); document.getElementById('score-text').innerText=`${score}/${sessionData.length}`; const fs=document.getElementById('flashcards-section'), fc=document.getElementById('fc-container'); fc.innerHTML=''; if(wrongList.length>0){ fs.style.display='block'; wrongList.forEach(w=>{ const card=document.createElement('div'); card.className='fc'; card.onclick=function(){ this.classList.toggle('flipped'); }; card.innerHTML=`<div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${w.q}</h4></div><div class="fc-back"><h4 style="color:white; font-size:16px; text-align:center;">${w.a}</h4><p style="color:rgba(255,255,255,0.8); font-size:13px; font-weight:500; white-space:pre-wrap;">${w.exp}</p></div></div>`; fc.appendChild(card); }); } else { fs.style.display='none'; } }
+
+function showResults(){ 
+    navTo('results'); 
+    document.getElementById('score-text').innerText=`${score}/${sessionData.length}`; 
+    const fs=document.getElementById('flashcards-section'), fc=document.getElementById('fc-container'); 
+    fc.innerHTML=''; 
+    
+    if(wrongList.length>0){ 
+        fs.style.display='block'; 
+        wrongList.forEach(w=>{ 
+            const card=document.createElement('div'); 
+            card.className='fc'; 
+            card.onclick=function(){ this.classList.toggle('flipped'); }; 
+            card.innerHTML=`<div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${w.q}</h4></div><div class="fc-back"><h4 style="color:white; font-size:16px; text-align:center;">${w.a}</h4><p style="color:rgba(255,255,255,0.8); font-size:13px; font-weight:500; white-space:pre-wrap;">${w.exp}</p></div></div>`; 
+            fc.appendChild(card); 
+        }); 
+    } else { 
+        fs.style.display='none'; 
+    } 
+}
 </script>
 </body>
 </html>
