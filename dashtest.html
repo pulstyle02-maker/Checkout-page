@@ -620,21 +620,18 @@ const dynColors = ['icon-1', 'icon-2', 'icon-3'];
 const dynIcons = ['fa-dna', 'fa-bone', 'fa-heart-pulse', 'fa-brain', 'fa-lungs', 'fa-microscope'];
 
 // =================================================================
-// 🚨 THE ULTIMATE BULLETPROOF MATCHER FOR STUDENT PORTAL 🚨
+// 🚨 BULLETPROOF MATCHER: IGNORES EXTRA DOTS AND SPACES
 // =================================================================
 function isLOMatch(syllabusStr, dbMcq) {
     if(!syllabusStr || !dbMcq) return false;
     
-    // We only care about the ID code (e.g. F-A-010)
-    let sylId = syllabusStr.split('.')[0].trim().toLowerCase();
+    // "F-A-010. Cell division..." -> "f-a-010"
+    let sylId = syllabusStr.split('.')[0].trim().toLowerCase(); 
     
-    // Check against the database LO string
-    let dbStr = (dbMcq.lo || dbMcq.loId || "").trim().toLowerCase();
-    let dbId = dbStr.split('.')[0].trim();
+    // Check against DB string. Replace trailing dot just in case.
+    let dbStr = (dbMcq.lo || dbMcq.loId || "").trim().toLowerCase(); 
     
-    if(sylId === dbId) return true; // EXACT MATCH GUARANTEED
-    
-    return false;
+    return dbStr.includes(sylId) || sylId.includes(dbStr.replace(/\.$/, ''));
 }
 
 window.onload = () => {
@@ -643,7 +640,7 @@ window.onload = () => {
     
     // FETCH 1: Users & Notifications 
     fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest?t=${Date.now()}`, { 
-        headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
+        headers: { 'X-Master-Key': API_KEY } 
     })
     .then(res => res.json())
     .then(data => {
@@ -661,14 +658,60 @@ window.onload = () => {
         }
     }).catch(err => console.log("Offline mode"));
 
-    // FETCH 2: Fetch Embryology MCQs from custom endpoint
-    fetch(`https://www.modmedicalis.online/embryology`)
-    .then(res => res.json())
+    // FETCH 2: Embryology JSON with NO CUSTOM HEADERS (to prevent CORS block)
+    // ?t=Date.now() forces browser to skip cache and get latest file instantly
+    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/embryology.json?t=${Date.now()}`)
+    .then(res => {
+        if (!res.ok) throw new Error("Network error fetching MCQs");
+        return res.json();
+    })
     .then(data => {
-        const loadedMcqs = Array.isArray(data) ? data : (data.mcqs || data.record?.mcqs || []);
-        if(loadedMcqs.length > 0) {
-            appData.mcqs = loadedMcqs;
+        // Securely handle if it's an array directly or inside an object
+        let rawArray = [];
+        if (Array.isArray(data)) rawArray = data;
+        else if (data.mcqs && Array.isArray(data.mcqs)) rawArray = data.mcqs;
+        else if (data.record && Array.isArray(data.record)) rawArray = data.record;
+
+        if(rawArray.length > 0) {
+            
+            // AUTO-MAPPER: Convert Custom JSON format to App Format
+            const mappedMcqs = rawArray.map(item => {
+                const optsObj = item.Options || {};
+                const optionsArray = [];
+                let correctIndex = 0;
+                
+                const letters = ['A', 'B', 'C', 'D', 'E'];
+                letters.forEach((letter) => {
+                    if(optsObj[letter]) {
+                        optionsArray.push(optsObj[letter]);
+                        if(item.ANS && item.ANS.trim().toUpperCase() === letter) {
+                            correctIndex = optionsArray.length - 1; 
+                        }
+                    }
+                });
+
+                return {
+                    lo: item.LO || "", 
+                    question: item.Q || "",
+                    options: optionsArray,
+                    correctIndex: correctIndex,
+                    explanation: item.EXP || "",
+                    difficulty: "Moderate"
+                };
+            });
+
+            // Save structured MCQs
+            appData.mcqs = mappedMcqs;
+            
+            // AUTO-GENERATE FLASHCARDS too, so Flashcard mode works
+            appData.flashcards = mappedMcqs.map(m => ({
+                lo: m.lo,
+                front: m.question,
+                back: m.options[m.correctIndex] + "\n\n" + m.explanation
+            }));
+
             localStorage.setItem('modmed_db', JSON.stringify(appData));
+            console.log("Loaded & Mapped latest MCQs. Total:", appData.mcqs.length);
         }
     })
     .catch(err => console.log("Failed to load Embryology MCQs", err));
@@ -789,7 +832,6 @@ function startSession(){
     
     if(selectedLOs.length === 0) return alert("Select at least one Learning Objective to begin.");
 
-    // FILTER ENGINE USING THE NEW BULLETPROOF MATCHER
     if(studyMode === 'practice' || studyMode === 'mock' || studyMode === 'past') { 
         sessionData = appData.mcqs.filter(dbMcq => {
             return selectedLOs.some(syllabusLo => isLOMatch(syllabusLo, dbMcq));
@@ -800,8 +842,8 @@ function startSession(){
         }); 
     }
 
-    if(sessionData.length === 0) {
-        return alert(`0 MCQs found for this topic.\n\nTotal MCQs loaded: ${appData.mcqs.length}`);
+    if(!sessionData || sessionData.length === 0) {
+        return alert(`0 items found for this topic.\n\nTotal memory loaded: ${appData.mcqs.length}`);
     }
     
     const qR = document.getElementById('quizRandom'); if(qR) qR.checked = false;
@@ -838,7 +880,7 @@ function selectMode(mode, element){
     document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('active')); element.classList.add('active'); studyMode=mode; setTimeout(()=>navTo('step-block'),40); 
 }
 
-function loadFC() { document.getElementById('fc-counter').innerText = `${currentQ+1} / ${sessionData.length}`; const container = document.getElementById('fc-single-container'); const q = sessionData[currentQ]; container.innerHTML = `<div class="fc" onclick="this.classList.toggle('flipped')"><div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${q.front}</h4><p style="margin-top:20px; font-size:13px; color:var(--text-light-gray); font-weight:800;"><i class="fa-solid fa-arrow-pointer"></i> Tap to flip</p></div><div class="fc-back"><h4 style="color:var(--accent-red); margin-bottom:8px; font-size:12px; text-transform:uppercase; letter-spacing:1px;">Concept</h4><h4 style="text-align:center;">${q.back}</h4></div></div></div>`; }
+function loadFC() { document.getElementById('fc-counter').innerText = `${currentQ+1} / ${sessionData.length}`; const container = document.getElementById('fc-single-container'); const q = sessionData[currentQ]; container.innerHTML = `<div class="fc" onclick="this.classList.toggle('flipped')"><div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${q.front}</h4><p style="margin-top:20px; font-size:13px; color:var(--text-light-gray); font-weight:800;"><i class="fa-solid fa-arrow-pointer"></i> Tap to flip</p></div><div class="fc-back"><h4 style="color:var(--accent-red); margin-bottom:8px; font-size:12px; text-transform:uppercase; letter-spacing:1px;">Concept</h4><h4 style="text-align:center; white-space:pre-wrap;">${q.back}</h4></div></div></div>`; }
 function prevFC() { if(currentQ > 0) { currentQ--; loadFC(); } }
 function nextFC() { if(currentQ < sessionData.length - 1) { currentQ++; loadFC(); } else { alert("Flashcard Deck Completed!"); navTo('dashboard'); } }
 
@@ -877,7 +919,6 @@ function loadQuestion(){
     const container=document.getElementById('options-container'); 
     container.innerHTML=''; 
     
-    // RENDERS UP TO 5 OPTIONS (A, B, C, D, E)
     q.options.forEach((opt,idx)=>{ 
         if(!opt || opt.trim() === '') return; 
         const btn=document.createElement('button'); 
@@ -927,7 +968,7 @@ function handleAnswer(idx, btn, q){
 
 function prevQuestion() { if(currentQ > 0) { currentQ--; loadQuestion(); } }
 function nextQuestion() { document.getElementById('quiz-progress').style.width=`${((currentQ+1)/sessionData.length)*100}%`; if(currentQ < sessionData.length - 1) { currentQ++; loadQuestion(); } else { clearInterval(timerInterval); showResults(); } }
-function showResults(){ navTo('results'); document.getElementById('score-text').innerText=`${score}/${sessionData.length}`; const fs=document.getElementById('flashcards-section'), fc=document.getElementById('fc-container'); fc.innerHTML=''; if(wrongList.length>0){ fs.style.display='block'; wrongList.forEach(w=>{ const card=document.createElement('div'); card.className='fc'; card.onclick=function(){ this.classList.toggle('flipped'); }; card.innerHTML=`<div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${w.q}</h4></div><div class="fc-back"><h4 style="color:white; font-size:16px; text-align:center;">${w.a}</h4><p style="color:rgba(255,255,255,0.8); font-size:13px; font-weight:500;">${w.exp}</p></div></div>`; fc.appendChild(card); }); } else { fs.style.display='none'; } }
+function showResults(){ navTo('results'); document.getElementById('score-text').innerText=`${score}/${sessionData.length}`; const fs=document.getElementById('flashcards-section'), fc=document.getElementById('fc-container'); fc.innerHTML=''; if(wrongList.length>0){ fs.style.display='block'; wrongList.forEach(w=>{ const card=document.createElement('div'); card.className='fc'; card.onclick=function(){ this.classList.toggle('flipped'); }; card.innerHTML=`<div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${w.q}</h4></div><div class="fc-back"><h4 style="color:white; font-size:16px; text-align:center;">${w.a}</h4><p style="color:rgba(255,255,255,0.8); font-size:13px; font-weight:500; white-space:pre-wrap;">${w.exp}</p></div></div>`; fc.appendChild(card); }); } else { fs.style.display='none'; } }
 </script>
 </body>
 </html>
