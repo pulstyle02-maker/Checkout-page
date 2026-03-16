@@ -270,10 +270,6 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
         <div class="nav-item active" data-nav="dashboard" onclick="navTo('dashboard')"><i class="fa-solid fa-house"></i><span>Dashboard</span></div>
         <div class="nav-item" data-nav="exam" onclick="navTo('exam')"><i class="fa-solid fa-file-signature"></i><span>Exam Mode</span></div>
         <div class="nav-item" data-nav="viva" onclick="navTo('viva')"><i class="fa-solid fa-comments"></i><span>Viva Voice</span></div>
-        
-        <!-- NEW SYNC BUTTON -->
-        <div class="nav-item" onclick="forceSync()"><i class="fa-solid fa-rotate"></i><span id="sync-btn-txt-desktop">Sync Content</span></div>
-
         <div class="nav-item" style="margin-top:auto;" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></div>
     </div>
 
@@ -573,13 +569,10 @@ input:checked + .subject-pill i.fa-circle-check { opacity:1; transform:scale(1);
         </div>
     </div>
 
-    <!-- BOTTOM NAV WITH SYNC BUTTON -->
+    <!-- BOTTOM NAV -->
     <div class="bottom-nav" id="bottom-nav" style="display:none;">
         <div class="nav-item active" data-nav="dashboard" onclick="navTo('dashboard')"><i class="fa-solid fa-house"></i><span>Home</span></div>
         <div class="nav-item" data-nav="exam" onclick="navTo('exam')"><i class="fa-solid fa-file-signature"></i><span>Exam</span></div>
-        
-        <div class="nav-item" onclick="forceSync()"><i class="fa-solid fa-rotate"></i><span id="sync-btn-txt-mobile">Sync Data</span></div>
-        
         <div class="nav-item" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></div>
     </div>
 </div>
@@ -616,9 +609,7 @@ const HARDCODED_SYLLABUS = {
     "Block_3": {}
 };
 
-// MULTI-BIN ARCHITECTURE
 const BIN_ID = '69b48ec2c3097a1dd52292b8'; // Users / Notifications
-const MCQ_BIN_ID = '69b67029c3097a1dd528115f'; // MCQs
 const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.';
 
 let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"Keep pushing! You got this." };
@@ -646,31 +637,6 @@ function isLOMatch(syllabusStr, dbMcq) {
     return false;
 }
 
-// FORCE SYNC FUNCTION FOR INSTANT UPDATES
-async function forceSync() {
-    const btn1 = document.getElementById('sync-btn-txt-desktop');
-    const btn2 = document.getElementById('sync-btn-txt-mobile');
-    if(btn1) btn1.innerText = "Syncing...";
-    if(btn2) btn2.innerText = "Syncing...";
-    
-    try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${MCQ_BIN_ID}/latest?t=${Date.now()}`, { 
-            headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } 
-        });
-        const data = await res.json();
-        if(data.record && data.record.mcqs) {
-            appData.mcqs = data.record.mcqs;
-            localStorage.setItem('modmed_db', JSON.stringify(appData));
-            alert(`Sync Complete! Successfully loaded ${appData.mcqs.length} MCQs from the cloud.`);
-        }
-    } catch(e) {
-        alert("Network error during sync.");
-    }
-    
-    if(btn1) btn1.innerText = "Sync Content";
-    if(btn2) btn2.innerText = "Sync Data";
-}
-
 window.onload = () => {
     const localDb = localStorage.getItem('modmed_db');
     if(localDb) { appData = JSON.parse(localDb); renderDynamicSyllabus(); }
@@ -695,17 +661,17 @@ window.onload = () => {
         }
     }).catch(err => console.log("Offline mode"));
 
-    // FETCH 2: MCQs 
-    fetch(`https://api.jsonbin.io/v3/b/${MCQ_BIN_ID}/latest?t=${Date.now()}`, { 
-        headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
-    })
+    // FETCH 2: Fetch Embryology MCQs from custom endpoint
+    fetch(`https://www.modmedicalis.online/embryology`)
     .then(res => res.json())
     .then(data => {
-        if(data.record && data.record.mcqs) {
-            appData.mcqs = data.record.mcqs;
+        const loadedMcqs = Array.isArray(data) ? data : (data.mcqs || data.record?.mcqs || []);
+        if(loadedMcqs.length > 0) {
+            appData.mcqs = loadedMcqs;
             localStorage.setItem('modmed_db', JSON.stringify(appData));
         }
-    });
+    })
+    .catch(err => console.log("Failed to load Embryology MCQs", err));
 
     const savedSession = localStorage.getItem('modmed_session');
     if(savedSession) { 
@@ -835,7 +801,7 @@ function startSession(){
     }
 
     if(sessionData.length === 0) {
-        return alert(`0 MCQs found for this topic.\n\nTotal MCQs in Cloud Memory: ${appData.mcqs.length}\nIf you just uploaded MCQs, please click the "Sync Content" button in the menu first!`);
+        return alert(`0 MCQs found for this topic.\n\nTotal MCQs loaded: ${appData.mcqs.length}`);
     }
     
     const qR = document.getElementById('quizRandom'); if(qR) qR.checked = false;
