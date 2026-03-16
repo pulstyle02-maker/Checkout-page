@@ -70,7 +70,7 @@
     /* Modal */
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:none; align-items:center; justify-content:center; z-index:100; backdrop-filter:blur(5px); }
     .modal-overlay.active { display:flex; }
-    .modal-content { background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:30px; width:90%; max-width:600px; max-height:90vh; overflow-y:auto; }
+    .modal-content { background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:30px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto; }
 </style>
 </head>
 <body>
@@ -112,8 +112,8 @@
     <!-- IMPORT VIEW -->
     <div id="view-import" class="view">
         <div class="card">
-            <h2 style="margin-bottom:20px; font-size:18px;">Local AI Importer</h2>
-            <p style="color:var(--text-gray); font-size:14px; margin-bottom:20px;">Paste your raw text. Our local heuristic agent will parse the format, map LOs, and auto-detect difficulty levels.</p>
+            <h2 style="margin-bottom:20px; font-size:18px;">Local AI Importer (5 Options Supported)</h2>
+            <p style="color:var(--text-gray); font-size:14px; margin-bottom:20px;">Paste your raw text. Our local heuristic agent perfectly extracts Options A-E, maps LOs securely, and auto-detects difficulty.</p>
             
             <div class="input-row">
                 <div class="input-group">
@@ -128,7 +128,7 @@
             
             <div class="input-group" style="margin-bottom:20px;">
                 <label>Paste Raw Content Format</label>
-                <textarea id="rawInput" placeholder="[LO]: F-P-001 Cell Biology&#10;[Q]: Question text here?&#10;[A]: Option 1&#10;[B]: Option 2&#10;[C]: Option 3&#10;[D]: Option 4&#10;[ANS]: C&#10;[EXP]: Explanation..."></textarea>
+                <textarea id="rawInput" placeholder="[LO]: F-A-010.&#10;[Q]: Question text here?&#10;[A]: Option 1&#10;[B]: Option 2&#10;[C]: Option 3&#10;[D]: Option 4&#10;[E]: Option 5&#10;[ANS]: E&#10;[EXP]: Explanation..."></textarea>
             </div>
             
             <button class="btn btn-primary" onclick="processAIImport()"><i class="fa-solid fa-robot"></i> Parse & Analyze Data</button>
@@ -153,12 +153,25 @@
     <div class="modal-content">
         <h2 style="margin-bottom:20px;">Edit MCQ</h2>
         <input type="hidden" id="editIndex">
-        <div class="input-group" style="margin-bottom:15px;"><label>Question</label><textarea id="editQ" style="height:100px;"></textarea></div>
-        <div class="input-group" style="margin-bottom:15px;"><label>LO Code</label><input type="text" id="editLO"></div>
         <div class="input-row">
+            <div class="input-group" style="flex:2;"><label>LO Code</label><input type="text" id="editLO"></div>
             <div class="input-group"><label>Difficulty</label><select id="editDiff"><option value="Easy">Easy</option><option value="Moderate">Moderate</option><option value="Hard">Hard</option></select></div>
-            <div class="input-group"><label>Correct Ans Index (0=A, 1=B..)</label><input type="number" id="editAns" min="0" max="4"></div>
         </div>
+        <div class="input-group" style="margin-bottom:15px;"><label>Question</label><textarea id="editQ" style="height:80px;"></textarea></div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+            <div class="input-group"><label>Option A</label><input type="text" id="editOpt0"></div>
+            <div class="input-group"><label>Option B</label><input type="text" id="editOpt1"></div>
+            <div class="input-group"><label>Option C</label><input type="text" id="editOpt2"></div>
+            <div class="input-group"><label>Option D</label><input type="text" id="editOpt3"></div>
+            <div class="input-group" style="grid-column: span 2;"><label>Option E (Leave blank if none)</label><input type="text" id="editOpt4"></div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group"><label>Correct Ans Index (0=A, 1=B, 2=C, 3=D, 4=E)</label><input type="number" id="editAns" min="0" max="4"></div>
+        </div>
+        <div class="input-group" style="margin-bottom:15px;"><label>Explanation</label><textarea id="editExp" style="height:80px;"></textarea></div>
+
         <div style="display:flex; gap:10px; margin-top:20px;">
             <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
             <button class="btn btn-edit" onclick="closeModal()">Cancel</button>
@@ -184,7 +197,7 @@ function setStatus(state) {
 
 function fetchDatabase() {
     setStatus('syncing');
-    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY } })
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, { headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } })
         .then(r => r.json())
         .then(data => { database.mcqs = data.record.mcqs || []; renderTable(); setStatus('online'); })
         .catch(e => { console.error(e); setStatus('error'); });
@@ -194,7 +207,7 @@ function saveToCloud() {
     setStatus('syncing');
     fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Versioning': 'false' },
         body: JSON.stringify(database)
     }).then(() => setStatus('online')).catch(() => setStatus('error'));
 }
@@ -247,19 +260,42 @@ function openEdit(idx) {
     document.getElementById('editLO').value = m.lo;
     document.getElementById('editDiff').value = m.difficulty || 'Moderate';
     document.getElementById('editAns').value = m.correctIndex;
+    
+    document.getElementById('editOpt0').value = m.options[0] || '';
+    document.getElementById('editOpt1').value = m.options[1] || '';
+    document.getElementById('editOpt2').value = m.options[2] || '';
+    document.getElementById('editOpt3').value = m.options[3] || '';
+    document.getElementById('editOpt4').value = m.options[4] || '';
+    document.getElementById('editExp').value = m.explanation || '';
+    
     document.getElementById('editModal').classList.add('active');
 }
+
 function closeModal() { document.getElementById('editModal').classList.remove('active'); }
+
 function saveEdit() {
     const idx = document.getElementById('editIndex').value;
     database.mcqs[idx].question = document.getElementById('editQ').value;
     database.mcqs[idx].lo = document.getElementById('editLO').value;
     database.mcqs[idx].difficulty = document.getElementById('editDiff').value;
     database.mcqs[idx].correctIndex = parseInt(document.getElementById('editAns').value);
+    database.mcqs[idx].explanation = document.getElementById('editExp').value;
+    
+    let newOptions = [
+        document.getElementById('editOpt0').value,
+        document.getElementById('editOpt1').value,
+        document.getElementById('editOpt2').value,
+        document.getElementById('editOpt3').value
+    ];
+    let opt4 = document.getElementById('editOpt4').value;
+    if(opt4.trim() !== '') newOptions.push(opt4);
+    
+    database.mcqs[idx].options = newOptions;
+
     closeModal(); renderTable(); saveToCloud();
 }
 
-/* --- LOCAL AI HEURISTIC ENGINE (NO API REQ) --- */
+/* --- ADVANCED REGEX PARSER ENGINE --- */
 function processAIImport() {
     const text = document.getElementById('rawInput').value;
     const block = document.getElementById('importBlock').value;
@@ -267,65 +303,89 @@ function processAIImport() {
     if(!text) return alert("Paste some text first!");
 
     parsedCache = [];
-    // Regex splitting mechanism to handle loose formatting
-    const chunks = text.split(/\[LO\]:/i).filter(c => c.trim().length > 10);
+    
+    // Split input by [LO]: but KEEP the [LO]: tag inside the chunks using Positive Lookahead
+    const chunks = text.split(/(?=\[LO\]:)/i);
+
+    let successCount = 0;
 
     chunks.forEach(chunk => {
+        if(chunk.trim().length < 10) return;
+
         try {
-            // Extract sections
-            let loPart = chunk.split(/\[Q\]:/i)[0].trim();
-            let rest1 = chunk.split(/\[Q\]:/i)[1];
+            // Precise Regex Extraction ensuring exact match without hidden characters
+            let loMatch = chunk.match(/\[LO\]:\s*(.*?)(?=\n|\[Q\]:|$)/i);
+            let qMatch = chunk.match(/\[Q\]:\s*(.*?)(?=\[A\]:)/is);
+            let aMatch = chunk.match(/\[A\]:\s*(.*?)(?=\[B\]:)/is);
+            let bMatch = chunk.match(/\[B\]:\s*(.*?)(?=\[C\]:)/is);
+            let cMatch = chunk.match(/\[C\]:\s*(.*?)(?=\[D\]:)/is);
+            let dMatch = chunk.match(/\[D\]:\s*(.*?)(?=\[E\]:|\[ANS\]:)/is);
+            let eMatch = chunk.match(/\[E\]:\s*(.*?)(?=\[ANS\]:)/is); // Handles optional Option E
+            let ansMatch = chunk.match(/\[ANS\]:\s*([A-E])/i);
+            let expMatch = chunk.match(/\[EXP\]:\s*(.*?)(?=\[LO\]:|$)/is);
+
+            if(!qMatch || !aMatch || !ansMatch) {
+                console.warn("Skipped a chunk. Missing required tags.");
+                return;
+            }
+
+            let loPart = loMatch ? loMatch[1].trim() : "Unknown_LO";
+            let qPart = qMatch[1].trim();
             
-            let qPart = rest1.split(/\[A\]:/i)[0].trim();
-            let rest2 = rest1.split(/\[A\]:/i)[1];
+            let options = [
+                aMatch[1].trim(),
+                bMatch[1].trim(),
+                cMatch[1].trim(),
+                dMatch[1].trim()
+            ];
+            
+            // Push E if it exists
+            if (eMatch && eMatch[1].trim() !== "") {
+                options.push(eMatch[1].trim());
+            }
 
-            let aPart = rest2.split(/\[B\]:/i)[0].trim();
-            let rest3 = rest2.split(/\[B\]:/i)[1];
+            let ansLetter = ansMatch[1].toUpperCase();
+            let correctIndex = ansLetter.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3, E=4
 
-            let bPart = rest3.split(/\[C\]:/i)[0].trim();
-            let rest4 = rest3.split(/\[C\]:/i)[1];
-
-            let cPart = rest4.split(/\[D\]:/i)[0].trim();
-            let rest5 = rest4.split(/\[D\]:/i)[1];
-
-            let dPart = rest5.split(/\[ANS\]:/i)[0].trim();
-            let rest6 = rest5.split(/\[ANS\]:/i)[1];
-
-            let ansStr = rest6.split(/\[EXP\]:/i)[0].trim().toUpperCase();
-            let expPart = rest6.split(/\[EXP\]:/i)[1].trim();
-
-            // Map Letter to Index
-            let correctIndex = 0;
-            if(ansStr.includes('B')) correctIndex = 1;
-            else if(ansStr.includes('C')) correctIndex = 2;
-            else if(ansStr.includes('D')) correctIndex = 3;
+            let expPart = expMatch ? expMatch[1].trim() : "";
 
             // --- AI Difficulty Assessment Heuristic ---
             let diffScore = 0;
-            if(qPart.length > 120) diffScore += 1; // Long stem
-            if(/except|least likely|most likely|calculated|ratio|formula/i.test(qPart)) diffScore += 2; // Tricky syntax
-            if(expPart.length > 200) diffScore += 1; // Complex explanation
+            if(qPart.length > 120) diffScore += 1;
+            if(/except|least likely|most likely|calculated|ratio|formula/i.test(qPart)) diffScore += 2;
+            if(expPart.length > 200) diffScore += 1;
             
             let difficulty = 'Easy';
             if(diffScore === 1 || diffScore === 2) difficulty = 'Moderate';
             if(diffScore >= 3) difficulty = 'Hard';
 
+            // Generate unique ID for proper tracking in student portal
+            let uniqueId = "mcq_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+
             parsedCache.push({
+                id: uniqueId,
+                lo: loPart,
+                loId: loPart.split('.')[0], // Ensure backward compatibility
                 question: qPart,
-                options: [aPart, bPart, cPart, dPart],
+                options: options,
                 correctIndex: correctIndex,
                 explanation: expPart,
-                lo: loPart,
                 block: block,
                 module: module,
                 difficulty: difficulty
             });
+            successCount++;
+
         } catch(err) {
-            console.log("Skipped a chunk due to bad formatting.", err);
+            console.error("Error parsing a specific chunk:", err);
         }
     });
 
-    renderPreview();
+    if(successCount === 0) {
+        alert("Could not parse any MCQs. Ensure the format perfectly matches [LO]:, [Q]:, [A]:, etc.");
+    } else {
+        renderPreview();
+    }
 }
 
 function renderPreview() {
@@ -335,7 +395,7 @@ function renderPreview() {
         let snippet = m.question.length > 40 ? m.question.substring(0,40)+'...' : m.question;
         tbody.innerHTML += `<tr>
             <td><i class="fa-solid fa-circle-check" style="color:var(--accent-green);"></i> Ready</td>
-            <td>${m.lo}</td>
+            <td><strong style="color:var(--accent-blue);">${m.lo}</strong></td>
             <td>${snippet}</td>
             <td><span class="diff-badge diff-${m.difficulty}">${m.difficulty}</span></td>
         </tr>`;
