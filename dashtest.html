@@ -279,6 +279,8 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
 </head>
 <body>
 
+<div id="toast-container" class="toast-container"></div>
+
 <div class="app-container">
     <div class="sidebar-nav" id="sidebar-nav">
         <div class="logo">MOD<span>MED</span></div>
@@ -512,7 +514,6 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
                     <button class="btn btn-alt" style="margin:0; padding:10px 15px; font-size:13px; width:auto;" onclick="selectAllLOs()"><i class="fa-solid fa-check-double"></i> Select All</button>
                     <button class="btn btn-alt" style="margin:0; padding:10px 15px; font-size:13px; width:auto;" onclick="deselectAllLOs()"><i class="fa-solid fa-eraser"></i> Clear</button>
                     
-                    <!-- NEW GREEN NEXT BUTTON -->
                     <button class="btn" style="margin:0 0 0 auto; max-width:120px; padding:12px 20px; font-size:14px; border:none; background:linear-gradient(180deg, var(--accent-green) 0%, var(--accent-green-dark) 100%); box-shadow:0 5px 0 #0D9993, var(--highlight-top);" onclick="prepSessionConfig()">Next <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
                 <div id="lo-container" style="display:flex; flex-direction:column; gap:12px; margin-bottom:35px;"></div>
@@ -543,7 +544,6 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
 
                     <h4 style="margin-bottom:10px; font-size:15px; font-weight:800; color:var(--text-dark);">Available Sets <span style="color:var(--text-light-gray); font-size:12px; font-weight:600;">(20 MCQs/Set)</span></h4>
                     <div id="sets-container" style="display:flex; flex-direction:column; gap:12px;">
-                        <!-- Sets rendered here via JS -->
                     </div>
                 </div>
             </div>
@@ -560,7 +560,6 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
                     <h3 style="font-size:16px; font-weight:800; letter-spacing:0.5px;" id="quiz-title-text">Practice</h3>
                     <div style="display:flex; gap:8px; align-items:center;">
                         <label class="toggle-switch"><input type="checkbox" id="quizRandom" onchange="shuffleSession()"> Random</label>
-                        <!-- JUMPER -->
                         <select id="q-jumper" class="jumper-select" onchange="jumpToQ(this.value)"></select>
                     </div>
                 </div>
@@ -569,7 +568,6 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
             </div>
             <div class="page-wrapper">
                 
-                <!-- TAGS CONTAINER -->
                 <div id="q-tags-container" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
                     <span id="q-diff-badge" class="q-diff-badge diff-Moderate">MODERATE</span>
                     <span id="q-source-badge" class="q-diff-badge tag-source" style="display:none;">SOURCE</span>
@@ -584,9 +582,7 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
                 </div>
                 <div class="btn-nav-grp">
                     <button class="btn btn-prev" onclick="prevQuestion()"><i class="fa-solid fa-arrow-left"></i> Prev</button>
-                    <!-- NEW SKIP BUTTON -->
                     <button class="btn btn-prev" id="btn-skip" onclick="skipQuestion()">Skip <i class="fa-solid fa-forward-step"></i></button>
-                    
                     <button class="btn" id="btn-next" style="display:none;" onclick="nextQuestion()">Next <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
             </div>
@@ -609,7 +605,6 @@ select.jumper-select-fc { background:transparent; color:var(--text-dark); border
                 <div class="btn-nav-grp" style="justify-content:center;">
                     <button class="btn btn-prev" style="width:auto; padding:20px 30px;" onclick="prevFC()"><i class="fa-solid fa-arrow-left"></i></button>
                     <div style="display:flex; align-items:center; justify-content:center; padding:0 15px;">
-                        <!-- FC JUMPER -->
                         <select id="fc-jumper" class="jumper-select-fc" onchange="jumpToFC(this.value)"></select>
                     </div>
                     <button class="btn" style="width:auto; padding:20px 30px;" onclick="nextFC()"><i class="fa-solid fa-arrow-right"></i></button>
@@ -674,6 +669,7 @@ const HARDCODED_SYLLABUS = {
 };
 
 const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
+const MCQ_BIN_ID = '69b67029c3097a1dd528115f'; 
 const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.';
 
 let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"Keep pushing! You got this." };
@@ -684,21 +680,49 @@ const scrollArea = document.getElementById('main-scroll-area');
 const dynColors = ['icon-1', 'icon-2', 'icon-3'];
 const dynIcons = ['fa-dna', 'fa-bone', 'fa-heart-pulse', 'fa-brain', 'fa-lungs', 'fa-microscope'];
 
+// TOAST NOTIFICATION
+function showToast(message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<i class="fa-solid fa-circle-info"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.animation = 'toastOut 0.3s forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+// =================================================================
+// 🚨 THE ULTIMATE MATCHING ENGINE 🚨
+// Flawlessly ignores dots, matches codes like "F-A-010" vs "F-A-010."
+// =================================================================
 function isLOMatch(syllabusStr, dbMcq) {
     if(!syllabusStr || !dbMcq) return false;
-    let sylId = syllabusStr.split('.')[0].trim().toLowerCase(); 
-    let dbStr = (dbMcq.lo || dbMcq.loId || "").replace(/\.$/, '').trim().toLowerCase(); 
-    return sylId === dbStr;
+    
+    // 1. Convert to simple lowercase string, ignoring everything except letters and numbers
+    let cleanSyllabus = syllabusStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
+    let cleanDb = (dbMcq.lo || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); 
+    
+    if(cleanSyllabus === cleanDb) return true;
+    if(cleanDb.length > 4 && cleanSyllabus.includes(cleanDb)) return true;
+    if(cleanSyllabus.length > 4 && cleanDb.includes(cleanSyllabus)) return true;
+
+    // 2. Strict Code Extraction (Matches F-A-010 to F-A-010. etc.)
+    const codeRegex = /(f|hl)[a-z]*\d{3}/i; 
+    let sylMatch = cleanSyllabus.match(codeRegex);
+    let dbMatch = cleanDb.match(codeRegex);
+    
+    if(sylMatch && dbMatch && sylMatch[0] === dbMatch[0]) return true;
+
+    return false;
 }
 
 function getLOName(loCode) {
-    let cleanCode = (loCode || "").replace(/\.$/, '').trim().toLowerCase();
+    let cleanCode = (loCode || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     for (let block in HARDCODED_SYLLABUS) {
         for (let mod in HARDCODED_SYLLABUS[block]) {
             for (let sub in HARDCODED_SYLLABUS[block][mod]) {
                 for(let str of HARDCODED_SYLLABUS[block][mod][sub]) {
-                    let id = str.split('.')[0].trim().toLowerCase();
-                    if(id === cleanCode) { return str; }
+                    let id = str.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    if(id.includes(cleanCode) || cleanCode.includes(id)) { return str; }
                 }
             }
         }
@@ -706,52 +730,70 @@ function getLOName(loCode) {
     return loCode; 
 }
 
+// 🚨 MERGING ENGINE FOR GITHUB + JSONBIN
 window.onload = () => {
     const localDb = localStorage.getItem('modmed_db');
     if(localDb) { appData = JSON.parse(localDb); renderDynamicSyllabus(); }
     
-    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest?t=${Date.now()}`, { headers: { 'X-Master-Key': API_KEY } })
+    const savedSession = localStorage.getItem('modmed_session');
+    if(savedSession) { 
+        currentUser = JSON.parse(savedSession); currentAvatar = currentUser.avatar || "👨‍⚕️";
+        setupDashboard(); navTo('dashboard'); updateUserLiveStatus(); 
+    }
+
+    forceSyncData();
+};
+
+function forceSyncData() {
+    // Fetch Users & Notifs
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest?t=${Date.now()}`, { 
+        headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } 
+    })
     .then(res => res.json())
     .then(data => {
         if(data.record) {
             appData.users = data.record.users || appData.users;
             appData.notifications = data.record.notifications || appData.notifications;
             appData.motivation = data.record.motivation || appData.motivation;
-            
-            localStorage.setItem('modmed_db', JSON.stringify(appData));
             if(currentUser) {
                 const freshUser = appData.users.find(u => u.username === currentUser.username);
                 if(freshUser) { currentUser = freshUser; localStorage.setItem('modmed_session', JSON.stringify(currentUser)); setupDashboard(); }
             }
             renderNotifications(); updateMotivation(); renderDynamicSyllabus();
         }
-    }).catch(err => console.log("Offline mode"));
+    }).catch(err => console.log("Offline mode Users"));
 
-    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/embryology.json?t=${Date.now()}`)
-    .then(res => {
-        if (!res.ok) throw new Error("Network response was not ok");
-        return res.json();
-    })
-    .then(data => {
-        let rawArray = Array.isArray(data) ? data : (data.mcqs || data.record?.mcqs || []);
-        if(rawArray.length > 0) {
-            appData.mcqs = rawArray;
-            appData.flashcards = rawArray.map(m => {
+    // Fetch MCQs from JSONBin (Admin Portal)
+    const fetchJSONBin = fetch(`https://api.jsonbin.io/v3/b/${MCQ_BIN_ID}/latest?t=${Date.now()}`, { 
+        headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } 
+    }).then(res => res.ok ? res.json() : {});
+
+    // Fetch MCQs from GitHub (Embryology)
+    const fetchGitHub = fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/embryology.json?t=${Date.now()}`)
+    .then(res => res.ok ? res.json() : []);
+
+    // Merge both databases together safely!
+    Promise.all([fetchJSONBin, fetchGitHub]).then(([jsonbinData, githubData]) => {
+        let combinedMCQs = [];
+        
+        if(jsonbinData.record && jsonbinData.record.mcqs) {
+            combinedMCQs = combinedMCQs.concat(jsonbinData.record.mcqs);
+        }
+        
+        let githubArray = Array.isArray(githubData) ? githubData : (githubData.mcqs || githubData.record?.mcqs || []);
+        combinedMCQs = combinedMCQs.concat(githubArray);
+
+        if(combinedMCQs.length > 0) {
+            appData.mcqs = combinedMCQs;
+            appData.flashcards = combinedMCQs.map(m => {
                 let correctAnsText = "See explanation";
                 if (m.options && m.options[m.correctIndex]) { correctAnsText = m.options[m.correctIndex]; }
                 return { lo: m.lo, front: m.question, back: correctAnsText + "\n\n" + (m.explanation || "") };
             });
             localStorage.setItem('modmed_db', JSON.stringify(appData));
         }
-    })
-    .catch(err => console.log("Failed to load MCQs", err));
-
-    const savedSession = localStorage.getItem('modmed_session');
-    if(savedSession) { 
-        currentUser = JSON.parse(savedSession); currentAvatar = currentUser.avatar || "👨‍⚕️";
-        setupDashboard(); navTo('dashboard'); updateUserLiveStatus(); 
-    }
-};
+    }).catch(err => console.log("Failed to load MCQs", err));
+}
 
 window.addEventListener('resize', () => {
     const bNav = document.getElementById('bottom-nav');
@@ -913,6 +955,7 @@ function renderSets() {
 
     filteredPool.sort(() => Math.random() - 0.5);
 
+    // Removed the 10 MCQ limit, set to 20 per set naturally
     const SET_SIZE = 20;
     const numSets = Math.ceil(filteredPool.length / SET_SIZE);
 
