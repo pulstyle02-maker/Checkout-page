@@ -146,7 +146,7 @@ html, body { background-color: var(--bg-base); color: var(--text-dark); width: 1
 
 /* App Login Style (Premium Startup Vibe) */
 .login-wrapper { height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; }
-.login-top { height: 40%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 30px; position: relative; z-index: 2; }
+.login-top { height: 48%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 30px; position: relative; z-index: 2; }
 .login-logo { font-size: 42px; font-weight: 800; color: var(--text-dark); letter-spacing: -1px; display: flex; align-items: center; gap: 10px; }
 .login-logo i { font-size: 38px; background: var(--modmed-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .login-bottom { flex: 1; padding: 30px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; }
@@ -433,6 +433,36 @@ select.jumper-select-fc { background: transparent; color: var(--modmed-primary);
                         <button class="btn btn-alt glass-card" style="flex:1; margin-top: 0;" onclick="prepRegister('free')">Sign Up</button>
                         <button class="btn glass-card" style="flex:1; margin-top: 0; background:rgba(0,97,255,0.1) !important; color:var(--modmed-primary); box-shadow:none; border:1px solid rgba(0,97,255,0.2) !important;" onclick="prepRegister('pro')">Subscribe</button>
                     </div>
+
+                    <div style="margin-top: 25px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;" onclick="navTo('invite')">
+                        <span class="brand-text" style="font-weight: 700; font-size: 15px;">I have an invitation code</span>
+                        <span class="brand-text" style="font-size: 13px;"><i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INVITATION VIEW -->
+        <div id="view-invite" class="page">
+            <div class="login-wrapper">
+                <div class="bg-orb orb-1"></div>
+                <div class="bg-orb orb-2"></div>
+                
+                <div class="login-top">
+                    <h1 class="login-logo"><i class="fa-solid fa-ticket"></i> Invitation</h1>
+                </div>
+                <div class="login-bottom">
+                    <p>Enter your exclusive code to launch.</p>
+                    <div class="input-group" style="margin-bottom:28px;">
+                        <i class="fa-solid fa-key"></i>
+                        <input type="text" id="inviteCode" class="app-input glass-card" placeholder="Enter code here">
+                    </div>
+                    
+                    <button class="btn btn-alt" style="border: none !important; background: transparent !important; box-shadow: none;" onclick="handleInviteCode()">
+                        <span class="brand-text" style="font-size: 18px; font-weight: 800; display:flex; align-items:center; gap:8px;">Launch App <i class="fa-solid fa-arrow-right"></i></span>
+                    </button>
+                    
+                    <button class="btn btn-alt" style="margin-top: 15px; border: none !important; background: transparent !important; color: var(--text-gray);" onclick="navTo('login')">Cancel</button>
                 </div>
             </div>
         </div>
@@ -549,7 +579,9 @@ select.jumper-select-fc { background: transparent; color: var(--modmed-primary);
                     </div>
                 </div>
                 
-                <p style="text-align:center; font-size:14px; font-weight:800; color:var(--text-gray); letter-spacing:4px; margin-top:40px; opacity:0.5;">MODMEDICALIS</p>
+                <p style="text-align:center; font-size:18px; font-weight:900; letter-spacing:2px; margin-top:40px; margin-bottom: 20px;">
+                    <span style="color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">MOD</span><span class="brand-text">MEDICALIS</span>
+                </p>
             </div>
         </div>
 
@@ -923,7 +955,7 @@ function forceSyncData() {
 window.addEventListener('resize', () => {
     const bNav = document.getElementById('bottom-nav');
     const activePage = document.querySelector('.page.active');
-    const hiddenViews = ['view-login', 'view-register', 'view-payment', 'view-quiz', 'view-flashcards', 'view-step-config', 'view-results'];
+    const hiddenViews = ['view-login', 'view-invite', 'view-register', 'view-payment', 'view-quiz', 'view-flashcards', 'view-step-config', 'view-results'];
     
     if(window.innerWidth >= 768 || (activePage && hiddenViews.includes(activePage.id))) {
         if(bNav) bNav.style.display = 'none';
@@ -955,6 +987,31 @@ function handleLogin(){
     const found = appData.users.find(u => u.username === user && u.password === pass);
     if(found) { currentUser = found; currentAvatar = found.avatar || "👨‍⚕️"; localStorage.setItem('modmed_session', JSON.stringify(found)); setupDashboard(); navTo('dashboard'); updateUserLiveStatus(); } 
     else { showToast("Invalid credentials."); }
+}
+
+function handleInviteCode() {
+    const code = document.getElementById('inviteCode').value.trim();
+    if(code === 'MOD-AIMC-30') {
+        const newUser = { 
+            username: 'invited_pro_' + Math.floor(Math.random()*10000), 
+            password: 'none', 
+            name: 'Invited Doctor', 
+            classInfo: 'MBBS', 
+            college: 'AIMC', 
+            avatar: '👨‍⚕️', 
+            plan: 'pro', 
+            lastActive: new Date().toISOString() 
+        };
+        appData.users.push(newUser);
+        currentUser = newUser;
+        localStorage.setItem('modmed_session', JSON.stringify(currentUser));
+        fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(appData) });
+        setupDashboard(); 
+        navTo('dashboard');
+        showToast("Invitation Accepted! App Launched.");
+    } else {
+        showToast("Invalid invitation code.");
+    }
 }
 
 function submitPayment() {
@@ -1115,7 +1172,7 @@ function navTo(viewId){
     
     const mainNavs = ['dashboard', 'exam', 'viva'];
     const bNav = document.getElementById('bottom-nav');
-    const hiddenViews = ['login', 'register', 'payment', 'quiz', 'flashcards', 'step-config', 'results'];
+    const hiddenViews = ['login', 'invite', 'register', 'payment', 'quiz', 'flashcards', 'step-config', 'results'];
     
     if(hiddenViews.includes(viewId)) { 
         if(bNav) bNav.style.display = 'none'; 
@@ -1214,22 +1271,27 @@ function handleAnswer(idx, btn, q){
     } 
 }
 
-/* FIXED: Scroll directly to top when hitting Next or Skip */
 function skipQuestion() { 
     if(currentQ < sessionData.length - 1) { 
         currentQ++; 
-        scrollArea.scrollTo({top: 0, behavior: 'smooth'});
+        setTimeout(() => scrollArea.scrollTo({top: 0, behavior: 'smooth'}), 10);
         loadQuestion(); 
     } else { 
         clearInterval(timerInterval); showResults(); 
     } 
 }
-function prevQuestion() { if(currentQ > 0) { currentQ--; loadQuestion(); } }
+function prevQuestion() { 
+    if(currentQ > 0) { 
+        currentQ--; 
+        setTimeout(() => scrollArea.scrollTo({top: 0, behavior: 'smooth'}), 10);
+        loadQuestion(); 
+    } 
+}
 function nextQuestion() { 
     document.getElementById('quiz-progress').style.width=`${((currentQ+1)/sessionData.length)*100}%`; 
     if(currentQ < sessionData.length - 1) { 
         currentQ++; 
-        scrollArea.scrollTo({top: 0, behavior: 'smooth'});
+        setTimeout(() => scrollArea.scrollTo({top: 0, behavior: 'smooth'}), 10);
         loadQuestion(); 
     } else { 
         clearInterval(timerInterval); showResults(); 
