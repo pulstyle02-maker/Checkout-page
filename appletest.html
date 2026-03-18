@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>MODMEDICALIS - Pro Portal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+    // Apply theme before render to prevent flickering
+    if(localStorage.getItem('theme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+</script>
+<style>
+:root {
+    /* Light Mode - Apple Health System Colors */
+    --bg-light: #F2F2F7; 
+    --bg-gradient: #F2F2F7; /* Solid for light mode */
+    --bg-white: #FFFFFF; 
+    
+    --accent-red: #FF2D55; 
+    --accent-blue: #007AFF; 
+    --accent-green: #34C759; 
+    --accent-orange: #FF9500; 
+    --accent-purple: #AF52DE;
+    
+    --text-dark: #000000; 
+    --text-gray: #8E8E93; 
+    --text-light-gray: #C7C7CC; 
+    --text-white: #FFFFFF;
+    
+    --border-color: #E5E5EA;
+    --hover-bg: #F9F9F9;
+    --nav-bg: rgba(255, 255, 255, 0.85);
+    
+    --shadow-card: 0 4px 14px rgba(0,0,0,0.04);
+    --shadow-dock: 0 10px 30px rgba(0,0,0,0.1);
+    
+    --transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1); 
+    --transition-fast: all 0.1s ease-out;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] {
+    --bg-light: #000000;
+    /* Cyan, Black & Dark Blue Mesh Gradient */
+    --bg-gradient: radial-gradient(circle at top left, rgba(0, 160, 180, 0.25) 0%, transparent 40%),
+                   radial-gradient(circle at bottom right, rgba(0, 60, 130, 0.35) 0%, transparent 50%),
+                   #000000;
+                   
+    --bg-white: rgba(25, 30, 40, 0.65); /* Glassy effect for dark mode cards */
+    
+    --text-dark: #FFFFFF; 
+    --text-gray: #A0AAB5; 
+    --text-light-gray: #555555; 
+    
+    --border-color: rgba(255, 255, 255, 0.1);
+    --hover-bg: rgba(255, 255, 255, 0.08);
+    --nav-bg: rgba(15, 20, 30, 0.75);
+    
+    --shadow-card: 0 8px 20px rgba(0,0,0,0.3);
+    --shadow-dock: 0 15px 40px rgba(0,0,0,0.5);
+}
+
+* { 
+    margin: 0; padding: 0; box-sizing: border-box; 
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    -webkit-tap-highlight-color: transparent; 
+}
+.no-scrollbar::-webkit-scrollbar { display:none; } .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+html, body { background-color: var(--bg-light); color: var(--text-dark); width: 100%; height: 100%; position: fixed; overflow: hidden; touch-action: pan-y; }
+
+/* Global Glassmorphism applied to cards in Dark Mode */
+.mode-card, .list-card, .subject-pill, .lo-card, .guidance-card, .motivation-banner, .notif-card, .score-display, .fc-front, .fc-back, .opt-btn, .exp-box, .app-input, .paywall-modal, .avatar-modal, .avatar-option {
+    background: var(--bg-white) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* Custom Toast Notification System */
+.toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; width: 90%; max-width: 400px; }
+.toast { background: var(--nav-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: var(--text-dark); padding: 14px 20px; border-radius: 100px; font-weight: 500; font-size: 15px; box-shadow: var(--shadow-dock); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; animation: toastIn 0.3s cubic-bezier(0.25,0.8,0.25,1) forwards; }
+.toast i { font-size: 20px; color: var(--accent-blue); flex-shrink: 0; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+
+.app-container { width: 100%; height: 100dvh; background: var(--bg-gradient); display: flex; flex-direction: column; position: relative; z-index: 1; transition: background 0.3s ease; }
+
+.sidebar-nav { display: none; width: 260px; background: var(--bg-light); padding: 40px 20px; flex-direction: column; gap: 4px; z-index: 50; border-right: 1px solid var(--border-color); }
+.sidebar-nav .logo { font-size: 24px; font-weight: 700; color: var(--text-dark); margin-bottom: 40px; text-align: left; padding-left: 10px; letter-spacing: -0.5px; }
+.sidebar-nav .logo span { color: var(--accent-red); }
+.sidebar-nav .nav-item { border-radius: 12px; font-weight: 500; font-size: 16px; padding: 12px 16px; margin-bottom: 4px; color: var(--text-dark); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: var(--transition-fast); }
+.sidebar-nav .nav-item i { font-size: 20px; width: 24px; text-align: center; color: var(--text-gray); }
+.sidebar-nav .nav-item.active { background: var(--bg-white); font-weight: 600; color: var(--text-dark); box-shadow: var(--shadow-card); }
+.sidebar-nav .nav-item.active i { color: var(--accent-blue); }
+
+/* FLOATING iOS DOCK (Bottom Nav) */
+.bottom-nav { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 400px; height: 75px; background: var(--nav-bg); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: 40px; display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 100; box-shadow: var(--shadow-dock); transition: transform 0.3s ease; }
+.bottom-nav .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-gray); cursor: pointer; padding: 10px; flex: 1; border-radius: 20px; transition: var(--transition-fast); }
+.bottom-nav .nav-item:active { background: rgba(0,0,0,0.05); }
+[data-theme="dark"] .bottom-nav .nav-item:active { background: rgba(255,255,255,0.05); }
+.bottom-nav .nav-item i { font-size: 22px; }
+.bottom-nav .nav-item span { font-size: 10px; font-weight: 600; }
+.bottom-nav .nav-item.active i { color: var(--accent-red); }
+.bottom-nav .nav-item.active span { color: var(--accent-red); }
+
+.notif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 998; opacity: 0; pointer-events: none; transition: var(--transition); }
+.notif-overlay.active { opacity: 1; pointer-events: auto; }
+.notif-panel { position: fixed; top: 0; right: -380px; width: 340px; height: 100vh; background: var(--bg-light); z-index: 999; transition: transform 0.4s cubic-bezier(0.25,0.8,0.25,1); padding: 40px 20px; box-shadow: -10px 0 30px rgba(0,0,0,0.1); overflow-y: auto; }
+.notif-panel.active { transform: translateX(-380px); right: -380px; } 
+.notif-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.notif-header h3 { font-size: 24px; color: var(--text-dark); font-weight: 700;}
+.notif-header i.close-btn { background: var(--border-color); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--text-dark); cursor: pointer; transition: var(--transition-fast); font-size: 16px; }
+.notif-header i.close-btn:active { opacity: 0.7; }
+.notif-card { background: var(--bg-white); padding: 16px; border-radius: 16px; margin-bottom: 12px; border-left: 4px solid var(--accent-purple); box-shadow: var(--shadow-card); }
+
+.main-content { flex: 1; position: relative; overflow-y: auto; overflow-x: hidden; z-index: 2; }
+.page { display: none; width: 100%; position: absolute; top: 0; left: 0; opacity: 0; }
+.page.active { display: block; position: relative; animation: swiftFadeIn 0.25s cubic-bezier(0.25,0.8,0.25,1) forwards; }
+@keyframes swiftFadeIn { 0% { opacity: 0; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+
+/* App Login Style */
+.login-wrapper { height: 100%; display: flex; flex-direction: column; }
+.login-top { height: 35%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 20px; background: transparent; }
+.login-top i { font-size: 70px; margin-bottom: 15px; color: var(--accent-red); }
+.login-logo { font-size: 36px; font-weight: 700; color: var(--text-dark); letter-spacing: -0.5px; }
+.login-logo span { color: var(--accent-red); }
+.login-bottom { flex: 1; background: transparent; padding: 20px 30px; display: flex; flex-direction: column; align-items: center; }
+.login-bottom p { color: var(--text-gray); margin-top: 10px; margin-bottom: 30px; font-size: 16px; text-align: center; font-weight: 400; }
+
+.input-group { position: relative; margin-bottom: 16px; width: 100%; max-width: 400px; }
+.input-group i { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--text-gray); font-size: 18px; z-index: 2; }
+.app-input { width: 100%; padding: 18px 20px 18px 50px; background: var(--bg-white); border: 1px solid var(--border-color); border-radius: 16px; color: var(--text-dark); font-size: 16px; font-weight: 500; transition: var(--transition-fast); }
+.app-input:focus { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2); }
+select.app-input { appearance: none; }
+
+.btn { width: 100%; max-width: 400px; padding: 18px; border-radius: 16px; border: none; background: var(--accent-blue); color: #FFF; font-weight: 600; font-size: 17px; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
+.btn:active { transform: scale(0.97); opacity: 0.9; }
+.btn-alt { background: var(--hover-bg); border: 1px solid var(--border-color); color: var(--accent-blue); margin-top: 15px; }
+
+/* Apple Style Headers */
+.curved-header { background: transparent; padding: 60px 20px 10px; color: var(--text-dark); position: relative; z-index: 2;}
+.page-wrapper { max-width: 900px; margin: 0 auto; width: 100%; padding: 0 20px 140px; position: relative; z-index: 1;}
+
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; width: 100%; }
+.user-info { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; }
+.greeting { display: flex; flex-direction: column; }
+.greeting p { color: var(--text-gray); font-size: 13px; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; order: 1; display: flex; align-items: center; gap: 6px;}
+.greeting h1 { font-size: 34px; font-weight: 700; color: var(--text-dark); letter-spacing: -0.5px; order: 2; margin-top: 4px; }
+.plan-badge { background: var(--border-color); color: var(--text-dark); padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+.plan-badge.pro { background: var(--accent-red); color: white; }
+
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--text-dark); cursor: pointer; transition: var(--transition-fast); }
+.avatar:active { opacity: 0.7; }
+.top-action-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--accent-blue); cursor: pointer; font-size: 18px; transition: var(--transition-fast); }
+.top-action-btn:active { opacity: 0.7; }
+
+.hero-title { font-size: 32px; font-weight: 700; line-height: 1.25; margin-bottom: 20px; color: var(--text-dark); letter-spacing: -0.5px; }
+.wizard-back { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-blue); font-size: 17px; font-weight: 500; cursor: pointer; background: transparent; border: none; padding: 10px 0; transition: var(--transition-fast); }
+.wizard-back:active { opacity: 0.6; }
+
+/* Grid Categories */
+.mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.mode-card { background: var(--bg-white); border: 2px solid transparent; box-shadow: var(--shadow-card); border-radius: 24px; padding: 16px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 12px; cursor: pointer; transition: var(--transition-fast); min-height: 110px; justify-content: space-between; }
+.icon-wrapper { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: var(--transition-fast); }
+.ic-1 { background: rgba(175,82,222,0.15); color: var(--accent-purple); }
+.ic-2 { background: rgba(0,122,255,0.15); color: var(--accent-blue); }
+.ic-3 { background: rgba(255,149,0,0.15); color: var(--accent-orange); }
+.ic-4 { background: rgba(52,199,89,0.15); color: var(--accent-green); }
+.mode-card h4 { font-size: 16px; font-weight: 600; color: var(--text-dark); }
+.mode-card:hover .icon-wrapper { transform: scale(1.05); }
+.mode-card:active { transform: scale(0.97); }
+.mode-card.active { border-color: var(--accent-blue); }
+.mode-card.active .icon-wrapper { background: var(--accent-blue); color: #fff; }
+
+.dashboard-bottom-card { background: transparent; padding: 0; margin: 25px 0; }
+.guidance-card { display: flex; align-items: center; gap: 16px; background: var(--bg-white); padding: 20px; border-radius: 24px; box-shadow: var(--shadow-card); }
+.g-icon { width: 50px; height: 50px; background: rgba(0,122,255,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--accent-blue); flex-shrink: 0; }
+.g-text { flex: 1; }
+.g-text h3 { font-size: 17px; font-weight: 600; color: var(--text-dark); margin-bottom: 2px; }
+.g-text p { font-size: 14px; font-weight: 400; color: var(--text-gray); }
+.g-btn { background: var(--border-color); color: var(--accent-blue); max-width: 100px; margin-top: 0; padding: 10px 14px; font-size: 14px; border-radius: 14px; }
+
+.motivation-banner { display: flex; align-items: flex-start; gap: 16px; background: var(--bg-white); padding: 20px; border-radius: 24px; box-shadow: var(--shadow-card); margin: 25px 0 120px; color: var(--text-dark); }
+.m-icon { width: 50px; height: 50px; background: rgba(255,149,0,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--accent-orange); flex-shrink: 0; }
+.m-text { flex: 1; }
+.m-text h3 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+.m-text p { font-size: 15px; font-weight: 400; color: var(--text-gray); line-height: 1.4; }
+
+/* List Cards */
+.block-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.list-card { background: var(--bg-white); border-radius: 24px; padding: 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-shadow: var(--shadow-card); border: 2px solid transparent; transition: var(--transition-fast); }
+.list-card:active { transform: scale(0.98); background: var(--hover-bg); }
+.list-card.selected { border-color: var(--accent-blue); }
+.list-card.locked-set { opacity: 0.6; }
+.list-card-left { display: flex; align-items: center; gap: 16px; }
+.list-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; }
+.icon-1 { background: rgba(255,45,85,0.15); color: var(--accent-red); }
+.icon-2 { background: rgba(0,122,255,0.15); color: var(--accent-blue); }
+.icon-3 { background: rgba(255,149,0,0.15); color: var(--accent-orange); }
+.list-card h4 { font-size: 17px; font-weight: 600; margin-bottom: 2px; color: var(--text-dark); }
+.list-card p { font-size: 14px; color: var(--text-gray); font-weight: 400; }
+.list-card i.fa-chevron-right { color: var(--text-light-gray); font-size: 14px; }
+
+.subject-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 35px; }
+.subject-pill { background: var(--bg-white); padding: 16px; border-radius: 20px; font-size: 15px; font-weight: 600; color: var(--text-dark); display: flex; align-items: center; justify-content: space-between; cursor: pointer; box-shadow: var(--shadow-card); border: 2px solid transparent; transition: var(--transition-fast); text-transform: capitalize;}
+.subject-pill:active { transform: scale(0.98); }
+input[type="checkbox"] { display: none; }
+input:checked + .subject-pill { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+input:checked + .subject-pill i.fa-circle-check { opacity: 1; transform: scale(1); color: white; } 
+.subject-pill i.fa-circle-check { opacity: 0; transform: scale(0.5); font-size: 20px; transition: var(--transition); }
+
+.lo-card { background: var(--bg-white); border-radius: 20px; padding: 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 2px solid transparent; box-shadow: var(--shadow-card); transition: var(--transition-fast); }
+.lo-card:active { transform: scale(0.98); }
+.lo-card h4 { font-size: 15px; font-weight: 500; color: var(--text-dark); margin: 0; line-height: 1.3; padding-right: 10px; }
+.lo-card i { opacity: 0; transform: scale(0.5); font-size: 20px; transition: var(--transition); color: white; }
+.lo-label input:checked + .lo-card { background: var(--accent-blue); border-color: var(--accent-blue); }
+.lo-label input:checked + .lo-card h4 { color: white; }
+.lo-label input:checked + .lo-card i { opacity: 1; transform: scale(1); }
+
+/* Modals */
+.paywall-modal, .avatar-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -40%) scale(0.95); width: 90%; max-width: 400px; background: var(--bg-light); z-index: 1001; border-radius: 30px; padding: 40px 24px; opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.25,0.8,0.25,1); box-shadow: var(--shadow-dock); text-align: center; color: var(--text-dark); }
+.paywall-modal.active, .avatar-modal.active { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+.paywall-icon { width: 80px; height: 80px; background: var(--accent-blue); border-radius: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 36px; color: white; margin-bottom: 24px; box-shadow: 0 10px 20px rgba(0,122,255,0.3); }
+.paywall-modal h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; letter-spacing: 0; }
+.paywall-list { text-align: left; margin: 24px 0; display: flex; flex-direction: column; gap: 16px; }
+.paywall-list div { display: flex; align-items: flex-start; gap: 12px; font-size: 15px; font-weight: 500; color: var(--text-dark); line-height: 1.4; }
+.paywall-list i { color: var(--accent-blue); font-size: 20px; margin-top: 2px; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; opacity: 0; pointer-events: none; transition: var(--transition); }
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.avatar-grid-modal { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 25px; }
+.avatar-option { background: var(--bg-white); border-radius: 50%; text-align: center; cursor: pointer; font-size: 40px; transition: var(--transition-fast); box-shadow: var(--shadow-card); display: flex; align-items: center; justify-content: center; width: 80px; height: 80px; margin: 0 auto; border: 3px solid transparent; }
+.avatar-option.selected { border-color: var(--accent-blue); }
+
+/* Quiz Elements */
+.quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; position: relative; z-index: 2; padding-top: 20px; }
+.close-quiz { background: transparent; border: none; color: var(--accent-blue); font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 8px 0; width: auto; height: auto; }
+.timer-box { font-size: 15px; font-weight: 600; color: var(--text-dark); background: var(--border-color); padding: 8px 12px; border-radius: 12px; display: none; align-items: center; gap: 6px; }
+.timer-box.danger { color: var(--accent-red); background: rgba(255,45,85,0.15); }
+.progress-bar { width: 100%; height: 8px; background: var(--border-color); border-radius: 4px; margin-bottom: 25px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent-blue); width: 0%; transition: width 0.4s ease-out; border-radius: 4px; }
+
+.q-diff-badge { display: inline-block; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 0; letter-spacing: 0.5px; }
+.diff-Easy { background: rgba(52,199,89,0.15); color: var(--accent-green); }
+.diff-Moderate { background: rgba(255,149,0,0.15); color: var(--accent-orange); }
+.diff-Hard { background: rgba(255,45,85,0.15); color: var(--accent-red); }
+.tag-lo { background: var(--border-color); color: var(--text-dark); }
+.tag-source { background: rgba(175,82,222,0.15); color: var(--accent-purple); }
+
+select.jumper-select { background: var(--border-color); color: var(--accent-blue); border: none; border-radius: 10px; font-weight: 500; font-size: 14px; padding: 6px 10px; outline: none; cursor: pointer; }
+select.jumper-select-fc { background: transparent; color: var(--accent-blue); border: none; font-weight: 600; font-size: 17px; outline: none; text-align: center; cursor: pointer; appearance: none; -webkit-appearance: none; }
+
+.q-text { font-size: 22px; font-weight: 600; line-height: 1.35; margin-bottom: 24px; color: var(--text-dark); text-align: left; }
+
+.opt-btn { width: 100%; padding: 18px 20px; margin-bottom: 12px; background: var(--bg-white); border: 1px solid var(--border-color); border-radius: 20px; text-align: left; color: var(--text-dark); font-size: 16px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-card); transition: var(--transition-fast); }
+.opt-btn:active { background: var(--hover-bg); transform: scale(0.98); }
+.opt-btn.correct { background: rgba(52,199,89,0.1); border-color: var(--accent-green); color: var(--text-dark); pointer-events: none; box-shadow: none; }
+.opt-btn.correct::after { content: '\f058'; font-family: 'FontAwesome'; color: var(--accent-green); font-size: 22px; } 
+.opt-btn.wrong { background: rgba(255,45,85,0.1); border-color: var(--accent-red); color: var(--text-dark); pointer-events: none; box-shadow: none;}
+.opt-btn.wrong::after { content: '\f057'; font-family: 'FontAwesome'; color: var(--accent-red); font-size: 22px; }
+.opt-btn.mock-selected { background: rgba(0,122,255,0.1); color: var(--accent-blue); border-color: var(--accent-blue); pointer-events: none; box-shadow: none;}
+
+.exp-box { display: none; padding: 16px; background: var(--bg-white); border-left: 4px solid var(--accent-blue); border-radius: 20px; margin-top: 20px; font-size: 15px; line-height: 1.4; color: var(--text-dark); font-weight: 400; box-shadow: var(--shadow-card); }
+
+.score-display { text-align: center; margin-bottom: 30px; padding: 40px 20px; background: var(--bg-white); border-radius: 30px; box-shadow: var(--shadow-card); }
+.score-display p { color: var(--text-gray); font-weight: 600; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; margin-bottom: 8px;}
+.score-display h1 { font-size: 64px; color: var(--text-dark); font-weight: 700; letter-spacing: -1px; }
+
+.fc-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.fc { height: 260px; perspective: 1000px; cursor: pointer; width: 100%; max-width: 400px; margin: 0 auto;}
+.fc-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s cubic-bezier(0.4,0,0.2,1); transform-style: preserve-3d; }
+.fc.flipped .fc-inner { transform: rotateY(180deg); }
+.fc-front, .fc-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 30px; padding: 30px 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--bg-white); box-shadow: var(--shadow-card); border: 1px solid var(--border-color); }
+.fc-front i { font-size: 48px; color: var(--accent-blue); margin-bottom: 20px; }
+.fc-front h4 { font-size: 18px; font-weight: 600; line-height: 1.4; color: var(--text-dark); }
+.fc-back { transform: rotateY(180deg); }
+.fc-back h4 { font-size: 18px; font-weight: 600; margin-bottom: 12px; color: var(--accent-blue); }
+.fc-back p { font-size: 15px; color: var(--text-dark); line-height: 1.4; font-weight: 400; }
+
+.toggle-switch { display: flex; align-items: center; gap: 8px; color: var(--text-dark); font-weight: 500; font-size: 15px; cursor: pointer; }
+.toggle-switch input { accent-color: var(--accent-green); width: 20px; height: 20px; cursor: pointer; }
+.btn-nav-grp { display: flex; gap: 12px; margin-top: 20px; width: 100%; }
+.btn-nav-grp .btn { flex: 1; margin-top: 0; }
+.btn-nav-grp .btn-prev { background: var(--border-color); color: var(--accent-blue); }
+
+@media (max-width: 480px) {
+    .curved-header { padding: 50px 20px 10px; }
+    .page-wrapper { padding: 0 20px 140px; }
+    .greeting h1 { font-size: 32px; }
+    .hero-title { font-size: 26px; margin-bottom: 20px; }
+    .mode-card { padding: 14px; min-height: 100px; border-radius: 20px; }
+    .mode-card h4 { font-size: 15px; }
+    .icon-wrapper { width: 32px; height: 32px; font-size: 16px; }
+    .q-text { font-size: 19px; }
+    .opt-btn { padding: 16px; font-size: 15px; border-radius: 16px; }
+    .fc { height: 280px; }
+    .fc-front i { font-size: 40px; }
+    .avatar-option { width: 64px; height: 64px; font-size: 32px; }
+}
+
+@media (min-width: 768px) {
+    .app-container { flex-direction: row; } 
+    .sidebar-nav { display: flex; } 
+    .bottom-nav { display: none !important; } 
+    .main-content { padding: 0; } 
+    .page-wrapper { padding: 40px 50px 100px; } 
+    .curved-header { padding: 60px 50px 20px; }
+    .dashboard-bottom-card { margin: 30px auto; padding: 0; } 
+    .motivation-banner { margin: 0 auto 100px; }
+    .mode-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } 
+    .block-grid { grid-template-columns: repeat(3, 1fr); gap: 20px;}
+    .subject-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } 
+    .fc-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div id="toast-container" class="toast-container"></div>
+
+<div class="app-container">
+    <div class="sidebar-nav" id="sidebar-nav">
+        <div class="logo">MOD<span>MED</span></div>
+        <div class="nav-item active" data-nav="dashboard" onclick="navTo('dashboard')"><i class="fa-solid fa-house"></i> Summary</div>
+        <div class="nav-item" data-nav="exam" onclick="navTo('exam')"><i class="fa-solid fa-file-signature"></i> Assessments</div>
+        <div class="nav-item" data-nav="viva" onclick="navTo('viva')"><i class="fa-solid fa-comments"></i> Viva Simulator</div>
+        <div class="nav-item theme-toggle-btn" style="margin-top:auto;" onclick="toggleTheme()"><i class="fa-solid fa-moon theme-icon-el"></i> Theme</div>
+        <div class="nav-item" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</div>
+    </div>
+
+    <div class="notif-overlay" id="notif-overlay" onclick="closeModals()"></div>
+    <div class="notif-panel" id="notif-panel">
+        <div class="notif-header"><h3>Notifications</h3><i class="fa-solid fa-xmark close-btn" onclick="toggleNotif()"></i></div>
+        <div id="notif-container"></div>
+    </div>
+
+    <!-- AVATAR MODAL -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModals()"></div>
+    <div class="avatar-modal" id="avatar-modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <h3 style="font-size: 20px; font-weight: 700;">Select Profile</h3>
+            <i class="fa-solid fa-xmark" style="color:var(--text-gray); font-size:20px; cursor:pointer;" onclick="closeModals()"></i>
+        </div>
+        <div class="avatar-grid-modal">
+            <div class="avatar-option" onclick="setAvatar('👨‍⚕️', this)">👨‍⚕️</div><div class="avatar-option" onclick="setAvatar('👩‍⚕️', this)">👩‍⚕️</div>
+            <div class="avatar-option" onclick="setAvatar('👨🏽‍⚕️', this)">👨🏽‍⚕️</div><div class="avatar-option" onclick="setAvatar('👩🏽‍⚕️', this)">👩🏽‍⚕️</div>
+        </div>
+    </div>
+
+    <!-- PAYWALL MODAL -->
+    <div class="paywall-modal" id="paywall-modal">
+        <div class="paywall-icon"><i class="fa-solid fa-lock-open"></i></div>
+        <h2>Unlock PRO</h2>
+        <p style="color:var(--text-gray); font-weight:400; font-size:15px;">Upgrade to Pro to master medicine without limits.</p>
+        <div class="paywall-list">
+            <div><i class="fa-solid fa-circle-check"></i> Access to all blocks, modules, & MCQs.</div>
+            <div><i class="fa-solid fa-circle-check"></i> AI Viva Simulator with past questions.</div>
+            <div><i class="fa-solid fa-circle-check"></i> 5 monthly 1-on-1 discussion sessions.</div>
+            <div><i class="fa-solid fa-circle-check"></i> All past papers & USMLE styled MCQs.</div>
+        </div>
+        <h1 style="color:var(--text-dark); margin-bottom:20px; font-weight:700; font-size:28px;">RS 700 <span style="font-size:16px; color:var(--text-gray);">/ year</span></h1>
+        <button class="btn" onclick="navToPayment()">Subscribe Now</button>
+        <p style="margin-top:20px; color:var(--accent-blue); font-weight:500; font-size:15px; cursor:pointer;" onclick="closeModals()">Maybe Later</p>
+    </div>
+
+    <div class="main-content no-scrollbar" id="main-scroll-area">
+        
+        <!-- LOGIN VIEW -->
+        <div id="view-login" class="page active">
+            <div class="login-wrapper">
+                <div class="login-top"><i class="fa-solid fa-heart-pulse"></i><h1 class="login-logo">MOD<span>MED</span></h1></div>
+                <div class="login-bottom">
+                    <p>Let's connect and master medicine together.</p>
+                    <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="loginUser" class="app-input" placeholder="Username"></div>
+                    <div class="input-group" style="margin-bottom:24px;"><i class="fa-solid fa-lock"></i><input type="password" id="loginPass" class="app-input" placeholder="Password"></div>
+                    <button class="btn" onclick="handleLogin()">Log In</button>
+                    
+                    <div style="width:100%; max-width:400px; display:flex; gap:12px; margin-top:10px;">
+                        <button class="btn btn-alt" style="flex:1; margin-top: 0;" onclick="prepRegister('free')">Sign Up Free</button>
+                        <button class="btn btn-alt" style="flex:1; margin-top: 0; background:rgba(0,122,255,0.1); border-color:transparent;" onclick="prepRegister('pro')">Subscribe</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REGISTER VIEW -->
+        <div id="view-register" class="page">
+            <div class="login-wrapper">
+                <div class="login-top" style="height:20%;"><h1 class="login-logo" style="font-size:32px;">Create Account</h1></div>
+                <div class="login-bottom" style="padding-top:20px;">
+                    <div class="input-group"><i class="fa-solid fa-id-card"></i><input type="text" id="r-name" class="app-input" placeholder="Full Name"></div>
+                    <div class="input-group"><i class="fa-solid fa-graduation-cap"></i>
+                        <select id="r-class" class="app-input">
+                            <option value="">Select Class / Year</option><option value="MBBS 1st Year">MBBS 1st Year</option><option value="MBBS 2nd Year">MBBS 2nd Year</option>
+                            <option value="MBBS 3rd Year">MBBS 3rd Year</option><option value="MBBS 4th Year">MBBS 4th Year</option><option value="MBBS 5th Year">MBBS 5th Year</option>
+                            <option value="BDS 1st Year">BDS 1st Year</option><option value="BDS 2nd Year">BDS 2nd Year</option><option value="BDS 3rd Year">BDS 3rd Year</option><option value="BDS 4th Year">BDS 4th Year</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><i class="fa-solid fa-building-columns"></i><input type="text" id="r-college" class="app-input" placeholder="College Name"></div>
+                    <div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="r-user" class="app-input" placeholder="Choose Username"></div>
+                    <div class="input-group" style="margin-bottom:20px;"><i class="fa-solid fa-lock"></i><input type="password" id="r-pass" class="app-input" placeholder="Create Password"></div>
+                    
+                    <button class="btn" id="r-btn" onclick="executeRegister()">Continue</button>
+                    <button class="btn btn-alt" onclick="navTo('login')" style="background:transparent; border-color:transparent;">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAYMENT VIEW -->
+        <div id="view-payment" class="page">
+            <div class="curved-header" style="text-align:center; padding-top:80px;">
+                <h1 style="font-size:32px; font-weight:700; letter-spacing:-0.5px;">Pro Subscription</h1>
+                <p style="color:var(--text-gray); font-size:16px; margin-top:8px; font-weight:400;">RS 700 / Year for full access</p>
+            </div>
+            <div class="page-wrapper">
+                <div class="dashboard-bottom-card" style="margin: 0; text-align: center;">
+                    <div class="app-input" style="padding:30px 20px; margin-bottom:24px; box-shadow:var(--shadow-card);">
+                        <h4 style="color:var(--text-gray); font-size:13px; text-transform:uppercase; margin-bottom:8px; font-weight:600; letter-spacing: 0.5px;">Send Payment To</h4>
+                        <h2 style="color:var(--text-dark); font-size:22px; font-weight:700; margin-bottom:16px;">MUHAMMAD HASNAIN</h2>
+                        <div style="display:flex; align-items:center; justify-content:center; gap:12px;">
+                            <h1 style="color:var(--accent-blue); font-size:32px; font-weight:700; letter-spacing:1px;" id="pay-number">03096554421</h1>
+                            <div onclick="copyNumber()" style="background:rgba(0,122,255,0.15); color:var(--accent-blue); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: 0.2s;"><i class="fa-regular fa-copy"></i></div>
+                        </div>
+                        <p style="color:var(--text-gray); font-size:14px; font-weight:500; margin-top:16px;">Via Easypaisa / Jazzcash / Nayapay</p>
+                    </div>
+
+                    <div class="input-group" style="margin:0 auto 20px;"><i class="fa-solid fa-receipt"></i><input type="text" id="p-receipt" class="app-input" placeholder="Receipt / Trx Number"></div>
+                    <button class="btn" style="margin: 0 auto; width: 100%;" onclick="submitPayment()">Confirm Subscription</button>
+                    <button class="btn btn-alt" style="margin: 16px auto 0; width: 100%; background: transparent; border-color:transparent;" onclick="navTo('dashboard')">Skip & Browse Free Mode</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD (SUMMARY) -->
+        <div id="view-dashboard" class="page">
+            <div class="curved-header">
+                <div class="header">
+                    <div class="user-info">
+                        <div class="greeting">
+                            <p><span id="greeting-name">Dr. Name</span> <span id="plan-badge" class="plan-badge">FREE</span></p>
+                            <h1>Summary</h1>
+                        </div>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <div class="top-action-btn" onclick="toggleTheme()"><i class="fa-solid fa-moon theme-icon-el"></i></div>
+                            <div class="top-action-btn" onclick="toggleNotif()"><i class="fa-solid fa-bell"></i></div>
+                            <div class="avatar" id="user-avatar" onclick="openAvatarModal()">👨‍⚕️</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mode-grid">
+                    <div class="mode-card" onclick="selectMode('flashcards', this)"><div class="icon-wrapper ic-1"><i class="fa-solid fa-layer-group"></i></div><h4>Flashcards</h4></div>
+                    <div class="mode-card active" onclick="selectMode('practice', this)"><div class="icon-wrapper ic-2"><i class="fa-solid fa-stethoscope"></i></div><h4>Practice</h4></div>
+                    <div class="mode-card" onclick="selectMode('past', this)"><div class="icon-wrapper ic-3"><i class="fa-solid fa-clock-rotate-left"></i></div><h4>Mistakes</h4></div>
+                    <div class="mode-card" onclick="selectMode('mock', this)"><div class="icon-wrapper ic-4"><i class="fa-solid fa-stopwatch"></i></div><h4>Mock Exam</h4></div>
+                </div>
+            </div>
+            
+            <div class="page-wrapper dashboard-bottom-card">
+                <div class="guidance-card">
+                    <div class="g-icon"><i class="fa-solid fa-user-doctor"></i></div>
+                    <div class="g-text"><h3>Get 1-on-1 Guidance</h3><p>Master concepts with an expert.</p></div>
+                    <button class="btn g-btn" onclick="checkProAction()">Book</button>
+                </div>
+
+                <div class="motivation-banner">
+                    <div class="m-icon"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="m-text">
+                        <h3>Daily Motivation</h3>
+                        <p id="motivation-text">"The harder you work for something, the greater you'll feel when you achieve it. Keep pushing!"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXAM & VIVA VIEWS -->
+        <div id="view-exam" class="page">
+            <div class="curved-header">
+                <div class="header">
+                    <div class="user-info">
+                        <div class="greeting">
+                            <p>Test your knowledge</p>
+                            <h1>Assessments</h1>
+                        </div>
+                        <div class="avatar" style="background:rgba(0,122,255,0.15); color:var(--accent-blue);"><i class="fa-solid fa-file-signature"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-wrapper">
+                <div class="block-grid">
+                    <div class="list-card" onclick="checkProAction('mock')">
+                        <div class="list-card-left"><div class="list-icon icon-2"><i class="fa-solid fa-stopwatch"></i></div><div><h4>Start Mock Exam</h4><p>Timed strict simulation</p></div></div><i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                    <div class="list-card" onclick="checkProAction('past')">
+                        <div class="list-card-left"><div class="list-icon icon-3"><i class="fa-solid fa-clock-rotate-left"></i></div><div><h4>Past Papers</h4><p>Review previous years</p></div></div><i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-viva" class="page">
+            <div class="curved-header">
+                <div class="header">
+                    <div class="user-info">
+                        <div class="greeting">
+                            <p>AI Examiner</p>
+                            <h1>Viva Simulator</h1>
+                        </div>
+                        <div class="avatar" style="background:rgba(175,82,222,0.15); color:var(--accent-purple);"><i class="fa-solid fa-comments"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-wrapper">
+                <div class="dashboard-bottom-card" style="margin: 0; text-align: center; background: var(--bg-white); padding: 40px 20px; border-radius: 30px; box-shadow: var(--shadow-card); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+                    <div class="g-icon" style="margin: 0 auto 24px; width: 80px; height: 80px; font-size: 36px; background:rgba(175,82,222,0.15); color:var(--accent-purple);"><i class="fa-solid fa-microphone"></i></div>
+                    <h3 style="font-size: 22px; font-weight: 700; color: var(--text-dark); margin-bottom: 8px;">Start AI Viva</h3>
+                    <p style="font-size: 15px; color: var(--text-gray); margin-bottom: 30px;">Our AI will ask you questions based on your syllabus verbally.</p>
+                    <button class="btn" style="margin: 0 auto; max-width: 250px;" onclick="checkProAction('viva')">Allow Mic & Start</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DYNAMIC WIZARD STEPS -->
+        <div id="view-step-block" class="page">
+            <div class="curved-header">
+                <div class="wizard-header"><div class="wizard-back" onclick="navTo('dashboard')"><i class="fa-solid fa-chevron-left"></i> Summary</div></div>
+                <h2 class="hero-title" style="margin:0;">Select Block</h2>
+            </div>
+            <div class="page-wrapper"><div class="block-grid" id="dynamic-blocks-container"></div></div>
+        </div>
+
+        <div id="view-step-module" class="page">
+            <div class="curved-header">
+                <div class="wizard-header"><div class="wizard-back" onclick="navTo('step-block')"><i class="fa-solid fa-chevron-left"></i> Back</div></div>
+                <h2 class="hero-title" style="margin:0;">Select Module</h2>
+            </div>
+            <div class="page-wrapper"><div class="block-grid" id="dynamic-modules-container"></div></div>
+        </div>
+
+        <div id="view-step-subject" class="page">
+            <div class="curved-header">
+                <div class="wizard-header"><div class="wizard-back" onclick="navTo('step-module')"><i class="fa-solid fa-chevron-left"></i> Back</div></div>
+                <h2 class="hero-title" style="margin:0;">Select Subjects</h2>
+            </div>
+            <div class="page-wrapper">
+                <div class="subject-grid" id="dynamic-subjects-container"></div>
+                <button class="btn" style="max-width:100%; margin-top: 20px;" onclick="goToLO()">Continue</button>
+            </div>
+        </div>
+
+        <div id="view-step-lo" class="page">
+            <div class="curved-header">
+                <div class="wizard-header"><div class="wizard-back" onclick="navTo('step-subject')"><i class="fa-solid fa-chevron-left"></i> Back</div></div>
+                <h2 class="hero-title" style="margin:0;">Learning Objectives</h2>
+            </div>
+            <div class="page-wrapper">
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:20px;">
+                    <button class="btn btn-alt" style="margin:0; padding:10px 16px; font-size:14px; width:auto; border-radius: 12px; background:var(--border-color); border:none;" onclick="selectAllLOs()">Select All</button>
+                    <button class="btn btn-alt" style="margin:0; padding:10px 16px; font-size:14px; width:auto; border-radius: 12px; background:transparent; border:none;" onclick="deselectAllLOs()">Clear</button>
+                    
+                    <button class="btn" style="margin:0 0 0 auto; max-width:120px; padding:12px 20px; font-size:15px; border-radius:14px;" onclick="prepSessionConfig()">Next</button>
+                </div>
+                <div id="lo-container" style="display:flex; flex-direction:column; gap:12px; margin-bottom:35px;"></div>
+            </div>
+        </div>
+
+        <!-- SESSION CONFIGURATION & SETS PAGE -->
+        <div id="view-step-config" class="page">
+            <div class="curved-header">
+                <div class="wizard-header"><div class="wizard-back" onclick="navTo('step-lo')"><i class="fa-solid fa-chevron-left"></i> Back</div></div>
+                <h2 class="hero-title" style="margin:0;">Session Setup</h2>
+                <p style="color:var(--text-gray); font-weight:400; margin-top:4px;">Select difficulty and a set to begin.</p>
+            </div>
+            <div class="page-wrapper">
+                <div class="dashboard-bottom-card" style="margin:0;">
+                    <h4 style="margin-bottom:12px; font-size:16px; font-weight:600; color:var(--text-dark);">Difficulty Level</h4>
+                    <div class="input-group" style="max-width:100%; margin-bottom:30px;">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <select id="config-diff" class="app-input" onchange="renderSets()">
+                            <option value="Mix">All Difficulties (Mix)</option>
+                            <option value="Easy">Easy</option>
+                            <option value="Moderate">Moderate</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                    </div>
+
+                    <h4 style="margin-bottom:12px; font-size:16px; font-weight:600; color:var(--text-dark);">Available Sets <span style="color:var(--text-gray); font-size:13px; font-weight:400;">(20 MCQs/Set)</span></h4>
+                    <div id="sets-container" style="display:flex; flex-direction:column; gap:12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUIZ VIEW & RESULTS -->
+        <div id="view-quiz" class="page">
+            <div class="curved-header" style="padding-top: 50px;">
+                <div class="quiz-header">
+                    <div style="display:flex; gap:16px;">
+                        <div class="close-quiz" onclick="navTo('step-config')" title="Back to Sets"><i class="fa-solid fa-xmark"></i></div>
+                        <div class="close-quiz" onclick="restartQuiz()" title="Restart Quiz"><i class="fa-solid fa-rotate-right"></i></div>
+                    </div>
+                    <h3 style="font-size:16px; font-weight:600;" id="quiz-title-text">Practice</h3>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <label class="toggle-switch" style="background:var(--border-color); padding:4px 10px; border-radius:10px;"><input type="checkbox" id="quizRandom" onchange="shuffleSession()"> Rand</label>
+                        <select id="q-jumper" class="jumper-select" onchange="jumpToQ(this.value)"></select>
+                    </div>
+                </div>
+                <div class="timer-box" id="quiz-timer"><i class="fa-solid fa-stopwatch"></i> <span id="time-display">00:00</span></div>
+                <div class="progress-bar"><div class="progress-fill" id="quiz-progress"></div></div>
+            </div>
+            <div class="page-wrapper">
+                
+                <div id="q-tags-container" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+                    <span id="q-diff-badge" class="q-diff-badge diff-Moderate">MODERATE</span>
+                    <span id="q-source-badge" class="q-diff-badge tag-source" style="display:none;">SOURCE</span>
+                    <span id="q-lo-badge" class="q-diff-badge tag-lo">LO NAME</span>
+                </div>
+                
+                <h2 class="q-text" id="q-text">Loading clinical vignette...</h2>
+                <div id="options-container"></div>
+                <div class="exp-box" id="exp-box">
+                    <strong style="color:var(--accent-blue); font-size:15px; display:flex; align-items:center; gap:8px; margin-bottom: 6px;"><i class="fa-solid fa-lightbulb"></i> Core Concept</strong>
+                    <span id="exp-text"></span>
+                </div>
+                <div class="btn-nav-grp">
+                    <button class="btn btn-prev" onclick="prevQuestion()"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+                    <button class="btn btn-prev" id="btn-skip" onclick="skipQuestion()">Skip <i class="fa-solid fa-forward-step"></i></button>
+                    <button class="btn" id="btn-next" style="display:none;" onclick="nextQuestion()">Next <i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-flashcards" class="page">
+            <div class="curved-header" style="padding-top: 50px;">
+                <div class="quiz-header" style="margin-bottom:0;">
+                    <div style="display:flex; gap:16px;">
+                        <div class="close-quiz" onclick="navTo('step-config')" title="Back to Sets"><i class="fa-solid fa-xmark"></i></div>
+                        <div class="close-quiz" onclick="restartQuiz()" title="Restart Flashcards"><i class="fa-solid fa-rotate-right"></i></div>
+                    </div>
+                    <h3 style="font-size:18px; font-weight:700;">Review Deck</h3>
+                    <label class="toggle-switch" style="background:var(--border-color); padding:4px 10px; border-radius:10px; font-size: 13px;"><input type="checkbox" id="fcRandom" onchange="shuffleSession()"> Rand</label>
+                </div>
+            </div>
+            <div class="page-wrapper" style="padding-top: 30px;">
+                <div id="fc-single-container" style="display:flex; justify-content:center; margin-bottom:30px;"></div>
+                <div class="btn-nav-grp" style="justify-content:center;">
+                    <button class="btn btn-prev" style="width:auto; padding:20px 30px; border-radius: 16px;" onclick="prevFC()"><i class="fa-solid fa-chevron-left"></i></button>
+                    <div style="display:flex; align-items:center; justify-content:center; padding:0 15px;">
+                        <select id="fc-jumper" class="jumper-select-fc" onchange="jumpToFC(this.value)"></select>
+                    </div>
+                    <button class="btn" style="width:auto; padding:20px 30px; border-radius: 16px;" onclick="nextFC()"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-results" class="page">
+            <div class="page-wrapper" style="padding-top:60px;">
+                <div class="score-display">
+                    <p>Session Complete</p>
+                    <h1 id="score-text">0/0</h1>
+                </div>
+                <div id="flashcards-section" style="display:none;">
+                    <div style="margin-top:40px; margin-bottom:10px;"><h3 style="font-size:24px; color:var(--text-dark); font-weight:700;">Review Mistakes</h3></div>
+                    <p style="font-size:15px; color:var(--text-gray); margin-bottom:24px; font-weight:400;">Tap cards to reveal answers.</p>
+                    <div class="fc-grid" id="fc-container"></div>
+                </div>
+                <button class="btn" style="margin-top:40px; width: 100%;" onclick="navTo('dashboard')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FLOATING BOTTOM NAV (ISLAND DOCK) -->
+    <div class="bottom-nav" id="bottom-nav" style="display:none;">
+        <div class="nav-item active" data-nav="dashboard" onclick="navTo('dashboard')"><i class="fa-solid fa-square-poll-vertical"></i><span>Summary</span></div>
+        <div class="nav-item" data-nav="exam" onclick="navTo('exam')"><i class="fa-solid fa-file-signature"></i><span>Exams</span></div>
+        <div class="nav-item" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></div>
+    </div>
+</div>
+
+<script>
+// THEME TOGGLE LOGIC
+function toggleTheme() {
+    const body = document.documentElement;
+    if (body.getAttribute('data-theme') === 'dark') {
+        body.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+        updateThemeIcons('light');
+    } else {
+        body.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+        updateThemeIcons('dark');
+    }
+}
+function updateThemeIcons(theme) {
+    document.querySelectorAll('.theme-icon-el').forEach(icon => {
+        icon.className = theme === 'dark' ? 'fa-solid fa-sun theme-icon-el' : 'fa-solid fa-moon theme-icon-el';
+    });
+}
+window.addEventListener('DOMContentLoaded', () => {
+    if(localStorage.getItem('theme') === 'dark') updateThemeIcons('dark');
+});
+
+// HARDCODED SYLLABUS
+const HARDCODED_SYLLABUS = {
+    "Block_1": {
+        "Foundation": {
+            "pharmacology": [ "F-Ph-001. Pharmacokinetics", "F-Ph-002. Pharmacodynamics", "F-Ph-003. Autonomic system" ],
+            "anatomy": [ "F-A-001. Introduction to general anatomy", "F-A-002. Bones (osteology)", "F-A-003. Cartilage (chondrology)", "F-A-004. Joints (arthrology)", "F-A-005. Integumentary system", "F-A-006. Muscle tissue (myology)", "F-A-007. Vascular system (angiology)", "F-A-008. Nervous tissue (neurology)", "F-A-009. Imaging in anatomy" ],
+            "embryology": [ "F-A-010. Cell division and chromosomal abnormalities", "F-A-011. Gametogenesis (spermatogenesis)", "F-A-012. Gametogenesis (oogenesis)", "F-A-013. Significance of arrested oocytes", "F-A-014. Oogenesis vs spermatogenesis", "F-A-015. Female reproductive cycle", "F-A-016. Transportation of gametes", "F-A-017. Fertilisation", "F-A-018. Contraception", "F-A-019. Infertility and assisted reproductive techniques", "F-A-020. Cleavage, blastocyst formation", "F-A-021. Implantation week 2 of development", "F-A-022. Utero-placental circulation", "F-A-023. Gastrulation", "F-A-024. Formation of notochord", "F-A-025. Derivatives of ectoderm", "F-A-026. Mesodermal derivatives", "F-A-027. Early development of CVS", "F-A-028. Folding of embryo", "F-A-029. Germ layer derivatives", "F-A-030. Folding of embryo (embryonic period)", "F-A-031. Fetal period", "F-A-032. Fetal status", "F-A-033. Placenta", "F-A-034. Fetal membranes", "F-A-035. Multiple pregnancies", "F-A-036. Prenatal diagnosis and fetal therapy", "F-A-037. Teratogenicity" ],
+            "histology": [ "F-A-038. Introduction to microscopy and basic staining techniques", "F-A-039. Cell membrane", "F-A-040. Cell organelles", "F-A-041. Cell nucleus", "F-A-042. Epithelium", "F-A-043. Connective tissue" ],
+            "community_medicine": [ "F-CM-001. Concept of health", "F-CM-002. Positive health dimensions, health determinants", "F-CM-003. Health indicators", "F-CM-004. Disease causation", "F-CM-005. Disease prevention" ],
+            "physiology": [ "F-P-001. Cell biology", "F-P-002. Blood", "F-P-003. Red blood cells", "F-P-004. Hemoglobin", "F-P-005. White blood cells", "F-P-006. Blood types", "F-P-007. Autonomic nervous system" ],
+            "biochemistry": [ "F-B-001. Structure of cell", "F-B-002. Cell membrane", "F-B-003. Signal transduction", "F-B-004. Subcellular organelles", "F-B-005. Chemistry of purines and pyrimidines", "F-B-006. DNA", "F-B-007. RNA", "F-B-008. Nucleotides", "F-B-009. Chromosomes", "F-B-010. Enzymes", "F-B-011. Amino acids", "F-B-012. Proteins", "F-B-013. Plasma proteins", "F-B-014. Immunoglobulins" ],
+            "behavioural_sciences": [ "F-BhS-001. Biological basis of behaviour", "F-BhS-002. Psychological disorders", "F-BhS-003. Psychology and disease", "F-BhS-004. Behavioural factors and pharmacological treatment", "F-BhS-005. Palliative care", "F-BhS-006. Stress" ],
+            "aging": [ "F-Ag-001. Process of aging" ],
+            "pathology": [ "F-Pa-001. Cell injury", "F-Pa-002. Introduction to microorganisms", "F-Pa-003. Sterilisation and disinfection" ]
+        },
+        "H_&_L": {
+            "pharmacology": [ "HL-Ph-001. Anemia" ],
+            "anatomy": [ "HL-A-001. Hematopoietic and lymphoid tissue" ],
+            "embryology": [ "HL-A-002. Developmental anatomy of spleen" ],
+            "community_medicine": [ "HL-CM-001. Anemia", "HL-CM-002. Communicable diseases", "HL-CM-003. Genetic diseases" ],
+            "physiology": [ "HL-P-001. Anemia", "HL-P-002. Polycythemia", "HL-P-003. Hemostasis", "HL-P-004. Platelets", "HL-P-005. Coagulation factors", "HL-P-006. Coagulation disorders", "HL-P-007. Immunity", "HL-P-008. Tolerance", "HL-P-009. Immunization", "HL-P-010. Blood group incompatibility", "HL-P-011. Blood mismatch & transfusion", "HL-P-012. Transplantation of tissues" ],
+            "biochemistry": [ "HL-B-001. Hemoglobin and its types/ RBCs", "HL-B-002. Hemoglobinopathies/ RBCs/ Hemostasis", "HL-B-003. Iron metabolism/ RBCs", "HL-B-004. Heme degradation/ RBCs", "HL-B-005. Hyperbilirubinemias/ RBCs/ Blood groups", "HL-B-006. Genetics" ],
+            "behavioural_sciences": [ "HL-BhS-001. Counselling, informational care", "HL-BhS-002. Personal, psychosocial and vocational issues" ],
+            "aging": [ "HL-Ag-001. Platelet rich plasma therapy", "HL-Ag-002. Glutathione" ],
+            "pathology": [ "HL-Pa-001. Blood cells, platelets and blood group" ]
+        }
+    },
+    "Block_2": {},
+    "Block_3": {}
+};
+
+const BIN_ID = '69b48ec2c3097a1dd52292b8'; 
+const MCQ_BIN_ID = '69b67029c3097a1dd528115f'; 
+const API_KEY = '$2a$10$tv.7GXB8WFGz7Fn6n2xWsOJ21d8yUMWZ0H4JetX4D1e.lzoww0rH.';
+
+let appData = { users:[], notifications:[], mcqs:[], flashcards:[], motivation:"Keep pushing! You got this." };
+let currentUser=null, currentAvatar="👨‍⚕️", registerMode='free';
+let currentQ=0, score=0, wrongList=[], userAnswers={}, studyMode='practice', studyBlock='', studyModule='', timerInterval, timeRemaining=0, sessionData=[];
+let currentPool = []; 
+const scrollArea = document.getElementById('main-scroll-area');
+const dynColors = ['icon-1', 'icon-2', 'icon-3'];
+const dynIcons = ['fa-dna', 'fa-bone', 'fa-heart-pulse', 'fa-brain', 'fa-lungs', 'fa-microscope'];
+
+// TOAST NOTIFICATION
+function showToast(message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<i class="fa-solid fa-circle-info"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.animation = 'toastOut 0.3s forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+// MATCHING ENGINE
+function isLOMatch(syllabusStr, dbMcq) {
+    if(!syllabusStr || !dbMcq) return false;
+    let cleanSyllabus = syllabusStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
+    let cleanDb = (dbMcq.lo || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); 
+    if(cleanSyllabus === cleanDb) return true;
+    if(cleanDb.length > 4 && cleanSyllabus.includes(cleanDb)) return true;
+    if(cleanSyllabus.length > 4 && cleanDb.includes(cleanSyllabus)) return true;
+    const codeRegex = /(f|hl)[a-z]*\d{3}/i; 
+    let sylMatch = cleanSyllabus.match(codeRegex);
+    let dbMatch = cleanDb.match(codeRegex);
+    if(sylMatch && dbMatch && sylMatch[0] === dbMatch[0]) return true;
+    return false;
+}
+
+function getLOName(loCode) {
+    let cleanCode = (loCode || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    for (let block in HARDCODED_SYLLABUS) {
+        for (let mod in HARDCODED_SYLLABUS[block]) {
+            for (let sub in HARDCODED_SYLLABUS[block][mod]) {
+                for(let str of HARDCODED_SYLLABUS[block][mod][sub]) {
+                    let id = str.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    if(id.includes(cleanCode) || cleanCode.includes(id)) { return str; }
+                }
+            }
+        }
+    }
+    return loCode; 
+}
+
+// INIT
+window.onload = () => {
+    const localDb = localStorage.getItem('modmed_db');
+    if(localDb) { appData = JSON.parse(localDb); renderDynamicSyllabus(); }
+    
+    const savedSession = localStorage.getItem('modmed_session');
+    if(savedSession) { 
+        currentUser = JSON.parse(savedSession); currentAvatar = currentUser.avatar || "👨‍⚕️";
+        setupDashboard(); navTo('dashboard'); updateUserLiveStatus(); 
+    }
+
+    forceSyncData();
+};
+
+function forceSyncData() {
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest?t=${Date.now()}`, { 
+        headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } 
+    }).then(res => res.json()).then(data => {
+        if(data.record) {
+            appData.users = data.record.users || appData.users;
+            appData.notifications = data.record.notifications || appData.notifications;
+            appData.motivation = data.record.motivation || appData.motivation;
+            if(currentUser) {
+                const freshUser = appData.users.find(u => u.username === currentUser.username);
+                if(freshUser) { currentUser = freshUser; localStorage.setItem('modmed_session', JSON.stringify(currentUser)); setupDashboard(); }
+            }
+            renderNotifications(); updateMotivation(); renderDynamicSyllabus();
+        }
+    }).catch(err => console.log("Offline mode Users"));
+
+    const fetchJSONBin = fetch(`https://api.jsonbin.io/v3/b/${MCQ_BIN_ID}/latest?t=${Date.now()}`, { 
+        headers: { 'X-Master-Key': API_KEY, 'Cache-Control': 'no-cache' } 
+    }).then(res => res.ok ? res.json() : {});
+
+    const fetchGitHub = fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/embryology.json?t=${Date.now()}`)
+    .then(res => res.ok ? res.json() : []);
+
+    Promise.all([fetchJSONBin, fetchGitHub]).then(([jsonbinData, githubData]) => {
+        let combinedMCQs = [];
+        if(jsonbinData.record && jsonbinData.record.mcqs) combinedMCQs = combinedMCQs.concat(jsonbinData.record.mcqs);
+        let githubArray = Array.isArray(githubData) ? githubData : (githubData.mcqs || githubData.record?.mcqs || []);
+        combinedMCQs = combinedMCQs.concat(githubArray);
+
+        if(combinedMCQs.length > 0) {
+            appData.mcqs = combinedMCQs;
+            appData.flashcards = combinedMCQs.map(m => {
+                let correctAnsText = "See explanation";
+                if (m.options && m.options[m.correctIndex]) { correctAnsText = m.options[m.correctIndex]; }
+                return { lo: m.lo, front: m.question, back: correctAnsText + "\n\n" + (m.explanation || "") };
+            });
+            localStorage.setItem('modmed_db', JSON.stringify(appData));
+        }
+    }).catch(err => console.log("Failed to load MCQs", err));
+}
+
+window.addEventListener('resize', () => {
+    const bNav = document.getElementById('bottom-nav');
+    const activePage = document.querySelector('.page.active');
+    const isQuizOrFC = activePage && (activePage.id === 'view-quiz' || activePage.id === 'view-flashcards');
+    if(window.innerWidth >= 768 || isQuizOrFC) {
+        if(bNav) bNav.style.display = 'none';
+    } else {
+        if(bNav) bNav.style.display = 'flex';
+    }
+});
+
+/* --- AUTH --- */
+function prepRegister(mode) {
+    registerMode = mode;
+    document.getElementById('r-btn').innerHTML = mode === 'free' ? 'Create Free Account' : 'Continue to Payment';
+    navTo('register');
+}
+
+function executeRegister() {
+    const uName = document.getElementById('r-name').value.trim(), uClass = document.getElementById('r-class').value;
+    const uCollege = document.getElementById('r-college').value.trim(), uUser = document.getElementById('r-user').value.trim(), uPass = document.getElementById('r-pass').value.trim();
+    if(!uName || !uClass || !uCollege || !uUser || !uPass) return showToast("Please fill all fields to register.");
+    if(appData.users.find(u => u.username === uUser)) return showToast("Username already taken!");
+    const newUser = { username: uUser, password: uPass, name: uName, classInfo: uClass, college: uCollege, avatar: currentAvatar, plan: 'free', lastActive: new Date().toISOString() };
+    appData.users.push(newUser); currentUser = newUser; localStorage.setItem('modmed_session', JSON.stringify(currentUser));
+    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(appData) });
+    if(registerMode === 'pro') { navTo('payment'); } else { setupDashboard(); navTo('dashboard'); }
+}
+
+function handleLogin(){
+    const user = document.getElementById('loginUser').value.trim(), pass = document.getElementById('loginPass').value.trim();
+    const found = appData.users.find(u => u.username === user && u.password === pass);
+    if(found) { currentUser = found; currentAvatar = found.avatar || "👨‍⚕️"; localStorage.setItem('modmed_session', JSON.stringify(found)); setupDashboard(); navTo('dashboard'); updateUserLiveStatus(); } 
+    else { showToast("Invalid credentials."); }
+}
+
+function submitPayment() {
+    const rec = document.getElementById('p-receipt').value.trim();
+    if(!rec) return showToast("Please enter the Receipt/Transaction number.");
+    const idx = appData.users.findIndex(u => u.username === currentUser.username);
+    if(idx !== -1) { appData.users[idx].plan = 'pending'; appData.users[idx].receipt = rec; currentUser = appData.users[idx]; localStorage.setItem('modmed_session', JSON.stringify(currentUser)); fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(appData) }); }
+    showToast("Payment submitted for review!"); setupDashboard(); navTo('dashboard');
+}
+
+function copyNumber() { navigator.clipboard.writeText("03096554421"); showToast("Number copied to clipboard!"); }
+function updateUserLiveStatus() {
+    if(!currentUser) return;
+    const userIndex = appData.users.findIndex(u => u.username === currentUser.username);
+    if(userIndex !== -1) { appData.users[userIndex].lastActive = new Date().toISOString(); fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(appData) }); }
+}
+
+function setupDashboard(){
+    document.getElementById('greeting-name').innerText = currentUser.name; document.getElementById('user-avatar').innerText = currentAvatar;
+    const badge = document.getElementById('plan-badge');
+    if(currentUser.plan === 'pro') { badge.className = 'plan-badge pro'; badge.innerText = 'PRO'; }
+    else if(currentUser.plan === 'pending') { badge.className = 'plan-badge pro'; badge.innerText = 'PENDING'; }
+    else { badge.className = 'plan-badge free'; badge.innerText = 'FREE'; }
+    if(window.innerWidth < 768) document.getElementById('bottom-nav').style.display='flex';
+    renderNotifications(); updateMotivation();
+}
+
+function checkProAction(action = null) {
+    if(currentUser && currentUser.plan === 'pro') { if(action === 'mock' || action === 'past') navTo('step-block'); return true; }
+    showPaywallModal(); return false;
+}
+function showPaywallModal() { document.getElementById('modal-overlay').classList.add('active'); document.getElementById('paywall-modal').classList.add('active'); }
+function closeModals(){ document.getElementById('avatar-modal').classList.remove('active'); document.getElementById('modal-overlay').classList.remove('active'); document.getElementById('paywall-modal').classList.remove('active'); document.getElementById('notif-panel').classList.remove('active'); document.getElementById('notif-overlay').classList.remove('active');}
+function navToPayment() { closeModals(); navTo('payment'); }
+
+/* --- SYLLABUS --- */
+function renderDynamicSyllabus() {
+    const bc = document.getElementById('dynamic-blocks-container'); bc.innerHTML = '';
+    const allowedBlocks = ['Block_1', 'Block_2', 'Block_3'];
+    allowedBlocks.forEach((b, idx) => {
+        let colorClass = dynColors[idx % dynColors.length], iconClass = dynIcons[idx % dynIcons.length], blockName = b.replace(/_/g, ' ');
+        bc.innerHTML += `<div class="list-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${colorClass}"><i class="fa-solid ${iconClass}"></i></div><div><h4>${blockName}</h4><p>View modules</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
+    });
+}
+
+function selectBlock(b, element){
+    if(b === 'Block_2' || b === 'Block_3') return showToast("Coming Soon");
+    document.querySelectorAll('#view-step-block .list-card').forEach(c=>c.classList.remove('selected')); element.classList.add('selected'); studyBlock=b;
+    const mc = document.getElementById('dynamic-modules-container'); mc.innerHTML = ''; 
+    const allowedModules = b === 'Block_1' ? ['Foundation', 'H_&_L'] : Object.keys(HARDCODED_SYLLABUS[b] || {});
+    allowedModules.forEach((m, idx) => {
+        let colorClass = dynColors[(idx+1) % dynColors.length], modName = m.replace(/_/g, ' '); if (m === 'H_&_L') modName = 'H & L';
+        mc.innerHTML += `<div class="list-card" onclick="selectModule('${m}', this)"><div class="list-card-left"><div class="list-icon ${colorClass}"><i class="fa-solid fa-book-medical"></i></div><div><h4>${modName}</h4><p>View subjects</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
+    });
+    setTimeout(()=>navTo('step-module'), 40); 
+}
+
+function selectModule(m, element){
+    if(currentUser.plan !== 'pro' && !m.toLowerCase().includes('foundation')) { showPaywallModal(); return; }
+    document.querySelectorAll('#view-step-module .list-card').forEach(c=>c.classList.remove('selected')); element.classList.add('selected'); studyModule=m;
+    const sc = document.getElementById('dynamic-subjects-container'); sc.innerHTML = ''; 
+    const subjects = HARDCODED_SYLLABUS[studyBlock][studyModule] || {};
+    Object.keys(subjects).forEach((s) => { sc.innerHTML += `<label><input type="checkbox" value="${s}"><div class="subject-pill">${s.replace(/_/g, ' ')} <i class="fa-solid fa-circle-check"></i></div></label>`; });
+    setTimeout(()=>navTo('step-subject'), 40); 
+}
+
+function goToLO(){
+    const subs = Array.from(document.querySelectorAll('#view-step-subject input:checked')).map(cb=>cb.value);
+    if(subs.length === 0) return showToast("Select at least one subject");
+    const container = document.getElementById('lo-container'); container.innerHTML = '';
+    subs.forEach(sub => {
+        const los = HARDCODED_SYLLABUS[studyBlock]?.[studyModule]?.[sub] || [];
+        if(los.length > 0) {
+            container.innerHTML += `<h3 style="color:var(--text-gray); font-size:13px; font-weight:600; margin-top:16px; text-transform:uppercase; letter-spacing: 0.5px;">${sub.replace(/_/g, ' ')}</h3>`;
+            los.forEach(lo => { container.innerHTML += `<label class="lo-label"><input type="checkbox" value="${lo}"><div class="lo-card"><h4>${lo}</h4><i class="fa-solid fa-circle-check"></i></div></label>`; });
+        }
+    });
+    if(container.innerHTML === '') container.innerHTML = '<p>No specific LOs available yet.</p>'; navTo('step-lo');
+}
+
+function selectAllLOs() { document.querySelectorAll('#lo-container input[type="checkbox"]').forEach(cb => cb.checked = true); }
+function deselectAllLOs() { document.querySelectorAll('#lo-container input[type="checkbox"]').forEach(cb => cb.checked = false); }
+
+// SETS LOGIC
+function prepSessionConfig() {
+    const selectedLOs = Array.from(document.querySelectorAll('#lo-container input:checked')).map(cb=>cb.value);
+    if(selectedLOs.length === 0) return showToast("Select at least one Learning Objective");
+    
+    if(studyMode === 'practice' || studyMode === 'mock' || studyMode === 'past') { 
+        currentPool = appData.mcqs.filter(dbMcq => selectedLOs.some(sylLo => isLOMatch(sylLo, dbMcq))); 
+    } else { 
+        currentPool = appData.flashcards.filter(dbFc => selectedLOs.some(sylLo => isLOMatch(sylLo, dbFc))); 
+    }
+
+    if(currentPool.length === 0) { return showToast(`0 items found for this topic.`); }
+    navTo('step-config'); document.getElementById('config-diff').value = 'Mix'; renderSets();
+}
+
+function renderSets() {
+    const diff = document.getElementById('config-diff').value;
+    let filteredPool = currentPool;
+    if(diff !== 'Mix') { filteredPool = currentPool.filter(q => (q.difficulty || "Moderate").toLowerCase() === diff.toLowerCase()); }
+    const container = document.getElementById('sets-container'); container.innerHTML = '';
+
+    if(filteredPool.length === 0) { container.innerHTML = `<p style="color:var(--text-gray); font-size:14px; font-weight:400;">No items found.</p>`; return; }
+    filteredPool.sort(() => Math.random() - 0.5);
+
+    const SET_SIZE = 20; const numSets = Math.ceil(filteredPool.length / SET_SIZE);
+
+    for(let i=0; i<numSets; i++) {
+        const isLocked = (i > 0 && currentUser.plan !== 'pro');
+        const startIdx = i * SET_SIZE, endIdx = Math.min((i + 1) * SET_SIZE, filteredPool.length), count = endIdx - startIdx;
+        const card = document.createElement('div'); card.className = `list-card ${isLocked ? 'locked-set' : ''}`;
+        
+        if(isLocked) {
+            card.innerHTML = `<div class="list-card-left"><div class="list-icon" style="background:var(--border-color); color:var(--text-gray);"><i class="fa-solid fa-lock"></i></div><div><h4 style="color:var(--text-gray);">Set ${i+1}</h4><p style="color:var(--text-gray);">${count} MCQs (Pro Only)</p></div></div>`;
+            card.onclick = () => showPaywallModal();
+        } else {
+            card.innerHTML = `<div class="list-card-left"><div class="list-icon icon-2"><i class="fa-solid fa-play"></i></div><div><h4>Set ${i+1}</h4><p>${count} MCQs</p></div></div><i class="fa-solid fa-chevron-right"></i>`;
+            card.onclick = () => { sessionData = filteredPool.slice(startIdx, endIdx); startSessionWithData(); };
+        }
+        container.appendChild(card);
+    }
+}
+
+function startSessionWithData() {
+    currentQ = 0; score = 0; wrongList = []; userAnswers = {}; clearInterval(timerInterval);
+    const qR = document.getElementById('quizRandom'); if(qR) qR.checked = false;
+    const fR = document.getElementById('fcRandom'); if(fR) fR.checked = false;
+    if(studyMode === 'flashcards'){ navTo('flashcards'); loadFC(); } else { navTo('quiz'); setupQuizMode(); loadQuestion(); }
+}
+
+function restartQuiz() {
+    currentQ = 0; score = 0; wrongList = []; userAnswers = {}; clearInterval(timerInterval);
+    sessionData.sort(() => Math.random() - 0.5);
+    if(studyMode === 'flashcards'){ loadFC(); } else { setupQuizMode(); loadQuestion(); }
+}
+
+function shuffleSession() {
+    if (!sessionData || sessionData.length === 0) return; sessionData.sort(() => Math.random() - 0.5);
+    currentQ = 0; score = 0; wrongList = []; userAnswers = {};
+    if (studyMode === 'flashcards') { loadFC(); } else { document.getElementById('exp-box').style.display = 'none'; document.getElementById('btn-next').style.display = 'none'; loadQuestion(); }
+}
+
+/* --- UTILS --- */
+function updateMotivation() { if(appData.motivation) document.getElementById('motivation-text').innerText = appData.motivation; }
+function renderNotifications() { const nc = document.getElementById('notif-container'); nc.innerHTML = ''; if(appData.notifications && appData.notifications.length > 0) { appData.notifications.forEach(n => { nc.innerHTML += `<div class="notif-card" style="border-left-color:${n.urgent ? 'var(--accent-red)' : 'var(--accent-blue)'}"><h4 style="margin-bottom:4px;">${n.title}</h4><p style="font-size:14px; color:var(--text-gray);">${n.message}</p></div>`; }); } else { nc.innerHTML = `<p style="color:var(--text-gray); font-weight:400;">No notifications.</p>`; } }
+function logout(){ localStorage.removeItem('modmed_session'); location.reload(); }
+function toggleNotif(){ document.getElementById('notif-panel').classList.toggle('active'); document.getElementById('notif-overlay').classList.toggle('active'); }
+function openAvatarModal(){ document.getElementById('avatar-modal').classList.add('active'); document.getElementById('modal-overlay').classList.add('active'); document.querySelectorAll('.avatar-option').forEach(el => { el.classList.remove('selected'); if(el.innerText === currentAvatar) el.classList.add('selected'); }); }
+function setAvatar(emoji, el){ currentAvatar = emoji; currentUser.avatar = emoji; localStorage.setItem('modmed_session', JSON.stringify(currentUser)); document.getElementById('user-avatar').innerText = currentAvatar; document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); setTimeout(()=> closeModals(), 250); updateUserLiveStatus(); }
+
+function navTo(viewId){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const target=document.getElementById('view-'+viewId); if(target) target.classList.add('active');
+    scrollArea.scrollTo(0,0); const mainNavs = ['dashboard', 'exam', 'viva'];
+    
+    const bNav = document.getElementById('bottom-nav');
+    if(viewId === 'quiz' || viewId === 'flashcards') { if(bNav) bNav.style.display = 'none'; } else { if(window.innerWidth < 768 && bNav) bNav.style.display = 'flex'; }
+
+    if(mainNavs.includes(viewId)) {
+        if((viewId === 'exam' || viewId === 'viva') && currentUser.plan !== 'pro') { showPaywallModal(); return navTo('dashboard'); }
+        document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); document.querySelectorAll(`.nav-item[data-nav="${viewId}"]`).forEach(n=>n.classList.add('active'));
+    }
+}
+function selectMode(mode, element){
+    if((mode === 'mock' || mode === 'past') && currentUser.plan !== 'pro') return showPaywallModal();
+    document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('active')); element.classList.add('active'); studyMode=mode; setTimeout(()=>navTo('step-block'),40); 
+}
+
+/* --- QUIZ & FLASHCARDS --- */
+function loadFC() { 
+    populateJumper('fc-jumper'); document.getElementById('fc-jumper').value = currentQ; const container = document.getElementById('fc-single-container'); const q = sessionData[currentQ]; 
+    container.innerHTML = `<div class="fc" onclick="this.classList.toggle('flipped')"><div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${q.front}</h4><p style="margin-top:20px; font-size:13px; color:var(--text-gray); font-weight:500;">Tap to flip</p></div><div class="fc-back"><h4 style="color:var(--accent-red); margin-bottom:8px; font-size:13px; text-transform:uppercase; letter-spacing:1px;">Concept</h4><h4 style="text-align:center; white-space:pre-wrap; color:var(--text-dark);">${q.back}</h4></div></div></div>`; 
+}
+function prevFC() { if(currentQ > 0) { currentQ--; loadFC(); } }
+function nextFC() { if(currentQ < sessionData.length - 1) { currentQ++; loadFC(); } else { showToast("Deck Completed!"); navTo('dashboard'); } }
+function jumpToFC(val) { currentQ = parseInt(val); loadFC(); }
+
+function populateJumper(selectId) {
+    const jumper = document.getElementById(selectId);
+    if(jumper.options.length !== sessionData.length) {
+        jumper.innerHTML = '';
+        for(let i=0; i<sessionData.length; i++) { jumper.innerHTML += `<option value="${i}">Q: ${i+1} / ${sessionData.length}</option>`; }
+    }
+}
+function jumpToQ(val) { currentQ = parseInt(val); loadQuestion(); }
+
+function setupQuizMode(){ 
+    const titleText=document.getElementById('quiz-title-text'); 
+    const timerBox=document.getElementById('quiz-timer'); 
+    const btnSkip = document.getElementById('btn-skip');
+    populateJumper('q-jumper');
+    if(studyMode==='mock'){ titleText.innerText='Mock Exam'; timerBox.style.display='flex'; btnSkip.style.display='none'; startTimer(sessionData.length*60); } 
+    else { titleText.innerText=studyMode==='past'?'Past Mistakes':'Practice Mode'; timerBox.style.display='none'; btnSkip.style.display='flex'; } 
+}
+
+function startTimer(seconds){ timeRemaining=seconds; updateTimerUI(); timerInterval=setInterval(()=>{ timeRemaining--; updateTimerUI(); if(timeRemaining<=0){ clearInterval(timerInterval); showToast("Time is up!"); showResults(); } },1000); }
+function updateTimerUI(){ const m=Math.floor(timeRemaining/60).toString().padStart(2,'0'), s=(timeRemaining%60).toString().padStart(2,'0'); document.getElementById('time-display').innerText=`${m}:${s}`; const box=document.getElementById('quiz-timer'); if(timeRemaining<=60 && timeRemaining>0) box.classList.add('danger'); else box.classList.remove('danger'); }
+
+function loadQuestion(){ 
+    document.getElementById('btn-next').style.display = userAnswers[currentQ] !== undefined ? 'flex' : 'none'; 
+    if(studyMode !== 'mock') { document.getElementById('btn-skip').style.display = userAnswers[currentQ] !== undefined ? 'none' : 'flex'; }
+    document.getElementById('exp-box').style.display = 'none'; 
+    
+    const q = sessionData[currentQ]; 
+    document.getElementById('q-jumper').value = currentQ; document.getElementById('quiz-progress').style.width=`${(currentQ/sessionData.length)*100}%`; 
+    
+    const diffBadge = document.getElementById('q-diff-badge'); const difficulty = q.difficulty || 'Moderate'; diffBadge.innerText = difficulty; diffBadge.className = `q-diff-badge diff-${difficulty}`;
+    const loBadge = document.getElementById('q-lo-badge'); loBadge.innerText = getLOName(q.lo);
+    const sourceBadge = document.getElementById('q-source-badge');
+    if(q.source) { sourceBadge.style.display = 'inline-block'; sourceBadge.innerText = q.source; } else { sourceBadge.style.display = 'none'; }
+
+    document.getElementById('q-text').innerText=q.question; 
+    const container=document.getElementById('options-container'); container.innerHTML=''; 
+    
+    if (q.options && Array.isArray(q.options)) {
+        q.options.forEach((opt,idx)=>{ 
+            if(!opt || opt.trim() === '') return; 
+            const btn=document.createElement('button'); btn.className='opt-btn'; btn.innerHTML=`<span>${opt}</span>`; btn.onclick=()=>handleAnswer(idx, btn, q); container.appendChild(btn); 
+        }); 
+    }
+    
+    if(userAnswers[currentQ] !== undefined) { 
+        const btns = container.querySelectorAll('.opt-btn'); const selectedIdx = userAnswers[currentQ]; 
+        btns.forEach(b => b.style.pointerEvents = 'none'); 
+        if(btns[q.correctIndex]) btns[q.correctIndex].classList.add('correct'); 
+        if(selectedIdx !== q.correctIndex && btns[selectedIdx]) btns[selectedIdx].classList.add('wrong'); 
+        document.getElementById('exp-text').innerText = q.explanation || "No explanation provided."; 
+        document.getElementById('exp-box').style.display = 'block'; 
+    } 
+}
+
+function handleAnswer(idx, btn, q){ 
+    if(userAnswers[currentQ] !== undefined) return; 
+    userAnswers[currentQ] = idx; 
+    const btns = document.querySelectorAll('.opt-btn'); const isCorrect = (idx === q.correctIndex); 
+    if(studyMode === 'mock') { btn.classList.add('mock-selected'); document.getElementById('btn-next').style.display='flex'; } 
+    else { 
+        btns.forEach(b => b.style.pointerEvents = 'none'); 
+        if(btns[q.correctIndex]) btns[q.correctIndex].classList.add('correct'); 
+        if(!isCorrect) { btn.classList.add('wrong'); }
+        document.getElementById('exp-text').innerText=q.explanation || "No explanation provided."; 
+        document.getElementById('exp-box').style.display='block'; 
+        document.getElementById('btn-skip').style.display='none';
+        document.getElementById('btn-next').style.display='flex'; 
+        setTimeout(()=>scrollArea.scrollTo({top:scrollArea.scrollHeight, behavior:'smooth'}),50); 
+    } 
+}
+
+function skipQuestion() { if(currentQ < sessionData.length - 1) { currentQ++; loadQuestion(); } else { clearInterval(timerInterval); showResults(); } }
+function prevQuestion() { if(currentQ > 0) { currentQ--; loadQuestion(); } }
+function nextQuestion() { document.getElementById('quiz-progress').style.width=`${((currentQ+1)/sessionData.length)*100}%`; if(currentQ < sessionData.length - 1) { currentQ++; loadQuestion(); } else { clearInterval(timerInterval); showResults(); } }
+
+function showResults(){ 
+    navTo('results'); 
+    let finalScore = 0; let finalWrong = [];
+    sessionData.forEach((q, idx) => {
+        if(userAnswers[idx] === q.correctIndex) { finalScore++; } else { finalWrong.push({q: q.question, a: q.options[q.correctIndex], exp: q.explanation}); }
+    });
+    document.getElementById('score-text').innerText=`${finalScore}/${sessionData.length}`; 
+    const fs=document.getElementById('flashcards-section'), fc=document.getElementById('fc-container'); fc.innerHTML=''; 
+    if(finalWrong.length>0){ 
+        fs.style.display='block'; 
+        finalWrong.forEach(w=>{ 
+            const card=document.createElement('div'); card.className='fc'; card.onclick=function(){ this.classList.toggle('flipped'); }; 
+            card.innerHTML=`<div class="fc-inner"><div class="fc-front"><i class="fa-solid fa-clipboard-question"></i><h4 style="text-align:center;">${w.q}</h4></div><div class="fc-back"><h4 style="color:var(--accent-red); font-size:16px; text-align:center;">${w.a}</h4><p style="color:var(--text-dark); font-size:14px; font-weight:400; white-space:pre-wrap;">${w.exp}</p></div></div>`; 
+            fc.appendChild(card); 
+        }); 
+    } else { fs.style.display='none'; } 
+}
+</script>
+</body>
+</html>
