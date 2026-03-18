@@ -78,14 +78,12 @@
     .btn-outline:hover { background: #f9fafb; }
     .btn-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-danger:hover { background: #fecaca; }
-    .btn-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-    .btn-success:hover { background: #bbf7d0; }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     
     /* MODALS */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
     .modal-overlay.active { display: flex; animation: fadeIn 0.2s; }
-    .modal-card { background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-card { background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
 </style>
 </head>
 <body>
@@ -216,14 +214,21 @@
 
 </div>
 
-<!-- EDIT CREDENTIALS MODAL -->
+<!-- EDIT USER MODAL -->
 <div class="modal-overlay" id="editUserModal">
     <div class="modal-card">
-        <h3 style="margin-bottom: 8px; font-size: 20px; font-weight: 800;">Edit User Credentials</h3>
+        <h3 style="margin-bottom: 8px; font-size: 20px; font-weight: 800;">Edit User Details</h3>
         <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 20px; line-height: 1.4;">
-            Updating this changes their login info in the database. If they cannot log in, tell them to use "Forgot Password".
+            Update credentials and user access levels here.
         </p>
         
+        <label style="font-size:12px; font-weight:600; color:var(--text-gray); display:block; margin-bottom:4px;">Status / Plan</label>
+        <select id="editPlan" class="input-field" style="background:#f9fafb; font-weight:700;">
+            <option value="free">FREE</option>
+            <option value="pro">PRO (Premium)</option>
+            <option value="pending">PENDING</option>
+        </select>
+
         <label style="font-size:12px; font-weight:600; color:var(--text-gray); display:block; margin-bottom:4px;">Username</label>
         <input type="text" id="editUsername" class="input-field">
         
@@ -233,6 +238,32 @@
         <div style="display:flex; gap:10px; margin-top:15px;">
             <button class="btn btn-primary" id="saveUserEditBtn" style="flex:1;"><i class="fa-solid fa-save"></i> Save</button>
             <button class="btn btn-outline" id="cancelUserEditBtn" style="flex:1;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT NOTIFICATION MODAL -->
+<div class="modal-overlay" id="editNotifModal">
+    <div class="modal-card">
+        <h3 style="margin-bottom: 8px; font-size: 20px; font-weight: 800;">Manage Notification</h3>
+        <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 20px; line-height: 1.4;">
+            Update notification details or permanently delete it.
+        </p>
+        
+        <label style="font-size:12px; font-weight:600; color:var(--text-gray); display:block; margin-bottom:4px;">Title</label>
+        <input type="text" id="editNotifTitle" class="input-field">
+        
+        <label style="font-size:12px; font-weight:600; color:var(--text-gray); display:block; margin-bottom:4px;">Message</label>
+        <textarea id="editNotifMsg" class="input-field" rows="3"></textarea>
+        
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:16px; font-weight:600; cursor:pointer; font-size: 14px;">
+            <input type="checkbox" id="editNotifUrgent" style="width:16px; height:16px;"> Mark as Urgent
+        </label>
+        
+        <div style="display:flex; gap:10px; flex-wrap: wrap; margin-top:15px;">
+            <button class="btn btn-primary" id="saveNotifEditBtn" style="flex:1;"><i class="fa-solid fa-save"></i> Save</button>
+            <button class="btn btn-danger" id="deleteNotifBtn" style="flex:1;"><i class="fa-solid fa-trash"></i> Delete</button>
+            <button class="btn btn-outline" id="cancelNotifEditBtn" style="width: 100%;">Cancel</button>
         </div>
     </div>
 </div>
@@ -255,7 +286,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // TAB SWITCHER (Kept attached to window for simple inline HTML switching)
+    // TAB SWITCHER
     window.switchTab = function(tabId, el) {
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         el.classList.add('active');
@@ -265,6 +296,7 @@
 
     let globalUsers = [];
     let currentEditUid = null;
+    let currentEditNotifId = null;
 
     // --- 1. REAL-TIME DATA FETCHING ---
 
@@ -295,11 +327,6 @@
                     ? `<span class="receipt-text">Trx: ${user.receipt}</span><span class="time-text"><i class="fa-regular fa-clock"></i> ${user.paymentTime || 'Time not recorded'}</span>` 
                     : `<span class="time-text" style="font-style:italic;">No details submitted</span>`;
 
-                // Notice: We removed inline onclicks and replaced them with classes and data-attributes
-                const btnHtml = user.plan === 'pro' 
-                    ? `<button class="btn btn-outline toggle-pro-btn" data-uid="${uid}" data-plan="${user.plan}" style="padding:8px 14px; font-size:12px; width: 100%; justify-content:flex-start;"><i class="fa-solid fa-arrow-down"></i> Revoke PRO</button>`
-                    : `<button class="btn btn-success toggle-pro-btn" data-uid="${uid}" data-plan="${user.plan}" style="padding:8px 14px; font-size:12px; width: 100%; justify-content:flex-start;"><i class="fa-solid fa-check"></i> Make PRO</button>`;
-
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>
@@ -314,10 +341,14 @@
                     <td><span class="badge ${user.plan}">${user.plan}</span></td>
                     <td>${receiptHtml}</td>
                     <td>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            ${btnHtml}
-                            <button class="btn btn-outline edit-user-btn" data-uid="${uid}" data-user="${user.username}" data-pass="${user.password}" style="padding:8px 14px; font-size:12px; width: 100%; justify-content:flex-start;"><i class="fa-solid fa-pen"></i> Edit User</button>
-                        </div>
+                        <button class="btn btn-outline edit-user-btn" 
+                            data-uid="${uid}" 
+                            data-user="${user.username}" 
+                            data-pass="${user.password}" 
+                            data-plan="${user.plan}" 
+                            style="padding:8px 14px; font-size:12px; width: 100%; justify-content:center;">
+                            <i class="fa-solid fa-pen"></i> Edit User
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -383,6 +414,10 @@
                     targetClass = "pro"; 
                 }
 
+                // Escape quotes for HTML attributes securely
+                const safeTitle = (data.title || "").replace(/"/g, '&quot;');
+                const safeMsg = (data.message || "").replace(/"/g, '&quot;');
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><span class="badge ${targetClass}">${targetName}</span></td>
@@ -391,81 +426,144 @@
                         <span style="color: var(--text-gray); font-size: 13px;">${data.message}</span>
                     </td>
                     <td><span class="badge ${data.urgent ? 'pending' : 'free'}">${data.urgent ? 'Urgent' : 'Normal'}</span></td>
-                    <td><button class="btn btn-danger delete-notif-btn" data-id="${id}" style="padding: 8px 14px;"><i class="fa-solid fa-trash"></i> Delete</button></td>
+                    <td>
+                        <button class="btn btn-outline edit-notif-btn" 
+                            data-id="${id}" 
+                            data-title="${safeTitle}" 
+                            data-msg="${safeMsg}" 
+                            data-urgent="${data.urgent}" 
+                            style="padding: 8px 14px;">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
         });
     }
 
-
-    // --- 2. BULLETPROOF EVENT DELEGATION (Fixes all click issues) ---
-    document.addEventListener('click', async (e) => {
+    // --- 2. EVENT DELEGATION (Clicks inside dynamically generated Tables) ---
+    document.addEventListener('click', (e) => {
         
-        // 1. Toggle Pro Button
-        const toggleBtn = e.target.closest('.toggle-pro-btn');
-        if (toggleBtn) {
-            const uid = toggleBtn.getAttribute('data-uid');
-            const currentPlan = toggleBtn.getAttribute('data-plan');
-            let newPlan = currentPlan === 'pro' ? 'free' : 'pro';
-            
-            if(confirm(`Are you sure you want to change this user to ${newPlan.toUpperCase()}?`)) {
-                toggleBtn.innerHTML = 'Updating...';
-                toggleBtn.disabled = true;
-                try {
-                    await updateDoc(doc(db, "users", uid), { plan: newPlan });
-                } catch(err) { 
-                    alert("Firebase Error: " + err.message + "\n\n(Check your Firebase Database Rules to ensure 'allow write: if true;' is set!)"); 
-                    toggleBtn.disabled = false;
-                }
-            }
-            return;
-        }
-
-        // 2. Delete Notification Button
-        const delNotifBtn = e.target.closest('.delete-notif-btn');
-        if (delNotifBtn) {
-            const id = delNotifBtn.getAttribute('data-id');
-            if(confirm("Delete this notification permanently?")) {
-                delNotifBtn.innerHTML = 'Deleting...';
-                delNotifBtn.disabled = true;
-                try {
-                    await deleteDoc(doc(db, "notifications", id));
-                } catch(err) {
-                    alert("Firebase Error: " + err.message + "\n\n(Check your Firebase Database Rules!)");
-                    delNotifBtn.disabled = false;
-                }
-            }
-            return;
-        }
-
-        // 3. Open Edit User Modal
+        // Open Edit User Modal
         const editUserBtn = e.target.closest('.edit-user-btn');
         if (editUserBtn) {
             currentEditUid = editUserBtn.getAttribute('data-uid');
             document.getElementById('editUsername').value = editUserBtn.getAttribute('data-user');
             document.getElementById('editPassword').value = editUserBtn.getAttribute('data-pass');
+            document.getElementById('editPlan').value = editUserBtn.getAttribute('data-plan');
             document.getElementById('editUserModal').classList.add('active');
             return;
         }
 
-        // 4. Delete Invite Code
+        // Open Edit Notification Modal
+        const editNotifBtn = e.target.closest('.edit-notif-btn');
+        if (editNotifBtn) {
+            currentEditNotifId = editNotifBtn.getAttribute('data-id');
+            document.getElementById('editNotifTitle').value = editNotifBtn.getAttribute('data-title');
+            document.getElementById('editNotifMsg').value = editNotifBtn.getAttribute('data-msg');
+            document.getElementById('editNotifUrgent').checked = (editNotifBtn.getAttribute('data-urgent') === 'true');
+            document.getElementById('editNotifModal').classList.add('active');
+            return;
+        }
+
+        // Delete Invite Code
         const delInviteBtn = e.target.closest('.delete-invite-btn');
         if(delInviteBtn) {
             const id = delInviteBtn.getAttribute('data-id');
             if(confirm(`Delete code: ${id}?`)) {
                 delInviteBtn.innerHTML = '...';
-                try { await deleteDoc(doc(db, "invitationCodes", id)); } 
-                catch(err) { alert("Error: " + err.message); }
+                deleteDoc(doc(db, "invitationCodes", id)).catch(err => alert("Error: " + err.message));
             }
             return;
         }
     });
 
+    // --- 3. STATIC MODAL BUTTON LISTENERS ---
 
-    // --- 3. STATIC FORM SUBMISSIONS ---
+    // === USER MODAL ===
+    document.getElementById('cancelUserEditBtn').addEventListener('click', () => {
+        document.getElementById('editUserModal').classList.remove('active');
+    });
 
-    // Submit Notification Form
+    document.getElementById('saveUserEditBtn').addEventListener('click', async (e) => {
+        const btn = e.target;
+        const newUsername = document.getElementById('editUsername').value.trim();
+        const newPassword = document.getElementById('editPassword').value.trim();
+        const newPlan = document.getElementById('editPlan').value;
+        
+        if(!newUsername || !newPassword) return alert("Username and Password cannot be empty.");
+        
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        btn.disabled = true;
+        
+        try {
+            await updateDoc(doc(db, "users", currentEditUid), { 
+                username: newUsername, 
+                password: newPassword,
+                plan: newPlan
+            });
+            document.getElementById('editUserModal').classList.remove('active');
+        } catch(err) { 
+            alert("Error saving user: " + err.message); 
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save';
+            btn.disabled = false;
+        }
+    });
+
+
+    // === NOTIFICATION MODAL ===
+    document.getElementById('cancelNotifEditBtn').addEventListener('click', () => {
+        document.getElementById('editNotifModal').classList.remove('active');
+    });
+
+    document.getElementById('saveNotifEditBtn').addEventListener('click', async (e) => {
+        const btn = e.target;
+        const title = document.getElementById('editNotifTitle').value.trim();
+        const msg = document.getElementById('editNotifMsg').value.trim();
+        const urgent = document.getElementById('editNotifUrgent').checked;
+
+        if(!title || !msg) return alert('Please enter both title and message.');
+
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        btn.disabled = true;
+
+        try {
+            await updateDoc(doc(db, "notifications", currentEditNotifId), {
+                title: title, 
+                message: msg, 
+                urgent: urgent
+            });
+            document.getElementById('editNotifModal').classList.remove('active');
+        } catch(err) { 
+            alert("Error saving: " + err.message); 
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save';
+            btn.disabled = false;
+        }
+    });
+
+    document.getElementById('deleteNotifBtn').addEventListener('click', async (e) => {
+        const btn = e.target;
+        if(confirm("Are you sure you want to permanently delete this notification?")) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
+            btn.disabled = true;
+            try {
+                await deleteDoc(doc(db, "notifications", currentEditNotifId));
+                document.getElementById('editNotifModal').classList.remove('active');
+            } catch(err) {
+                alert("Error deleting: " + err.message);
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
+                btn.disabled = false;
+            }
+        }
+    });
+
+
+    // === CREATE NEW FORMS ===
+    // Broadcast Notification
     document.getElementById('sendNotifBtn').addEventListener('click', async (e) => {
         const btn = e.target;
         const target = document.getElementById('notifTargetUser').value; 
@@ -517,35 +615,6 @@
             alert("Error saving code: " + err.message); 
         } finally {
             btn.innerHTML = '<i class="fa-solid fa-plus"></i> Create';
-            btn.disabled = false;
-        }
-    });
-
-    // Edit User Modal Save/Cancel
-    document.getElementById('cancelUserEditBtn').addEventListener('click', () => {
-        document.getElementById('editUserModal').classList.remove('active');
-    });
-
-    document.getElementById('saveUserEditBtn').addEventListener('click', async (e) => {
-        const btn = e.target;
-        const newUsername = document.getElementById('editUsername').value.trim();
-        const newPassword = document.getElementById('editPassword').value.trim();
-        
-        if(!newUsername || !newPassword) return alert("Username and Password cannot be empty.");
-        
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-        btn.disabled = true;
-        
-        try {
-            await updateDoc(doc(db, "users", currentEditUid), { 
-                username: newUsername, 
-                password: newPassword 
-            });
-            document.getElementById('editUserModal').classList.remove('active');
-        } catch(err) { 
-            alert("Error saving data: " + err.message); 
-        } finally {
-            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save';
             btn.disabled = false;
         }
     });
