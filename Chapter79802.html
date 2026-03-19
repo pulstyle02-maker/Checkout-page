@@ -69,7 +69,7 @@ html, body { background-color: var(--bg-base); color: var(--text-dark); width: 1
 .global-brand .mod { color: #FFD700; }
 .global-brand .med { color: var(--text-dark); }
 
-.glass-card, .mode-card, .list-card, .subject-pill, .lo-card, .notif-card, .score-display, .fc-front, .fc-back, .opt-btn, .exp-box, .app-input, .paywall-modal, .action-modal { background: var(--bg-card) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border-color); }
+.glass-card, .mode-card, .list-card, .subject-pill, .lo-card, .notif-card, .score-display, .fc-front, .fc-back, .opt-btn, .exp-box, .app-input, .paywall-modal, .action-modal, .stat-box { background: var(--bg-card) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border-color); }
 .brand-text { background: var(--modmed-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block; }
 
 .bg-orb { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; pointer-events: none; z-index: 0; animation: float 10s infinite ease-in-out alternate; }
@@ -314,7 +314,7 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
 .fc-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d; }
 .fc.flipped .fc-inner { transform: rotateY(180deg); }
 .fc-front, .fc-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; padding: 24px 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: var(--shadow-card); }
-.fc-front i { font-size: 44px; background: var(--modmed-gradient); -webkit-background-clip: text; -webkit-text-fill-color: margin-bottom: 16px; }
+.fc-front i { font-size: 44px; background: var(--modmed-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px; }
 .fc-back { transform: rotateY(180deg); border: 2px solid var(--modmed-primary); background: rgba(0, 86, 224, 0.05) !important; }
 .fc-back p { font-size: 14px; color: var(--text-dark); font-weight: 600; overflow-y:auto; max-height:100%; white-space:pre-wrap; }
 .btn-nav-grp { display: flex; gap: 12px; margin-top: 20px; width: 100%; }
@@ -1159,20 +1159,32 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             document.body.classList.add('is-logged-in');
-            const docSnap = await getDoc(doc(db, "users", user.uid));
-            if (docSnap.exists()) {
-                window.currentUser = docSnap.data();
-                window.currentUser.uid = user.uid;
-                window.currentAvatar = window.currentUser.avatar || "👨‍⚕️";
-                window.currentUser.progress = window.currentUser.progress || {};
-                window.currentUser.loStats = window.currentUser.loStats || {};
-                window.currentUser.mistakes = window.currentUser.mistakes || {};
-                window.currentUser.activityHistory = window.currentUser.activityHistory || {};
-                window.calculateStreak();
-                window.setupDashboard();
-                if(document.getElementById('view-login').classList.contains('active')) { window.navTo('dashboard'); }
-                listenToUserUpdates(user.uid);
-                listenToNotifications();
+            try {
+                const docSnap = await getDoc(doc(db, "users", user.uid));
+                if (docSnap.exists()) {
+                    window.currentUser = docSnap.data();
+                    window.currentUser.uid = user.uid;
+                    window.currentAvatar = window.currentUser.avatar || "👨‍⚕️";
+                    window.currentUser.progress = window.currentUser.progress || {};
+                    window.currentUser.loStats = window.currentUser.loStats || {};
+                    window.currentUser.mistakes = window.currentUser.mistakes || {};
+                    window.currentUser.activityHistory = window.currentUser.activityHistory || {};
+                    
+                    window.calculateStreak();
+                    window.setupDashboard();
+                    
+                    const activePage = document.querySelector('.page.active');
+                    if(activePage && ['view-login', 'view-register', 'view-forgot-password', 'view-invite', 'view-premium-intro', 'view-premium-register', 'view-premium-success'].includes(activePage.id)) {
+                        window.navTo('dashboard');
+                    } else if (!activePage) { window.navTo('dashboard'); }
+                    
+                    listenToUserUpdates(user.uid);
+                    listenToNotifications();
+                } else { await signOut(auth); }
+            } catch(e) { console.error(e); } 
+            finally {
+                const btn = document.getElementById('btn-login-action'); 
+                if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; }
             }
         } else {
             document.body.classList.remove('is-logged-in');
@@ -1265,7 +1277,6 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
         
         if(!trxId) return window.showToast("Please enter your transaction code.");
 
-        // If logged in, skip auth creation
         if(window.currentUser) {
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true;
             try {
@@ -1322,12 +1333,11 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
             const querySnapshot = await getDocs(q);
             if(querySnapshot.empty) { btn.innerHTML = 'Log In'; btn.disabled = false; return window.showToast("Invalid credentials."); }
             
-            let targetDbPass = querySnapshot.docs[0].data().password, targetEmail = querySnapshot.docs[0].data().email;
+            let targetDbPass = querySnapshot.docs[0].data().password, targetEmail = querySnapshot.docs[0].data().email || (username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local");
 
             try { 
                 await signInWithEmailAndPassword(auth, targetEmail, pass); 
                 window.showToast("Logged in successfully!", "success"); 
-                return; 
             } 
             catch (authErr) { 
                 window.showToast(pass === targetDbPass ? "Admin updated password. Please use 'Forgot Password'." : "Invalid credentials."); 
@@ -1896,7 +1906,6 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
     window.saveAndExit = async function(targetView = 'step-config') {
         if (window.studyMode !== 'mock' && window.currentQ < window.sessionData.length - 1) {
             
-            // Only track Continue progress if it's NOT a custom multi-LO mix
             let isCustomMix = window.currentSetId.includes("CustomMix");
             let prog = window.currentUser.progress || {};
 
@@ -2054,7 +2063,7 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
             
             // Clean up completed progress
             let prog = window.currentUser.progress || {};
-            if(prog[window.currentSetId]) delete prog[window.currentSetId];
+            if(window.currentSetId && prog[window.currentSetId]) delete prog[window.currentSetId];
 
             // Update LO Stats
             let loStats = window.currentUser.loStats || {};
