@@ -275,17 +275,15 @@ h1, h2, .greeting-main, .score-display h1, .cc-title, .bento-title, .module-bold
 
 .block-grid { display: flex; flex-direction: column; gap: 4px; }
 .subject-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
-.subject-pill { padding: 14px; border-radius: 16px; font-size: 12px; font-weight: 700; color: var(--text-dark); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: var(--transition); }
 input[type="checkbox"] { display: none; }
-input:checked + .subject-pill { background: var(--modmed-primary) !important; color: white; border-color: transparent; box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3); }
-input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white; } 
-.subject-pill i { opacity: 0; transform: scale(0.5); font-size: 16px; transition: var(--transition); }
+input:checked + .subject-pill { background: var(--modmed-primary) !important; color: white !important; border-color: transparent; box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3); }
 
 .lo-card { padding: 14px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
 .lo-card h4 { font-size: 13px; font-weight: 600; color: var(--text-dark); margin: 0; line-height: 1.4; padding-right: 10px; }
 .lo-card i { opacity: 0; transform: scale(0.5); font-size: 16px; transition: var(--transition); color: white; }
 .lo-label input:checked + .lo-card { background: var(--modmed-primary) !important; border-color: transparent; }
-.lo-label input:checked + .lo-card h4 { color: white; }
+.lo-label input:checked + .lo-card h4, .lo-label input:checked + .lo-card span { color: white !important; }
+.lo-label input:checked + .lo-card span { background: rgba(255,255,255,0.2) !important; }
 .lo-label input:checked + .lo-card i { opacity: 1; transform: scale(1); }
 
 /* AUTH VIEWS WRAPPER */
@@ -1020,6 +1018,19 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
     window.statCycleIndex = 0;
     window.practiceSubMode = 'lo'; // lo, class, block
 
+    window.subjectImages = {
+        "physiology": "https://i.imgur.com/6rzargr.jpeg",
+        "community_medicine": "https://i.imgur.com/dMtX7VC.jpeg",
+        "anatomy": "https://i.imgur.com/omFFOjF.jpeg",
+        "histology": "https://i.imgur.com/zuINaKF.jpeg",
+        "embryology": "https://i.imgur.com/moJHF1z.jpeg",
+        "behavioural_sciences": "https://i.imgur.com/Qy0jO3u.jpeg",
+        "biochemistry": "https://i.imgur.com/BZyuL9j.jpeg",
+        "pharmacology": "https://i.imgur.com/NXfqeCa.jpeg",
+        "aging": "https://i.imgur.com/tTFu6Tl.jpeg",
+        "pathology": "https://i.imgur.com/adMO2kb.jpeg"
+    };
+
     const scrollArea = document.getElementById('main-scroll-area'); window.dynColors = ['icon-1', 'icon-2', 'icon-3']; window.dynIcons = ['fa-dna', 'fa-bone', 'fa-heart-pulse', 'fa-brain', 'fa-lungs', 'fa-microscope'];
 
     // UTILS
@@ -1069,6 +1080,13 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
         }, "Block_2": {}, "Block_3": {}
     };
     window.loToNodeMap = {}; for (let block in window.HARDCODED_SYLLABUS) { for (let module in window.HARDCODED_SYLLABUS[block]) { for (let sub in window.HARDCODED_SYLLABUS[block][module]) { window.HARDCODED_SYLLABUS[block][module][sub].forEach(lo => { let cleanLo = lo.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); window.loToNodeMap[cleanLo] = { block: block.replace(/_/g, ' '), module: module.replace(/_/g, ' '), subject: sub.replace(/_/g, ' '), originalLo: lo }; }); } } }
+    
+    let matchFunc = function(syllabusStr, dbItem) {
+        if(!syllabusStr || !dbItem) return false; let cleanSyllabus = syllabusStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); let cleanDb = (dbItem.lo || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); 
+        if(cleanSyllabus === cleanDb) return true; if(cleanDb.length > 4 && cleanSyllabus.includes(cleanDb)) return true; if(cleanSyllabus.length > 4 && cleanDb.includes(cleanSyllabus)) return true;
+        const codeRegex = /(f|hl)[a-z]*\d{3}/i; let sylMatch = cleanSyllabus.match(codeRegex); let dbMatch = cleanDb.match(codeRegex); if(sylMatch && dbMatch && sylMatch[0] === dbMatch[0]) return true; return false;
+    };
+
     window.getSyllabusInfo = function(loStr) { if(!loStr) return { subject: "Mixed Theory", module: "Foundation" }; let clean = loStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); if(window.loToNodeMap[clean]) return window.loToNodeMap[clean]; for(let key in window.loToNodeMap) { if(key.includes(clean) || clean.includes(key)) return window.loToNodeMap[key]; } return { subject: "Mixed Theory", module: "Foundation" }; };
 
     window.getTotalLOsForBlock = function(blockName) {
@@ -1081,6 +1099,21 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
             for(let m in window.HARDCODED_SYLLABUS[blockName]) { for(let s in window.HARDCODED_SYLLABUS[blockName][m]) { total += window.HARDCODED_SYLLABUS[blockName][m][s].length; } }
             return total;
         }
+    }
+
+    // Helper to count unique MCQs for a list of LOs
+    window.getMcqCountForLOs = function(loList) {
+        let pool = window.appData.mcqs || [];
+        let matched = new Set();
+        for(let q of pool) {
+            for(let lo of loList) {
+                if(matchFunc(lo, q)) {
+                    matched.add(q.question); // Use question text as unique identifier
+                    break;
+                }
+            }
+        }
+        return matched.size;
     }
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -1100,6 +1133,7 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
                     window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {};
                     window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {};
                     window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.sessionHistory = window.currentUser.sessionHistory || [];
+                    window.currentUser.setCompletions = window.currentUser.setCompletions || {};
                     window.calculateStreak(); window.setupDashboard();
                     const activePage = document.querySelector('.page.active'); if(activePage && ['view-login', 'view-register', 'view-forgot-password', 'view-invite', 'view-premium-intro', 'view-premium-register', 'view-premium-success'].includes(activePage.id)) { window.navTo('dashboard'); } else if (!activePage) { window.navTo('dashboard'); }
                     listenToUserUpdates(user.uid); listenToNotifications();
@@ -1109,7 +1143,7 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
     });
 
     function listenToUserUpdates(uid) {
-        onSnapshot(doc(db, "users", uid), (doc) => { if(doc.exists() && window.currentUser) { window.currentUser = doc.data(); window.currentUser.uid = uid; window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {}; window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {}; window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; window.setupDashboard(); } });
+        onSnapshot(doc(db, "users", uid), (doc) => { if(doc.exists() && window.currentUser) { window.currentUser = doc.data(); window.currentUser.uid = uid; window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {}; window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {}; window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; window.currentUser.setCompletions = window.currentUser.setCompletions || {}; window.setupDashboard(); } });
     }
 
     function listenToNotifications() {
@@ -1137,7 +1171,7 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
         if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all fields.");
         if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters.");
         const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local";
-        try { document.getElementById('r-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; document.getElementById('r-btn').disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: window.registerMode, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], sessionHistory: [], createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); await signOut(auth); document.getElementById('success-title').innerText = "Welcome!"; document.getElementById('success-message').innerText = "Your account has been created.\nPlease log in with your credentials to get started."; window.navTo('success'); } catch (error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { document.getElementById('r-btn').innerHTML = 'Continue'; document.getElementById('r-btn').disabled = false; }
+        try { document.getElementById('r-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; document.getElementById('r-btn').disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: window.registerMode, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], sessionHistory: [], setCompletions: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); await signOut(auth); document.getElementById('success-title').innerText = "Welcome!"; document.getElementById('success-message').innerText = "Your account has been created.\nPlease log in with your credentials to get started."; window.navTo('success'); } catch (error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { document.getElementById('r-btn').innerHTML = 'Continue'; document.getElementById('r-btn').disabled = false; }
     }
 
     window.executePremiumRegistration = async function() {
@@ -1146,7 +1180,7 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
         const name = document.getElementById('pr-name').value.trim(), classInfo = document.getElementById('pr-class').value, college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim();
         if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters.");
         const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local";
-        try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", receipt: trxId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], sessionHistory: [], createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); window.navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment'; btn.disabled = false; }
+        try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", receipt: trxId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], sessionHistory: [], setCompletions: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); window.navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment'; btn.disabled = false; }
     }
 
     window.finishPremiumSuccess = async function() { const emailInput = document.getElementById('pr-confirm-email').value.trim(); if(!emailInput) return window.showToast("Please enter your email to receive updates."); if(window._tempProUid) { await updateDoc(doc(db, "users", window._tempProUid), { realEmail: emailInput }); window._tempProUid = null; } if(window.currentUser) { signOut(auth).then(()=> { window.navTo('login'); window.showToast("Log in to refresh your status", "success"); }); } else { window.navTo('login'); window.showToast("Log in using your credentials", "success"); } }
@@ -1506,7 +1540,20 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
 
     window.renderDynamicSyllabus = function() {
         const bc = document.getElementById('dynamic-blocks-container'); bc.innerHTML = '';
-        ['Block_1', 'Block_2', 'Block_3'].forEach((b, idx) => { let c = window.dynColors[idx%3], i = window.dynIcons[idx%6], n = b.replace(/_/g, ' '); bc.innerHTML += `<div class="list-card glass-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid ${i}"></i></div><div><h4>${n}</h4><p>View modules</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`; });
+        ['Block_1', 'Block_2', 'Block_3'].forEach((b, idx) => { 
+            let c = window.dynColors[idx%3], i = window.dynIcons[idx%6], n = b.replace(/_/g, ' '); 
+            
+            let blockLOs = [];
+            let mods = window.HARDCODED_SYLLABUS[b] || {};
+            for(let m in mods) {
+                for(let s in mods[m]) {
+                    blockLOs.push(...mods[m][s]);
+                }
+            }
+            let mcqCount = window.getMcqCountForLOs(blockLOs);
+
+            bc.innerHTML += `<div class="list-card glass-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid ${i}"></i></div><div><h4>${n}</h4><p>${mcqCount} MCQs Available</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`; 
+        });
     }
 
     window.selectBlock = function(b, el) {
@@ -1545,7 +1592,27 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
     }
 
     window.populateSubjects = function() {
-        const sc = document.getElementById('dynamic-subjects-container'); sc.innerHTML = ''; const subjects = window.HARDCODED_SYLLABUS[window.studyBlock][window.studyModule] || {}; Object.keys(subjects).forEach((s) => { sc.innerHTML += `<label><input type="checkbox" value="${s}"><div class="subject-pill glass-card">${s.replace(/_/g, ' ')} <i class="fa-solid fa-circle-check"></i></div></label>`; });
+        const sc = document.getElementById('dynamic-subjects-container'); sc.innerHTML = ''; 
+        const subjects = window.HARDCODED_SYLLABUS[window.studyBlock][window.studyModule] || {}; 
+        Object.keys(subjects).forEach((s) => { 
+            let loList = subjects[s];
+            let mcqCount = window.getMcqCountForLOs(loList);
+            let bgImg = window.subjectImages[s.toLowerCase()] || "https://i.imgur.com/wliwntu.png";
+            
+            sc.innerHTML += `
+            <label class="subject-label">
+                <input type="checkbox" value="${s}">
+                <div class="subject-pill glass-card" style="background: linear-gradient(rgba(10,17,34,0.75), rgba(10,17,34,0.85)), url('${bgImg}') center/cover; background-blend-mode: overlay; color: white; padding: 16px; border-radius: 16px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: var(--transition); border:none;">
+                    <div style="width:100%; display:flex; align-items:center; justify-content:space-between;">
+                        <div>
+                            <div style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">${s.replace(/_/g, ' ')}</div>
+                            <div style="font-size:10px; font-weight:600; color:var(--acc-card-sub); margin-top:4px;">${mcqCount} MCQs Available</div>
+                        </div>
+                        <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
+                    </div>
+                </div>
+            </label>`; 
+        });
     }
 
     window.selectPracticeSubMode = function(mode) {
@@ -1565,8 +1632,30 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
     }
 
     window.goToLO = function(){ 
-        const subs = Array.from(document.querySelectorAll('#view-step-subject input:checked')).map(cb=>cb.value); if(subs.length === 0) return window.showToast("Select at least one subject", "info"); const container = document.getElementById('lo-container'); container.innerHTML = '';
-        subs.forEach(sub => { const los = window.HARDCODED_SYLLABUS[window.studyBlock]?.[window.studyModule]?.[sub] || []; if(los.length > 0) { container.innerHTML += `<h3 style="color:var(--text-gray); font-size:11px; font-weight:800; margin-top:16px; text-transform:uppercase; letter-spacing: 0.8px;">${sub.replace(/_/g, ' ')}</h3>`; los.forEach(lo => { container.innerHTML += `<label class="lo-label"><input type="checkbox" value="${lo}"><div class="lo-card glass-card"><h4>${lo}</h4><i class="fa-solid fa-circle-check"></i></div></label>`; }); } });
+        const subs = Array.from(document.querySelectorAll('#view-step-subject input:checked')).map(cb=>cb.value); 
+        if(subs.length === 0) return window.showToast("Select at least one subject", "info"); 
+        
+        const container = document.getElementById('lo-container'); container.innerHTML = '';
+        subs.forEach(sub => { 
+            const los = window.HARDCODED_SYLLABUS[window.studyBlock]?.[window.studyModule]?.[sub] || []; 
+            if(los.length > 0) { 
+                container.innerHTML += `<h3 style="color:var(--text-gray); font-size:11px; font-weight:800; margin-top:16px; text-transform:uppercase; letter-spacing: 0.8px;">${sub.replace(/_/g, ' ')}</h3>`; 
+                los.forEach(lo => { 
+                    let mcqCount = window.getMcqCountForLOs([lo]);
+                    container.innerHTML += `
+                    <label class="lo-label">
+                        <input type="checkbox" value="${lo}">
+                        <div class="lo-card glass-card">
+                            <div>
+                                <h4 style="margin-bottom:6px;">${lo}</h4>
+                                <span style="font-size:10px; color:var(--modmed-primary); font-weight:800; background:rgba(59,130,246,0.1); padding:3px 8px; border-radius:6px;">${mcqCount} MCQs</span>
+                            </div>
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                    </label>`; 
+                }); 
+            } 
+        });
         if(container.innerHTML === '') container.innerHTML = '<p>No specific LOs available yet.</p>'; 
         const searchInput = document.getElementById('lo-search-input');
         if(searchInput) searchInput.value = ''; // clear search when entering
@@ -1626,12 +1715,6 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
         }
     }
 
-    let matchFunc = function(syllabusStr, dbItem) {
-        if(!syllabusStr || !dbItem) return false; let cleanSyllabus = syllabusStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); let cleanDb = (dbItem.lo || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); 
-        if(cleanSyllabus === cleanDb) return true; if(cleanDb.length > 4 && cleanSyllabus.includes(cleanDb)) return true; if(cleanSyllabus.length > 4 && cleanDb.includes(cleanSyllabus)) return true;
-        const codeRegex = /(f|hl)[a-z]*\d{3}/i; let sylMatch = cleanSyllabus.match(codeRegex); let dbMatch = cleanDb.match(codeRegex); if(sylMatch && dbMatch && sylMatch[0] === dbMatch[0]) return true; return false;
-    };
-
     window.getPrioritizedPool = function(pool) {
         let mis = window.currentUser.mistakes || {};
         let p_wrong = []; let p_other = [];
@@ -1651,11 +1734,32 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
 
         const SET_SIZE = 20; const numSets = Math.ceil(filteredPool.length / SET_SIZE);
         for(let i=0; i<numSets; i++) {
-            const isLocked = (i > 0 && window.currentUser.plan !== 'pro'); const startIdx = i * SET_SIZE, endIdx = Math.min((i + 1) * SET_SIZE, filteredPool.length), count = endIdx - startIdx;
-            const rawId = window.studyMode + '_' + diff + '_' + i + '_' + window.tempSelectedLOs.join('').substring(0,30); const setId = rawId.replace(/[^a-zA-Z0-9_]/g, '');
+            const isLocked = (i > 0 && window.currentUser.plan !== 'pro'); 
+            const startIdx = i * SET_SIZE, endIdx = Math.min((i + 1) * SET_SIZE, filteredPool.length), count = endIdx - startIdx;
+            const rawId = window.studyMode + '_' + diff + '_' + i + '_' + window.tempSelectedLOs.join('').substring(0,30); 
+            const setId = rawId.replace(/[^a-zA-Z0-9_]/g, '');
+            
+            let p = window.currentUser.progress ? window.currentUser.progress[setId] : null;
+            let comp = window.currentUser.setCompletions ? window.currentUser.setCompletions[setId] : null;
+
+            let subText = `<p style="color:var(--text-gray); font-size:12px; margin-bottom: 2px;">${count} items</p>`;
+            if (p) {
+                subText += `<p style="color:var(--modmed-primary); font-size:10px; font-weight:800;"><i class="fa-solid fa-spinner fa-spin"></i> In Progress: ${p.currentQ}/${count} done</p>`;
+            } else if (comp) {
+                subText += `<p style="color:var(--accent-green); font-size:10px; font-weight:800;"><i class="fa-solid fa-check-double"></i> Completed ${comp.count} time(s). Last: ${comp.lastDate}</p>`;
+            }
+
             const card = document.createElement('div'); card.className = `list-card glass-card ${isLocked ? 'locked-set' : ''}`;
-            if(isLocked) { card.innerHTML = `<div class="list-card-left"><div class="list-icon" style="background:var(--hover-bg); color:var(--text-gray); box-shadow:none;"><i class="fa-solid fa-lock"></i></div><div><h4 style="color:var(--text-gray);">Set ${i+1}</h4><p style="color:var(--text-gray);">${count} items (Pro Only)</p></div></div>`; card.onclick = () => window.showPaywallModal(); } 
-            else { card.innerHTML = `<div class="list-card-left"><div class="list-icon icon-2"><i class="fa-solid fa-play"></i></div><div><h4>Set ${i+1}</h4><p>${count} items</p></div></div><i class="fa-solid fa-chevron-right"></i>`; card.onclick = () => { window.tempSetData = { id: setId, title: `Set ${i+1} - ${window.getLOName(window.tempSelectedLOs[0])}`, data: filteredPool.slice(startIdx, endIdx) }; window.startFreshSet(); }; }
+            if(isLocked) { 
+                card.innerHTML = `<div class="list-card-left"><div class="list-icon" style="background:var(--hover-bg); color:var(--text-gray); box-shadow:none;"><i class="fa-solid fa-lock"></i></div><div><h4 style="color:var(--text-gray);">Set ${i+1}</h4><p style="color:var(--text-gray);">${count} items (Pro Only)</p></div></div>`; 
+                card.onclick = () => window.showPaywallModal(); 
+            } else { 
+                card.innerHTML = `<div class="list-card-left"><div class="list-icon icon-2"><i class="fa-solid fa-play"></i></div><div style="display:flex; flex-direction:column; gap:2px;"><h4 style="margin-bottom:0;">Set ${i+1}</h4>${subText}</div></div><i class="fa-solid fa-chevron-right"></i>`; 
+                card.onclick = () => { 
+                    window.tempSetData = { id: setId, title: `Set ${i+1} - ${window.getLOName(window.tempSelectedLOs[0])}`, data: filteredPool.slice(startIdx, endIdx) }; 
+                    if (p) { window.resumeSet(setId); } else { window.startFreshSet(); }
+                }; 
+            }
             c.appendChild(card);
         }
     }
@@ -1826,11 +1930,21 @@ input:checked + .subject-pill i { opacity: 1; transform: scale(1); color: white;
             let histObj = { title: document.getElementById(window.studyMode === 'flashcards' ? 'fc-title-text' : 'quiz-title-text').innerText || "Practice", score: finalScore, total: window.sessionData.length, date: new Date().toLocaleString() };
             let hist = window.currentUser.sessionHistory || []; hist.unshift(histObj); if(hist.length > 5) hist.pop(); window.currentUser.sessionHistory = hist;
 
+            // SET COMPLETION LOGIC
+            let setComps = window.currentUser.setCompletions || {};
+            if(window.currentSetId && !window.currentSetId.includes("CustomMix") && !window.currentSetId.includes("ClassTest") && !window.currentSetId.includes("CustomClass") && !window.currentSetId.includes("BlockExam")) {
+                setComps[window.currentSetId] = {
+                    count: (setComps[window.currentSetId]?.count || 0) + 1,
+                    lastDate: new Date().toLocaleDateString()
+                };
+            }
+            window.currentUser.setCompletions = setComps;
+
             let prog = window.currentUser.progress || {}; if(window.currentSetId && prog[window.currentSetId]) delete prog[window.currentSetId];
             let loStats = window.currentUser.loStats || {}; for(let k in window.sessionLoUpdates) { if(!loStats[k]) loStats[k] = {a:0, c:0}; loStats[k].a += window.sessionLoUpdates[k].a; loStats[k].c += window.sessionLoUpdates[k].c; } window.currentUser.loStats = loStats;
             let mis = window.currentUser.mistakes || {}; for(let k in window.sessionMistakeUpdates) { if(window.sessionMistakeUpdates[k] === 'add') mis[k] = true; else if(window.sessionMistakeUpdates[k] === 'remove') delete mis[k]; } window.currentUser.mistakes = mis;
             window.sessionLoUpdates = {}; window.sessionMistakeUpdates = {};
-            await updateDoc(doc(db, "users", window.currentUser.uid), { stats: s, progress: prog, loStats: loStats, mistakes: mis, activityHistory: window.currentUser.activityHistory, sessionHistory: hist });
+            await updateDoc(doc(db, "users", window.currentUser.uid), { stats: s, progress: prog, loStats: loStats, mistakes: mis, activityHistory: window.currentUser.activityHistory, sessionHistory: hist, setCompletions: setComps });
         }
 
         const fs=document.getElementById('flashcards-section'), fc=document.getElementById('fc-container'); fc.innerHTML=''; 
