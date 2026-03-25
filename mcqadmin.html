@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODMED - Smart Admin Panel</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root { --primary: #3b82f6; --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; --text-gray: #6b7280; --border: #e5e7eb; --danger: #ef4444; --success: #22c55e; }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding-bottom: 50px; }
+    
+    .header { background: var(--card); padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header h1 { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .tabs { display: flex; gap: 20px; }
+    .tab { padding: 8px 16px; cursor: pointer; border-radius: 8px; font-weight: 600; color: var(--text-gray); transition: 0.2s; }
+    .tab.active { background: var(--primary); color: white; }
+    
+    .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; display: none; }
+    .container.active { display: block; }
+    
+    .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border); }
+    h2 { font-size: 18px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;}
+    
+    .input-group { margin-bottom: 15px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text-gray); }
+    select, textarea, input[type="text"] { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; transition: 0.2s; background: #fafafa;}
+    select:focus, textarea:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); background:#fff;}
+    
+    .btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; background: var(--primary); color: white; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn.danger { background: var(--danger); }
+    .btn.success { background: var(--success); }
+    .btn.outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn.sm { padding: 6px 12px; font-size: 12px; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+    /* Visual Syllabus Styles */
+    .syl-block { background: #fff; border: 2px solid var(--primary); border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(59,130,246,0.1);}
+    .syl-module { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin: 15px 0 15px 20px; border-left: 4px solid var(--primary);}
+    .syl-subject { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 10px 0 10px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+    .syl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .syl-title { font-weight: 800; font-size: 15px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px;}
+    .syl-textarea { width: 100%; height: 100px; font-family: monospace; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; resize: vertical; margin-bottom: 10px;}
+    
+    .format-box { background: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-bottom: 15px; line-height: 1.5; }
+
+    /* List & Modal Styles */
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .list-item:hover { border-color: var(--primary); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background: var(--card); width: 100%; max-width: 700px; border-radius: 16px; padding: 24px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    
+    /* Filter Bar */
+    .filter-bar { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; }
+    .filter-bar select { padding: 8px 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1><i class="fa-solid fa-server"></i> MODMED Admin</h1>
+    <div class="tabs">
+        <div class="tab active" onclick="window.switchTab('mcqs', this)"><i class="fa-solid fa-bolt"></i> Bulk Upload MCQs</div>
+        <div class="tab" onclick="window.switchTab('manage', this)"><i class="fa-solid fa-pen-to-square"></i> Manage Existing MCQs</div>
+        <div class="tab" onclick="window.switchTab('syllabus', this)"><i class="fa-solid fa-sitemap"></i> Visual Syllabus Builder</div>
+    </div>
+</div>
+
+<!-- 1. MANAGE MCQS (BULK UPLOAD) -->
+<div class="container active" id="tab-mcqs">
+    <div class="card">
+        <h2><i class="fa-solid fa-bullseye"></i> 1. Select Fallback Destination & Source</h2>
+        <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 15px;">If your pasted text includes <strong>[LO]:</strong> and <strong>[SRC]:</strong> tags, the system will use those automatically. These dropdowns are just fallbacks if tags are missing.</p>
+        
+        <div class="grid-2">
+            <div class="input-group">
+                <label>Fallback Block</label>
+                <select id="mcq-block" onchange="window.updateModuleDropdown()"></select>
+            </div>
+            <div class="input-group">
+                <label>Fallback Module</label>
+                <select id="mcq-module" onchange="window.updateSubjectDropdown()"></select>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="input-group">
+                <label>Fallback Subject</label>
+                <select id="mcq-subject" onchange="window.updateLODropdown()"></select>
+            </div>
+            <div class="input-group">
+                <label>Fallback Learning Objective (LO)</label>
+                <select id="mcq-lo"></select>
+            </div>
+        </div>
+        <div class="input-group" style="max-width: 50%;">
+            <label>Default Source Name</label>
+            <input type="text" id="mcq-source" placeholder="e.g., SNELLS CLINICAL ANATOMY">
+        </div>
+    </div>
+
+    <div class="card">
+        <h2><i class="fa-solid fa-paste"></i> 2. Paste Thousands of MCQs</h2>
+        
+        <div class="format-box"><strong>Expected Format Example:</strong>
+[LO]: F-A-002. Bones (osteology)
+[SRC]: SNELLS CLINICAL ANATOMY
+[DIFF]: Moderate
+[Q]: A 22-year-old gymnast falls on her outstretched hand...
+[A]: Blood enters the distal pole and flows proximally
+[B]: Blood enters via the nutrient foramen in the neck
+[C]: Blood is supplied solely by the ulnar artery
+[D]: Blood enters the proximal pole and flows distally
+[ANS]: A
+[EXP]: The scaphoid bone receives its blood supply primarily from...</div>
+
+        <textarea id="bulk-mcq-input" rows="15" placeholder="Paste all your tagged MCQs here..."></textarea>
+        
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn" onclick="window.previewParsedMCQs()"><i class="fa-solid fa-microchip"></i> Parse Data</button>
+            <button class="btn outline" onclick="document.getElementById('bulk-mcq-input').value=''"><i class="fa-solid fa-eraser"></i> Clear</button>
+        </div>
+    </div>
+
+    <!-- PREVIEW & UPLOAD MODAL/SECTION -->
+    <div class="card" id="preview-section" style="display: none; border-color: var(--primary); background: #f0f9ff;">
+        <h2 style="color: var(--primary);"><i class="fa-solid fa-check-double"></i> 3. Confirm & Upload</h2>
+        <p id="preview-msg" style="font-weight: 700; margin-bottom: 15px; font-size: 15px;"></p>
+        <div id="preview-errors" style="color: var(--danger); font-size: 12px; margin-bottom: 15px; white-space: pre-wrap; max-height: 150px; overflow-y: auto;"></div>
+        
+        <button class="btn success" id="btn-upload" onclick="window.uploadParsedMCQs()"><i class="fa-solid fa-cloud-arrow-up"></i> Upload to Database</button>
+        <button class="btn outline danger" onclick="document.getElementById('preview-section').style.display='none'"><i class="fa-solid fa-xmark"></i> Cancel</button>
+    </div>
+</div>
+
+<!-- 2. MANAGE EXISTING MCQS (EDIT/DELETE) -->
+<div class="container" id="tab-manage">
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="margin: 0; border: none; padding: 0;"><i class="fa-solid fa-database"></i> Database MCQs (<span id="manage-count">0</span>)</h2>
+            <button class="btn outline" id="btn-load-mcqs" onclick="window.loadExistingMCQs()"><i class="fa-solid fa-rotate-right"></i> Load / Refresh MCQs</button>
+        </div>
+        
+        <!-- SYLLABUS FILTER BAR -->
+        <div class="filter-bar">
+            <label style="margin-bottom: 10px; color: var(--primary);"><i class="fa-solid fa-filter"></i> Filter by Syllabus</label>
+            <div class="grid-2" style="margin-bottom: 10px;">
+                <select id="filter-block" onchange="window.updateFilterModule()"><option value="">-- All Blocks --</option></select>
+                <select id="filter-module" onchange="window.updateFilterSubject()"><option value="">-- All Modules --</option></select>
+            </div>
+            <div class="grid-2">
+                <select id="filter-subject" onchange="window.updateFilterLO()"><option value="">-- All Subjects --</option></select>
+                <select id="filter-lo" onchange="window.renderExistingMCQs()"><option value="">-- All LOs --</option></select>
+            </div>
+            <div style="margin-top: 10px;">
+                <input type="text" id="search-existing" placeholder="Or search by Question Text..." onkeyup="window.renderExistingMCQs()">
+            </div>
+        </div>
+
+        <!-- BULK ACTIONS BAR (New feature) -->
+        <div id="bulk-action-bar" style="display: none; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin-bottom: 15px; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="select-all-checkbox" onchange="window.toggleSelectAll(this)" style="width:16px; height:16px; cursor:pointer;">
+                <label for="select-all-checkbox" style="margin:0; color: var(--danger); font-weight: 700; cursor:pointer;">Select All Visible</label>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn danger sm" id="btn-delete-selected" onclick="window.deleteSelectedMCQs(this)"><i class="fa-solid fa-trash"></i> Delete Selected (<span id="selected-count">0</span>)</button>
+                <button class="btn outline danger sm" id="btn-delete-filtered" onclick="window.deleteAllFilteredMCQs(this)" style="background: white;"><i class="fa-solid fa-dumpster"></i> Delete All Filtered (<span id="filtered-count">0</span>)</button>
+            </div>
+        </div>
+
+        <div id="existing-mcqs-list">
+            <p style="text-align:center; color:#888; padding: 20px;">Click "Load / Refresh MCQs" to fetch from database.</p>
+        </div>
+    </div>
+</div>
+
+<!-- 3. MANAGE SYLLABUS (VISUAL BUILDER) -->
+<div class="container" id="tab-syllabus">
+    <div class="card" style="position: sticky; top: 85px; z-index: 50; border: 2px solid var(--success);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 style="margin-bottom: 4px; border:none; padding:0;"><i class="fa-solid fa-sitemap"></i> Visual Syllabus Builder</h2>
+                <p style="font-size: 12px; color: var(--text-gray);">Type easily. No code or JSON needed. Just click 'Add' and type.</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" onclick="window.addBlock()"><i class="fa-solid fa-plus"></i> Add New Block</button>
+                <button class="btn success" onclick="window.saveSyllabusToDB()"><i class="fa-solid fa-cloud-arrow-up"></i> Save Full Syllabus to App</button>
+            </div>
+        </div>
+    </div>
+    <div id="visual-syllabus-container">
+        <!-- JS builds the tree here -->
+    </div>
+</div>
+
+<!-- EDIT MCQ MODAL -->
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal-content">
+        <h2 style="color: var(--primary); margin-top: 0; display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa-solid fa-pen-to-square"></i> Edit MCQ</span>
+            <!-- ID added here for targeted state changes -->
+            <button type="button" id="btn-delete-mcq" class="btn danger sm" onclick="window.deleteExistingMCQ()"><i class="fa-solid fa-trash"></i> Delete this MCQ</button>
+        </h2>
+        
+        <input type="hidden" id="edit-mcq-id">
+        
+        <div class="grid-2">
+            <div class="input-group">
+                <label>Learning Objective [LO]</label>
+                <input type="text" id="edit-lo" required>
+            </div>
+            <div class="input-group">
+                <label>Source [SRC]</label>
+                <input type="text" id="edit-src">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Question Vignette [Q]</label>
+            <textarea id="edit-q" rows="4" required></textarea>
+        </div>
+
+        <label>Options (Leave blank if fewer than 6)</label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="edit-opt-0" placeholder="Option A" required>
+            <input type="text" id="edit-opt-1" placeholder="Option B" required>
+            <input type="text" id="edit-opt-2" placeholder="Option C">
+            <input type="text" id="edit-opt-3" placeholder="Option D">
+            <input type="text" id="edit-opt-4" placeholder="Option E">
+            <input type="text" id="edit-opt-5" placeholder="Option F">
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+                <label>Correct Answer Index</label>
+                <select id="edit-ans" required>
+                    <option value="0">A (Option 1)</option>
+                    <option value="1">B (Option 2)</option>
+                    <option value="2">C (Option 3)</option>
+                    <option value="3">D (Option 4)</option>
+                    <option value="4">E (Option 5)</option>
+                    <option value="5">F (Option 6)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Difficulty [DIFF]</label>
+                <select id="edit-diff">
+                    <option value="Easy">Easy</option>
+                    <option value="Moderate">Moderate</option>
+                    <option value="Hard">Hard</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Explanation [EXP]</label>
+            <textarea id="edit-exp" rows="3"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn success" onclick="window.saveEditedMCQ()"><i class="fa-solid fa-check"></i> Save Changes</button>
+            <button type="button" class="btn outline" onclick="window.closeEditModal()"><i class="fa-solid fa-xmark"></i> Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI", 
+        authDomain: "modmedicalis-f7ca2.firebaseapp.com", 
+        projectId: "modmedicalis-f7ca2", 
+        storageBucket: "modmedicalis-f7ca2.firebasestorage.app", 
+        messagingSenderId: "786594019384", 
+        appId: "1:786594019384:web:1a86108fa496d05aadcecd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.CURRENT_SYLLABUS = {};
+    window.parsedMCQsBuffer = [];
+    window.ALL_MCQS = []; 
+    
+    // New State variables for bulk operations
+    window.CURRENT_FILTERED_MCQS = [];
+    window.SELECTED_MCQ_IDS = new Set();
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await window.loadSyllabus();
+    });
+
+    // ==========================================
+    // TAB MANAGEMENT
+    // ==========================================
+    window.switchTab = function(tabName, tabElement) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+        tabElement.classList.add('active');
+        document.getElementById('tab-' + tabName).classList.add('active');
+    };
+
+    // ==========================================
+    // SYLLABUS MANAGEMENT (VISUAL)
+    // ==========================================
+    window.loadSyllabus = async function() {
+        try {
+            const sylDoc = await getDoc(doc(db, "config", "syllabus"));
+            if (sylDoc.exists() && sylDoc.data().data) {
+                window.CURRENT_SYLLABUS = sylDoc.data().data;
+            } else {
+                window.CURRENT_SYLLABUS = {"Block_1": {"Foundation": {"anatomy": ["Example LO 1"]}}};
+            }
+            window.populateBlockDropdown();
+            window.populateFilterBlock();
+            window.renderVisualSyllabus();
+        } catch(e) { 
+            console.error("Error loading syllabus", e); 
+            alert("Database Error: Could not load syllabus.");
+        }
+    }
+
+    window.saveSyllabusToDB = async function() {
+        try {
+            document.body.style.cursor = 'wait';
+            await setDoc(doc(db, "config", "syllabus"), { data: window.CURRENT_SYLLABUS });
+            window.populateBlockDropdown();
+            window.populateFilterBlock();
+            alert("Syllabus successfully saved and pushed to the live App!");
+        } catch(e) {
+            alert("Error saving syllabus: " + e.message);
+        } finally {
+            document.body.style.cursor = 'default';
+        }
+    }
+
+    window.renderVisualSyllabus = function() {
+        const container = document.getElementById('visual-syllabus-container');
+        container.innerHTML = '';
+        if(!window.CURRENT_SYLLABUS || Object.keys(window.CURRENT_SYLLABUS).length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#888; padding:40px;">No blocks exist. Click "Add New Block" above.</p>'; 
+            return;
+        }
+        for(let b in window.CURRENT_SYLLABUS) {
+            let blockHtml = `<div class="syl-block"><div class="syl-header"><div class="syl-title"><i class="fa-solid fa-cube" style="color:var(--primary);"></i> ${b.replace(/_/g, ' ')}</div><div><button class="btn outline sm" onclick="window.addModule('${b}')"><i class="fa-solid fa-plus"></i> Add Module</button> <button class="btn danger sm" onclick="window.deleteNode('${b}', null, null, this)"><i class="fa-solid fa-trash"></i></button></div></div>`;
+            for(let m in window.CURRENT_SYLLABUS[b]) {
+                blockHtml += `<div class="syl-module"><div class="syl-header"><div class="syl-title"><i class="fa-solid fa-cubes"></i> ${m.replace(/_/g, ' ')}</div><div><button class="btn outline sm" onclick="window.addSubject('${b}', '${m}')"><i class="fa-solid fa-plus"></i> Add Subject</button> <button class="btn danger sm" onclick="window.deleteNode('${b}', '${m}', null, this)"><i class="fa-solid fa-trash"></i></button></div></div>`;
+                for(let s in window.CURRENT_SYLLABUS[b][m]) {
+                    let loText = (window.CURRENT_SYLLABUS[b][m][s] || []).join('\n');
+                    blockHtml += `<div class="syl-subject"><div class="syl-header"><div class="syl-title"><i class="fa-solid fa-book-medical"></i> ${s.replace(/_/g, ' ')}</div><button class="btn danger sm" onclick="window.deleteNode('${b}', '${m}', '${s}', this)"><i class="fa-solid fa-trash"></i></button></div><label style="font-size:11px; color:var(--primary);">Learning Objectives (Paste list here, one per line):</label><textarea class="syl-textarea" placeholder="Paste your LOs here..." onchange="window.updateLOs('${b}', '${m}', '${s}', this.value)">${loText}</textarea></div>`;
+                }
+                blockHtml += `</div>`;
+            }
+            blockHtml += `</div>`;
+            container.innerHTML += blockHtml;
+        }
+    }
+
+    window.addBlock = function() { let name = prompt("Enter Block Name (e.g., Block_1):"); if(name && name.trim()) { let key = name.trim().replace(/ /g, '_'); if(!window.CURRENT_SYLLABUS[key]) window.CURRENT_SYLLABUS[key] = {}; window.renderVisualSyllabus(); } }
+    window.addModule = function(b) { let name = prompt("Enter Module Name (e.g., Foundation):"); if(name && name.trim()) { let key = name.trim().replace(/ /g, '_'); if(!window.CURRENT_SYLLABUS[b][key]) window.CURRENT_SYLLABUS[b][key] = {}; window.renderVisualSyllabus(); } }
+    window.addSubject = function(b, m) { let name = prompt("Enter Subject Name (e.g., anatomy):"); if(name && name.trim()) { let key = name.trim().replace(/ /g, '_').toLowerCase(); if(!window.CURRENT_SYLLABUS[b][m][key]) window.CURRENT_SYLLABUS[b][m][key] = []; window.renderVisualSyllabus(); } }
+    window.updateLOs = function(b, m, s, val) { window.CURRENT_SYLLABUS[b][m][s] = val.split('\n').map(l => l.trim()).filter(l => l); }
+
+    window.deleteNode = async function(b, m = null, s = null, btnElement = null) { 
+        if (btnElement && !btnElement.classList.contains('confirm-mode')) {
+            const originalHtml = btnElement.innerHTML;
+            btnElement.classList.add('confirm-mode');
+            btnElement.innerHTML = '<i class="fa-solid fa-check"></i> Sure?';
+            btnElement.style.backgroundColor = 'darkred';
+            btnElement.style.color = 'white';
+            
+            setTimeout(() => {
+                if(document.body.contains(btnElement)){
+                    btnElement.classList.remove('confirm-mode');
+                    btnElement.innerHTML = originalHtml;
+                    btnElement.style.backgroundColor = '';
+                    btnElement.style.color = '';
+                }
+            }, 3000);
+            return; 
+        }
+
+        if(s) { delete window.CURRENT_SYLLABUS[b][m][s]; } 
+        else if(m) { delete window.CURRENT_SYLLABUS[b][m]; } 
+        else { delete window.CURRENT_SYLLABUS[b]; } 
+        
+        window.renderVisualSyllabus(); 
+        
+        try {
+            await setDoc(doc(db, "config", "syllabus"), { data: window.CURRENT_SYLLABUS });
+        } catch(e) {
+            console.error("Auto-save failed", e);
+        }
+    }
+
+    // ==========================================
+    // DROPDOWNS FOR BULK IMPORT (Tab 1)
+    // ==========================================
+    window.populateBlockDropdown = function() {
+        const sel = document.getElementById('mcq-block'); sel.innerHTML = '<option value="">-- Select Block --</option>';
+        Object.keys(window.CURRENT_SYLLABUS).forEach(b => { sel.innerHTML += `<option value="${b}">${b.replace(/_/g, ' ')}</option>`; }); window.updateModuleDropdown();
+    }
+    window.updateModuleDropdown = function() {
+        const b = document.getElementById('mcq-block').value; const sel = document.getElementById('mcq-module'); sel.innerHTML = '<option value="">-- Select Module --</option>';
+        if(b && window.CURRENT_SYLLABUS[b]) { Object.keys(window.CURRENT_SYLLABUS[b]).forEach(m => { sel.innerHTML += `<option value="${m}">${m.replace(/_/g, ' ')}</option>`; }); } window.updateSubjectDropdown();
+    }
+    window.updateSubjectDropdown = function() {
+        const b = document.getElementById('mcq-block').value; const m = document.getElementById('mcq-module').value; const sel = document.getElementById('mcq-subject'); sel.innerHTML = '<option value="">-- Select Subject --</option>';
+        if(m && window.CURRENT_SYLLABUS[b] && window.CURRENT_SYLLABUS[b][m]) { Object.keys(window.CURRENT_SYLLABUS[b][m]).forEach(s => { sel.innerHTML += `<option value="${s}">${s.replace(/_/g, ' ')}</option>`; }); } window.updateLODropdown();
+    }
+    window.updateLODropdown = function() {
+        const b = document.getElementById('mcq-block').value; const m = document.getElementById('mcq-module').value; const s = document.getElementById('mcq-subject').value; const sel = document.getElementById('mcq-lo'); sel.innerHTML = '<option value="">-- Select LO --</option>';
+        if(s && window.CURRENT_SYLLABUS[b] && window.CURRENT_SYLLABUS[b][m] && window.CURRENT_SYLLABUS[b][m][s]) { window.CURRENT_SYLLABUS[b][m][s].forEach(lo => { sel.innerHTML += `<option value="${lo}">${lo}</option>`; }); }
+    }
+
+    // ==========================================
+    // DROPDOWNS FOR FILTERING EXISTING MCQS (Tab 2)
+    // ==========================================
+    window.populateFilterBlock = function() {
+        const sel = document.getElementById('filter-block'); sel.innerHTML = '<option value="">-- All Blocks --</option>';
+        Object.keys(window.CURRENT_SYLLABUS).forEach(b => { sel.innerHTML += `<option value="${b}">${b.replace(/_/g, ' ')}</option>`; }); window.updateFilterModule();
+    }
+    window.updateFilterModule = function() {
+        const b = document.getElementById('filter-block').value; const sel = document.getElementById('filter-module'); sel.innerHTML = '<option value="">-- All Modules --</option>';
+        if(b && window.CURRENT_SYLLABUS[b]) { Object.keys(window.CURRENT_SYLLABUS[b]).forEach(m => { sel.innerHTML += `<option value="${m}">${m.replace(/_/g, ' ')}</option>`; }); } window.updateFilterSubject();
+    }
+    window.updateFilterSubject = function() {
+        const b = document.getElementById('filter-block').value; const m = document.getElementById('filter-module').value; const sel = document.getElementById('filter-subject'); sel.innerHTML = '<option value="">-- All Subjects --</option>';
+        if(m && window.CURRENT_SYLLABUS[b] && window.CURRENT_SYLLABUS[b][m]) { Object.keys(window.CURRENT_SYLLABUS[b][m]).forEach(s => { sel.innerHTML += `<option value="${s}">${s.replace(/_/g, ' ')}</option>`; }); } window.updateFilterLO();
+    }
+    window.updateFilterLO = function() {
+        const b = document.getElementById('filter-block').value; const m = document.getElementById('filter-module').value; const s = document.getElementById('filter-subject').value; const sel = document.getElementById('filter-lo'); sel.innerHTML = '<option value="">-- All LOs --</option>';
+        if(s && window.CURRENT_SYLLABUS[b] && window.CURRENT_SYLLABUS[b][m] && window.CURRENT_SYLLABUS[b][m][s]) { window.CURRENT_SYLLABUS[b][m][s].forEach(lo => { sel.innerHTML += `<option value="${lo}">${lo}</option>`; }); }
+        window.renderExistingMCQs(); 
+    }
+
+    // ==========================================
+    // SMART BULK PARSER & BATCH UPLOADER
+    // ==========================================
+    window.previewParsedMCQs = function() {
+        const rawText = document.getElementById('bulk-mcq-input').value;
+        const fallbackLO = document.getElementById('mcq-lo').value;
+        const fallbackSrc = document.getElementById('mcq-source').value.trim();
+
+        if(!rawText.trim()) return alert("Please paste some MCQs to parse.");
+
+        window.parsedMCQsBuffer = [];
+        let errorLog = "";
+        let lines = rawText.split('\n');
+        let currentMCQ = null;
+
+        for(let i=0; i<lines.length; i++) {
+            let line = lines[i].trimEnd();
+            
+            if(line.startsWith('[LO]:') || line.startsWith('[Q]:')) {
+                if (line.startsWith('[LO]:') || (line.startsWith('[Q]:') && currentMCQ && currentMCQ.q)) {
+                    if(currentMCQ && currentMCQ.q) { window.parsedMCQsBuffer.push(currentMCQ); }
+                    if(line.startsWith('[LO]:')) { currentMCQ = { options: [], lo: line.substring(5).trim(), src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; } 
+                    else { currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: line.substring(4).trim(), ans: '', exp: '' }; currentMCQ.currentTag = 'Q'; }
+                } else if (line.startsWith('[Q]:')) {
+                    if(!currentMCQ) currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: '', ans: '', exp: '' };
+                    currentMCQ.q = line.substring(4).trim(); currentMCQ.currentTag = 'Q';
+                }
+            }
+            else if(line.startsWith('[SRC]:')) { if(!currentMCQ) currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; currentMCQ.src = line.substring(6).trim(); }
+            else if(line.startsWith('[DIFF]:')) { if(!currentMCQ) currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; currentMCQ.diff = line.substring(7).trim(); }
+            else if(line.match(/^\[[A-Z]\]:/)) {
+                if(!currentMCQ) continue;
+                let optLetter = line.charAt(1); let optText = line.substring(4).trim();
+                currentMCQ.options.push({ letter: optLetter, text: optText }); currentMCQ.currentTag = 'O';
+            }
+            else if(line.startsWith('[ANS]:')) { if(!currentMCQ) continue; currentMCQ.ans = line.substring(6).trim(); currentMCQ.currentTag = 'ANS'; }
+            else if(line.startsWith('[EXP]:')) { if(!currentMCQ) continue; currentMCQ.exp = line.substring(6).trim(); currentMCQ.currentTag = 'EXP'; }
+            else {
+                if(currentMCQ && currentMCQ.currentTag) {
+                    if(currentMCQ.currentTag === 'Q') currentMCQ.q += '\n' + line;
+                    if(currentMCQ.currentTag === 'EXP') currentMCQ.exp += '\n' + line;
+                    if(currentMCQ.currentTag === 'O') currentMCQ.options[currentMCQ.options.length-1].text += '\n' + line;
+                }
+            }
+        }
+        
+        if(currentMCQ && currentMCQ.q) window.parsedMCQsBuffer.push(currentMCQ);
+
+        let finalMCQs = [];
+        let skippedCount = 0;
+
+        window.parsedMCQsBuffer.forEach((mcq, idx) => {
+            let finalLO = mcq.lo || fallbackLO;
+            let finalSrc = mcq.src || fallbackSrc;
+            
+            if(!finalLO) { errorLog += `MCQ #${idx+1} skipped: No LO tag found and no fallback LO selected.\n`; skippedCount++; return; }
+            if(mcq.options.length < 2) { errorLog += `MCQ #${idx+1} skipped: Less than 2 options found.\n`; skippedCount++; return; }
+            if(!mcq.ans) { errorLog += `MCQ #${idx+1} skipped: No [ANS] tag found.\n`; skippedCount++; return; }
+
+            let correctIndex = mcq.ans.toUpperCase().charCodeAt(0) - 65;
+            if(correctIndex < 0 || correctIndex >= mcq.options.length) { errorLog += `MCQ #${idx+1} warning: Answer ${mcq.ans} is out of bounds. Defaulting to A.\n`; correctIndex = 0; }
+
+            finalMCQs.push({ lo: finalLO, source: finalSrc, difficulty: mcq.diff || "Moderate", question: mcq.q.trim(), options: mcq.options.map(o => o.text.trim()), correctIndex: correctIndex, explanation: mcq.exp.trim() });
+        });
+
+        window.parsedMCQsBuffer = finalMCQs;
+
+        const previewSec = document.getElementById('preview-section'); const msg = document.getElementById('preview-msg'); const errs = document.getElementById('preview-errors');
+        if(window.parsedMCQsBuffer.length > 0) {
+            previewSec.style.display = 'block'; msg.innerText = `Successfully parsed ${window.parsedMCQsBuffer.length} MCQs! Ready for database upload.`; errs.innerText = errorLog ? ("Warnings/Errors:\n" + errorLog) : "No errors detected. Perfect formatting!";
+        } else {
+            alert("Could not parse any valid MCQs. Please check the formatting example.\n\n" + errorLog); previewSec.style.display = 'none';
+        }
+    }
+
+    window.uploadParsedMCQs = async function() {
+        if(window.parsedMCQsBuffer.length === 0) return;
+        const btn = document.getElementById('btn-upload'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading... Please wait...'; btn.disabled = true;
+
+        try {
+            const chunkSize = 400; const mcqCollection = collection(db, "mcqs");
+            for(let i = 0; i < window.parsedMCQsBuffer.length; i += chunkSize) {
+                const chunk = window.parsedMCQsBuffer.slice(i, i + chunkSize);
+                const batch = writeBatch(db);
+                chunk.forEach(mcq => { const newDocRef = doc(mcqCollection); batch.set(newDocRef, mcq); });
+                await batch.commit();
+            }
+            alert(`Success! Uploaded ${window.parsedMCQsBuffer.length} MCQs to the Database.`);
+            document.getElementById('bulk-mcq-input').value = ''; document.getElementById('preview-section').style.display = 'none'; window.parsedMCQsBuffer = [];
+            
+            if(window.ALL_MCQS.length > 0) window.loadExistingMCQs();
+        } catch (error) { console.error(error); alert("Error uploading MCQs: " + error.message); } 
+        finally { btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload to Database'; btn.disabled = false; }
+    }
+
+    // ==========================================
+    // MANAGE EXISTING MCQS (BULK + EDIT/DELETE)
+    // ==========================================
+    window.loadExistingMCQs = async function() {
+        const btn = document.getElementById('btn-load-mcqs');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Fetching...';
+        btn.disabled = true;
+        try {
+            const snap = await getDocs(collection(db, "mcqs"));
+            window.ALL_MCQS = [];
+            snap.forEach(doc => { window.ALL_MCQS.push({ id: doc.id, ...doc.data() }); });
+            document.getElementById('manage-count').innerText = window.ALL_MCQS.length;
+            window.renderExistingMCQs();
+        } catch(e) {
+            console.error(e);
+            alert("Error loading MCQs: " + e.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Load / Refresh MCQs';
+            btn.disabled = false;
+        }
+    }
+
+    window.renderExistingMCQs = function() {
+        const list = document.getElementById('existing-mcqs-list');
+        list.innerHTML = '';
+        
+        // Reset selections on render
+        window.SELECTED_MCQ_IDS.clear();
+        document.getElementById('selected-count').innerText = "0";
+        document.getElementById('select-all-checkbox').checked = false;
+
+        if(window.ALL_MCQS.length === 0) {
+            list.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No MCQs loaded in memory. Click "Load / Refresh MCQs" above.</p>';
+            document.getElementById('bulk-action-bar').style.display = 'none';
+            return;
+        }
+
+        const fB = document.getElementById('filter-block').value;
+        const fM = document.getElementById('filter-module').value;
+        const fS = document.getElementById('filter-subject').value;
+        const fL = document.getElementById('filter-lo').value;
+        const searchTerm = document.getElementById('search-existing').value.toLowerCase();
+
+        let validLOs = null;
+        if (fL) { validLOs = [fL]; } 
+        else if (fS && window.CURRENT_SYLLABUS[fB] && window.CURRENT_SYLLABUS[fB][fM] && window.CURRENT_SYLLABUS[fB][fM][fS]) { validLOs = window.CURRENT_SYLLABUS[fB][fM][fS]; } 
+        else if (fM && window.CURRENT_SYLLABUS[fB] && window.CURRENT_SYLLABUS[fB][fM]) {
+            validLOs = []; Object.values(window.CURRENT_SYLLABUS[fB][fM]).forEach(arr => validLOs.push(...arr));
+        } else if (fB && window.CURRENT_SYLLABUS[fB]) {
+            validLOs = []; Object.values(window.CURRENT_SYLLABUS[fB]).forEach(mod => { Object.values(mod).forEach(arr => validLOs.push(...arr)); });
+        }
+
+        window.CURRENT_FILTERED_MCQS = window.ALL_MCQS;
+        if(validLOs !== null) { window.CURRENT_FILTERED_MCQS = window.CURRENT_FILTERED_MCQS.filter(m => validLOs.includes(m.lo)); }
+        if(searchTerm) { window.CURRENT_FILTERED_MCQS = window.CURRENT_FILTERED_MCQS.filter(m => (m.question && m.question.toLowerCase().includes(searchTerm)) || (m.lo && m.lo.toLowerCase().includes(searchTerm))); }
+
+        if(window.CURRENT_FILTERED_MCQS.length === 0) {
+            list.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No questions found matching your filters.</p>';
+            document.getElementById('bulk-action-bar').style.display = 'none';
+            return;
+        }
+
+        // Show bulk action bar
+        document.getElementById('bulk-action-bar').style.display = 'flex';
+        document.getElementById('filtered-count').innerText = window.CURRENT_FILTERED_MCQS.length;
+
+        const toShow = window.CURRENT_FILTERED_MCQS.slice(0, 100);
+
+        toShow.forEach(q => {
+            let ansText = q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : 'N/A';
+            list.innerHTML += `
+            <div class="list-item" style="display: flex; align-items: flex-start; gap: 15px;">
+                <input type="checkbox" class="mcq-checkbox" value="${q.id}" onchange="window.toggleMCQSelection(this)" style="margin-top: 4px; width:16px; height:16px; cursor:pointer;">
+                <div style="flex: 1; padding-right: 10px;">
+                    <div style="font-size: 11px; color: var(--primary); font-weight: 800; margin-bottom: 4px;">[${q.difficulty || 'Moderate'}] ${q.lo || 'Uncategorized'}</div>
+                    <div style="font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">${q.question}</div>
+                    <div style="font-size: 12px; color: var(--success); font-weight: 700;">Ans: ${ansText}</div>
+                </div>
+                <div>
+                    <button class="btn outline edit-mcq-btn" onclick="window.openEditModal('${q.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+            </div>`;
+        });
+
+        if(window.CURRENT_FILTERED_MCQS.length > 100) {
+            list.innerHTML += `<p style="text-align:center; color:var(--text-gray); font-size:12px; margin-top:15px; font-weight:600;">Showing 100 of ${window.CURRENT_FILTERED_MCQS.length} results. Use the filters to narrow down, or click "Delete All Filtered" above to wipe them all.</p>`;
+        }
+    }
+
+    // --- BULK SELECT & DELETE LOGIC ---
+    window.toggleMCQSelection = function(cb) {
+        if(cb.checked) window.SELECTED_MCQ_IDS.add(cb.value);
+        else window.SELECTED_MCQ_IDS.delete(cb.value);
+        document.getElementById('selected-count').innerText = window.SELECTED_MCQ_IDS.size;
+    }
+
+    window.toggleSelectAll = function(cb) {
+        const checkboxes = document.querySelectorAll('.mcq-checkbox');
+        checkboxes.forEach(c => {
+            c.checked = cb.checked;
+            if(cb.checked) window.SELECTED_MCQ_IDS.add(c.value);
+            else window.SELECTED_MCQ_IDS.delete(c.value);
+        });
+        document.getElementById('selected-count').innerText = window.SELECTED_MCQ_IDS.size;
+    }
+
+    window.executeBatchDelete = async function(idsToDelete, btnElement, originalHtml) {
+        if (!btnElement.classList.contains('confirm-mode')) {
+            btnElement.classList.add('confirm-mode');
+            btnElement.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sure? Click again!';
+            btnElement.style.backgroundColor = 'darkred';
+            btnElement.style.color = 'white';
+            setTimeout(() => {
+                if (document.body.contains(btnElement)) {
+                    btnElement.classList.remove('confirm-mode');
+                    btnElement.innerHTML = originalHtml;
+                    btnElement.style.backgroundColor = '';
+                    btnElement.style.color = '';
+                }
+            }, 3000);
+            return;
+        }
+
+        try {
+            document.body.style.cursor = 'wait';
+            btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
+
+            const chunkSize = 400; // Batch limit
+            for (let i = 0; i < idsToDelete.length; i += chunkSize) {
+                const chunk = idsToDelete.slice(i, i + chunkSize);
+                const batch = writeBatch(db);
+                chunk.forEach(id => { batch.delete(doc(db, "mcqs", id)); });
+                await batch.commit();
+            }
+
+            // Clean up UI & Local Memory
+            const idSet = new Set(idsToDelete);
+            window.ALL_MCQS = window.ALL_MCQS.filter(m => !idSet.has(m.id));
+            document.getElementById('manage-count').innerText = window.ALL_MCQS.length;
+            
+            // Success reset
+            btnElement.classList.remove('confirm-mode');
+            btnElement.style.backgroundColor = '';
+            btnElement.style.color = '';
+            
+            window.renderExistingMCQs(); 
+
+        } catch (e) {
+            console.error("Bulk delete error", e);
+            alert("Error deleting MCQs: " + e.message);
+            btnElement.classList.remove('confirm-mode');
+            btnElement.innerHTML = originalHtml;
+            btnElement.style.backgroundColor = '';
+            btnElement.style.color = '';
+        } finally {
+            document.body.style.cursor = 'default';
+        }
+    }
+
+    window.deleteSelectedMCQs = function(btn) {
+        const ids = Array.from(window.SELECTED_MCQ_IDS);
+        if(ids.length === 0) return alert("Please check the boxes next to the MCQs you want to delete.");
+        const orig = `<i class="fa-solid fa-trash"></i> Delete Selected (${ids.length})`;
+        window.executeBatchDelete(ids, btn, orig);
+    }
+
+    window.deleteAllFilteredMCQs = function(btn) {
+        const ids = window.CURRENT_FILTERED_MCQS.map(m => m.id);
+        if(ids.length === 0) return alert("No MCQs matched the current filter.");
+        const orig = `<i class="fa-solid fa-dumpster"></i> Delete All Filtered (${ids.length})`;
+        window.executeBatchDelete(ids, btn, orig);
+    }
+
+    // --- INDIVIDUAL MODAL EDIT LOGIC ---
+    window.openEditModal = function(id) {
+        const q = window.ALL_MCQS.find(m => m.id === id);
+        if(!q) return;
+        
+        document.getElementById('edit-mcq-id').value = q.id;
+        document.getElementById('edit-lo').value = q.lo || '';
+        document.getElementById('edit-src').value = q.source || '';
+        document.getElementById('edit-q').value = q.question || '';
+        document.getElementById('edit-diff').value = q.difficulty || 'Moderate';
+        document.getElementById('edit-exp').value = q.explanation || '';
+        document.getElementById('edit-ans').value = q.correctIndex || 0;
+
+        for(let i=0; i<6; i++) {
+            document.getElementById('edit-opt-' + i).value = (q.options && q.options[i]) ? q.options[i] : '';
+        }
+        
+        document.getElementById('edit-modal').classList.add('active');
+    }
+
+    window.closeEditModal = function() {
+        document.getElementById('edit-modal').classList.remove('active');
+        
+        const btn = document.getElementById('btn-delete-mcq');
+        if (btn) {
+            btn.classList.remove('confirm-mode');
+            btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete this MCQ';
+            btn.style.backgroundColor = 'var(--danger)';
+        }
+    }
+
+    window.saveEditedMCQ = async function() {
+        const id = document.getElementById('edit-mcq-id').value;
+        if(!id) return alert("Error: MCQ ID is missing.");
+
+        const lo = document.getElementById('edit-lo').value.trim();
+        const src = document.getElementById('edit-src').value.trim();
+        const qText = document.getElementById('edit-q').value.trim();
+        const diff = document.getElementById('edit-diff').value;
+        const exp = document.getElementById('edit-exp').value.trim();
+        const correctIndex = parseInt(document.getElementById('edit-ans').value);
+
+        const options = [];
+        for(let i=0; i<6; i++) {
+            const optVal = document.getElementById('edit-opt-' + i).value.trim();
+            if(optVal) options.push(optVal);
+        }
+
+        if(!lo || !qText || options.length < 2) { return alert("Please provide an LO, Question, and at least 2 Options."); }
+        if(correctIndex >= options.length) { return alert("Correct Answer is out of bounds."); }
+
+        const updatedData = { lo: lo, source: src, question: qText, options: options, correctIndex: correctIndex, difficulty: diff, explanation: exp };
+
+        try {
+            document.body.style.cursor = 'wait';
+            await updateDoc(doc(db, "mcqs", id), updatedData);
+            
+            const idx = window.ALL_MCQS.findIndex(m => m.id === id);
+            if(idx > -1) { window.ALL_MCQS[idx] = { id: id, ...updatedData }; }
+            
+            window.renderExistingMCQs();
+            window.closeEditModal();
+        } catch(e) { console.error(e); alert("Error updating MCQ: " + e.message); } 
+        finally { document.body.style.cursor = 'default'; }
+    }
+
+    // Modal Single Delete Button
+    window.deleteExistingMCQ = async function() {
+        const id = document.getElementById('edit-mcq-id').value;
+        if(!id) return console.error("Error: MCQ ID missing.");
+        const btn = document.getElementById('btn-delete-mcq');
+        
+        if (!btn.classList.contains('confirm-mode')) {
+            btn.classList.add('confirm-mode');
+            btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sure? Click again';
+            btn.style.backgroundColor = 'darkred';
+            
+            setTimeout(() => {
+                btn.classList.remove('confirm-mode');
+                btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete this MCQ';
+                btn.style.backgroundColor = 'var(--danger)';
+            }, 3000);
+            return; 
+        }
+        
+        try {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
+            document.body.style.cursor = 'wait';
+            
+            await deleteDoc(doc(db, "mcqs", id));
+            
+            window.ALL_MCQS = window.ALL_MCQS.filter(m => m.id !== id);
+            document.getElementById('manage-count').innerText = window.ALL_MCQS.length;
+            
+            window.renderExistingMCQs();
+            window.closeEditModal();
+            
+        } catch(e) {
+            console.error("Deletion Error: ", e);
+            alert("Database Error: Failed to delete MCQ.\nDetails: " + e.message);
+            btn.classList.remove('confirm-mode');
+            btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete this MCQ';
+            btn.style.backgroundColor = 'var(--danger)';
+        } finally {
+            document.body.style.cursor = 'default';
+        }
+    }
+</script>
+</body>
+</html>
