@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODMED - UWorld Style Quiz</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --uw-blue: #0f4d8a;
+        --uw-light-blue: #e8f2f8;
+        --uw-bg: #e1e4e8;
+        --uw-panel: #ffffff;
+        --uw-border: #c8c8c8;
+        --uw-text: #222222;
+        --correct-bg: #e6f4ea;
+        --correct-border: #28a745;
+        --incorrect-bg: #fdeaea;
+        --incorrect-border: #dc3545;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+    body { background: var(--uw-bg); color: var(--uw-text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* SETUP SCREEN */
+    #setup-screen { padding: 40px; max-width: 900px; margin: 0 auto; height: 100%; overflow-y: auto; width: 100%; }
+    .setup-card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .setup-card h1 { color: var(--uw-blue); margin-bottom: 15px; }
+    textarea { width: 100%; padding: 15px; border: 1px solid var(--uw-border); border-radius: 5px; font-size: 14px; margin-bottom: 20px; font-family: monospace; resize: vertical; }
+    .btn { background: var(--uw-blue); color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; }
+
+    /* QUIZ SCREEN */
+    #quiz-screen { display: none; flex-direction: column; height: 100vh; }
+    
+    /* Header */
+    .uw-header { background: var(--uw-blue); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 10; }
+    .uw-header-title { font-weight: bold; font-size: 18px; }
+    .uw-toolbar { background: #f5f5f5; border-bottom: 1px solid var(--uw-border); padding: 8px 20px; display: flex; gap: 20px; align-items: center; font-size: 13px; color: #555; }
+    .uw-tool { cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .uw-tool:hover { color: var(--uw-blue); }
+
+    /* Main Content */
+    .uw-main { display: flex; flex: 1; overflow: hidden; }
+    
+    /* Left Pane (Vignette) */
+    .uw-left-pane { flex: 1; background: var(--uw-panel); border-right: 2px solid var(--uw-border); padding: 25px; overflow-y: auto; font-size: 15px; line-height: 1.6; }
+    
+    /* Right Pane (Question, Options, Explanations) */
+    .uw-right-pane { flex: 1; background: var(--uw-panel); padding: 25px; overflow-y: auto; font-size: 15px; }
+
+    .question-text { font-weight: bold; margin-bottom: 20px; font-size: 16px; }
+    
+    /* Options */
+    .options-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+    .option-row { display: flex; align-items: flex-start; padding: 10px; border: 1px solid transparent; border-radius: 4px; transition: 0.2s; cursor: pointer; }
+    .option-row:hover { background: #f8f9fa; }
+    .option-row.crossed .option-label { text-decoration: line-through; color: #999; }
+    
+    .radio-circle { width: 18px; height: 18px; border: 2px solid #888; border-radius: 50%; margin-right: 15px; margin-top: 2px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; }
+    .option-row.selected .radio-circle { border-color: var(--uw-blue); }
+    .option-row.selected .radio-circle::after { content: ''; width: 10px; height: 10px; background: var(--uw-blue); border-radius: 50%; }
+    
+    .option-label { flex: 1; line-height: 1.5; }
+    
+    .strike-btn { background: none; border: none; color: #ccc; cursor: pointer; padding: 5px; margin-left: 10px; }
+    .strike-btn:hover { color: #555; }
+    .option-row.crossed .strike-btn { color: var(--uw-blue); }
+
+    /* Answer States */
+    .option-row.correct-reveal { background: var(--correct-bg); border-color: var(--correct-border); }
+    .option-row.incorrect-reveal { background: var(--incorrect-bg); border-color: var(--incorrect-border); }
+    .status-icon { font-size: 18px; margin-right: 15px; margin-top: 2px; width: 18px; text-align: center; }
+    .status-icon.correct { color: var(--correct-border); }
+    .status-icon.incorrect { color: var(--incorrect-border); }
+
+    /* Explanation Section */
+    .explanation-section { display: none; margin-top: 20px; border-top: 1px solid var(--uw-border); padding-top: 20px; animation: fadeIn 0.4s ease; }
+    
+    .edu-objective { background: var(--uw-light-blue); border-left: 4px solid var(--uw-blue); padding: 15px; margin-bottom: 20px; border-radius: 0 4px 4px 0; }
+    .edu-objective strong { color: var(--uw-blue); display: block; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; }
+    
+    .detailed-exp { line-height: 1.6; }
+    .detailed-exp strong { color: #333; }
+
+    /* Footer Navigation */
+    .uw-footer { background: #f5f5f5; border-top: 1px solid var(--uw-border); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+    .nav-btn { background: white; border: 1px solid var(--uw-border); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; }
+    .nav-btn:hover:not(:disabled) { background: #e9ecef; }
+    .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .submit-btn { background: var(--uw-blue); color: white; border: none; padding: 8px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .submit-btn:hover { opacity: 0.9; }
+    
+    .q-counter { font-weight: bold; color: #555; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+    <div class="setup-card">
+        <h1><i class="fa-solid fa-laptop-medical"></i> Live UWorld Converter</h1>
+        <p style="margin-bottom: 15px; color: #555;">Paste your raw UWorld-formatted markdown text below. The parser automatically detects `**Vignette:**`, `**Question:**`, `A)`, `B)`, `**Correct Answer:**`, `**Educational Objective:**`, and `**Detailed Explanation:**`.</p>
+        <textarea id="raw-input" rows="20" placeholder="Paste your formatted MCQs here..."></textarea>
+        <button class="btn" onclick="startQuiz()"><i class="fa-solid fa-play"></i> Generate Practice Quiz</button>
+        <p id="error-msg" style="color: red; margin-top: 10px; font-weight: bold;"></p>
+    </div>
+</div>
+
+<!-- QUIZ SCREEN -->
+<div id="quiz-screen">
+    <div class="uw-header">
+        <div class="uw-header-title">MODMED Test Prep - Tutor Mode</div>
+        <div><i class="fa-regular fa-clock"></i> Time: <span id="timer">00:00</span></div>
+        <button class="nav-btn" onclick="endBlock()" style="background: transparent; color: white; border-color: white;">End Block</button>
+    </div>
+    
+    <div class="uw-toolbar">
+        <div class="uw-tool"><i class="fa-solid fa-flag"></i> Mark</div>
+        <div class="uw-tool"><i class="fa-solid fa-calculator"></i> Calculator</div>
+        <div class="uw-tool"><i class="fa-solid fa-flask"></i> Lab Values</div>
+        <div class="uw-tool"><i class="fa-solid fa-pen-to-square"></i> Notes</div>
+    </div>
+
+    <div class="uw-main">
+        <!-- Left Pane -->
+        <div class="uw-left-pane">
+            <div style="font-weight: bold; color: var(--uw-blue); margin-bottom: 15px; font-size: 18px;" id="item-title">Item 1</div>
+            <div id="vignette-text"></div>
+        </div>
+
+        <!-- Right Pane -->
+        <div class="uw-right-pane">
+            <div class="question-text" id="question-text"></div>
+            <div class="options-container" id="options-container">
+                <!-- Options injected here via JS -->
+            </div>
+
+            <!-- Explanations (Hidden initially) -->
+            <div class="explanation-section" id="explanation-section">
+                <div class="edu-objective">
+                    <strong>Educational Objective:</strong>
+                    <div id="objective-text"></div>
+                </div>
+                <div class="detailed-exp" id="detailed-exp-text"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="uw-footer">
+        <button class="nav-btn" id="btn-prev" onclick="prevQuestion()"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+        <div class="q-counter">Question <span id="current-q-num">1</span> of <span id="total-q-num">0</span></div>
+        <div style="display: flex; gap: 15px;">
+            <button class="submit-btn" id="btn-submit" onclick="submitAnswer()">Submit</button>
+            <button class="nav-btn" id="btn-next" onclick="nextQuestion()">Next <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let questions = [];
+    let currentIndex = 0;
+    
+    // Convert Markdown Bold to HTML Strong
+    function formatText(text) {
+        if (!text) return "";
+        let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return formatted.replace(/\n/g, '<br>');
+    }
+
+    // Advanced indestructible parser
+    function parseRawText(rawText) {
+        // Split by "**Item X**" or "---"
+        const blocks = rawText.split(/(?:\*\*Item\s+\d+\*\*|---)/i).filter(b => b.trim().length > 20);
+        const parsed = [];
+
+        blocks.forEach((block, index) => {
+            let qObj = { 
+                id: index + 1, 
+                vignette: "", 
+                question: "", 
+                options: [], 
+                correct: "", 
+                objective: "", 
+                explanation: "", 
+                userSelected: null, 
+                isSubmitted: false,
+                crossedOut: new Set()
+            };
+
+            // Extract using robust Regex
+            const vigMatch = block.match(/\*\*Vignette:\*\*\s*([\s\S]*?)(?=\*\*Question:\*\*)/i);
+            const qMatch = block.match(/\*\*Question:\*\*\s*([\s\S]*?)(?=(?:[A-E][).]\s)|\*\*Correct Answer)/i);
+            const correctMatch = block.match(/\*\*Correct Answer:\*\*\s*([A-Z])/i);
+            const objMatch = block.match(/\*\*Educational Objective:\*\*\s*([\s\S]*?)(?=\*\*Detailed Explanation:\*\*|$)/i);
+            const expMatch = block.match(/\*\*Detailed Explanation:\*\*\s*([\s\S]*?)$/i);
+
+            if (vigMatch) qObj.vignette = vigMatch[1].trim();
+            if (qMatch) qObj.question = qMatch[1].trim();
+            if (correctMatch) qObj.correct = correctMatch[1].toUpperCase();
+            if (objMatch) qObj.objective = objMatch[1].trim();
+            if (expMatch) qObj.explanation = expMatch[1].trim();
+
+            // Extract Options (handles inline or newlines)
+            const optionsBlockMatch = block.match(/\*\*Question:\*\*[\s\S]*?(?:[A-E][).])([\s\S]*?)(?=\*\*Correct Answer:\*\*)/i);
+            if (optionsBlockMatch) {
+                // Re-add the first matched letter that was consumed by the lookbehind-like non-capturing group
+                let rawOptions = block.match(/(?:[A-E][).])[\s\S]*?(?=\*\*Correct Answer:\*\*)/i)[0];
+                
+                // Split by A), B), C) etc.
+                const optRegex = /([A-E])[).]\s+([\s\S]*?)(?=(?:[A-E][).]\s+)|\s*$)/g;
+                let m;
+                while ((m = optRegex.exec(rawOptions)) !== null) {
+                    qObj.options.push({ letter: m[1].toUpperCase(), text: m[2].trim() });
+                }
+            }
+
+            if (qObj.vignette && qObj.question && qObj.options.length > 1 && qObj.correct) {
+                parsed.push(qObj);
+            }
+        });
+
+        return parsed;
+    }
+
+    function startQuiz() {
+        const raw = document.getElementById('raw-input').value;
+        questions = parseRawText(raw);
+        
+        if (questions.length === 0) {
+            document.getElementById('error-msg').innerText = "Error: Could not parse any valid questions. Ensure you have **Vignette:**, **Question:**, A), B), and **Correct Answer:** tags.";
+            return;
+        }
+
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('quiz-screen').style.display = 'flex';
+        document.getElementById('total-q-num').innerText = questions.length;
+        
+        startTimer();
+        renderQuestion(0);
+    }
+
+    function renderQuestion(index) {
+        currentIndex = index;
+        const q = questions[index];
+        
+        document.getElementById('current-q-num').innerText = index + 1;
+        document.getElementById('item-title').innerText = "Item " + (index + 1);
+        document.getElementById('vignette-text').innerHTML = formatText(q.vignette);
+        document.getElementById('question-text').innerHTML = formatText(q.question);
+        
+        const optContainer = document.getElementById('options-container');
+        optContainer.innerHTML = '';
+        
+        q.options.forEach(opt => {
+            const isSelected = q.userSelected === opt.letter;
+            const isCrossed = q.crossedOut.has(opt.letter);
+            
+            let html = `
+                <div class="option-row ${isSelected ? 'selected' : ''} ${isCrossed ? 'crossed' : ''}" id="opt-row-${opt.letter}" onclick="selectOption('${opt.letter}')">
+                    <div id="icon-space-${opt.letter}"></div>
+                    <div class="radio-circle" id="radio-${opt.letter}"></div>
+                    <div class="option-label"><strong>${opt.letter})</strong> ${formatText(opt.text)}</div>
+                    <button class="strike-btn" onclick="toggleStrike(event, '${opt.letter}')"><i class="fa-solid fa-strikethrough"></i></button>
+                </div>
+            `;
+            optContainer.innerHTML += html;
+        });
+
+        // Reset Explanations
+        const expSection = document.getElementById('explanation-section');
+        if (q.isSubmitted) {
+            expSection.style.display = 'block';
+            document.getElementById('objective-text').innerHTML = formatText(q.objective);
+            document.getElementById('detailed-exp-text').innerHTML = formatText(q.explanation);
+            document.getElementById('btn-submit').style.display = 'none';
+            applyAnswerHighlighting(q);
+        } else {
+            expSection.style.display = 'none';
+            document.getElementById('btn-submit').style.display = 'block';
+        }
+
+        // Button states
+        document.getElementById('btn-prev').disabled = index === 0;
+        document.getElementById('btn-next').disabled = index === questions.length - 1;
+    }
+
+    function selectOption(letter) {
+        const q = questions[currentIndex];
+        if (q.isSubmitted) return; // Prevent changing after submission
+        
+        q.userSelected = letter;
+        
+        // Update UI
+        document.querySelectorAll('.option-row').forEach(row => row.classList.remove('selected'));
+        document.getElementById(`opt-row-${letter}`).classList.add('selected');
+    }
+
+    function toggleStrike(event, letter) {
+        event.stopPropagation(); // Prevent selecting the option
+        const q = questions[currentIndex];
+        if (q.isSubmitted) return;
+
+        if (q.crossedOut.has(letter)) {
+            q.crossedOut.delete(letter);
+            document.getElementById(`opt-row-${letter}`).classList.remove('crossed');
+        } else {
+            q.crossedOut.add(letter);
+            document.getElementById(`opt-row-${letter}`).classList.add('crossed');
+            
+            // If they cross out the one they selected, deselect it
+            if(q.userSelected === letter) {
+                q.userSelected = null;
+                document.getElementById(`opt-row-${letter}`).classList.remove('selected');
+            }
+        }
+    }
+
+    function submitAnswer() {
+        const q = questions[currentIndex];
+        if (!q.userSelected) {
+            alert("Please select an answer first.");
+            return;
+        }
+        
+        q.isSubmitted = true;
+        renderQuestion(currentIndex); // Re-render triggers the reveal
+    }
+
+    function applyAnswerHighlighting(q) {
+        // Highlight correct answer
+        const correctRow = document.getElementById(`opt-row-${q.correct}`);
+        const correctIconSpace = document.getElementById(`icon-space-${q.correct}`);
+        const correctRadio = document.getElementById(`radio-${q.correct}`);
+        
+        if(correctRow) {
+            correctRow.classList.add('correct-reveal');
+            correctIconSpace.innerHTML = '<i class="fa-solid fa-check status-icon correct"></i>';
+            correctRadio.style.display = 'none';
+        }
+
+        // Highlight user's incorrect answer if applicable
+        if (q.userSelected !== q.correct) {
+            const incorrectRow = document.getElementById(`opt-row-${q.userSelected}`);
+            const incorrectIconSpace = document.getElementById(`icon-space-${q.userSelected}`);
+            const incorrectRadio = document.getElementById(`radio-${q.userSelected}`);
+            
+            if(incorrectRow) {
+                incorrectRow.classList.add('incorrect-reveal');
+                incorrectIconSpace.innerHTML = '<i class="fa-solid fa-xmark status-icon incorrect"></i>';
+                incorrectRadio.style.display = 'none';
+            }
+        }
+    }
+
+    function nextQuestion() {
+        if (currentIndex < questions.length - 1) {
+            renderQuestion(currentIndex + 1);
+        }
+    }
+
+    function prevQuestion() {
+        if (currentIndex > 0) {
+            renderQuestion(currentIndex - 1);
+        }
+    }
+
+    function endBlock() {
+        if(confirm("Are you sure you want to end this block and return to setup?")) {
+            location.reload();
+        }
+    }
+
+    // Simple Timer
+    let seconds = 0;
+    function startTimer() {
+        setInterval(() => {
+            seconds++;
+            const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+            const secs = String(seconds % 60).padStart(2, '0');
+            document.getElementById('timer').innerText = `${mins}:${secs}`;
+        }, 1000);
+    }
+</script>
+</body>
+</html>
