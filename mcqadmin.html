@@ -427,43 +427,44 @@
                 if (upperLine.startsWith('[LO]') || (upperLine.startsWith('[Q]') && currentMCQ && currentMCQ.q)) { 
                     if(currentMCQ && currentMCQ.q) { window.parsedMCQsBuffer.push(currentMCQ); } 
                     if(upperLine.startsWith('[LO]')) { 
-                        let val = line.trimStart().replace(/^\[LO\]\s*:?\s*/i, '');
+                        let val = line.trimStart().replace(/^\[LO\]\s*[:,\-]?\s*/i, '');
                         currentMCQ = { options: [], lo: val, src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; 
                     } else { 
-                        let val = line.trimStart().replace(/^\[Q\]\s*:?\s*/i, '');
+                        let val = line.trimStart().replace(/^\[Q\]\s*[:,\-]?\s*/i, '');
                         currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: val, ans: '', exp: '' }; 
                         currentMCQ.currentTag = 'Q'; 
                     } 
                 } 
                 else if (upperLine.startsWith('[Q]')) { 
                     if(!currentMCQ) currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; 
-                    currentMCQ.q = line.trimStart().replace(/^\[Q\]\s*:?\s*/i, ''); 
+                    currentMCQ.q = line.trimStart().replace(/^\[Q\]\s*[:,\-]?\s*/i, ''); 
                     currentMCQ.currentTag = 'Q'; 
                 }
             }
             else if(upperLine.startsWith('[SRC]')) { 
                 if(!currentMCQ) currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; 
-                currentMCQ.src = line.trimStart().replace(/^\[SRC\]\s*:?\s*/i, ''); 
+                currentMCQ.src = line.trimStart().replace(/^\[SRC\]\s*[:,\-]?\s*/i, ''); 
             }
             else if(upperLine.startsWith('[DIFF]')) { 
                 if(!currentMCQ) currentMCQ = { options: [], lo: '', src: '', diff: 'Moderate', q: '', ans: '', exp: '' }; 
-                currentMCQ.diff = line.trimStart().replace(/^\[DIFF\]\s*:?\s*/i, ''); 
+                currentMCQ.diff = line.trimStart().replace(/^\[DIFF\]\s*[:,\-]?\s*/i, ''); 
             }
-            // More forgiving options matching: [A] Option, [A]: Option, A) Option, etc.
-            else if(line.trimStart().match(/^\[[A-Za-z]\]\s*:?/)) { 
+            // Broad options matching: [A] Option, A. Option, A) Option, [A]: Option
+            else if(line.trimStart().match(/^(?:\[[A-Za-z]\]|[A-Za-z][\.\)])\s*[:,\-]?\s*/)) { 
                 if(!currentMCQ) continue; 
-                let match = line.trimStart().match(/^\[([A-Za-z])\]\s*:?\s*(.*)/);
-                currentMCQ.options.push({ letter: match[1].toUpperCase(), text: match[2] }); 
+                let match = line.trimStart().match(/^(?:\[([A-Za-z])\]|([A-Za-z])[\.\)])\s*[:,\-]?\s*(.*)/);
+                let letter = (match[1] || match[2]).toUpperCase();
+                currentMCQ.options.push({ letter: letter, text: match[3] || '' }); 
                 currentMCQ.currentTag = 'O'; 
             }
             else if(upperLine.startsWith('[ANS]')) { 
                 if(!currentMCQ) continue; 
-                currentMCQ.ans = line.trimStart().replace(/^\[ANS\]\s*:?\s*/i, ''); 
+                currentMCQ.ans = line.trimStart().replace(/^\[ANS\]\s*[:,\-]?\s*/i, ''); 
                 currentMCQ.currentTag = 'ANS'; 
             }
             else if(upperLine.startsWith('[EXP]')) { 
                 if(!currentMCQ) continue; 
-                currentMCQ.exp = line.trimStart().replace(/^\[EXP\]\s*:?\s*/i, ''); 
+                currentMCQ.exp = line.trimStart().replace(/^\[EXP\]\s*[:,\-]?\s*/i, ''); 
                 currentMCQ.currentTag = 'EXP'; 
             }
             else { 
