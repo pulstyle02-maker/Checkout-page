@@ -291,6 +291,21 @@ D) Blood enters the proximal pole and flows distally
     window.CURRENT_FILTERED_MCQS = []; window.SELECTED_MCQ_IDS = new Set();
     window.noteMatches = [];
 
+    // IDENTICAL FUZZY MATCHER FOR ADMIN AS IN PORTAL
+    window.matchFunc = function(syl, dbLo) { 
+        if(!syl || !dbLo) return false; 
+        let clS = syl.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); 
+        let clD = dbLo.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); 
+        if(clS === clD) return true; 
+        if(clD.length > 4 && clS.includes(clD)) return true; 
+        if(clS.length > 4 && clD.includes(clS)) return true; 
+        const reg = /(f|hl)[a-z]*\d{3}/i; 
+        let sM = clS.match(reg); 
+        let dM = clD.match(reg); 
+        if(sM && dM && sM[0] === dM[0]) return true; 
+        return false; 
+    };
+
     document.addEventListener('DOMContentLoaded', async () => { await window.loadSyllabus(); });
 
     window.switchTab = function(tabName, tabElement) {
@@ -650,7 +665,14 @@ D) Blood enters the proximal pole and flows distally
         }
         
         window.CURRENT_FILTERED_MCQS = window.ALL_MCQS;
-        if(validLOs !== null) { window.CURRENT_FILTERED_MCQS = window.CURRENT_FILTERED_MCQS.filter(m => validLOs.includes(m.lo)); }
+        
+        // NEW: Apply identically matched fuzzy logic so Admin sees EXACTLY what the portal sees
+        if(validLOs !== null) { 
+            window.CURRENT_FILTERED_MCQS = window.CURRENT_FILTERED_MCQS.filter(m => {
+                return validLOs.some(sylLo => window.matchFunc(sylLo, m.lo || ""));
+            }); 
+        }
+
         if(searchTerm) { window.CURRENT_FILTERED_MCQS = window.CURRENT_FILTERED_MCQS.filter(m => (m.question && m.question.toLowerCase().includes(searchTerm)) || (m.lo && m.lo.toLowerCase().includes(searchTerm))); }
         if(window.CURRENT_FILTERED_MCQS.length === 0) { list.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No questions found matching your filters.</p>'; document.getElementById('bulk-action-bar').style.display = 'none'; return; }
         
