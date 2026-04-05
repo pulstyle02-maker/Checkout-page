@@ -1,3 +1,5 @@
+--- START OF FILE Paste April 05, 2026 - 4:16PM ---
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -199,12 +201,11 @@ D) Blood enters the proximal pole and flows distally
             <div class="input-group"><label>Fallback Module</label><select id="fc-module" onchange="window.updateFcSubject()"></select></div>
         </div>
         <div class="grid-2">
-            <div class="input-group"><label>Fallback Subject</label><select id="fc-subject" onchange="window.updateFcLO()"></select></div>
-            <div class="input-group"><label>Fallback Learning Objective (LO)</label><select id="fc-lo"></select></div>
-        </div>
-        <div class="input-group" style="max-width: 50%;">
-            <label>Fallback Difficulty</label>
-            <select id="fc-diff"><option value="Easy">Easy</option><option value="Moderate" selected>Moderate</option><option value="Hard">Hard</option></select>
+            <div class="input-group"><label>Fallback Subject</label><select id="fc-subject"></select></div>
+            <div class="input-group">
+                <label>Fallback Difficulty</label>
+                <select id="fc-diff"><option value="Easy">Easy</option><option value="Moderate" selected>Moderate</option><option value="Hard">Hard</option></select>
+            </div>
         </div>
         <div class="format-box"><strong>Expected Format Example:</strong>
 [LO]: F-A-002. Bones (osteology)
@@ -239,8 +240,14 @@ D) Blood enters the proximal pole and flows distally
                 <select id="ffc-module" onchange="window.updateFfcSubject()"><option value="">-- All Modules --</option></select>
             </div>
             <div class="grid-2">
-                <select id="ffc-subject" onchange="window.renderFlashcards()"><option value="">-- All Subjects --</option></select>
+                <select id="ffc-subject" onchange="window.updateFfcLO()"><option value="">-- All Subjects --</option></select>
+                <select id="ffc-lo" onchange="window.renderFlashcards()"><option value="">-- All LOs --</option></select>
             </div>
+            <div style="margin-top: 10px;"><input type="text" id="search-fc-existing" placeholder="Or search by Front/Back Text..." onkeyup="window.renderFlashcards()"></div>
+        </div>
+        <div id="bulk-action-bar-fc" style="display: none; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin-bottom: 15px; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="select-all-fc-checkbox" onchange="window.toggleSelectAllFC(this)" style="width:16px; height:16px; cursor:pointer;"><label for="select-all-fc-checkbox" style="margin:0; color: var(--danger); font-weight: 700; cursor:pointer;">Select All Visible</label></div>
+            <div style="display: flex; gap: 10px;"><button class="btn danger sm" id="btn-delete-selected-fc" onclick="window.deleteSelectedFCs(this)"><i class="fa-solid fa-trash"></i> Delete Selected (<span id="selected-fc-count">0</span>)</button><button class="btn outline danger sm" id="btn-delete-filtered-fc" onclick="window.deleteAllFilteredFCs(this)" style="background: white;"><i class="fa-solid fa-dumpster"></i> Delete All Filtered (<span id="filtered-fc-count">0</span>)</button></div>
         </div>
         <div id="existing-fc-list"><p style="text-align:center; color:#888; padding: 20px;">Click "Load Flashcards" to fetch from database.</p></div>
     </div>
@@ -291,6 +298,27 @@ D) Blood enters the proximal pole and flows distally
     </div>
 </div>
 
+<!-- EDIT FLASHCARD MODAL -->
+<div class="modal-overlay" id="edit-fc-modal">
+    <div class="modal-content">
+        <h2 style="color: var(--primary); margin-top: 0; display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fa-solid fa-pen-to-square"></i> Edit Flashcard</span>
+            <button type="button" id="btn-delete-fc" class="btn danger sm" onclick="window.deleteExistingFC()"><i class="fa-solid fa-trash"></i> Delete Flashcard</button>
+        </h2>
+        <input type="hidden" id="edit-fc-id">
+        <div class="grid-2">
+            <div class="input-group"><label>Learning Objective [LO]</label><input type="text" id="edit-fc-lo" required></div>
+            <div class="input-group"><label>Difficulty</label><select id="edit-fc-diff"><option value="Easy">Easy</option><option value="Moderate">Moderate</option><option value="Hard">Hard</option></select></div>
+        </div>
+        <div class="input-group"><label>Front (Question)</label><textarea id="edit-fc-front" rows="3" required></textarea></div>
+        <div class="input-group"><label>Back (Answer) - Use *text* for red bold highlights</label><textarea id="edit-fc-back" rows="3" required></textarea></div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn success" onclick="window.saveEditedFC()"><i class="fa-solid fa-check"></i> Save Changes</button>
+            <button type="button" class="btn outline" onclick="window.closeEditFCModal()"><i class="fa-solid fa-xmark"></i> Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -301,6 +329,7 @@ D) Blood enters the proximal pole and flows distally
     window.CURRENT_SYLLABUS = {}; window.parsedMCQsBuffer = []; window.ALL_MCQS = []; 
     window.ALL_NOTES = []; window.ALL_FLASHCARDS = []; window.parsedFCsBuffer = [];
     window.CURRENT_FILTERED_MCQS = []; window.SELECTED_MCQ_IDS = new Set();
+    window.CURRENT_FILTERED_FC = []; window.SELECTED_FC_IDS = new Set();
     window.noteMatches = [];
 
     // IDENTICAL FUZZY MATCHER FOR ADMIN AS IN PORTAL - FIXED FOR NULL VALUES
@@ -467,12 +496,12 @@ D) Blood enters the proximal pole and flows distally
     // FLASHCARDS DROPDOWNS
     window.populateFcBlock = function() { const s = document.getElementById('fc-block'); s.innerHTML='<option value="">-- Select Block --</option>'; Object.keys(window.CURRENT_SYLLABUS).forEach(b=>s.innerHTML+=`<option value="${b}">${b.replace(/_/g,' ')}</option>`); window.updateFcModule(); }
     window.updateFcModule = function() { const b=document.getElementById('fc-block').value, s=document.getElementById('fc-module'); s.innerHTML='<option value="">-- Select Module --</option>'; if(b&&window.CURRENT_SYLLABUS[b]) Object.keys(window.CURRENT_SYLLABUS[b]).forEach(m=>s.innerHTML+=`<option value="${m}">${m.replace(/_/g,' ')}</option>`); window.updateFcSubject(); }
-    window.updateFcSubject = function() { const b=document.getElementById('fc-block').value, m=document.getElementById('fc-module').value, s=document.getElementById('fc-subject'); s.innerHTML='<option value="">-- Select Subject --</option>'; if(m&&window.CURRENT_SYLLABUS[b][m]) Object.keys(window.CURRENT_SYLLABUS[b][m]).forEach(sub=>s.innerHTML+=`<option value="${sub}">${sub.replace(/_/g,' ')}</option>`); window.updateFcLO(); }
-    window.updateFcLO = function() { const b=document.getElementById('fc-block').value, m=document.getElementById('fc-module').value, sub=document.getElementById('fc-subject').value, s=document.getElementById('fc-lo'); s.innerHTML='<option value="ALL">-- All LOs in Subject --</option>'; if(sub&&window.CURRENT_SYLLABUS[b][m][sub]) Object.keys(window.CURRENT_SYLLABUS[b][m][sub]).forEach(lo=>s.innerHTML+=`<option value="${lo}">${lo}</option>`); }
+    window.updateFcSubject = function() { const b=document.getElementById('fc-block').value, m=document.getElementById('fc-module').value, s=document.getElementById('fc-subject'); s.innerHTML='<option value="">-- Select Subject --</option>'; if(m&&window.CURRENT_SYLLABUS[b][m]) Object.keys(window.CURRENT_SYLLABUS[b][m]).forEach(sub=>s.innerHTML+=`<option value="${sub}">${sub.replace(/_/g,' ')}</option>`); }
 
     window.populateFfcBlock = function() { const s = document.getElementById('ffc-block'); s.innerHTML='<option value="">-- All Blocks --</option>'; Object.keys(window.CURRENT_SYLLABUS).forEach(b=>s.innerHTML+=`<option value="${b}">${b.replace(/_/g,' ')}</option>`); window.updateFfcModule(); }
     window.updateFfcModule = function() { const b=document.getElementById('ffc-block').value, s=document.getElementById('ffc-module'); s.innerHTML='<option value="">-- All Modules --</option>'; if(b&&window.CURRENT_SYLLABUS[b]) Object.keys(window.CURRENT_SYLLABUS[b]).forEach(m=>s.innerHTML+=`<option value="${m}">${m.replace(/_/g,' ')}</option>`); window.updateFfcSubject(); }
-    window.updateFfcSubject = function() { const b=document.getElementById('ffc-block').value, m=document.getElementById('ffc-module').value, s=document.getElementById('ffc-subject'); s.innerHTML='<option value="">-- All Subjects --</option>'; if(m&&window.CURRENT_SYLLABUS[b][m]) Object.keys(window.CURRENT_SYLLABUS[b][m]).forEach(sub=>s.innerHTML+=`<option value="${sub}">${sub.replace(/_/g,' ')}</option>`); window.renderFlashcards(); }
+    window.updateFfcSubject = function() { const b=document.getElementById('ffc-block').value, m=document.getElementById('ffc-module').value, s=document.getElementById('ffc-subject'); s.innerHTML='<option value="">-- All Subjects --</option>'; if(m&&window.CURRENT_SYLLABUS[b][m]) Object.keys(window.CURRENT_SYLLABUS[b][m]).forEach(sub=>s.innerHTML+=`<option value="${sub}">${sub.replace(/_/g,' ')}</option>`); window.updateFfcLO(); }
+    window.updateFfcLO = function() { const b=document.getElementById('ffc-block').value, m=document.getElementById('ffc-module').value, s=document.getElementById('ffc-subject').value, sel=document.getElementById('ffc-lo'); sel.innerHTML='<option value="">-- All LOs --</option>'; if(s&&window.CURRENT_SYLLABUS[b]&&window.CURRENT_SYLLABUS[b][m]&&window.CURRENT_SYLLABUS[b][m][s]) Object.keys(window.CURRENT_SYLLABUS[b][m][s]).forEach(lo=>sel.innerHTML+=`<option value="${lo}">${lo}</option>`); window.renderFlashcards(); }
 
     // QUICK QS BOLD/COLOR LOGIC
     window.previewNote = function() {
@@ -537,7 +566,7 @@ D) Blood enters the proximal pole and flows distally
     // FLASHCARDS PARSER & UPLOAD
     window.previewParsedFCs = function() {
         const rawText = document.getElementById('bulk-fc-input').value; 
-        const fallbackLO = document.getElementById('fc-lo').value; 
+        const fallbackLO = 'ALL'; 
         const fallbackDiff = document.getElementById('fc-diff').value;
         if(!rawText.trim()) return alert("Please paste some flashcards to parse.");
         
@@ -596,7 +625,7 @@ D) Blood enters the proximal pole and flows distally
                 if(fallbackLO === 'ALL' && s && window.CURRENT_SYLLABUS[b] && window.CURRENT_SYLLABUS[b][m] && window.CURRENT_SYLLABUS[b][m][s]) {
                     finalLO = Object.keys(window.CURRENT_SYLLABUS[b][m][s]).join(" | ");
                 } else {
-                    errorLog += `Flashcard #${idx+1} skipped: No LO tag found and no fallback LO selected.\n`; skippedCount++; return; 
+                    errorLog += `Flashcard #${idx+1} skipped: No LO tag found and no fallback Subject selected.\n`; skippedCount++; return; 
                 }
             }
             if(!fc.front) { errorLog += `Flashcard #${idx+1} skipped: No [FRONT] tag found.\n`; skippedCount++; return; }
@@ -644,19 +673,112 @@ D) Blood enters the proximal pole and flows distally
 
     window.renderFlashcards = function() {
         const list = document.getElementById('existing-fc-list'); list.innerHTML = '';
-        const fB = document.getElementById('ffc-block').value; const fM = document.getElementById('ffc-module').value; const fS = document.getElementById('ffc-subject').value;
-        let filtered = window.ALL_FLASHCARDS; if(fB) filtered = filtered.filter(n => n.block === fB); if(fM) filtered = filtered.filter(n => n.module === fM); if(fS) filtered = filtered.filter(n => n.subject === fS);
-        if(filtered.length === 0) { list.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No flashcards found matching filters.</p>'; return; }
-        filtered.forEach(fc => {
+        window.SELECTED_FC_IDS.clear(); document.getElementById('selected-fc-count').innerText = "0"; document.getElementById('select-all-fc-checkbox').checked = false;
+        if(window.ALL_FLASHCARDS.length === 0) { list.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No flashcards loaded in memory. Click "Load Flashcards" above.</p>'; document.getElementById('bulk-action-bar-fc').style.display = 'none'; return; }
+        
+        const fB = document.getElementById('ffc-block').value; 
+        const fM = document.getElementById('ffc-module').value; 
+        const fS = document.getElementById('ffc-subject').value; 
+        const fL = document.getElementById('ffc-lo').value;
+        const searchTerm = document.getElementById('search-fc-existing').value.toLowerCase();
+        
+        let validLOs = null;
+        if (fL) { validLOs = [fL]; } 
+        else if (fS && window.CURRENT_SYLLABUS[fB] && window.CURRENT_SYLLABUS[fB][fM] && window.CURRENT_SYLLABUS[fB][fM][fS]) { validLOs = Object.keys(window.CURRENT_SYLLABUS[fB][fM][fS]); } 
+        else if (fM && window.CURRENT_SYLLABUS[fB] && window.CURRENT_SYLLABUS[fB][fM]) { validLOs = []; Object.values(window.CURRENT_SYLLABUS[fB][fM]).forEach(subj => validLOs.push(...Object.keys(subj))); } 
+        else if (fB && window.CURRENT_SYLLABUS[fB]) { validLOs = []; Object.values(window.CURRENT_SYLLABUS[fB]).forEach(mod => { Object.values(mod).forEach(subj => validLOs.push(...Object.keys(subj))); }); }
+        
+        window.CURRENT_FILTERED_FC = window.ALL_FLASHCARDS;
+        if(validLOs !== null) { 
+            window.CURRENT_FILTERED_FC = window.CURRENT_FILTERED_FC.filter(fc => {
+                return validLOs.some(sylLo => window.matchFunc(sylLo, fc.lo || ""));
+            }); 
+        }
+
+        if(searchTerm) { 
+            window.CURRENT_FILTERED_FC = window.CURRENT_FILTERED_FC.filter(fc => (fc.front && fc.front.toLowerCase().includes(searchTerm)) || (fc.back && fc.back.toLowerCase().includes(searchTerm)) || (fc.lo && fc.lo.toLowerCase().includes(searchTerm))); 
+        }
+        if(window.CURRENT_FILTERED_FC.length === 0) { list.innerHTML = '<p style="text-align:center; color:#888; padding: 20px;">No flashcards found matching your filters.</p>'; document.getElementById('bulk-action-bar-fc').style.display = 'none'; return; }
+        
+        document.getElementById('bulk-action-bar-fc').style.display = 'flex'; 
+        document.getElementById('filtered-fc-count').innerText = window.CURRENT_FILTERED_FC.length;
+        
+        const toShow = window.CURRENT_FILTERED_FC.slice(0, 100);
+        toShow.forEach(fc => {
             let loDisp = fc.lo.includes('|') ? 'ALL LOs' : fc.lo;
-            list.innerHTML += `<div class="list-item" style="display:flex; flex-direction:column; align-items:flex-start; gap:10px;"><div style="width:100%; display:flex; justify-content:space-between;"><div style="font-size:11px; color:var(--primary); font-weight:800;">${(fc.subject||'').replace(/_/g,' ').toUpperCase()} - ${loDisp} <span style="margin-left:10px; background:#e2e8f0; color:#333; padding:2px 6px; border-radius:4px;">${fc.difficulty || 'Moderate'}</span></div><button class="btn danger sm" onclick="window.deleteFlashcard('${fc.id}')"><i class="fa-solid fa-trash"></i> Delete</button></div><div style="width:100%;"><h4 style="margin:0 0 6px 0; font-size:14px; font-weight:700;"><span style="color:var(--text-gray);">Q:</span> ${fc.front}</h4><p style="font-size:13px; color:#555; white-space:pre-wrap;"><strong style="color:var(--success);">A:</strong> ${fc.back}</p></div></div>`;
+            list.innerHTML += `<div class="list-item" style="display: flex; align-items: flex-start; gap: 15px;">
+                <input type="checkbox" class="fc-checkbox" value="${fc.id}" onchange="window.toggleFCSelection(this)" style="margin-top: 4px; width:16px; height:16px; cursor:pointer;">
+                <div style="flex: 1; padding-right: 10px;">
+                    <div style="font-size: 11px; color: var(--primary); font-weight: 800; margin-bottom: 4px;">[${fc.difficulty || 'Moderate'}] ${(fc.subject||'').replace(/_/g,' ').toUpperCase()} - ${loDisp}</div>
+                    <div style="font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">Q: ${fc.front}</div>
+                    <div style="font-size: 13px; color: #555; white-space:pre-wrap;"><strong style="color:var(--success);">A:</strong> ${fc.back}</div>
+                </div>
+                <div>
+                    <button class="btn outline sm edit-fc-btn" onclick="window.openEditFCModal('${fc.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+                </div>
+            </div>`;
         });
+        if(window.CURRENT_FILTERED_FC.length > 100) { list.innerHTML += `<p style="text-align:center; color:var(--text-gray); font-size:12px; margin-top:15px; font-weight:600;">Showing 100 of ${window.CURRENT_FILTERED_FC.length} results. Use filters to narrow down, or click "Delete All Filtered" to wipe.</p>`; }
     }
 
-    window.deleteFlashcard = async function(id) {
-        if(!confirm("Are you sure you want to delete this Flashcard?")) return;
-        try { document.body.style.cursor='wait'; await deleteDoc(doc(db, "flashcards", id)); window.ALL_FLASHCARDS = window.ALL_FLASHCARDS.filter(n => n.id !== id); window.renderFlashcards(); document.getElementById('fc-count').innerText=window.ALL_FLASHCARDS.length; } 
-        catch(e) { alert("Error deleting flashcard."); } finally { document.body.style.cursor='default'; }
+    window.toggleFCSelection = function(cb) { if(cb.checked) window.SELECTED_FC_IDS.add(cb.value); else window.SELECTED_FC_IDS.delete(cb.value); document.getElementById('selected-fc-count').innerText = window.SELECTED_FC_IDS.size; }
+    window.toggleSelectAllFC = function(cb) { const checkboxes = document.querySelectorAll('.fc-checkbox'); checkboxes.forEach(c => { c.checked = cb.checked; if(cb.checked) window.SELECTED_FC_IDS.add(c.value); else window.SELECTED_FC_IDS.delete(c.value); }); document.getElementById('selected-fc-count').innerText = window.SELECTED_FC_IDS.size; }
+    
+    window.executeBatchDeleteFC = async function(idsToDelete, btnElement, originalHtml) {
+        if (!btnElement.classList.contains('confirm-mode')) { btnElement.classList.add('confirm-mode'); btnElement.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sure? Click again!'; btnElement.style.backgroundColor = 'darkred'; btnElement.style.color = 'white'; setTimeout(() => { if (document.body.contains(btnElement)) { btnElement.classList.remove('confirm-mode'); btnElement.innerHTML = originalHtml; btnElement.style.backgroundColor = ''; btnElement.style.color = ''; } }, 3000); return; }
+        try { document.body.style.cursor = 'wait'; btnElement.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...'; const chunkSize = 400; for (let i = 0; i < idsToDelete.length; i += chunkSize) { const chunk = idsToDelete.slice(i, i + chunkSize); const batch = writeBatch(db); chunk.forEach(id => { batch.delete(doc(db, "flashcards", id)); }); await batch.commit(); } const idSet = new Set(idsToDelete); window.ALL_FLASHCARDS = window.ALL_FLASHCARDS.filter(m => !idSet.has(m.id)); document.getElementById('fc-count').innerText = window.ALL_FLASHCARDS.length; btnElement.classList.remove('confirm-mode'); btnElement.style.backgroundColor = ''; btnElement.style.color = ''; window.renderFlashcards(); } 
+        catch (e) { console.error(e); alert("Error deleting Flashcards: " + e.message); btnElement.classList.remove('confirm-mode'); btnElement.innerHTML = originalHtml; btnElement.style.backgroundColor = ''; btnElement.style.color = ''; } finally { document.body.style.cursor = 'default'; }
+    }
+
+    window.deleteSelectedFCs = function(btn) { const ids = Array.from(window.SELECTED_FC_IDS); if(ids.length === 0) return alert("Please check the boxes next to the Flashcards you want to delete."); const orig = `<i class="fa-solid fa-trash"></i> Delete Selected (${ids.length})`; window.executeBatchDeleteFC(ids, btn, orig); }
+    window.deleteAllFilteredFCs = function(btn) { const ids = window.CURRENT_FILTERED_FC.map(m => m.id); if(ids.length === 0) return alert("No Flashcards matched the current filter."); const orig = `<i class="fa-solid fa-dumpster"></i> Delete All Filtered (${ids.length})`; window.executeBatchDeleteFC(ids, btn, orig); }
+
+    window.openEditFCModal = function(id) {
+        const fc = window.ALL_FLASHCARDS.find(m => m.id === id); if(!fc) return;
+        document.getElementById('edit-fc-id').value = fc.id; 
+        document.getElementById('edit-fc-lo').value = fc.lo || ''; 
+        document.getElementById('edit-fc-diff').value = fc.difficulty || 'Moderate'; 
+        document.getElementById('edit-fc-front').value = fc.front || ''; 
+        let rawBack = fc.back || '';
+        rawBack = rawBack.replace(/<strong style="color:var\(--danger\);">(.*?)<\/strong>/g, '*$1*');
+        document.getElementById('edit-fc-back').value = rawBack; 
+        document.getElementById('edit-fc-modal').classList.add('active');
+    }
+
+    window.closeEditFCModal = function() { 
+        document.getElementById('edit-fc-modal').classList.remove('active'); 
+        const btn = document.getElementById('btn-delete-fc'); 
+        if (btn) { btn.classList.remove('confirm-mode'); btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Flashcard'; btn.style.backgroundColor = 'var(--danger)'; } 
+    }
+
+    window.saveEditedFC = async function() {
+        const id = document.getElementById('edit-fc-id').value; if(!id) return alert("Error: Flashcard ID is missing.");
+        const lo = document.getElementById('edit-fc-lo').value.trim(); 
+        const diff = document.getElementById('edit-fc-diff').value; 
+        const front = document.getElementById('edit-fc-front').value.trim(); 
+        const backRaw = document.getElementById('edit-fc-back').value.trim(); 
+        
+        if(!front || !backRaw) return alert("Please provide Front and Back text."); 
+        
+        let formattedBack = backRaw.replace(/\*(.*?)\*/g, '<strong style="color:var(--danger);">$1</strong>');
+        const updatedData = { lo: lo, difficulty: diff, front: front, back: formattedBack };
+        
+        try { 
+            document.body.style.cursor = 'wait'; 
+            await updateDoc(doc(db, "flashcards", id), updatedData); 
+            const idx = window.ALL_FLASHCARDS.findIndex(m => m.id === id); 
+            if(idx > -1) { window.ALL_FLASHCARDS[idx] = { ...window.ALL_FLASHCARDS[idx], ...updatedData }; } 
+            window.renderFlashcards(); 
+            window.closeEditFCModal(); 
+        } catch(e) { console.error(e); alert("Error updating Flashcard: " + e.message); } 
+        finally { document.body.style.cursor = 'default'; }
+    }
+
+    window.deleteExistingFC = async function() {
+        const id = document.getElementById('edit-fc-id').value; if(!id) return console.error("Error: FC ID missing."); const btn = document.getElementById('btn-delete-fc');
+        if (!btn.classList.contains('confirm-mode')) { btn.classList.add('confirm-mode'); btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sure? Click again'; btn.style.backgroundColor = 'darkred'; setTimeout(() => { btn.classList.remove('confirm-mode'); btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Flashcard'; btn.style.backgroundColor = 'var(--danger)'; }, 3000); return; }
+        try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...'; document.body.style.cursor = 'wait'; await deleteDoc(doc(db, "flashcards", id)); window.ALL_FLASHCARDS = window.ALL_FLASHCARDS.filter(m => m.id !== id); document.getElementById('fc-count').innerText = window.ALL_FLASHCARDS.length; window.renderFlashcards(); window.closeEditFCModal(); } 
+        catch(e) { console.error(e); alert("Database Error: Failed to delete Flashcard.\nDetails: " + e.message); btn.classList.remove('confirm-mode'); btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Flashcard'; btn.style.backgroundColor = 'var(--danger)'; } finally { document.body.style.cursor = 'default'; }
     }
 
     // ROBUST MCQ PARSER & UPLOAD
@@ -799,7 +921,7 @@ D) Blood enters the proximal pole and flows distally
         const toShow = window.CURRENT_FILTERED_MCQS.slice(0, 100);
         toShow.forEach(q => {
             let ansText = q.options && q.options[q.correctIndex] ? q.options[q.correctIndex] : 'N/A';
-            list.innerHTML += `<div class="list-item" style="display: flex; align-items: flex-start; gap: 15px;"><input type="checkbox" class="mcq-checkbox" value="${q.id}" onchange="window.toggleMCQSelection(this)" style="margin-top: 4px; width:16px; height:16px; cursor:pointer;"><div style="flex: 1; padding-right: 10px;"><div style="font-size: 11px; color: var(--primary); font-weight: 800; margin-bottom: 4px;">[${q.difficulty || 'Moderate'}] ${q.lo || 'Uncategorized'}</div><div style="font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">${q.question}</div><div style="font-size: 12px; color: var(--success); font-weight: 700;">Ans: ${ansText}</div></div><div><button class="btn outline edit-mcq-btn" onclick="window.openEditModal('${q.id}')"><i class="fa-solid fa-pen"></i> Edit</button></div></div>`;
+            list.innerHTML += `<div class="list-item" style="display: flex; align-items: flex-start; gap: 15px;"><input type="checkbox" class="mcq-checkbox" value="${q.id}" onchange="window.toggleMCQSelection(this)" style="margin-top: 4px; width:16px; height:16px; cursor:pointer;"><div style="flex: 1; padding-right: 10px;"><div style="font-size: 11px; color: var(--primary); font-weight: 800; margin-bottom: 4px;">[${q.difficulty || 'Moderate'}] ${q.lo || 'Uncategorized'}</div><div style="font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">${q.question}</div><div style="font-size: 12px; color: var(--success); font-weight: 700;">Ans: ${ansText}</div></div><div><button class="btn outline sm edit-mcq-btn" onclick="window.openEditModal('${q.id}')"><i class="fa-solid fa-pen"></i> Edit</button></div></div>`;
         });
         if(window.CURRENT_FILTERED_MCQS.length > 100) { list.innerHTML += `<p style="text-align:center; color:var(--text-gray); font-size:12px; margin-top:15px; font-weight:600;">Showing 100 of ${window.CURRENT_FILTERED_MCQS.length} results. Use filters to narrow down, or click "Delete All Filtered" to wipe.</p>`; }
     }
