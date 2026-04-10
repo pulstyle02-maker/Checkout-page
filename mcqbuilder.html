@@ -258,38 +258,53 @@
             }
         }
 
+        // New Robust Parser Regex function
+        function extractMultiline(block, tag, defaultVal) {
+            const regex = new RegExp(`\\[${tag}\\]:?\\s*([\\s\\S]*?)(?=\\n\\s*\\[[a-zA-Z]+\\]|$)`, 'i');
+            const match = block.match(regex);
+            return match && match[1].trim() !== '' ? match[1].trim() : defaultVal;
+        }
+
         function processMCQs() {
             const raw = document.getElementById('raw-mcq-input').value;
             const mcqBlocks = raw.split(/\n\s*\n/).filter(b => b.trim() !== '');
             state.stagedQuestions = [];
-            const questionStems = new Set();
+            
+            // Check for duplicates globally across already saved session AND current batch
+            const currentSessionStems = new Set(state.session.map(q => q.question.toLowerCase().trim()));
+            const stagedStems = new Set();
             let duplicateCount = 0;
 
             mcqBlocks.forEach(block => {
-                const stem = block.match(/\[Q\]:\s*(.*)/i)?.[1].trim() || "";
+                const stem = extractMultiline(block, 'Q', '');
                 if(!stem) return;
 
-                // Redundancy Check
-                if (questionStems.has(stem.toLowerCase())) {
+                const normalizedStem = stem.toLowerCase().trim();
+
+                // Advanced Redundancy Check
+                if (currentSessionStems.has(normalizedStem) || stagedStems.has(normalizedStem)) {
                     duplicateCount++;
                     return;
                 }
-                questionStems.add(stem.toLowerCase());
+                stagedStems.add(normalizedStem);
+
+                let rawAns = extractMultiline(block, 'ANS', 'A').toUpperCase();
+                let cleanAns = rawAns.match(/[A-E]/) ? rawAns.match(/[A-E]/)[0] : 'A';
 
                 const q = {
                     id: crypto.randomUUID().split('-')[0].toUpperCase(),
-                    lo: block.match(/\[LO\]:\s*(.*)/i)?.[1].trim() || "Unspecified",
-                    source: block.match(/\[SRC\]:\s*(.*)/i)?.[1].trim() || "Unknown",
-                    difficulty: block.match(/\[DIFF\]:\s*(.*)/i)?.[1].trim() || "Medium",
+                    lo: extractMultiline(block, 'LO', 'Unspecified'),
+                    source: extractMultiline(block, 'SRC', 'Unknown'),
+                    difficulty: extractMultiline(block, 'DIFF', 'Medium'),
                     question: stem,
-                    ans: (block.match(/\[ANS\]:\s*(.*)/i)?.[1].trim() || "A").toUpperCase(),
-                    explanation: block.match(/\[EXP\]:\s*([\s\S]*)/i)?.[1].trim() || "",
+                    ans: cleanAns,
+                    explanation: extractMultiline(block, 'EXP', ''),
                     options: {
-                        A: block.match(/\[A\]:\s*(.*)/i)?.[1].trim() || "Option A",
-                        B: block.match(/\[B\]:\s*(.*)/i)?.[1].trim() || "Option B",
-                        C: block.match(/\[C\]:\s*(.*)/i)?.[1].trim() || "Option C",
-                        D: block.match(/\[D\]:\s*(.*)/i)?.[1].trim() || "Option D",
-                        E: block.match(/\[E\]:\s*(.*)/i)?.[1].trim() || "Option E"
+                        A: extractMultiline(block, 'A', 'Option A'),
+                        B: extractMultiline(block, 'B', 'Option B'),
+                        C: extractMultiline(block, 'C', 'Option C'),
+                        D: extractMultiline(block, 'D', 'Option D'),
+                        E: extractMultiline(block, 'E', 'Option E')
                     }
                 };
                 state.stagedQuestions.push(q);
@@ -394,12 +409,14 @@
             filtered.forEach((q) => {
                 const div = document.createElement('div');
                 div.className = "bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 relative group animate-fade-in";
+                
+                // Visible Edit & Delete Buttons updated
                 div.innerHTML = `
-                    <div class="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="openEditModal('${q.id}')" class="p-2 bg-slate-700 text-slate-300 hover:text-indigo-400 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                        <button onclick="removeQuestion('${q.id}')" class="p-2 bg-slate-700 text-slate-300 hover:text-red-400 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <div class="absolute top-4 right-4 flex gap-2 z-10 opacity-100 transition-opacity">
+                        <button onclick="openEditModal('${q.id}')" class="p-2 bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors shadow-sm cursor-pointer" title="Edit Question"><i data-lucide="edit-3" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button onclick="removeQuestion('${q.id}')" class="p-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors shadow-sm cursor-pointer" title="Delete Question"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap gap-2 pr-20">
                         <span class="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase">${q.meta.module}</span>
                         <span class="text-[9px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded uppercase">${q.meta.subject}</span>
                         <span class="text-[9px] border border-slate-600 text-slate-400 px-2 py-0.5 rounded uppercase">ID: ${q.id}</span>
