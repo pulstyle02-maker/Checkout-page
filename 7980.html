@@ -108,7 +108,7 @@ body.is-quiz .page { padding-top: 0 !important; }
 .notif-card { padding: 12px; border-radius: 12px; margin-bottom: 10px; background: var(--hover-bg); border: 1px solid var(--border-color); }
 .notif-badge { position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; background: var(--accent-red); border-radius: 50%; border: 2px solid var(--bg-card); display: none; }
 
-.main-content { flex: 1; position: relative; overflow-y: auto; overflow-x: hidden; z-index: 2; padding-bottom: calc(65px + env(safe-area-inset-bottom)); scroll-behavior: smooth; }
+.main-content { flex: 1; position: relative; overflow-y: auto; overflow-x: hidden; z-index: 2; padding-bottom: calc(65px + env(safe-area-bottom)); scroll-behavior: smooth; }
 .page { display: none; width: 100%; position: absolute; top: 0; left: 0; opacity: 0; padding-top: calc(75px + env(safe-area-inset-top)); }
 .page.auth-page { padding-top: 0 !important; }
 .page.active { display: block; position: relative; animation: iosFadeScale 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
@@ -775,7 +775,6 @@ select.app-input { padding-right: 32px; appearance: none; }
                 <h2 class="q-text" id="q-text" style="text-transform:none !important; letter-spacing:0 !important;">Loading...</h2>
                 <div id="options-container"></div>
                 
-                <!-- NEW: See Explanation Button -->
                 <button class="btn btn-alt" id="btn-see-exp" style="display:none; width:auto; margin-top:16px; padding:10px 20px; font-size:12px; font-weight:800;" onclick="revealExplanation()">See Explanation <i class="fa-solid fa-eye"></i></button>
 
                 <div id="exp-container" style="display:none; margin-top:20px; background:var(--bg-card); border-radius:16px; border:1px solid var(--border-color); box-shadow:var(--shadow-sm); overflow:hidden;">
@@ -798,7 +797,6 @@ select.app-input { padding-right: 32px; appearance: none; }
         <div id="view-results" class="page">
             <div class="page-wrapper" style="padding-top:calc(30px + env(safe-area-inset-top));">
                 <div class="gamified-card">
-                    <!-- Dynamic SVG inserted via JS -->
                     <div id="result-svg-icon" class="svg-icon-large"></div>
                     <h2 id="result-feedback-title" style="font-size:22px; color:var(--text-dark); margin-bottom:16px;">Session Complete!</h2>
                     
@@ -872,7 +870,7 @@ select.app-input { padding-right: 32px; appearance: none; }
     const firebaseConfig = { apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI", authDomain: "modmedicalis-f7ca2.firebaseapp.com", projectId: "modmedicalis-f7ca2", storageBucket: "modmedicalis-f7ca2.firebasestorage.app", messagingSenderId: "786594019384", appId: "1:786594019384:web:1a86108fa496d05aadcecd" };
     const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
 
-    window.appData = { mcqs: [], flashcards: [], notes: [] }; window.currentUser = null; window.currentAvatar = "👨‍⚕️"; window.registerMode = 'free';
+    window.appData = { mcqs: [], flashcards: [], notes: [], usmle: [] }; window.currentUser = null; window.currentAvatar = "👨‍⚕️"; window.registerMode = 'free';
     window.currentQ = 0; window.score = 0; window.userAnswers = {}; window.studyMode = 'practice'; window.studyBlock = 'Block_1'; window.studyModule = ''; window.studySubjects = '';
     window.sessionData = []; window.currentPool = []; window.timerInterval = null; window.timeRemaining = 0; window.mockTimingMode = 'timed';
     window.currentSetId = null; window.tempSetData = null; window.sessionNewAtt = 0; window.sessionNewCor = 0; window.sessionLoUpdates = {}; window.sessionMistakeUpdates = {}; window.tempSelectedLOs = [];
@@ -934,7 +932,29 @@ select.app-input { padding-right: 32px; appearance: none; }
     window.copyNumber = function() { navigator.clipboard.writeText("03096554421"); window.showToast("Number copied to clipboard!", "success"); }
 
     window.HARDCODED_SYLLABUS = {}; window.loToNodeMap = {}; 
-    window.rebuildLOMap = function() { 
+    
+    // ROBUST DATA MAPPER
+    window.rebuildLOMap = function(rawData) { 
+        if(rawData) {
+            window.HARDCODED_SYLLABUS = {};
+            let sylArray = Array.isArray(rawData) ? rawData : (rawData.syllabus || []);
+            sylArray.forEach(item => {
+                let b = item.block.replace(/ /g, '_');
+                let m = item.moduleName.replace(/ /g, '_');
+                let s = item.subject.replace(/ /g, '_');
+                if(!window.HARDCODED_SYLLABUS[b]) window.HARDCODED_SYLLABUS[b] = {};
+                if(!window.HARDCODED_SYLLABUS[b][m]) window.HARDCODED_SYLLABUS[b][m] = {};
+                if(!window.HARDCODED_SYLLABUS[b][m][s]) window.HARDCODED_SYLLABUS[b][m][s] = {};
+                
+                if(item.learningObjectives) {
+                    item.learningObjectives.forEach(loObj => {
+                        let loStr = loObj.objective;
+                        window.HARDCODED_SYLLABUS[b][m][s][loStr] = loObj.detailedTopics || [];
+                    });
+                }
+            });
+        }
+        
         window.loToNodeMap = {}; 
         for(let b in window.HARDCODED_SYLLABUS){ 
             for(let m in window.HARDCODED_SYLLABUS[b]){ 
@@ -948,15 +968,138 @@ select.app-input { padding-right: 32px; appearance: none; }
             } 
         } 
     };
+
+    window.fetchGitHubData = async function(blockId, classInfo) {
+        let yearPrefix = '1st';
+        if(classInfo && classInfo.includes('2nd')) yearPrefix = '2nd';
+        if(classInfo && classInfo.includes('3rd')) yearPrefix = '3rd';
+        if(classInfo && classInfo.includes('4th')) yearPrefix = '4th';
+        if(classInfo && classInfo.includes('Final')) yearPrefix = '5th';
+
+        let bNum = String(blockId).replace(/[^0-9]/g, '') || '1';
+
+        const baseUrl = 'https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main';
+        const sylUrl = `${baseUrl}/${yearPrefix}yearsyllabus.json`;
+        const mcqUrl = `${baseUrl}/b${bNum}mcqs.json`;
+        const flashUrl = `${baseUrl}/flash-b${bNum}.json`;
+        const quickUrl = `${baseUrl}/quick-b${bNum}.json`;
+        const usmleUrl = `${baseUrl}/usmle-b${bNum}.json`;
+
+        try {
+            const [sRes, mRes, fRes, qRes, uRes] = await Promise.all([
+                fetch(sylUrl).catch(()=>null),
+                fetch(mcqUrl).catch(()=>null),
+                fetch(flashUrl).catch(()=>null),
+                fetch(quickUrl).catch(()=>null),
+                fetch(usmleUrl).catch(()=>null)
+            ]);
+
+            if(sRes && sRes.ok) { 
+                let sData = await sRes.json(); 
+                window.rebuildLOMap(sData); 
+                try { localStorage.setItem('cached_syl', JSON.stringify(sData)); } catch(e){} 
+            }
+            
+            // ROBUST MCQ MAPPER
+            if(mRes && mRes.ok) { 
+                let mData = await mRes.json(); 
+                let rawQuestions = Array.isArray(mData) ? mData : (mData.questions || []);
+                let parsedMCQs = [];
+                rawQuestions.forEach(q => {
+                    let optsArray = [];
+                    let cIdx = 0;
+                    if (Array.isArray(q.options)) {
+                        optsArray = q.options;
+                        const letterMap = { 'A':0, 'B':1, 'C':2, 'D':3, 'E':4, 'F':5 };
+                        cIdx = q.correctIndex !== undefined ? q.correctIndex : (letterMap[q.ans] || 0);
+                    } else if (typeof q.options === 'object' && q.options !== null) {
+                        let counter = 0;
+                        for (let key in q.options) {
+                            optsArray.push(q.options[key]);
+                            if (key === q.ans) cIdx = counter;
+                            counter++;
+                        }
+                    } else {
+                        optsArray = ["True", "False"]; 
+                    }
+                    parsedMCQs.push({
+                        id: q.id || Math.random().toString(),
+                        lo: q.lo || 'General',
+                        difficulty: q.difficulty || 'Moderate',
+                        question: q.question || 'No question text provided',
+                        options: optsArray,
+                        correctIndex: cIdx,
+                        explanation: q.explanation || ''
+                    });
+                });
+                window.appData.mcqs = parsedMCQs; 
+                try { localStorage.setItem('cached_mcqs', JSON.stringify(window.appData.mcqs)); } catch(e){} 
+            } else { window.appData.mcqs = []; }
+            
+            // FLASHCARDS MAPPER
+            if(fRes && fRes.ok) { 
+                let fData = await fRes.json(); 
+                let rawFc = Array.isArray(fData) ? fData : (fData.questions || fData.flashcards || []);
+                let parsedFc = [];
+                rawFc.forEach(f => {
+                    let front = f.front || f.question || 'Flashcard';
+                    let back = f.back || f.answer || f.explanation || '';
+                    if(f.options && typeof f.options === 'object' && !f.back && !f.answer) {
+                        back = f.options[f.ans] + "\n\n" + (f.explanation || "");
+                    }
+                    parsedFc.push({ id: f.id || Math.random().toString(), lo: f.lo || 'General', front: front, back: back });
+                });
+                window.appData.flashcards = parsedFc; 
+                try { localStorage.setItem('cached_flashcards', JSON.stringify(window.appData.flashcards)); } catch(e){} 
+            } else { window.appData.flashcards = []; }
+
+            // QUICK QS MAPPER
+            if(qRes && qRes.ok) { 
+                let qData = await qRes.json(); 
+                let rawNotes = Array.isArray(qData) ? qData : (qData.notes || qData.questions || []);
+                let parsedNotes = [];
+                rawNotes.forEach(n => {
+                    parsedNotes.push({
+                        id: n.id || Math.random().toString(),
+                        lo: n.lo || 'General',
+                        title: n.title || n.topic || 'Quick Note',
+                        subHeading: n.subHeading || '',
+                        body: n.body || n.content || n.explanation || ''
+                    });
+                });
+                window.appData.notes = parsedNotes; 
+                try { localStorage.setItem('cached_notes', JSON.stringify(window.appData.notes)); } catch(e){} 
+            } else { window.appData.notes = []; }
+
+            // USMLE MAPPER
+            if(uRes && uRes.ok) { 
+                let uData = await uRes.json(); 
+                let rawUsmle = Array.isArray(uData) ? uData : (uData.questions || []);
+                let parsedUsmle = [];
+                rawUsmle.forEach(q => {
+                    let optsArray = []; let cIdx = 0;
+                    if (Array.isArray(q.options)) {
+                        optsArray = q.options; const letterMap = { 'A':0, 'B':1, 'C':2, 'D':3, 'E':4, 'F':5 }; cIdx = q.correctIndex !== undefined ? q.correctIndex : (letterMap[q.ans] || 0);
+                    } else if (typeof q.options === 'object' && q.options !== null) {
+                        let counter = 0; for (let key in q.options) { optsArray.push(q.options[key]); if (key === q.ans) cIdx = counter; counter++; }
+                    } else { optsArray = ["True", "False"]; }
+                    parsedUsmle.push({ id: q.id || Math.random().toString(), lo: q.lo || 'General', difficulty: q.difficulty || 'Hard', question: q.question || 'No question text', options: optsArray, correctIndex: cIdx, explanation: q.explanation || '' });
+                });
+                window.appData.usmle = parsedUsmle; 
+                try { localStorage.setItem('cached_usmle', JSON.stringify(window.appData.usmle)); } catch(e){} 
+            } else { window.appData.usmle = []; }
+
+        } catch(e) { console.error("Error fetching github data", e); }
+    };
     
     window.getSyllabusInfo = function(loStr) { if(!loStr) return { subject: "Mixed Theory", module: "Foundation" }; let clean = loStr.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); if(window.loToNodeMap[clean]) return window.loToNodeMap[clean]; for(let key in window.loToNodeMap) { if(key.includes(clean) || clean.includes(key)) return window.loToNodeMap[key]; } return { subject: "Mixed Theory", module: "Foundation" }; };
     window.getTotalLOsForBlock = function(blockName) { if(blockName === 'All') { let total = 0; for(let b in window.HARDCODED_SYLLABUS) { for(let m in window.HARDCODED_SYLLABUS[b]) { for(let s in window.HARDCODED_SYLLABUS[b][m]) { total += Object.keys(window.HARDCODED_SYLLABUS[b][m][s]).length; } } } return total; } else { let total = 0; if(!window.HARDCODED_SYLLABUS[blockName]) return 0; for(let m in window.HARDCODED_SYLLABUS[blockName]) { for(let s in window.HARDCODED_SYLLABUS[blockName][m]) { total += Object.keys(window.HARDCODED_SYLLABUS[blockName][m][s]).length; } } return total; } }
     let matchFunc = function(syl, dbI) { if(!syl || !dbI) return false; let clS = syl.replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); let clD = (dbI.lo || "").replace(/[^a-zA-Z0-9]/g, '').toLowerCase().replace(/^lo/, ''); if(clS === clD) return true; if(clD.length > 4 && clS.includes(clD)) return true; if(clS.length > 4 && clD.includes(clS)) return true; const reg = /(f|hl)[a-z]*\d{3}/i; let sM = clS.match(reg); let dM = clD.match(reg); if(sM && dM && sM[0] === dM[0]) return true; return false; };
 
     window.getFilteredPool = function() {
-        if(window.studyMode === 'flashcards') return window.appData.flashcards;
-        if(window.studyMode === 'usmle') { return window.appData.mcqs.filter(q => (q.source && q.source.includes('USMLE')) || (q.question && q.question.includes('USMLE'))); }
-        return window.appData.mcqs;
+        if(window.studyMode === 'flashcards') return window.appData.flashcards || [];
+        if(window.studyMode === 'usmle') return window.appData.usmle || [];
+        return window.appData.mcqs || [];
     }
 
     window.applyDifficultyDistribution = function(pool, targetCount, diffSelection = 'Mix') {
@@ -997,29 +1140,71 @@ select.app-input { padding-right: 32px; appearance: none; }
         return ['Block_1', 'Block_2', 'Block_3']; 
     };
 
-    window.addEventListener('DOMContentLoaded', () => { 
-        let loaded = false;
-        const loadFromNetwork = async () => {
-            try {
-                const [sylDoc, mcqSnap, notesSnap, fcSnap] = await Promise.all([
-                    getDoc(doc(db, "config", "syllabus")), getDocs(collection(db, "mcqs")), getDocs(collection(db, "notes")), getDocs(collection(db, "flashcards"))
-                ]);
-                if (sylDoc.exists() && sylDoc.data().data) { window.HARDCODED_SYLLABUS = sylDoc.data().data; try { localStorage.setItem('cached_syl', JSON.stringify(window.HARDCODED_SYLLABUS)); } catch(e){} window.rebuildLOMap(); }
-                window.appData.mcqs = []; mcqSnap.forEach(d => window.appData.mcqs.push({id: d.id, ...d.data()})); try { localStorage.setItem('cached_mcqs', JSON.stringify(window.appData.mcqs)); } catch(e){}
-                window.appData.notes = []; notesSnap.forEach(d => window.appData.notes.push({id: d.id, ...d.data()})); try { localStorage.setItem('cached_notes', JSON.stringify(window.appData.notes)); } catch(e){}
-                window.appData.flashcards = []; fcSnap.forEach(d => window.appData.flashcards.push({id: d.id, ...d.data()})); try { localStorage.setItem('cached_flashcards', JSON.stringify(window.appData.flashcards)); } catch(e){}
-                if(window.currentUser && !loaded) { window.setupDashboard(); } loaded = true;
-            } catch(e) { console.error(e); }
-        };
+    onAuthStateChanged(auth, async (user) => { 
+        if (user) { 
+            document.body.classList.add('is-logged-in'); 
+            try { 
+                const docSnap = await getDoc(doc(db, "users", user.uid)); 
+                if (docSnap.exists()) { 
+                    window.currentUser = docSnap.data(); 
+                    window.currentUser.uid = user.uid; 
+                    window.currentAvatar = window.currentUser.avatar || "👨‍⚕️"; 
+                    window.currentUser.progress = window.currentUser.progress || {}; 
+                    window.currentUser.loStats = window.currentUser.loStats || {}; 
+                    window.currentUser.mistakes = window.currentUser.mistakes || {}; 
+                    window.currentUser.activityHistory = window.currentUser.activityHistory || {}; 
+                    window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; 
+                    window.currentUser.bookmarks = window.currentUser.bookmarks || {}; 
+                    window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; 
+                    window.currentUser.completedSets = window.currentUser.completedSets || {}; 
+                    
+                    let allowed = window.getAllowedBlocks(window.currentUser.classInfo);
+                    if (!allowed.includes(window.currentGlobalBlock) && window.currentGlobalBlock !== 'All') { 
+                        window.currentGlobalBlock = allowed[0]; 
+                    }
 
-        try {
-            let cSyl = localStorage.getItem('cached_syl'); let cMcq = localStorage.getItem('cached_mcqs');
-            if(cSyl && cMcq) { window.HARDCODED_SYLLABUS = JSON.parse(cSyl); window.appData.mcqs = JSON.parse(cMcq); if(localStorage.getItem('cached_notes')) window.appData.notes = JSON.parse(localStorage.getItem('cached_notes')); if(localStorage.getItem('cached_flashcards')) window.appData.flashcards = JSON.parse(localStorage.getItem('cached_flashcards')); window.rebuildLOMap(); loaded = true; }
-        } catch(e){}
-        loadFromNetwork(); 
+                    // 1. Try to load cached data FIRST to prevent white screen
+                    try {
+                        let cSyl = localStorage.getItem('cached_syl'); 
+                        let cMcq = localStorage.getItem('cached_mcqs');
+                        if(cSyl && cMcq) { 
+                            window.rebuildLOMap(JSON.parse(cSyl)); 
+                            window.appData.mcqs = JSON.parse(cMcq); 
+                            if(localStorage.getItem('cached_notes')) window.appData.notes = JSON.parse(localStorage.getItem('cached_notes')); 
+                            if(localStorage.getItem('cached_flashcards')) window.appData.flashcards = JSON.parse(localStorage.getItem('cached_flashcards')); 
+                            if(localStorage.getItem('cached_usmle')) window.appData.usmle = JSON.parse(localStorage.getItem('cached_usmle')); 
+                        }
+                    } catch(e){}
+
+                    // 2. Fetch latest from GitHub & update cleanly
+                    await window.fetchGitHubData(window.currentGlobalBlock, window.currentUser.classInfo);
+
+                    window.calculateStreak(); 
+                    window.setupDashboard(); 
+                    window.requestPushPermissions(); 
+                    
+                    const activePage = document.querySelector('.page.active'); 
+                    if(activePage && ['view-login', 'view-register', 'view-forgot-password', 'view-invite', 'view-premium-intro', 'view-premium-register', 'view-premium-success', 'view-initial-load'].includes(activePage.id)) { 
+                        window.navTo('dashboard'); 
+                    } else if (!activePage) { 
+                        window.navTo('dashboard'); 
+                    } 
+                    listenToUserUpdates(user.uid); 
+                    listenToNotifications(); 
+                } else { 
+                    await signOut(auth); 
+                } 
+            } catch(e) { 
+                console.error(e); 
+            } finally { 
+                const btn = document.getElementById('btn-login-action'); 
+                if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; } 
+            } 
+        } else { 
+            document.body.classList.remove('is-logged-in'); window.currentUser = null; window.navTo('login'); 
+        } 
     });
 
-    onAuthStateChanged(auth, async (user) => { if (user) { document.body.classList.add('is-logged-in'); try { const docSnap = await getDoc(doc(db, "users", user.uid)); if (docSnap.exists()) { window.currentUser = docSnap.data(); window.currentUser.uid = user.uid; window.currentAvatar = window.currentUser.avatar || "👨‍⚕️"; window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {}; window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {}; window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.bookmarks = window.currentUser.bookmarks || {}; window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; window.currentUser.completedSets = window.currentUser.completedSets || {}; window.calculateStreak(); window.setupDashboard(); window.requestPushPermissions(); const activePage = document.querySelector('.page.active'); if(activePage && ['view-login', 'view-register', 'view-forgot-password', 'view-invite', 'view-premium-intro', 'view-premium-register', 'view-premium-success', 'view-initial-load'].includes(activePage.id)) { window.navTo('dashboard'); } else if (!activePage) { window.navTo('dashboard'); } listenToUserUpdates(user.uid); listenToNotifications(); } else { await signOut(auth); } } catch(e) { console.error(e); } finally { const btn = document.getElementById('btn-login-action'); if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; } } } else { document.body.classList.remove('is-logged-in'); window.currentUser = null; window.navTo('login'); } });
     function listenToUserUpdates(uid) { onSnapshot(doc(db, "users", uid), (doc) => { if(doc.exists() && window.currentUser) { window.currentUser = doc.data(); window.currentUser.uid = uid; window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {}; window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {}; window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.bookmarks = window.currentUser.bookmarks || {}; window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; window.currentUser.completedSets = window.currentUser.completedSets || {}; window.setupDashboard(); } }); }
     function listenToNotifications() { onSnapshot(collection(db, "notifications"), (snapshot) => { const nc = document.getElementById('notif-container'); nc.innerHTML = ''; let seenNotifs = JSON.parse(localStorage.getItem('seenNotifs') || '[]'); let hasUnread = false; if(snapshot.empty) { nc.innerHTML = '<p>No notifications.</p>'; document.getElementById('notif-badge-dot').style.display='none'; return; } snapshot.forEach((docSnap) => { const n = docSnap.data(); const nid = docSnap.id; if(!n.targetUser || n.targetUser === 'all' || n.targetUser === window.currentUser.uid) { if(!seenNotifs.includes(nid)) { hasUnread = true; if(Notification.permission === 'granted') { new Notification(n.title, { body: n.message, icon: 'https://i.imgur.com/wliwntu.png' }); seenNotifs.push(nid); localStorage.setItem('seenNotifs', JSON.stringify(seenNotifs)); } } nc.innerHTML += `<div class="notif-card glass-card" style="border:1px solid ${n.urgent ? 'var(--accent-red)' : 'var(--border-color)'}"><h4 style="margin-bottom:4px;">${n.title}</h4><p style="font-size:11px; color:var(--text-gray);">${n.message}</p></div>`; } }); document.getElementById('notif-badge-dot').style.display = hasUnread ? 'block' : 'none'; }); }
 
@@ -1072,7 +1257,7 @@ select.app-input { padding-right: 32px; appearance: none; }
     }
     window.selectSetAvatar = function(emoji, el) { window.tempSettingsAvatar = emoji; document.querySelectorAll('#view-settings .avatar-option').forEach(e => e.classList.remove('selected')); el.classList.add('selected'); window.checkSettingsChanges(); }
     window.checkSettingsChanges = function() { const newUser = document.getElementById('set-user').value.trim(), newPass = document.getElementById('set-new-pass').value.trim(), confPass = document.getElementById('set-confirm-pass').value.trim(), newBlock = document.getElementById('set-block').value, newViewMode = document.getElementById('set-view-mode').value, btn = document.getElementById('btn-save-settings'), tick = document.getElementById('set-pass-tick'); if(newPass && newPass === confPass && newPass.length >= 6) { tick.style.display = 'block'; } else { tick.style.display = 'none'; } if((newUser && newUser !== window.currentUser.username) || newPass || newBlock !== window.currentGlobalBlock || newViewMode !== (window.currentUser.settings?.viewMode || 'paginated')) { btn.innerHTML = window.settingsRequiresRelogin ? 'Confirm & Login Again' : 'Save Changes'; window.settingsRequiresRelogin = ((newUser && newUser !== window.currentUser.username) || newPass) ? true : false; } else { btn.innerHTML = 'Save Changes'; window.settingsRequiresRelogin = false; } }
-    window.saveSettings = async function() { const btn = document.getElementById('btn-save-settings'); const name = document.getElementById('set-name').value.trim(), classInfo = document.getElementById('set-class').value, college = document.getElementById('set-college').value.trim(), username = document.getElementById('set-user').value.trim(), oldPass = document.getElementById('set-old-pass').value.trim(), newPass = document.getElementById('set-new-pass').value.trim(), confPass = document.getElementById('set-confirm-pass').value.trim(), newBlock = document.getElementById('set-block').value; if(!name || !classInfo || !college || !username) return window.showToast("Basic fields cannot be empty."); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; btn.disabled = true; try { let updates = { name, classInfo, college, avatar: window.tempSettingsAvatar }; let settingsObj = window.currentUser.settings || {}; settingsObj.viewMode = document.getElementById('set-view-mode').value; updates.settings = settingsObj; if(username !== window.currentUser.username) { const q = query(collection(db, "users"), where("username", "==", username)); const snap = await getDocs(q); if(!snap.empty) { throw new Error("Username already taken."); } updates.username = username; } if(newPass) { if(!oldPass) throw new Error("Please enter your current password."); if(newPass !== confPass) throw new Error("New passwords do not match."); if(newPass.length < 6) throw new Error("Password must be 6+ chars."); await signInWithEmailAndPassword(auth, window.currentUser.email, oldPass); await updatePassword(auth.currentUser, newPass); updates.password = newPass; } await updateDoc(doc(db, "users", window.currentUser.uid), updates); if(newBlock !== window.currentGlobalBlock) { window.setGlobalBlock(newBlock); } if(window.settingsRequiresRelogin) { window.showToast("Credentials updated. Please log in again.", "success"); await signOut(auth); window.navTo('login'); } else { window.showToast("Settings saved successfully!", "success"); window.currentAvatar = window.tempSettingsAvatar; window.currentUser = { ...window.currentUser, ...updates }; window.navTo('dashboard'); } } catch(e) { window.showToast(e.message || "Error saving settings."); } finally { btn.innerHTML = window.settingsRequiresRelogin ? 'Confirm & Login Again' : 'Save Changes'; btn.disabled = false; } }
+    window.saveSettings = async function() { const btn = document.getElementById('btn-save-settings'); const name = document.getElementById('set-name').value.trim(), classInfo = document.getElementById('set-class').value, college = document.getElementById('set-college').value.trim(), username = document.getElementById('set-user').value.trim(), oldPass = document.getElementById('set-old-pass').value.trim(), newPass = document.getElementById('set-new-pass').value.trim(), confPass = document.getElementById('set-confirm-pass').value.trim(), newBlock = document.getElementById('set-block').value; if(!name || !classInfo || !college || !username) return window.showToast("Basic fields cannot be empty."); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; btn.disabled = true; try { let updates = { name, classInfo, college, avatar: window.tempSettingsAvatar }; let settingsObj = window.currentUser.settings || {}; settingsObj.viewMode = document.getElementById('set-view-mode').value; updates.settings = settingsObj; if(username !== window.currentUser.username) { const q = query(collection(db, "users"), where("username", "==", username)); const snap = await getDocs(q); if(!snap.empty) { throw new Error("Username already taken."); } updates.username = username; } if(newPass) { if(!oldPass) throw new Error("Please enter your current password."); if(newPass !== confPass) throw new Error("New passwords do not match."); if(newPass.length < 6) throw new Error("Password must be 6+ chars."); await signInWithEmailAndPassword(auth, window.currentUser.email, oldPass); await updatePassword(auth.currentUser, newPass); updates.password = newPass; } await updateDoc(doc(db, "users", window.currentUser.uid), updates); if(newBlock !== window.currentGlobalBlock) { await window.setGlobalBlock(newBlock); } if(window.settingsRequiresRelogin) { window.showToast("Credentials updated. Please log in again.", "success"); await signOut(auth); window.navTo('login'); } else { window.showToast("Settings saved successfully!", "success"); window.currentAvatar = window.tempSettingsAvatar; window.currentUser = { ...window.currentUser, ...updates }; window.navTo('dashboard'); } } catch(e) { window.showToast(e.message || "Error saving settings."); } finally { btn.innerHTML = window.settingsRequiresRelogin ? 'Confirm & Login Again' : 'Save Changes'; btn.disabled = false; } }
 
     let fpStoredDocId = null; let fpStoredOldPass = null; let fpStoredEmail = null;
     window.verifyForgotPassword = async function() { const u = document.getElementById('fp-user').value.trim(), c = document.getElementById('fp-college').value.trim(); if(!u || !c) return window.showToast("Enter Username and College."); const q = query(collection(db, "users"), where("username", "==", u), where("college", "==", c)); const snap = await getDocs(q); if(snap.empty) { window.showToast("No matching account found."); } else { fpStoredDocId = snap.docs[0].id; fpStoredOldPass = snap.docs[0].data().password; fpStoredEmail = snap.docs[0].data().email; document.getElementById('fp-step-1').style.display = 'none'; document.getElementById('fp-step-2').style.display = 'flex'; } }
@@ -1082,7 +1267,20 @@ select.app-input { padding-right: 32px; appearance: none; }
     window.resetInviteState = function() { document.getElementById('invite-border-wrapper').classList.remove('invite-success-wrapper'); document.getElementById('invite-key-icon').style.display = 'block'; document.getElementById('invite-tick-icon').style.display = 'none'; const btn = document.getElementById('invite-btn'); btn.innerHTML = `<span style="font-size: 14px; font-weight: 800; display:flex; align-items:center; gap:8px;">Validate Code <i class="fa-solid fa-arrow-right"></i></span>`; btn.onclick = window.validateInviteCode; }
     window.validateInviteCode = async function() { const code = document.getElementById('inviteCode').value.trim().toUpperCase(); if(!code) return window.showToast("Please enter a code."); try { const codeDoc = await getDoc(doc(db, "invitationCodes", code)); let isValid = false; if(codeDoc.exists()) { isValid = true; window.inviteValidatedPlan = codeDoc.data().plan || 'free'; } else if (code === 'MOD-AIMC-30') { isValid = true; window.inviteValidatedPlan = 'free'; } if(isValid) { document.getElementById('invite-border-wrapper').classList.add('invite-success-wrapper'); document.getElementById('invite-key-icon').style.display = 'none'; document.getElementById('invite-tick-icon').style.display = 'block'; const btn = document.getElementById('invite-btn'); btn.innerHTML = `<span style="font-size: 14px; font-weight: 800; display:flex; align-items:center; gap:8px; color:var(--text-dark);">Launch App <i class="fa-solid fa-rocket" id="launch-rocket"></i></span>`; btn.onclick = () => { document.getElementById('launch-rocket').classList.add('rocket-fly'); setTimeout(()=>{window.prepRegister(window.inviteValidatedPlan);}, 600); }; } else { window.showToast("Invalid invitation code."); } } catch(e) { window.showToast("Error verifying code."); } }
 
-    window.setGlobalBlock = function(blockId) { window.currentGlobalBlock = blockId; let name = blockId === 'All' ? 'PROF MODE' : blockId.replace('_', ' ').toUpperCase(); document.getElementById('current-session-name').innerText = name; window.statCycleIndex = 0; window.setupDashboard(); window.showToast(`Switched to ${name}`, 'success'); }
+    window.setGlobalBlock = async function(blockId) { 
+        window.currentGlobalBlock = blockId; 
+        let name = blockId === 'All' ? 'PROF MODE' : blockId.replace('_', ' ').toUpperCase(); 
+        document.getElementById('current-session-name').innerText = name; 
+        window.statCycleIndex = 0; 
+        window.showToast(`Fetching data for ${name}...`, 'info');
+        await window.fetchGitHubData(blockId, window.currentUser?.classInfo || 'MBBS 1st Year');
+        window.setupDashboard(); 
+        if(document.getElementById('view-dashboard').classList.contains('active')) {
+            window.renderDynamicSyllabus();
+        }
+        window.showToast(`Switched to ${name}`, 'success'); 
+    }
+    
     window.calculateStreak = function() { if(!window.currentUser) return; let now = new Date(); let todayStr = now.toDateString(); let lastStr = window.currentUser.lastActiveDate; if (lastStr !== todayStr) { let yesterday = new Date(now); yesterday.setDate(now.getDate() - 1); if (lastStr === yesterday.toDateString()) { window.currentUser.streak = (window.currentUser.streak || 0) + 1; } else { if(window.currentUser.streak > 1) { window.showToast("Your streak ended! Start fresh today.", "error"); } window.currentUser.streak = 1; } window.currentUser.lastActiveDate = todayStr; updateDoc(doc(db, "users", window.currentUser.uid), { streak: window.currentUser.streak, lastActiveDate: todayStr }); if(Notification.permission === 'granted' && window.currentUser.streak > 1) { new Notification("Streak Updated! 🔥", { body: `You are on a ${window.currentUser.streak} day streak! Keep it up!`, icon: 'https://i.imgur.com/wliwntu.png' }); } } }
     window.cycleDashboardStats = function() { window.statCycleIndex = (window.statCycleIndex + 1) % 3; window.triggerHaptic(); window.updateCircStats(); }
 
@@ -1143,7 +1341,7 @@ select.app-input { padding-right: 32px; appearance: none; }
             if (plan === 'pro') { planTag.innerText = 'PREMIUM'; planTag.style.background = 'linear-gradient(135deg, #FFD700, #FDB931)'; planTag.style.color = '#000'; } else if (plan === 'pending') { planTag.innerText = 'PENDING'; planTag.style.background = 'var(--mist-icon)'; planTag.style.color = '#fff'; } else { planTag.innerText = 'FREE'; planTag.style.background = 'var(--text-gray)'; planTag.style.color = '#fff'; } let savedCount = (window.currentUser.savedMCQs || []).length; document.getElementById('side-saved-count').innerText = savedCount + " MCQs starred"; 
         } 
         window.cleanUpDeletedMCQs().then(() => { window.statCycleIndex = Math.floor(Math.random() * 3); setTimeout(()=> { window.updateCircStats(); window.renderContinueSection(); }, 200); });
-        window.clearTyping(); document.getElementById('greet-name').innerText = ''; let hr = new Date().getHours(); let timeGreet = 'GOOD MORNING,'; if(hr >= 12 && hr < 17) timeGreet = 'GOOD AFTERNOON,'; else if(hr >= 17 && hr < 21) timeGreet = 'GOOD EVENING,'; else if(hr >= 21 || hr < 4) timeGreet = 'GOOD NIGHT,'; let gtEl = document.getElementById('greeting-time'); if(gtEl) gtEl.innerText = timeGreet; window.typeWriterMulti([{ id: 'greet-name', text: (window.currentUser.name.split(' ')[0] || ""), speed: 50 }]); 
+        window.clearTyping(); document.getElementById('greet-name').innerText = ''; let hr = new Date().getHours(); let timeGreet = 'GOOD MORNING,'; if(hr >= 12 && hr < 17) timeGreet = 'GOOD AFTERNOON,'; else if(hr >= 17 && hr < 21) timeGreet = 'GOOD EVENING,'; else if(hr >= 21 || hr < 4) timeGreet = 'GOOD NIGHT,'; let gtEl = document.getElementById('greeting-time'); if(gtEl) gtEl.innerText = timeGreet; window.typeWriterMulti([{ id: 'greet-name', text: (window.currentUser?.name?.split(' ')[0] || "User"), speed: 50 }]); 
     }
     
     // ENHANCED ANALYTICS
@@ -1263,16 +1461,20 @@ window.navToBookmarks = function() {
     window.navTo('bookmarks'); const container = document.getElementById('bookmarks-container'); container.innerHTML = ''; const bm = window.currentUser.bookmarks || {}; const folders = Object.keys(bm); if(folders.length === 0) { container.innerHTML = '<p style="color:var(--text-gray); text-align:center; margin-top:40px;">No bookmarks created yet.</p>'; return; }
     folders.forEach((f, idx) => { let c = window.dynColors[idx%3]; let count = bm[f].length; container.innerHTML += `<div class="list-card glass-card" onclick="viewBookmarkFolder('${f}')"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid fa-folder"></i></div><div><h4>${f}</h4><p>${count} MCQs</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`; });
 };
+
 window.viewBookmarkFolder = function(folderName) {
     window.navTo('saved-mcqs'); const titleEl = document.querySelector('#view-saved-mcqs h2'); const descEl = document.querySelector('#view-saved-mcqs p'); if(titleEl) titleEl.innerText = folderName; if(descEl) descEl.innerText = "MCQs saved in this bookmark.";
     let container = document.getElementById('saved-mcqs-container'); container.innerHTML = ''; let saved = window.currentUser.bookmarks[folderName] ||[]; if(saved.length === 0) { container.innerHTML = '<p style="color:var(--text-gray); text-align:center; margin-top:40px;">No MCQs in this bookmark.</p>'; return; }
     let fullQuestions = window.appData.mcqs.filter(m => saved.includes(m.question.substring(0,100))); fullQuestions.forEach((q, i) => { container.innerHTML += `<div class="glass-card" style="padding:16px; margin-bottom:12px;"><h4 style="font-size:14px; margin-bottom:10px; line-height:1.4; font-weight:600;">${q.question}</h4><p style="color:var(--modmed-primary); font-weight:800; font-size:12px;">Ans: ${q.options[q.correctIndex]}</p><p style="font-size:12px; margin-top:8px; color:var(--text-gray);">${q.explanation || ''}</p></div>`; });
 };
+
 window.navToSaved = function() { 
     window.navTo('saved-mcqs'); const titleEl = document.querySelector('#view-saved-mcqs h2'); const descEl = document.querySelector('#view-saved-mcqs p'); if(titleEl) titleEl.innerText = "Starred MCQs"; if(descEl) descEl.innerText = "Questions you've starred for later review.";
     let container = document.getElementById('saved-mcqs-container'); container.innerHTML = ''; let saved = window.currentUser.savedMCQs ||[]; if(saved.length === 0) { container.innerHTML = '<p style="color:var(--text-gray); text-align:center; margin-top:40px;">No starred questions yet.</p>'; return; } let fullQuestions = window.appData.mcqs.filter(m => saved.includes(m.question.substring(0,100))); fullQuestions.forEach((q, i) => { container.innerHTML += `<div class="glass-card" style="padding:16px; margin-bottom:12px;"><h4 style="font-size:14px; margin-bottom:10px; line-height:1.4; font-weight:600;">${q.question}</h4><p style="color:var(--modmed-primary); font-weight:800; font-size:12px;">Ans: ${q.options[q.correctIndex]}</p><p style="font-size:12px; margin-top:8px; color:var(--text-gray);">${q.explanation || ''}</p></div>`; }); 
 }
+
 window.navToHistory = function() { window.navTo('history'); let container = document.getElementById('history-container'); container.innerHTML = ''; let hist = window.currentUser.sessionHistory ||[]; if(hist.length === 0) { container.innerHTML = '<p style="color:var(--text-gray); text-align:center; margin-top:40px;">No recent history.</p>'; return; } hist.forEach(h => { container.innerHTML += `<div class="list-card glass-card"><div class="list-card-left"><div class="list-icon icon-2"><i class="fa-solid fa-clock-rotate-left"></i></div><div><h4>${h.title}</h4><p>${h.date}</p></div></div><div style="font-weight:800; color:var(--modmed-primary); font-size:16px;">${h.score}/${h.total}</div></div>`; }); }
+
 window.toggleSaveMCQ = async function() { 
     if(!window.currentUser) return; const q = window.sessionData[window.currentQ]; if(!q) return; let saved = window.currentUser.savedMCQs ||[]; let qStr = q.question ? q.question.substring(0, 100) : (q.front ? q.front.substring(0,100) : ''); let idx = saved.findIndex(s => s === qStr); let icon = document.getElementById('save-mcq-icon'); 
     if(idx > -1) { saved.splice(idx, 1); if(icon) icon.classList.replace('fa-solid', 'fa-regular'); window.showToast("Removed from starred.", "info"); } else { saved.push(qStr); if(icon) icon.classList.replace('fa-regular', 'fa-solid'); window.showToast("Question starred!", "success"); } 
