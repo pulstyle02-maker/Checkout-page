@@ -15,6 +15,7 @@
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .tab-active { border-bottom: 3px solid #6366f1; color: #6366f1; }
+        .modal-overlay { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen p-4 md:p-8">
@@ -31,9 +32,16 @@
                     <p class="text-slate-500 font-medium">Tag, Parse & Export Medical Question Banks</p>
                 </div>
             </div>
-            <div class="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
-                <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-                <span id="entry-count" class="text-sm font-bold text-slate-700">0 Questions Staged</span>
+            <div class="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                    <span id="entry-count" class="text-sm font-bold text-slate-700">0 Staged</span>
+                </div>
+                <div id="stats-counter" class="hidden md:flex gap-4 text-[10px] font-black uppercase text-slate-400 border-l pl-6 border-slate-100">
+                    <span class="text-green-500">Easy: <span id="stat-easy">0</span></span>
+                    <span class="text-orange-500">Med: <span id="stat-med">0</span></span>
+                    <span class="text-red-500">Hard: <span id="stat-hard">0</span></span>
+                </div>
             </div>
         </header>
 
@@ -62,9 +70,7 @@
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black text-slate-400 uppercase">Block</label>
-                                    <select id="input-block" onchange="renderModules()" class="w-full p-3 bg-slate-50 border-none rounded-xl outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500">
-                                        <!-- JS Generated -->
-                                    </select>
+                                    <select id="input-block" onchange="renderModules()" class="w-full p-3 bg-slate-50 border-none rounded-xl outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500"></select>
                                 </div>
                             </div>
 
@@ -94,9 +100,12 @@
                 <!-- RIGHT: PARSER -->
                 <div class="lg:col-span-8 space-y-6">
                     <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-                        <h2 class="text-xl font-bold text-slate-800">Raw MCQ Input</h2>
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-xl font-bold text-slate-800">Raw MCQ Input</h2>
+                            <div id="parse-status" class="text-[10px] font-black text-indigo-500 hidden bg-indigo-50 px-3 py-1 rounded-full uppercase">Duplicates Cleaned</div>
+                        </div>
                         <div class="space-y-4">
-                            <textarea id="raw-mcq-input" class="w-full h-64 p-4 bg-slate-50 border-none rounded-2xl ring-1 ring-slate-200 outline-none font-mono text-xs" placeholder="[LO]: HL-Pa-001...&#10;[SRC]: Robbins...&#10;[DIFF]: Easy...&#10;[Q]: Question?...&#10;[A]: Option...&#10;[ANS]: B..."></textarea>
+                            <textarea id="raw-mcq-input" oninput="updateLiveStats()" class="w-full h-64 p-4 bg-slate-50 border-none rounded-2xl ring-1 ring-slate-200 outline-none font-mono text-xs" placeholder="[LO]: HL-Pa-001...&#10;[SRC]: Robbins...&#10;[DIFF]: Easy...&#10;[Q]: Question?...&#10;[A]: Option...&#10;[ANS]: B..."></textarea>
                             <button onclick="processMCQs()" class="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-lg hover:bg-slate-700 transition-all shadow-xl">
                                 Parse & Validate Questions
                             </button>
@@ -152,6 +161,38 @@
         </div>
     </div>
 
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden">
+        <div class="bg-white w-full max-w-2xl mx-4 p-8 rounded-3xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex justify-between items-center">
+                <h3 class="text-2xl font-black">Edit MCQ</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Question</label>
+                    <textarea id="edit-q" class="w-full p-3 bg-slate-50 border rounded-xl text-sm min-h-[100px]"></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">A</label><input id="edit-a" class="w-full p-2 bg-slate-50 border rounded-lg text-xs"></div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">B</label><input id="edit-b" class="w-full p-2 bg-slate-50 border rounded-lg text-xs"></div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">C</label><input id="edit-c" class="w-full p-2 bg-slate-50 border rounded-lg text-xs"></div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">D</label><input id="edit-d" class="w-full p-2 bg-slate-50 border rounded-lg text-xs"></div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">E</label><input id="edit-e" class="w-full p-2 bg-slate-50 border rounded-lg text-xs"></div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Correct Answer</label>
+                        <select id="edit-ans" class="w-full p-2 bg-slate-50 border rounded-lg text-xs"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Explanation</label>
+                    <textarea id="edit-exp" class="w-full p-3 bg-slate-50 border rounded-xl text-sm"></textarea>
+                </div>
+                <button onclick="commitEdit()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const MBBS_SUBJECTS = ["General Anatomy", "Embryology", "Histology", "Physiology", "Biochemistry", "Pathology", "Microbiology", "Pharmacology", "Community Medicine", "Medicine", "Surgery"];
         const PREDEFINED_MODULES = { "1": ["Foundation-I", "Hematology"], "7": ["Foundation-II", "General Pharmacology"] };
@@ -161,7 +202,8 @@
             history: JSON.parse(localStorage.getItem('mcq_history') || '[]'),
             customModules: JSON.parse(localStorage.getItem('mcq_custom_mods') || '{}'),
             customSubjects: JSON.parse(localStorage.getItem('mcq_custom_subs') || '[]'),
-            stagedQuestions: []
+            stagedQuestions: [],
+            editingQuestionId: null
         };
 
         function init() {
@@ -199,32 +241,66 @@
             [...MBBS_SUBJECTS, ...state.customSubjects].forEach(s => sel.add(new Option(s, s)));
         }
 
+        function updateLiveStats() {
+            const raw = document.getElementById('raw-mcq-input').value;
+            const easy = (raw.match(/\[DIFF\]:\s*Easy/gi) || []).length;
+            const med = (raw.match(/\[DIFF\]:\s*Medium/gi) || []).length;
+            const hard = (raw.match(/\[DIFF\]:\s*Hard/gi) || []).length;
+            const total = easy + med + hard;
+
+            if(total > 0) {
+                document.getElementById('stats-counter').classList.remove('hidden');
+                document.getElementById('stat-easy').textContent = easy;
+                document.getElementById('stat-med').textContent = med;
+                document.getElementById('stat-hard').textContent = hard;
+            } else {
+                document.getElementById('stats-counter').classList.add('hidden');
+            }
+        }
+
         function processMCQs() {
             const raw = document.getElementById('raw-mcq-input').value;
-            // Enhanced Regex to handle potential spacing/comma variations
-            const mcqBlocks = raw.split(/\n\s*\n/);
+            const mcqBlocks = raw.split(/\n\s*\n/).filter(b => b.trim() !== '');
             state.stagedQuestions = [];
+            const questionStems = new Set();
+            let duplicateCount = 0;
 
             mcqBlocks.forEach(block => {
-                const q = {};
-                q.id = crypto.randomUUID().split('-')[0].toUpperCase();
-                q.lo = block.match(/\[LO\]:\s*(.*)/i)?.[1].trim() || "Unspecified";
-                q.source = block.match(/\[SRC\]:\s*(.*)/i)?.[1].trim() || "Unknown";
-                q.difficulty = block.match(/\[DIFF\]:\s*(.*)/i)?.[1].trim() || "Medium";
-                q.question = block.match(/\[Q\]:\s*(.*)/i)?.[1].trim() || "";
-                q.ans = block.match(/\[ANS\]:\s*(.*)/i)?.[1].trim() || "";
-                q.explanation = block.match(/\[EXP\]:\s*([\s\S]*)/i)?.[1].trim() || "";
-                
-                q.options = {
-                    A: block.match(/\[A\]:\s*(.*)/i)?.[1].trim() || "",
-                    B: block.match(/\[B\]:\s*(.*)/i)?.[1].trim() || "",
-                    C: block.match(/\[C\]:\s*(.*)/i)?.[1].trim() || "",
-                    D: block.match(/\[D\]:\s*(.*)/i)?.[1].trim() || "",
-                    E: block.match(/\[E\]:\s*(.*)/i)?.[1].trim() || ""
-                };
+                const stem = block.match(/\[Q\]:\s*(.*)/i)?.[1].trim() || "";
+                if(!stem) return;
 
-                if(q.question) state.stagedQuestions.push(q);
+                // Redundancy Check
+                if (questionStems.has(stem.toLowerCase())) {
+                    duplicateCount++;
+                    return;
+                }
+                questionStems.add(stem.toLowerCase());
+
+                const q = {
+                    id: crypto.randomUUID().split('-')[0].toUpperCase(),
+                    lo: block.match(/\[LO\]:\s*(.*)/i)?.[1].trim() || "Unspecified",
+                    source: block.match(/\[SRC\]:\s*(.*)/i)?.[1].trim() || "Unknown",
+                    difficulty: block.match(/\[DIFF\]:\s*(.*)/i)?.[1].trim() || "Medium",
+                    question: stem,
+                    ans: (block.match(/\[ANS\]:\s*(.*)/i)?.[1].trim() || "A").toUpperCase(),
+                    explanation: block.match(/\[EXP\]:\s*([\s\S]*)/i)?.[1].trim() || "",
+                    options: {
+                        A: block.match(/\[A\]:\s*(.*)/i)?.[1].trim() || "Option A",
+                        B: block.match(/\[B\]:\s*(.*)/i)?.[1].trim() || "Option B",
+                        C: block.match(/\[C\]:\s*(.*)/i)?.[1].trim() || "Option C",
+                        D: block.match(/\[D\]:\s*(.*)/i)?.[1].trim() || "Option D",
+                        E: block.match(/\[E\]:\s*(.*)/i)?.[1].trim() || "Option E"
+                    }
+                };
+                state.stagedQuestions.push(q);
             });
+
+            if(duplicateCount > 0) {
+                const status = document.getElementById('parse-status');
+                status.textContent = `${duplicateCount} Duplicates Cleaned`;
+                status.classList.remove('hidden');
+                setTimeout(() => status.classList.add('hidden'), 5000);
+            }
 
             renderPreview();
         }
@@ -237,16 +313,13 @@
 
             state.stagedQuestions.forEach((q, idx) => {
                 const div = document.createElement('div');
-                div.className = "p-4 border border-slate-200 rounded-xl bg-slate-50 text-xs space-y-2";
+                div.className = "p-4 border border-slate-200 rounded-xl bg-slate-50 text-xs space-y-2 animate-fade-in";
                 div.innerHTML = `
                     <div class="flex justify-between font-bold text-indigo-600">
                         <span>#${idx+1} | LO: ${q.lo}</span>
-                        <span>${q.difficulty}</span>
+                        <span class="${q.difficulty === 'Hard' ? 'text-red-500' : 'text-green-600'}">${q.difficulty}</span>
                     </div>
                     <p class="font-bold">${q.question}</p>
-                    <div class="grid grid-cols-2 gap-2 opacity-60">
-                        <span>A: ${q.options.A}</span><span>B: ${q.options.B}</span>
-                    </div>
                 `;
                 container.appendChild(div);
             });
@@ -258,7 +331,6 @@
             const module = document.getElementById('input-custom-module').value || document.getElementById('input-module-select').value;
             const subject = document.getElementById('input-custom-subject').value || document.getElementById('input-subject').value;
 
-            // Update custom lists if needed
             if(document.getElementById('input-custom-module').value) {
                 const bNum = document.getElementById('input-block').value;
                 if(!state.customModules[bNum]) state.customModules[bNum] = [];
@@ -274,15 +346,13 @@
             }));
 
             state.session = [...state.session, ...formatted];
-            localStorage.setItem('mcq_session', JSON.stringify(state.session));
-            localStorage.setItem('mcq_custom_mods', JSON.stringify(state.customModules));
-            localStorage.setItem('mcq_custom_subs', JSON.stringify(state.customSubjects));
-
+            persist();
+            
             state.stagedQuestions = [];
             document.getElementById('raw-mcq-input').value = '';
             document.getElementById('parsed-preview-container').classList.add('hidden');
             document.getElementById('stage-btn-container').classList.add('hidden');
-            
+            updateLiveStats();
             renderSession();
             renderModules();
             renderSubjects();
@@ -293,14 +363,13 @@
             const section = document.getElementById('review-section');
             const count = document.getElementById('entry-count');
             
-            count.textContent = `${state.session.length} Questions Staged`;
+            count.textContent = `${state.session.length} Staged`;
             if(state.session.length === 0) {
                 section.classList.add('hidden');
                 return;
             }
             section.classList.remove('hidden');
 
-            // Update filters
             const fMod = document.getElementById('filter-module');
             const fSub = document.getElementById('filter-subject');
             const curMod = fMod.value;
@@ -315,7 +384,6 @@
             subs.forEach(s => fSub.add(new Option(s,s)));
             fMod.value = curMod; fSub.value = curSub;
 
-            // Apply Filters
             const filtered = state.session.filter(q => {
                 return (!fMod.value || q.meta.module === fMod.value) &&
                        (!fSub.value || q.meta.subject === fSub.value) &&
@@ -323,30 +391,32 @@
             });
 
             list.innerHTML = '';
-            filtered.forEach((q, idx) => {
+            filtered.forEach((q) => {
                 const div = document.createElement('div');
-                div.className = "bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 relative group";
+                div.className = "bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 relative group animate-fade-in";
                 div.innerHTML = `
-                    <button onclick="removeQuestion('${q.id}')" class="absolute top-4 right-4 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <i data-lucide="trash-2" class="w-5 h-5"></i>
-                    </button>
+                    <div class="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="openEditModal('${q.id}')" class="p-2 bg-slate-700 text-slate-300 hover:text-indigo-400 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="removeQuestion('${q.id}')" class="p-2 bg-slate-700 text-slate-300 hover:text-red-400 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
                     <div class="flex flex-wrap gap-2">
                         <span class="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase">${q.meta.module}</span>
                         <span class="text-[9px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded uppercase">${q.meta.subject}</span>
                         <span class="text-[9px] border border-slate-600 text-slate-400 px-2 py-0.5 rounded uppercase">ID: ${q.id}</span>
                     </div>
-                    <div class="space-y-2">
+                    <div class="space-y-4">
                         <p class="text-sm font-bold text-slate-100">${q.question}</p>
-                        <div class="grid grid-cols-1 gap-1 text-xs text-slate-400">
-                            <div class="${q.ans === 'A' ? 'text-green-400 font-bold' : ''}">A) ${q.options.A}</div>
-                            <div class="${q.ans === 'B' ? 'text-green-400 font-bold' : ''}">B) ${q.options.B}</div>
-                            <div class="${q.ans === 'C' ? 'text-green-400 font-bold' : ''}">C) ${q.options.C}</div>
-                            <div class="${q.ans === 'D' ? 'text-green-400 font-bold' : ''}">D) ${q.options.D}</div>
-                            <div class="${q.ans === 'E' ? 'text-green-400 font-bold' : ''}">E) ${q.options.E}</div>
+                        <div class="grid grid-cols-1 gap-2 text-xs text-slate-400">
+                            <div class="p-2 rounded-lg ${q.ans === 'A' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">A) ${q.options.A}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'B' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">B) ${q.options.B}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'C' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">C) ${q.options.C}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'D' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">D) ${q.options.D}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'E' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">E) ${q.options.E}</div>
                         </div>
                     </div>
-                    <div class="pt-3 border-t border-slate-700 text-[10px] text-slate-500 italic">
-                        LO: ${q.lo} | Source: ${q.source}
+                    <div class="pt-3 border-t border-slate-700 space-y-2">
+                        <p class="text-[10px] text-slate-500 italic">LO: ${q.lo} | Source: ${q.source}</p>
+                        ${q.explanation ? `<div class="bg-indigo-500/5 p-3 rounded-lg text-[10px] text-indigo-300/80 leading-relaxed border border-indigo-500/10"><strong>Exp:</strong> ${q.explanation}</div>` : ''}
                     </div>
                 `;
                 list.appendChild(div);
@@ -354,18 +424,65 @@
             lucide.createIcons();
         }
 
+        // EDIT LOGIC
+        function openEditModal(id) {
+            const q = state.session.find(x => x.id === id);
+            if(!q) return;
+            state.editingQuestionId = id;
+            document.getElementById('edit-q').value = q.question;
+            document.getElementById('edit-a').value = q.options.A;
+            document.getElementById('edit-b').value = q.options.B;
+            document.getElementById('edit-c').value = q.options.C;
+            document.getElementById('edit-d').value = q.options.D;
+            document.getElementById('edit-e').value = q.options.E;
+            document.getElementById('edit-ans').value = q.ans;
+            document.getElementById('edit-exp').value = q.explanation;
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            state.editingQuestionId = null;
+        }
+
+        function commitEdit() {
+            const id = state.editingQuestionId;
+            const idx = state.session.findIndex(x => x.id === id);
+            if(idx === -1) return;
+
+            state.session[idx].question = document.getElementById('edit-q').value;
+            state.session[idx].options.A = document.getElementById('edit-a').value;
+            state.session[idx].options.B = document.getElementById('edit-b').value;
+            state.session[idx].options.C = document.getElementById('edit-c').value;
+            state.session[idx].options.D = document.getElementById('edit-d').value;
+            state.session[idx].options.E = document.getElementById('edit-e').value;
+            state.session[idx].ans = document.getElementById('edit-ans').value;
+            state.session[idx].explanation = document.getElementById('edit-exp').value;
+
+            persist();
+            renderSession();
+            closeEditModal();
+        }
+
         function removeQuestion(id) {
             state.session = state.session.filter(q => q.id !== id);
-            localStorage.setItem('mcq_session', JSON.stringify(state.session));
+            persist();
             renderSession();
         }
 
         function resetSession() {
             if(confirm("Wipe current bank?")) {
                 state.session = [];
-                localStorage.removeItem('mcq_session');
+                persist();
                 renderSession();
             }
+        }
+
+        function persist() {
+            localStorage.setItem('mcq_session', JSON.stringify(state.session));
+            localStorage.setItem('mcq_custom_mods', JSON.stringify(state.customModules));
+            localStorage.setItem('mcq_custom_subs', JSON.stringify(state.customSubjects));
+            localStorage.setItem('mcq_history', JSON.stringify(state.history));
         }
 
         function copyMasterJSON() {
@@ -383,7 +500,7 @@
                 const data = JSON.parse(raw);
                 const imported = data.questions || (Array.isArray(data) ? data : []);
                 state.session = [...state.session, ...imported];
-                localStorage.setItem('mcq_session', JSON.stringify(state.session));
+                persist();
                 renderSession();
                 alert("Import successful!");
             } catch(e) { alert("Invalid JSON."); }
@@ -394,15 +511,15 @@
             list.innerHTML = '';
             state.history.forEach((h, idx) => {
                 const div = document.createElement('div');
-                div.className = "p-4 bg-white border border-slate-200 rounded-2xl space-y-3";
+                div.className = "p-5 bg-white border border-slate-200 rounded-3xl space-y-3 hover:border-indigo-300 transition-all";
                 div.innerHTML = `
-                    <h4 class="font-bold text-sm">${h.name}</h4>
-                    <p class="text-[10px] text-slate-400">${h.date}</p>
+                    <h4 class="font-black text-sm text-slate-800">${h.name}</h4>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${h.date}</p>
                     <div class="flex justify-between items-center pt-2">
-                        <span class="text-xs font-bold text-indigo-600">${h.count} Qs</span>
+                        <span class="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">${h.count} Questions</span>
                         <div class="flex gap-2">
-                            <button onclick="loadHistory(${idx})" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
-                            <button onclick="deleteHistory(${idx})" class="p-2 bg-red-50 text-red-600 rounded-lg"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                            <button onclick="loadHistory(${idx})" class="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                            <button onclick="deleteHistory(${idx})" class="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"><i data-lucide="trash" class="w-4 h-4"></i></button>
                         </div>
                     </div>
                 `;
@@ -413,22 +530,23 @@
 
         function saveCurrentToHistory() {
             if(state.session.length === 0) return;
-            const name = prompt("Session Name?", `Bank ${new Date().toLocaleDateString()}`);
+            const name = prompt("Session Name?", `MCQ Bank ${new Date().toLocaleDateString()}`);
             if(!name) return;
             state.history.unshift({ name, date: new Date().toLocaleString(), count: state.session.length, data: state.session });
-            localStorage.setItem('mcq_history', JSON.stringify(state.history));
+            persist();
             renderHistory();
         }
 
         function loadHistory(idx) {
             state.session = state.history[idx].data;
+            persist();
             renderSession();
             switchTab('builder');
         }
 
         function deleteHistory(idx) {
             state.history.splice(idx, 1);
-            localStorage.setItem('mcq_history', JSON.stringify(state.history));
+            persist();
             renderHistory();
         }
 
