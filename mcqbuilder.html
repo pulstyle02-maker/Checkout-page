@@ -89,8 +89,12 @@
                     </section>
 
                     <section class="bg-indigo-900 p-6 rounded-3xl shadow-xl text-white space-y-4">
-                        <h2 class="text-lg font-bold flex items-center gap-2">
-                            <i data-lucide="upload" class="w-5 h-5"></i> Import JSON
+                        <h2 class="text-lg font-bold flex items-center justify-between">
+                            <span class="flex items-center gap-2"><i data-lucide="upload" class="w-5 h-5"></i> Import Data</span>
+                            <label class="cursor-pointer bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-indigo-500 shadow-sm">
+                                Upload .TXT / .JSON
+                                <input type="file" accept=".txt,.json" class="hidden" onchange="handleFileUpload(event)">
+                            </label>
                         </h2>
                         <textarea id="import-area" placeholder="Paste existing MCQ JSON..." class="w-full h-32 p-3 bg-indigo-800/50 border border-indigo-700 rounded-xl text-xs font-mono outline-none"></textarea>
                         <button onclick="importJSON()" class="w-full py-2 bg-white text-indigo-900 rounded-xl font-bold hover:bg-indigo-50">Load for Editing</button>
@@ -407,8 +411,8 @@
             const curMod = fMod.value;
             const curSub = fSub.value;
             
-            const mods = [...new Set(state.session.map(q => q.meta.module))];
-            const subs = [...new Set(state.session.map(q => q.meta.subject))];
+            const mods = [...new Set(state.session.map(q => q.meta?.module || 'Uncategorized'))];
+            const subs = [...new Set(state.session.map(q => q.meta?.subject || 'Uncategorized'))];
             
             fMod.innerHTML = '<option value="">All Modules</option>';
             fSub.innerHTML = '<option value="">All Subjects</option>';
@@ -417,12 +421,16 @@
             fMod.value = curMod; fSub.value = curSub;
 
             const filtered = state.session.filter(q => {
-                return (!fMod.value || q.meta.module === fMod.value) &&
-                       (!fSub.value || q.meta.subject === fSub.value) &&
+                return (!fMod.value || (q.meta?.module || 'Uncategorized') === fMod.value) &&
+                       (!fSub.value || (q.meta?.subject || 'Uncategorized') === fSub.value) &&
                        (!document.getElementById('filter-diff').value || q.difficulty === document.getElementById('filter-diff').value);
             });
 
             list.innerHTML = '';
+            
+            // Glitch/Hang Fix: Use DocumentFragment to batch DOM updates for massive lists
+            const fragment = document.createDocumentFragment();
+
             filtered.forEach((q) => {
                 const div = document.createElement('div');
                 div.className = "bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 relative group animate-fade-in";
@@ -434,27 +442,28 @@
                         <button onclick="removeQuestion('${q.id}')" class="p-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors shadow-sm cursor-pointer" title="Delete Question"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>
                     <div class="flex flex-wrap gap-2 pr-20">
-                        <span class="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase">${q.meta.module}</span>
-                        <span class="text-[9px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded uppercase">${q.meta.subject}</span>
+                        <span class="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase">${q.meta?.module || 'Uncategorized'}</span>
+                        <span class="text-[9px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded uppercase">${q.meta?.subject || 'Uncategorized'}</span>
                         <span class="text-[9px] border border-slate-600 text-slate-400 px-2 py-0.5 rounded uppercase">ID: ${q.id}</span>
                     </div>
                     <div class="space-y-4">
                         <p class="text-sm font-bold text-slate-100">${q.question}</p>
                         <div class="grid grid-cols-1 gap-2 text-xs text-slate-400">
-                            <div class="p-2 rounded-lg ${q.ans === 'A' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">A) ${q.options.A}</div>
-                            <div class="p-2 rounded-lg ${q.ans === 'B' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">B) ${q.options.B}</div>
-                            <div class="p-2 rounded-lg ${q.ans === 'C' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">C) ${q.options.C}</div>
-                            <div class="p-2 rounded-lg ${q.ans === 'D' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">D) ${q.options.D}</div>
-                            <div class="p-2 rounded-lg ${q.ans === 'E' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">E) ${q.options.E}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'A' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">A) ${q.options?.A || 'Option A'}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'B' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">B) ${q.options?.B || 'Option B'}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'C' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">C) ${q.options?.C || 'Option C'}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'D' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">D) ${q.options?.D || 'Option D'}</div>
+                            <div class="p-2 rounded-lg ${q.ans === 'E' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-900/50 border border-slate-700/50'}">E) ${q.options?.E || 'Option E'}</div>
                         </div>
                     </div>
                     <div class="pt-3 border-t border-slate-700 space-y-2">
-                        <p class="text-[10px] text-slate-500 italic">LO: ${q.lo} | Source: ${q.source}</p>
+                        <p class="text-[10px] text-slate-500 italic">LO: ${q.lo || 'Unspecified'} | Source: ${q.source || 'Unknown'}</p>
                         ${q.explanation ? `<div class="bg-indigo-500/5 p-3 rounded-lg text-[10px] text-indigo-300/80 leading-relaxed border border-indigo-500/10"><strong>Exp:</strong> ${q.explanation}</div>` : ''}
                     </div>
                 `;
-                list.appendChild(div);
+                fragment.appendChild(div);
             });
+            list.appendChild(fragment);
             lucide.createIcons();
         }
 
@@ -546,10 +555,16 @@
         }
 
         function persist() {
-            localStorage.setItem('mcq_session', JSON.stringify(state.session));
-            localStorage.setItem('mcq_custom_mods', JSON.stringify(state.customModules));
-            localStorage.setItem('mcq_custom_subs', JSON.stringify(state.customSubjects));
-            localStorage.setItem('mcq_history', JSON.stringify(state.history));
+            try {
+                localStorage.setItem('mcq_session', JSON.stringify(state.session));
+                localStorage.setItem('mcq_custom_mods', JSON.stringify(state.customModules));
+                localStorage.setItem('mcq_custom_subs', JSON.stringify(state.customSubjects));
+                localStorage.setItem('mcq_history', JSON.stringify(state.history));
+            } catch(e) {
+                console.warn("Local storage quota exceeded. App is running in memory.", e);
+                // Intentionally swallowing error so app continues running in-memory
+                throw e; 
+            }
         }
 
         function copyMasterJSON() {
@@ -561,16 +576,94 @@
             navigator.clipboard.writeText(json).then(() => alert("Master JSON copied to clipboard!"));
         }
 
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                // Pass directly to import function to avoid massive textarea lag/truncation
+                processImportData(e.target.result, true);
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input so the same file can be selected again
+        }
+
         function importJSON() {
+            const raw = document.getElementById('import-area').value;
+            processImportData(raw, false);
+        }
+        
+        function processImportData(raw, isFromFile) {
+            if(!raw || !raw.trim()) return;
+
+            let normalizedQuestions;
+
+            // 1. Safe Parsing Phase
             try {
-                const raw = document.getElementById('import-area').value;
-                const data = JSON.parse(raw);
-                const imported = data.questions || (Array.isArray(data) ? data : []);
-                state.session = [...state.session, ...imported];
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(raw);
+                } catch(err) {
+                    // Auto-adjust: Attempt to fix minor JSON formatting errors 
+                    let cleaned = raw.replace(/,\s*([\]}])/g, '$1').replace(/'/g, '"');
+                    parsedData = JSON.parse(cleaned);
+                }
+
+                let rawQuestions = parsedData.questions || (Array.isArray(parsedData) ? parsedData : []);
+
+                // Auto-adjust: Normalize awkward JSON structures
+                normalizedQuestions = rawQuestions.map(q => ({
+                    id: q.id || crypto.randomUUID().split('-')[0].toUpperCase(),
+                    lo: q.lo || q.meta?.lo || "Unspecified",
+                    source: q.source || q.meta?.source || "Unknown",
+                    difficulty: q.difficulty || q.meta?.difficulty || q.level || "Medium",
+                    question: q.question || q.stem || q.text || "Missing Question Stem",
+                    ans: (q.ans || q.answer || q.correct || "A").toString().toUpperCase().replace(/[^A-E]/g, '') || "A",
+                    explanation: q.explanation || q.exp || q.rationale || "",
+                    options: {
+                        A: q.options?.A || (Array.isArray(q.options) ? q.options[0] : null) || "Option A",
+                        B: q.options?.B || (Array.isArray(q.options) ? q.options[1] : null) || "Option B",
+                        C: q.options?.C || (Array.isArray(q.options) ? q.options[2] : null) || "Option C",
+                        D: q.options?.D || (Array.isArray(q.options) ? q.options[3] : null) || "Option D",
+                        E: q.options?.E || (Array.isArray(q.options) ? q.options[4] : null) || "Option E"
+                    },
+                    meta: q.meta || {
+                        year: document.getElementById('input-year').value,
+                        block: `Block ${document.getElementById('input-block').value}`,
+                        module: document.getElementById('input-module-select').value || 'Uncategorized',
+                        subject: document.getElementById('input-subject').value || 'Uncategorized'
+                    }
+                }));
+
+                if (normalizedQuestions.length === 0) {
+                    alert("No valid questions were found in the uploaded file.");
+                    return;
+                }
+            } catch(e) { 
+                alert("The provided text/JSON is too malformed to parse. Please check its structure."); 
+                console.error("Import Parsing Error:", e);
+                return;
+            }
+
+            // 2. Integration Phase
+            state.session = [...state.session, ...normalizedQuestions];
+            
+            if (!isFromFile) {
+                document.getElementById('import-area').value = ''; // Only clear textarea if pasted
+            }
+
+            renderSession();
+            
+            // 3. Storage Phase (With massive file protection)
+            try {
                 persist();
-                renderSession();
-                alert("Import successful!");
-            } catch(e) { alert("Invalid JSON."); }
+                alert(`Successfully imported and auto-adjusted ${normalizedQuestions.length} questions!`);
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.message.toLowerCase().includes('quota')) {
+                    alert(`Imported ${normalizedQuestions.length} questions successfully!\n\nWARNING: This bank is too large for your browser's local storage. You can continue editing and export it normally, but changes will be lost if you refresh the page.`);
+                }
+            }
         }
 
         function renderHistory() {
@@ -600,8 +693,13 @@
             const name = prompt("Session Name?", `MCQ Bank ${new Date().toLocaleDateString()}`);
             if(!name) return;
             state.history.unshift({ name, date: new Date().toLocaleString(), count: state.session.length, data: state.session });
-            persist();
-            renderHistory();
+            
+            try {
+                persist();
+                renderHistory();
+            } catch (e) {
+               alert("Cannot archive! Your browser's local storage limit has been reached due to the massive size of your current bank."); 
+            }
         }
 
         function loadHistory(idx) {
