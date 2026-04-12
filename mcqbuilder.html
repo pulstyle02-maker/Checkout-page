@@ -105,7 +105,7 @@
                             <div id="parse-status" class="text-[10px] font-black text-indigo-500 hidden bg-indigo-50 px-3 py-1 rounded-full uppercase">Duplicates Cleaned</div>
                         </div>
                         <div class="space-y-4">
-                            <textarea id="raw-mcq-input" oninput="updateLiveStats()" class="w-full h-64 p-4 bg-slate-50 border-none rounded-2xl ring-1 ring-slate-200 outline-none font-mono text-xs" placeholder="[LO]: HL-Pa-001...&#10;[SRC]: Robbins...&#10;[DIFF]: Easy...&#10;[Q]: Question?...&#10;[A]: Option...&#10;[ANS]: B..."></textarea>
+                            <textarea id="raw-mcq-input" oninput="debouncedUpdateLiveStats()" class="w-full h-64 p-4 bg-slate-50 border-none rounded-2xl ring-1 ring-slate-200 outline-none font-mono text-xs" placeholder="[LO]: HL-Pa-001...&#10;[SRC]: Robbins...&#10;[DIFF]: Easy...&#10;[Q]: Question?...&#10;[A]: Option...&#10;[ANS]: B..."></textarea>
                             <button onclick="processMCQs()" class="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-lg hover:bg-slate-700 transition-all shadow-xl">
                                 Parse & Validate Questions
                             </button>
@@ -135,8 +135,9 @@
                             <select id="filter-diff" onchange="renderSession()" class="bg-slate-800 border-none rounded-lg text-xs p-2 text-slate-300 ring-1 ring-slate-700"><option value="">All Difficulties</option><option>Easy</option><option>Medium</option><option>Hard</option></select>
                         </div>
                     </div>
-                    <div class="flex gap-4">
+                    <div class="flex flex-wrap gap-4">
                         <button onclick="resetSession()" class="px-6 py-4 rounded-2xl border border-slate-700 text-slate-400 hover:text-red-400 transition-all font-bold">Clear All</button>
+                        <button onclick="deleteFilteredSession()" class="px-6 py-4 rounded-2xl border border-red-900/50 text-red-400 hover:bg-red-500 hover:text-white transition-all font-bold">Delete Filtered</button>
                         <button onclick="copyMasterJSON()" class="px-10 py-4 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl font-black text-xl flex items-center gap-3 transition-all">
                             <i data-lucide="file-json" class="w-6 h-6"></i> COPY JSON
                         </button>
@@ -206,6 +207,8 @@
             editingQuestionId: null
         };
 
+        let liveStatsTimeout = null;
+
         function init() {
             const blockSelect = document.getElementById('input-block');
             for(let i=1; i<=15; i++) {
@@ -241,6 +244,11 @@
             [...MBBS_SUBJECTS, ...state.customSubjects].forEach(s => sel.add(new Option(s, s)));
         }
 
+        function debouncedUpdateLiveStats() {
+            if(liveStatsTimeout) clearTimeout(liveStatsTimeout);
+            liveStatsTimeout = setTimeout(updateLiveStats, 300);
+        }
+
         function updateLiveStats() {
             const raw = document.getElementById('raw-mcq-input').value;
             const easy = (raw.match(/\[DIFF\]:\s*Easy/gi) || []).length;
@@ -258,12 +266,19 @@
             }
         }
 
-        // New Robust Parser Regex function
+        // Extremely Robust Multi-line Regex Function anchored to newlines
         function extractMultiline(block, tag, defaultVal, isOption = false) {
-            const tagPattern = isOption ? `(?:\\[${tag}\\]:?|\\b${tag}[\\)\\.:])` : `\\[${tag}\\]:?`;
-            const stopPattern = `\\n\\s*(?:\\[[a-zA-Z0-9_-]+\\]|\\b[A-E][\\)\\.:])|$`;
+            // Prepend a newline so the very first line can be matched by the newline anchor
+            const paddedBlock = '\n' + block;
+            
+            // Only match tags if they occur at the START of a line (ignoring spaces). 
+            // This prevents inline text like "temperature 2C)" from acting as "Option C".
+            const tagPattern = isOption ? `\\n\\s*(?:\\[${tag}\\]:?|${tag}[\\)\\.:])` : `\\n\\s*\\[${tag}\\]:?`;
+            const stopPattern = `\\n\\s*(?:\\[[a-zA-Z0-9_-]+\\]|[A-E][\\)\\.:])|$`;
+            
             const regex = new RegExp(`${tagPattern}\\s*([\\s\\S]*?)(?=${stopPattern})`, 'i');
-            const match = block.match(regex);
+            const match = paddedBlock.match(regex);
+            
             return match && match[1].trim() !== '' ? match[1].trim() : defaultVal;
         }
 
@@ -492,6 +507,39 @@
         function resetSession() {
             if(confirm("Wipe current bank?")) {
                 state.session = [];
+                persist();
+                renderSession();
+            }
+        }
+        
+        function deleteFilteredSession() {
+            const fMod = document.getElementById('filter-module').value;
+            const fSub = document.getElementById('filter-subject').value;
+            const fDiff = document.getElementById('filter-diff').value;
+
+            if(!fMod && !fSub && !fDiff) {
+                alert("Please apply at least one filter (Module, Subject, or Difficulty) first to delete a specific set of MCQs.");
+                return;
+            }
+
+            const filteredCount = state.session.filter(q => {
+                return (!fMod || q.meta.module === fMod) &&
+                       (!fSub || q.meta.subject === fSub) &&
+                       (!fDiff || q.difficulty === fDiff);
+            }).length;
+
+            if(filteredCount === 0) {
+                alert("No MCQs match the current filters.");
+                return;
+            }
+
+            if(confirm(`Are you sure you want to permanently delete the ${filteredCount} MCQs currently visible?`)) {
+                state.session = state.session.filter(q => {
+                    const matchesFilter = (!fMod || q.meta.module === fMod) &&
+                                          (!fSub || q.meta.subject === fSub) &&
+                                          (!fDiff || q.difficulty === fDiff);
+                    return !matchesFilter; // KEEP the ones that don't match the active filters
+                });
                 persist();
                 renderSession();
             }
