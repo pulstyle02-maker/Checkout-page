@@ -21,6 +21,16 @@
     let theme = localStorage.getItem('theme') || 'dark';
     if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
     if(theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+// FIX FOR CANCEL BUTTONS
+window.cancelPremium = function() {
+    if (window.currentUser && window.currentUser.uid) {
+        window.navTo('dashboard');
+    } else {
+        window.navTo('login');
+    }
+    window.showToast("Returned to main menu", "info");
+};
 </script>
 <style>
 :root {
@@ -549,6 +559,119 @@ select.app-input { padding-right: 32px; appearance: none; }
 
 @media (display-mode: standalone) { .side-menu, .notif-panel { padding-top: calc(70px + env(safe-area-inset-top)); } }
 @media (max-width: 480px) { .opt-btn { padding: 12px 14px; font-size: 12px; border-radius: 12px; } }
+
+/* Pending Verification State Styles */
+body.pending-verification .main-content,
+body.pending-verification .global-header,
+body.pending-verification .bottom-nav,
+body.pending-verification .side-menu,
+body.pending-verification .notif-panel {
+    pointer-events: none !important;
+    opacity: 0.6;
+    filter: grayscale(0.7) brightness(0.9);
+    transition: all 0.3s ease;
+}
+.pending-portal-overlay {
+    position: fixed; inset: 0; z-index: 5000; display: none; align-items: center; justify-content: center;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.65) 100%);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+[data-theme="dark"] .pending-portal-overlay {
+    background: radial-gradient(circle at center, rgba(10,17,34,0.5) 0%, rgba(10,17,34,0.8) 100%);
+}
+body.pending-verification .pending-portal-overlay { display: flex; }
+.pending-message-card {
+    background: var(--bg-card); padding: 28px 24px; border-radius: 24px; text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2); border: 1px solid var(--border-color); pointer-events: auto;
+    max-width: 320px; width: 85%; animation: slideUpFade 0.5s ease forwards; position: relative;
+}
+.pending-message-card::before {
+    content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+    background: linear-gradient(135deg, #fbbf24, #f97316); border-radius: 24px; z-index: -1; opacity: 0.4;
+}
+.pending-icon { font-size: 38px; color: #f59e0b; margin-bottom: 12px; display: block; animation: bounceIcon 2s infinite; }
+.pending-message-card h3 { font-size: 16px; color: var(--text-dark); margin: 0 0 8px; font-weight: 800; }
+.pending-message-card p { font-size: 12px; color: var(--text-gray); line-height: 1.5; margin: 0 0 16px; }
+.pending-cta { background: linear-gradient(135deg, #fbbf24, #f97316); color: #0a1122; font-weight: 800; padding: 10px 20px; border-radius: 100px; border: none; cursor: pointer; font-size: 13px; box-shadow: 0 4px 15px rgba(249,115,22,0.3); }
+
+/* --- MODERN MOBILE UI OVERHAUL (Premium & Invite) --- */
+.premium-mobile-wrap { padding: 0 16px 40px; display: flex; flex-direction: column; align-items: center; }
+.premium-header-card {
+  width: 100%; max-width: 360px; background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  border-radius: 24px; padding: 24px; margin-bottom: 20px; color: #fff; text-align: center;
+  box-shadow: 0 10px 30px rgba(59,130,246,0.3); position: relative; overflow: hidden;
+}
+.premium-header-card::before {
+  content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.15), transparent 50%);
+}
+.premium-header-card h2 { font-size: 20px; font-weight: 900; margin-bottom: 4px; position: relative; z-index: 2; }
+.premium-header-card p { font-size: 12px; opacity: 0.85; position: relative; z-index: 2; }
+
+.step-timeline { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 360px; margin: 10px auto 20px; padding: 0 10px; }
+.step-dot { width: 30px; height: 30px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--text-gray); position: relative; z-index: 2; transition: 0.3s; }
+.step-dot.active { background: var(--brand-grad); border-color: transparent; color: #0a1122; box-shadow: 0 4px 12px rgba(59,130,246,0.4); transform: scale(1.1); }
+.step-line { flex: 1; height: 2px; background: var(--border-color); margin: 0 6px; transition: 0.3s; }
+.step-line.active { background: var(--modmed-primary); }
+
+.modern-input-group { width: 100%; max-width: 360px; margin-bottom: 12px; position: relative; }
+.modern-input-group label { font-size: 10px; font-weight: 800; color: var(--text-gray); margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 0.8px; }
+.modern-input-group input {
+  width: 100%; padding: 14px 16px 14px 42px; background: var(--bg-card); border: 1.5px solid var(--border-color);
+  border-radius: 14px; font-size: 14px; font-weight: 600; color: var(--text-dark); transition: 0.2s;
+}
+.modern-input-group input:focus { border-color: var(--modmed-primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); outline: none; }
+.modern-input-group > i { position: absolute; left: 14px; top: 50%; margin-top: -8px; color: var(--text-gray); font-size: 14px; z-index: 2; pointer-events: none; transition: 0.2s; }
+.modern-input-group:focus-within > i { color: var(--modmed-primary); }
+
+.payment-steps-card {
+  width: 100%; max-width: 360px; background: var(--hover-bg); border-radius: 16px; padding: 16px; margin-bottom: 18px;
+  border: 1px solid var(--border-color);
+}
+.payment-step-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 12px; font-weight: 600; color: var(--text-dark); }
+.payment-step-row:last-child { border-bottom: none; }
+.step-num { width: 22px; height: 22px; background: var(--modmed-primary); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; flex-shrink: 0; }
+.step-action { color: var(--accent-green); font-weight: 800; cursor: pointer; user-select: none; }
+.step-action:active { opacity: 0.7; }
+
+.invite-modern-wrap {
+  width: 100%; max-width: 360px; margin: 0 auto; padding: 30px 16px; display: flex; flex-direction: column; align-items: center; gap: 24px;
+}
+.invite-glass-box {
+  width: 100%; background: linear-gradient(160deg, #151e32, #0a1122); border-radius: 28px; padding: 28px 20px;
+  text-align: center; position: relative; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 15px 40px rgba(0,0,0,0.5); overflow: hidden;
+}
+.invite-glass-box::before {
+  content: ''; position: absolute; inset: -2px; background: conic-gradient(from 0deg, transparent, #3b82f6, transparent, #facc15, transparent);
+  animation: rotateGlow 8s linear infinite; z-index: 0; filter: blur(8px); opacity: 0.4;
+}
+@keyframes rotateGlow { to { transform: rotate(360deg); } }
+.invite-content { position: relative; z-index: 1; }
+.invite-icon { font-size: 48px; margin-bottom: 18px; background: var(--brand-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 8px rgba(59,130,246,0.3)); }
+.invite-title { font-size: 22px; font-weight: 900; color: var(--text-dark); margin-bottom: 6px; letter-spacing: -0.5px; }
+.invite-sub { font-size: 13px; color: var(--text-gray); margin-bottom: 24px; line-height: 1.4; }
+
+.invite-input-wrap { position: relative; width: 100%; margin-bottom: 22px; }
+.invite-input-wrap input {
+  width: 100%; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 2px dashed rgba(255,255,255,0.15);
+  border-radius: 16px; font-size: 18px; font-weight: 800; text-align: center; color: #fff; letter-spacing: 3px; text-transform: uppercase; transition: 0.3s;
+}
+.invite-input-wrap input:focus { border-color: var(--modmed-primary); border-style: solid; background: rgba(59,130,246,0.08); outline: none; }
+.invite-input-wrap input.success { border-color: #22c55e; background: rgba(34,197,94,0.1); color: #22c55e; }
+.invite-input-wrap > i:not(.eye-icon) { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.4); z-index: 2; }
+.invite-input-wrap .eye-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; }
+
+.btn-validate-modern {
+  width: 100%; padding: 16px; border-radius: 16px; background: var(--brand-grad); color: #0a1122;
+  font-weight: 900; font-size: 15px; border: none; cursor: pointer; transition: 0.2s; box-shadow: 0 8px 25px rgba(59,130,246,0.35);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-validate-modern:active { transform: scale(0.96); box-shadow: 0 4px 15px rgba(59,130,246,0.2); }
+
+.btn-cancel-app {
+  width: 100%; max-width: 360px; padding: 14px; margin-top: 14px; background: transparent; color: var(--text-gray);
+  font-weight: 700; font-size: 14px; border: none; cursor: pointer; transition: 0.2s;
+}
+.btn-cancel-app:active { color: var(--accent-red); transform: scale(0.98); }
 </style>
 </head>
 <body>
@@ -605,13 +728,18 @@ select.app-input { padding-right: 32px; appearance: none; }
     <div class="action-modal glass-card" id="mistake-choice-modal"><div style="font-size: 28px; color: var(--mist-icon); margin-bottom: 10px;"><i class="fa-solid fa-clock-rotate-left"></i></div><h3 style="font-size: 18px; margin-bottom: 6px;">Review Mistakes</h3><p style="color:var(--text-gray); font-size:13px; margin-bottom: 16px;">How would you like to review these mistakes?</p><div style="display: flex; flex-direction: column; gap: 8px;"><button class="btn" onclick="launchMistakeSession('practice')" style="margin:0;">Interactive MCQs</button><button class="btn btn-alt" onclick="launchMistakeSession('flashcards')" style="margin:0;">Active Recall Cards</button></div></div>
     <div class="paywall-modal glass-card" id="paywall-modal"><div class="paywall-icon"><i class="fa-solid fa-crown"></i></div><h2 style="margin-bottom: 6px;">Unlock Premium</h2><p style="color:var(--text-gray); font-size:13px; margin-bottom: 16px;">Master medicine without limits.</p><div class="paywall-list" style="text-align: left; margin-bottom: 16px; display: inline-block;"><div style="margin-bottom:6px; font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:6px;"></i> Access all blocks & MCQs.</div><div style="margin-bottom:6px; font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:6px;"></i> AI Viva Simulator with pasts.</div><div style="margin-bottom:6px; font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:6px;"></i> 5 monthly 1-on-1 sessions.</div><div style="font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:6px;"></i> All USMLE styled clinicals.</div></div><h1 style="color:var(--text-dark); margin-bottom:16px; letter-spacing: -1px;">RS 700 <span style="font-size:12px; color:var(--text-gray); font-weight: 400;">/ year</span></h1><button class="btn" style="background:#fbbf24 !important; color:#000 !important; box-shadow:0 6px 16px rgba(251,191,36,0.3);" onclick="window.closeModals(); navTo('premium-register');">Go Premium Now</button><p style="margin-top:12px; color:var(--text-gray); font-weight:600; font-size:13px; cursor:pointer;" onclick="closeModals()">Maybe Later</p></div>
 
-    <div class="main-content no-scrollbar" id="main-scroll-area">
-        <div id="view-initial-load" class="page auth-page active">
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;">
-                <div class="loader-ring" style="width: 50px; height: 50px; border-radius: 50%; padding: 4px; background: var(--brand-grad); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: spin 1s linear infinite;"></div>
-                <h2 style="margin-top:20px; font-size:18px; color:var(--text-dark); background:var(--brand-grad-text); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">ModMedicalis</h2>
-            </div>
-        </div>
+   <!-- Pending Verification Shield Overlay -->
+<div class="pending-portal-overlay">
+    <div class="pending-message-card">
+        <i class="fa-solid fa-hourglass-half pending-icon"></i>
+        <h3>Payment Verification in Progress</h3>
+        <p>Your account is currently under review. Dashboard access is limited until your payment is confirmed. Typical processing time: 6-12 hours.</p>
+        <button class="pending-cta" onclick="window.handlePendingCheck()">Check Status</button>
+    </div>
+</div>
+
+ <div class="main-content no-scrollbar" id="main-scroll-area">
+       
 
         <div id="view-login" class="page auth-page">
             <div class="login-wrapper" style="padding: 0; overflow-x: hidden;">
@@ -722,27 +850,143 @@ select.app-input { padding-right: 32px; appearance: none; }
         </div>
 
         <div id="view-premium-intro" class="page auth-page">
-            <div class="curved-header" style="text-align:center;"><h1 style="font-size:26px; letter-spacing:-1px;">Unlock Premium</h1><p style="color:var(--text-gray); font-size:13px; margin-top:4px;">RS 700 / Year for full access</p></div>
-            <div class="page-wrapper" style="text-align:center;">
-                <div class="glass-card" style="padding: 24px 16px; border-radius: 20px; box-shadow: var(--shadow-card); margin: 0 auto 24px; max-width: 340px;"><div class="paywall-list" style="text-align: left; display: inline-block;"><div style="margin-bottom:10px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:8px; font-size:14px;"></i> <span style="font-size:13px;">Access all blocks & MCQs.</span></div><div style="margin-bottom:10px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:8px; font-size:14px;"></i> <span style="font-size:13px;">AI Viva Simulator with pasts.</span></div><div style="margin-bottom:10px;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:8px; font-size:14px;"></i> <span style="font-size:13px;">5 monthly 1-on-1 sessions.</span></div><div><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-right:8px; font-size:14px;"></i> <span style="font-size:13px;">All USMLE styled clinicals.</span></div></div></div>
-                <button class="btn" style="background:#fbbf24 !important; color:#000 !important; margin: 0 auto; max-width: 340px;" onclick="navTo('premium-register')">Get Started</button>
-                <button class="btn btn-alt" style="margin: 10px auto 0; max-width: 340px; border: none !important; background: transparent !important; color: var(--text-gray) !important;" onclick="cancelPremium()">Cancel</button>
+  <div class="premium-mobile-wrap">
+    <div class="premium-header-card">
+      <h2>Unlock Premium</h2>
+      <p>Select your study year to view plans</p>
+    </div>
+    
+    <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:360px;">
+      <button class="glass-card" style="width:100%; padding:14px 18px; border-radius:18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:var(--transition-fast); border:2px solid transparent;" onclick="selectYearForPlan('1st')">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:var(--brand-grad); display:flex; align-items:center; justify-content:center; color:#0a1122; font-weight:900; font-size:14px;">1</div>
+          <div style="text-align:left;"><div style="font-weight:800; font-size:14px; color:var(--text-dark);">MBBS 1st Year</div><div style="font-size:10px; color:var(--text-gray);">Early Bird Plan Available</div></div>
+        </div><i class="fa-solid fa-chevron-right" style="color:var(--text-gray);"></i>
+      </button>
+      <button class="glass-card" style="width:100%; padding:14px 18px; border-radius:18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; opacity:0.6;" disabled>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; color:var(--text-gray); font-weight:900; font-size:14px;">2</div>
+          <div style="text-align:left;"><div style="font-weight:800; font-size:14px; color:var(--text-gray);">MBBS 2nd Year</div><div style="font-size:10px; color:var(--text-gray);">Coming Soon</div></div>
+        </div><i class="fa-solid fa-lock" style="color:var(--text-gray);"></i>
+      </button>
+      <button class="glass-card" style="width:100%; padding:14px 18px; border-radius:18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:var(--transition-fast); border:2px solid transparent;" onclick="selectYearForPlan('3rd')">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:var(--brand-grad); display:flex; align-items:center; justify-content:center; color:#0a1122; font-weight:900; font-size:14px;">3</div>
+          <div style="text-align:left;"><div style="font-weight:800; font-size:14px; color:var(--text-dark);">MBBS 3rd Year</div><div style="font-size:10px; color:var(--text-gray);">Early Bird Plan Available</div></div>
+        </div><i class="fa-solid fa-chevron-right" style="color:var(--text-gray);"></i>
+      </button>
+      <button class="glass-card" style="width:100%; padding:14px 18px; border-radius:18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; opacity:0.6;" disabled>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; color:var(--text-gray); font-weight:900; font-size:14px;">4</div>
+          <div style="text-align:left;"><div style="font-weight:800; font-size:14px; color:var(--text-gray);">MBBS 4th Year</div><div style="font-size:10px; color:var(--text-gray);">Coming Soon</div></div>
+        </div><i class="fa-solid fa-lock" style="color:var(--text-gray);"></i>
+      </button>
+      <button class="glass-card" style="width:100%; padding:14px 18px; border-radius:18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; opacity:0.6;" disabled>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; color:var(--text-gray); font-weight:900; font-size:14px;">5</div>
+          <div style="text-align:left;"><div style="font-weight:800; font-size:14px; color:var(--text-gray);">MBBS 5th Year</div><div style="font-size:10px; color:var(--text-gray);">Coming Soon</div></div>
+        </div><i class="fa-solid fa-lock" style="color:var(--text-gray);"></i>
+      </button>
+    </div>
+
+    <div id="early-bird-plan-card" style="display:none; margin-top:16px; width:100%;">
+      <div class="glass-card" style="padding:18px; border-radius:22px; background:linear-gradient(160deg, #162035 0%, #0a1122 100%); border:2px solid transparent; position:relative; overflow:hidden;">
+        <div style="position:absolute; inset:0; border-radius:22px; padding:2px; background:var(--brand-grad); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;"></div>
+        <div style="position:relative; z-index:2; text-align:left;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+            <div style="width:50px; height:50px; border-radius:14px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; animation:bounce 2s infinite;">
+              <svg viewBox="0 0 64 64" style="width:32px; height:32px;" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="birdGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#3b82f6"/><stop offset="100%" style="stop-color:#facc15"/></linearGradient></defs><path d="M32 20c-4 0-8 3-8 8 0 3 2 5 4 6-2 1-4 3-4 6 0 4 4 6 8 6s8-2 8-6c0-3-2-5-4-6 2-1 4-3 4-6 0-5-4-8-8-8z" fill="url(#birdGrad)"/><circle cx="28" cy="26" r="2" fill="#0a1122"/><path d="M36 28c2 0 4 1 4 2" stroke="#facc15" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
             </div>
+            <div><div style="font-size:16px; font-weight:900; background:var(--brand-grad-text); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">🐦 Early Bird Plan</div><div style="font-size:10px; color:var(--text-gray); margin-top:2px;">Limited Time Offer</div></div>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:10px;">
+            <div style="font-size:24px; font-weight:900; color:#ffffff;">Rs 1,189</div>
+            <div style="font-size:12px; color:var(--text-gray); text-decoration:line-through;">Rs 2,500</div>
+            <div style="font-size:10px; font-weight:800; background:rgba(34,197,94,0.2); color:#22c55e; padding:4px 8px; border-radius:8px;">Save Rs 1,311</div>
+          </div>
+          <p style="font-size:11px; color:var(--text-gray); margin-bottom:14px; line-height:1.4;">Subscribe now for <strong style="color:#fff;">BLOCK 1 / BLOCK 7</strong> & get our most mod-super plan at basic price</p>
+          
+          <!-- ✅ RESTORED FEATURES LIST -->
+          <div style="display:flex; flex-direction:column; gap:7px; margin-bottom:16px; padding-left: 2px;">
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>All blocks (1 year access)</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>Access to Prof exam mode</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>All features of upcoming mod-super plan unlocked</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>40,000+ MCQs with detailed explanations</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>Quick Qs (high-yield MCQs based notes)</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>Flashcards for active recall</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>Past UHS MCQs</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>All Mock exams available</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>Mistake review system</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>Subject-wise performance analytics</span></div>
+            <div style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:#fff;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:3px; font-size: 11px;"></i><span>USMLE STEP 1 styled MCQ bank</span></div>
+          </div>
+          
+          <button class="btn" style="width:100%; background:var(--brand-grad) !important; color:#0a1122 !important; font-weight:900; font-size:14px; padding:14px; border-radius:16px; box-shadow:0 10px 25px rgba(59,130,246,0.3);" onclick="proceedToPayment()">Subscribe Now - Rs 1,189</button>
         </div>
+      </div>
+    </div>
+    
+    <button class="btn-cancel-app" onclick="window.cancelPremium()">Cancel & Return</button>
+  </div>
+</div>
 
         <div id="view-premium-register" class="page auth-page">
-            <div class="login-wrapper" style="overflow-y: auto;">
-                <div class="login-top" style="height:auto; justify-content:flex-end; padding-bottom:10px;"><h1 class="login-logo" style="font-size:24px; color: var(--text-dark);" id="premium-reg-title">Account & Payment</h1></div>
-                <div class="login-bottom" style="padding-top:10px; padding-bottom: 50px;">
-                    <div id="premium-account-creation" style="width: 100%; display: flex; flex-direction: column; align-items: center;"><h3 style="width: 100%; max-width: 360px; margin-bottom: 10px; font-size: 14px; color: var(--text-dark);">1. Create Your Account</h3><div class="input-group"><i class="fa-solid fa-id-card"></i><input type="text" id="pr-name" class="app-input glass-card" placeholder="Full Name"></div><div class="input-group"><i class="fa-solid fa-graduation-cap"></i><select id="pr-class" class="app-input glass-card"><option value="">Select Class</option><option value="MBBS 1st Year">MBBS 1st Year</option><option value="MBBS 1st Year (Batch 29)">MBBS 1st Year (Batch 29)</option><option value="MBBS 2nd Year">MBBS 2nd Year</option><option value="MBBS 3rd Year">MBBS 3rd Year</option><option value="BDS 1st Year">BDS 1st Year</option></select></div><div class="input-group"><i class="fa-solid fa-building-columns"></i><input type="text" id="pr-college" class="app-input glass-card" placeholder="College Name"></div><div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="pr-user" class="app-input glass-card" placeholder="Choose Username"></div><div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="pr-pass" class="app-input glass-card" placeholder="Create Password"><i class="fa-solid fa-eye eye-icon" onclick="togglePass('pr-pass', this)"></i></div><div class="input-group" style="margin-bottom:20px;"><i class="fa-solid fa-lock"></i><input type="password" id="pr-confirm-pass" class="app-input glass-card" placeholder="Confirm Password"><i class="fa-solid fa-eye eye-icon" onclick="togglePass('pr-confirm-pass', this)"></i></div></div>
-                    <h3 style="width: 100%; max-width: 360px; margin-bottom: 10px; font-size: 14px; color: var(--text-dark);">2. Payment Instructions</h3>
-                    <div style="width: 100%; max-width: 360px; margin-bottom: 16px;"><div class="step-anim"><i class="fa-solid fa-copy"></i> Step 1: Copy Number <span style="margin-left:auto; font-weight:800; color:var(--modmed-primary); background:rgba(59,130,246,0.1); padding: 4px 6px; border-radius:6px; cursor:pointer;" onclick="copyNumber()">03096554421</span></div><div class="step-anim"><i class="fa-solid fa-mobile-screen"></i> Step 2: Go to your banking app</div><div class="step-anim"><i class="fa-solid fa-money-bill-transfer"></i> Step 3: Pay RS 700 & copy TRX code</div><div class="step-anim"><i class="fa-solid fa-keyboard"></i> Step 4: Enter code below</div></div>
-                    <div class="input-group" style="margin-bottom:16px;"><i class="fa-solid fa-receipt"></i><input type="text" id="pr-receipt" class="app-input glass-card" placeholder="Receipt / Trx Number"></div><button class="btn btn-gold" id="btn-premium-action" onclick="executePremiumRegistration()">Confirm Payment</button><button class="btn btn-alt" onclick="cancelPremium()" style="background:transparent; border-color:transparent !important; margin-bottom: 16px;">Cancel</button>
-                </div>
-            </div>
-        </div>
+  <div class="premium-mobile-wrap">
+    <div class="premium-header-card">
+      <h2 id="premium-reg-title">Complete Your Order</h2>
+      <p>Secure checkout & account setup</p>
+    </div>
+    
+    <div class="step-timeline">
+      <div class="step-dot active">1</div><div class="step-line active"></div>
+      <div class="step-dot">2</div><div class="step-line"></div>
+      <div class="step-dot">3</div>
+    </div>
 
-        <div id="view-premium-success" class="page auth-page"><div class="page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center;"><i class="fa-solid fa-circle-check success-icon-animate" style="margin-top:40px;"></i><h1 style="font-size: 24px; color: var(--text-dark); letter-spacing: -0.5px; margin-bottom: 16px;">Congratulations!</h1><i class="fa-solid fa-clock" style="font-size: 28px; color: var(--modmed-primary); margin-bottom: 10px;"></i><p style="font-size: 13px; color: var(--text-gray); line-height: 1.5; margin-bottom: 20px; max-width: 340px;">Your payment is being verified. Check back later.</p><div class="input-group" style="margin: 0 auto 16px; max-width: 340px; width: 100%;"><i class="fa-solid fa-envelope"></i><input type="email" id="pr-confirm-email" class="app-input glass-card" placeholder="Email for confirmation..."></div><button class="btn" onclick="finishPremiumSuccess()" style="margin: 0 auto; max-width: 340px;">Finish</button></div></div>
+    <div id="premium-order-summary" style="width: 100%; max-width: 360px; margin-bottom: 18px;">
+      <div class="glass-card" style="padding:14px; border-radius:16px; background:linear-gradient(160deg, #162035 0%, #0a1122 100%); border:1px solid var(--border-color); position:relative;">
+        <div style="position:absolute; inset:0; border-radius:16px; padding:1.5px; background:var(--brand-grad); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;"></div>
+        <div style="position:relative; z-index:2; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13px; color:var(--text-gray);">Early Bird Plan</span>
+          <span style="font-size:14px; font-weight:900; color:#fff;">Rs 1,189</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:4px;">
+          <span style="font-size:10px; color:var(--text-gray); text-decoration:line-through;">Regular Price: Rs 2,500</span>
+          <span style="font-size:10px; color:#22c55e; font-weight:800;">You Save Rs 1,311</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="premium-account-creation" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <div class="modern-input-group"><label>Full Name</label><i class="fa-solid fa-id-card"></i><input type="text" id="pr-name" placeholder="Enter full name"></div>
+      <div class="modern-input-group"><label>College Name</label><i class="fa-solid fa-building-columns"></i><input type="text" id="pr-college" placeholder="Enter college"></div>
+      <div class="modern-input-group"><label>Username</label><i class="fa-solid fa-user"></i><input type="text" id="pr-user" placeholder="Choose username"></div>
+      <div class="modern-input-group"><label>Password</label><i class="fa-solid fa-lock"></i><input type="password" id="pr-pass" placeholder="Create password"><i class="fa-solid fa-eye eye-icon" onclick="togglePass('pr-pass', this)" style="right: 14px; left: auto; top: 55%; margin: 0;"></i></div>
+      <div class="modern-input-group" style="margin-bottom:16px;"><label>Confirm Password</label><i class="fa-solid fa-lock"></i><input type="password" id="pr-confirm-pass" placeholder="Confirm password"><i class="fa-solid fa-eye eye-icon" onclick="togglePass('pr-confirm-pass', this)" style="right: 14px; left: auto; top: 55%; margin: 0;"></i></div>
+    </div>
+
+    <div class="payment-steps-card">
+      <div style="font-weight:800; font-size:12px; color:var(--text-dark); margin-bottom:10px;">💳 Payment Instructions</div>
+      <div class="payment-step-row"><div class="step-num">1</div><span>Copy Number:</span><span class="step-action" onclick="copyNumber()">03096554421</span></div>
+      <div class="payment-step-row"><div class="step-num">2</div><span>Open Jazzcash or Easypaisa app & pay</span></div>
+      <div class="payment-step-row"><div class="step-num">3</div><span>Enter TRX code below</span></div>
+    </div>
+
+    <div class="modern-input-group" style="margin-bottom:12px;"><label>Transaction ID</label><i class="fa-solid fa-receipt"></i><input type="text" id="pr-receipt" placeholder="e.g. 8T7H29..."></div>
+    <div class="modern-input-group" style="margin-bottom:20px; position: relative;">
+      <label>Discount Code (Optional)</label><i class="fa-solid fa-tag"></i>
+      <input type="text" id="pr-discount-code" placeholder="Enter code" oninput="applyDiscountCode()">
+      <span id="discount-applied" style="position:absolute; right:12px; bottom:14px; font-size:10px; color:#22c55e; font-weight:800; display:none;">Applied!</span>
+    </div>
+
+    <button class="btn-validate-modern" id="btn-premium-action" onclick="executePremiumRegistration()">
+      Confirm Payment - Rs <span id="final-price">1189</span>
+    </button>
+    <button class="btn-cancel-app" onclick="window.cancelPremium()">Cancel</button>
+  </div>
+</div>
+
+        <div id="view-premium-success" class="page auth-page"><div class="page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; padding:40px 20px;"><i class="fa-solid fa-circle-check success-icon-animate" style="margin-top:20px; font-size:50px; color:#22c55e;"></i><h1 style="font-size: 22px; color: var(--text-dark); letter-spacing: -0.5px; margin:16px 0 8px;">Payment Under Review</h1><p style="font-size: 13px; color: var(--text-gray); line-height: 1.5; margin-bottom: 24px; max-width: 320px;">Your payment is being verified. This usually takes 6-12 hours. You will get access automatically once approved.</p><div class="glass-card" style="width:100%; max-width:340px; padding:20px; border-radius:20px; margin-bottom:20px; text-align:left;"><div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;"><div style="width:40px; height:40px; border-radius:12px; background:rgba(59,130,246,0.1); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-bell" style="color:var(--modmed-primary); font-size:18px;"></i></div><div><div style="font-weight:800; font-size:14px; color:var(--text-dark);">Enable Notifications</div><div style="font-size:11px; color:var(--text-gray);">Stay updated about your subscription status</div></div></div><div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px; padding-left:8px;"><div style="font-size:12px; color:var(--text-dark); display:flex; align-items:flex-start; gap:8px;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:2px; font-size:10px;"></i><span>Your payment is approved</span></div><div style="font-size:12px; color:var(--text-dark); display:flex; align-items:flex-start; gap:8px;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:2px; font-size:10px;"></i><span>Your plan is activated</span></div><div style="font-size:12px; color:var(--text-dark); display:flex; align-items:flex-start; gap:8px;"><i class="fa-solid fa-circle-check" style="color:#22c55e; margin-top:2px; font-size:10px;"></i><span>Your subscription is updated</span></div></div><div style="display:flex; gap:10px;"><button class="btn" style="flex:1; margin:0; padding:12px; font-size:13px; border-radius:16px;" onclick="enableNotifications()">Allow</button><button class="btn btn-alt" style="flex:1; margin:0; padding:12px; font-size:13px; border-radius:16px; background:var(--hover-bg) !important; color:var(--text-dark) !important;" onclick="skipNotifications()">Not Now</button></div></div><p style="font-size:11px; color:var(--text-gray); line-height:1.4; max-width:320px;">If your payment verification takes longer than 12 hours, you can contact support at: <a href="mailto:modmedicals@gmail.com" style="color:var(--modmed-primary); text-decoration:none; font-weight:600;">modmedicals@gmail.com</a></p><button class="btn btn-alt" onclick="handlePendingContinueToApp()" style="margin-top:20px; max-width:340px; background:transparent !important; border-color:transparent !important; color:var(--text-gray) !important;">Continue to App</button></div></div>
 
         <div id="view-register" class="page auth-page"><div class="login-wrapper" style="overflow-y: auto;"><div class="login-top" style="height:auto; justify-content:flex-end; padding-bottom:10px;"><h1 class="login-logo" style="font-size:24px; color: var(--text-dark);">Create Account</h1></div><div class="login-bottom" style="padding-top:10px; padding-bottom: 50px;"><div class="input-group"><i class="fa-solid fa-id-card"></i><input type="text" id="r-name" class="app-input glass-card" placeholder="Full Name"></div><div class="input-group"><i class="fa-solid fa-graduation-cap"></i><select id="r-class" class="app-input glass-card"><option value="">Select Class</option><option value="MBBS 1st Year">MBBS 1st Year</option><option value="MBBS 1st Year (Batch 29)">MBBS 1st Year (Batch 29)</option><option value="MBBS 2nd Year">MBBS 2nd Year</option><option value="MBBS 3rd Year">MBBS 3rd Year</option></select></div><div class="input-group"><i class="fa-solid fa-building-columns"></i><input type="text" id="r-college" class="app-input glass-card" placeholder="College Name"></div><div class="input-group"><i class="fa-solid fa-user"></i><input type="text" id="r-user" class="app-input glass-card" placeholder="Choose Username"></div><div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="r-pass" class="app-input glass-card" placeholder="Create Password"><i class="fa-solid fa-eye eye-icon" onclick="togglePass('r-pass', this)"></i></div><div class="input-group" style="margin-bottom:16px;"><i class="fa-solid fa-lock"></i><input type="password" id="r-confirm-pass" class="app-input glass-card" placeholder="Confirm Password"><i class="fa-solid fa-eye eye-icon" onclick="togglePass('r-confirm-pass', this)"></i></div><button class="btn" id="r-btn" onclick="executeRegister()">Continue</button><button class="btn btn-alt" onclick="navTo('login')" style="background:transparent; border-color:transparent !important; margin-bottom: 16px;">Cancel</button></div></div></div>
 
@@ -756,8 +1000,34 @@ select.app-input { padding-right: 32px; appearance: none; }
 
         <div id="view-success" class="page auth-page"><div class="login-wrapper" style="justify-content: center; align-items: center; text-align: center; padding: 40px;"><i class="fa-solid fa-circle-check success-icon-animate"></i><h1 style="font-size: 24px; color: var(--text-dark); margin-bottom: 8px;" id="success-title">Success!</h1><p style="font-size: 13px; color: var(--text-gray); line-height: 1.5; margin-bottom: 24px;" id="success-message">Operation completed successfully.</p><button class="btn" onclick="navTo('login')" style="max-width: 300px;">Go to Login Page</button></div></div>
 
-        <div id="view-invite" class="page auth-page"><div class="login-wrapper"><div class="login-top" style="height: 35%;"><h1 class="login-logo" style="font-size: 28px; color: var(--text-dark);"><i class="fa-solid fa-ticket"></i> Invitation</h1></div><div class="login-bottom" style="justify-content: flex-start; padding-top: 10px;"><p style="margin-bottom: 16px; font-size: 13px;">Enter your exclusive code to launch.</p><div class="input-group" style="margin-bottom:0; max-width:100%;" id="invite-border-wrapper"><i class="fa-solid fa-key" id="invite-key-icon"></i><input type="text" id="inviteCode" class="app-input glass-card" placeholder="Enter code here" oninput="resetInviteState()"><i class="fa-solid fa-circle-check eye-icon" style="color: var(--accent-green); display:none;" id="invite-tick-icon"></i></div><br><button class="btn btn-alt" style="border: none !important; background: transparent !important; box-shadow: none;" onclick="validateInviteCode()" id="invite-btn"><span style="font-size: 14px; font-weight: 800; display:flex; align-items:center; gap:8px;">Validate Code <i class="fa-solid fa-arrow-right"></i></span></button><button class="btn btn-alt" style="margin-top: 5px; border: none !important; background: transparent !important; color: var(--text-gray) !important;" onclick="navTo('login')">Cancel</button><div style="min-height: 80px; margin-top: auto; text-align: center; color: var(--text-gray); font-size: 12px; width: 100%; max-width: 340px; padding: 12px 16px 0;"><span id="invite-type-1" style="display:block; margin-bottom: 4px; font-size: 11px; font-weight: 800; color: var(--modmed-primary); text-transform: uppercase; letter-spacing: 0.5px;"></span><span id="invite-type-2" style="line-height: 1.4;"></span></div></div></div></div>
-
+        <div id="view-invite" class="page auth-page">
+  <div class="invite-modern-wrap">
+    <div class="invite-glass-box">
+      <div class="invite-content">
+        <i class="fa-solid fa-ticket invite-icon"></i>
+        <div class="invite-title">Exclusive Access</div>
+        <div class="invite-sub">Enter your invitation code to unlock premium features</div>
+        
+        <div class="invite-input-wrap" id="invite-border-wrapper">
+          <i class="fa-solid fa-key" id="invite-key-icon"></i>
+          <input type="text" id="inviteCode" placeholder="CODE" oninput="resetInviteState()">
+          <i class="fa-solid fa-circle-check eye-icon" style="color: var(--accent-green); display:none;" id="invite-tick-icon"></i>
+        </div>
+        
+        <button class="btn-validate-modern" id="invite-btn" onclick="validateInviteCode()">
+          Validate Code <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+    
+    <button class="btn-cancel-app" onclick="window.cancelPremium()">Cancel</button>
+    
+    <div style="text-align: center; color: var(--text-gray); font-size: 12px; width: 100%; max-width: 340px; margin-top: 10px;">
+      <span id="invite-type-1" style="display:block; margin-bottom: 4px; font-size: 10px; font-weight: 800; color: var(--modmed-primary); text-transform: uppercase; letter-spacing: 0.5px;"></span>
+      <span id="invite-type-2" style="line-height: 1.5;"></span>
+    </div>
+  </div>
+</div>
         <!-- DASHBOARD (REIMAGINED BENTO GRID) -->
         <div id="view-dashboard" class="page">
             <div class="page-wrapper" style="padding-top: 0;">
@@ -1139,7 +1409,10 @@ select.app-input { padding-right: 32px; appearance: none; }
     window.currentQ = 0; window.score = 0; window.userAnswers = {}; window.studyMode = 'practice'; window.studyBlock = 'Block_1'; window.studyModule = ''; window.studySubjects = '';
     window.sessionData = []; window.currentPool = []; window.timerInterval = null; window.timeRemaining = 0; window.mockTimingMode = 'timed';
     window.currentSetId = null; window.tempSetData = null; window.sessionNewAtt = 0; window.sessionNewCor = 0; window.sessionLoUpdates = {}; window.sessionMistakeUpdates = {}; window.tempSelectedLOs = [];
-    window.tempSelectedAnswer = null; 
+    window.tempSelectedAnswer = null;
+    window.handlePendingCheck = function() {
+    window.showToast("We're currently verifying your payment. This typically takes 6-12 hours.", "info");
+}; 
     
     // TIME TRACKING
     window.mcqTimeTaken = {}; window.questionStartTime = Date.now();
@@ -1483,72 +1756,97 @@ select.app-input { padding-right: 32px; appearance: none; }
         return ['Block_1', 'Block_2', 'Block_3']; 
     };
 
-    onAuthStateChanged(auth, async (user) => { 
-        if (user) { 
-            document.body.classList.add('is-logged-in'); 
-            try { 
-                const docSnap = await getDoc(doc(db, "users", user.uid)); 
-                if (docSnap.exists()) { 
-                    window.currentUser = docSnap.data(); 
-                    window.currentUser.uid = user.uid; 
-                    window.currentAvatar = window.currentUser.avatar || "👨‍⚕️"; 
-                    window.currentUser.progress = window.currentUser.progress || {}; 
-                    window.currentUser.loStats = window.currentUser.loStats || {}; 
-                    window.currentUser.mistakes = window.currentUser.mistakes || {}; 
-                    window.currentUser.activityHistory = window.currentUser.activityHistory || {}; 
-                    window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; 
-                    window.currentUser.bookmarks = window.currentUser.bookmarks || {}; 
-                    window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; 
-                    window.currentUser.completedSets = window.currentUser.completedSets || {}; 
-                    
-                    let allowed = window.getAllowedBlocks(window.currentUser.classInfo);
-                    if (!allowed.includes(window.currentGlobalBlock) && window.currentGlobalBlock !== 'All') { 
-                        window.currentGlobalBlock = allowed[0]; 
-                    }
-
-                    // 1. Try to load cached data FIRST to prevent white screen
-                    try {
-                        let cSyl = localStorage.getItem('cached_syl'); 
-                        let cMcq = localStorage.getItem('cached_mcqs');
-                        if(cSyl && cMcq) { 
-                            window.rebuildLOMap(JSON.parse(cSyl)); 
-                            window.appData.mcqs = JSON.parse(cMcq); 
-                            if(localStorage.getItem('cached_notes')) window.appData.notes = JSON.parse(localStorage.getItem('cached_notes')); 
-                            if(localStorage.getItem('cached_flashcards')) window.appData.flashcards = JSON.parse(localStorage.getItem('cached_flashcards')); 
-                            if(localStorage.getItem('cached_usmle')) window.appData.usmle = JSON.parse(localStorage.getItem('cached_usmle')); 
-                        }
-                    } catch(e){}
-
-                    // 2. Fetch latest from GitHub & update cleanly
-                    await window.fetchGitHubData(window.currentGlobalBlock, window.currentUser.classInfo);
-
-                    window.calculateStreak(); 
-                    window.setupDashboard(); 
-                    window.requestPushPermissions(); 
-                    
-                    const activePage = document.querySelector('.page.active'); 
-                    if(activePage && ['view-login', 'view-register', 'view-forgot-password', 'view-invite', 'view-premium-intro', 'view-premium-register', 'view-premium-success', 'view-initial-load'].includes(activePage.id)) { 
-                        window.navTo('dashboard'); 
-                    } else if (!activePage) { 
-                        window.navTo('dashboard'); 
-                    } 
-                    listenToUserUpdates(user.uid); 
-                    listenToNotifications(); 
-                } else { 
-                    await signOut(auth); 
-                } 
-            } catch(e) { 
-                console.error(e); 
-            } finally { 
-                const btn = document.getElementById('btn-login-action'); 
-                if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; } 
-            } 
-        } else { 
-            document.body.classList.remove('is-logged-in'); window.currentUser = null; window.navTo('login'); 
-        } 
-    });
-
-    function listenToUserUpdates(uid) { onSnapshot(doc(db, "users", uid), (doc) => { if(doc.exists() && window.currentUser) { window.currentUser = doc.data(); window.currentUser.uid = uid; window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {}; window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {}; window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.bookmarks = window.currentUser.bookmarks || {}; window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; window.currentUser.completedSets = window.currentUser.completedSets || {}; window.setupDashboard(); } }); }
+    onAuthStateChanged(auth, async (user) => {
+if (user) {
+document.body.classList.add('is-logged-in');
+try {
+const docSnap = await getDoc(doc(db, "users", user.uid));
+if (docSnap.exists()) {
+window.currentUser = docSnap.data();
+window.currentUser.uid = user.uid;
+window.currentAvatar = window.currentUser.avatar || "👨‍⚕️";
+window.currentUser.progress = window.currentUser.progress || {};
+window.currentUser.loStats = window.currentUser.loStats || {};
+window.currentUser.mistakes = window.currentUser.mistakes || {};
+window.currentUser.activityHistory = window.currentUser.activityHistory || {};
+window.currentUser.savedMCQs = window.currentUser.savedMCQs || [];
+window.currentUser.bookmarks = window.currentUser.bookmarks || {};
+window.currentUser.sessionHistory = window.currentUser.sessionHistory || [];
+window.currentUser.completedSets = window.currentUser.completedSets || {};
+let allowed = window.getAllowedBlocks(window.currentUser.classInfo);
+if (!allowed.includes(window.currentGlobalBlock) && window.currentGlobalBlock !== 'All') {
+window.currentGlobalBlock = allowed[0];
+}
+// CHECK FOR PENDING PAYMENT STATUS - SHOW LIMITED DASHBOARD
+if(window.currentUser.plan === 'pending') {
+    document.body.classList.add('pending-verification');
+    const btn = document.getElementById('btn-login-action');
+    if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; }
+    listenToUserUpdates(user.uid);
+    listenToNotifications();
+    window.navTo('dashboard', true);
+    window.showToast("Account under verification. Limited access granted.", "info");
+    return;
+}
+// ONLY SHOW DASHBOARD IF PLAN IS 'pro' OR 'early-bird' OR 'free'
+if(window.currentUser.plan !== 'pro' && window.currentUser.plan !== 'early-bird' && window.currentUser.plan !== 'free' && window.currentUser.plan !== 'batch29') {
+const activePage = document.querySelector('.page.active');
+if(activePage && activePage.id !== 'view-premium-intro') {
+window.navTo('premium-intro');
+}
+const btn = document.getElementById('btn-login-action');
+if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; }
+listenToUserUpdates(user.uid);
+listenToNotifications();
+return;
+}
+// 1. Try to load cached data FIRST to prevent white screen
+try {
+let cSyl = localStorage.getItem('cached_syl');
+let cMcq = localStorage.getItem('cached_mcqs');
+if(cSyl && cMcq) {
+window.rebuildLOMap(JSON.parse(cSyl));
+window.appData.mcqs = JSON.parse(cMcq);
+if(localStorage.getItem('cached_notes')) window.appData.notes = JSON.parse(localStorage.getItem('cached_notes'));
+if(localStorage.getItem('cached_flashcards')) window.appData.flashcards = JSON.parse(localStorage.getItem('cached_flashcards'));
+if(localStorage.getItem('cached_usmle')) window.appData.usmle = JSON.parse(localStorage.getItem('cached_usmle'));
+}
+} catch(e){}
+// 2. Fetch latest from GitHub & update cleanly
+await window.fetchGitHubData(window.currentGlobalBlock, window.currentUser.classInfo);
+window.calculateStreak();
+window.setupDashboard();
+window.requestPushPermissions();
+const activePage = document.querySelector('.page.active');
+if(activePage && ['view-login', 'view-register', 'view-forgot-password', 'view-invite', 'view-premium-intro', 'view-premium-register', 'view-premium-success', 'view-premium-locked'].includes(activePage.id)) {
+window.navTo('dashboard');
+} else if (!activePage) {
+window.navTo('dashboard');
+}
+listenToUserUpdates(user.uid);
+listenToNotifications();
+} else {
+await signOut(auth);
+}
+} catch(e) {
+console.error(e);
+} finally {
+const btn = document.getElementById('btn-login-action');
+if(btn) { btn.innerHTML = 'Log In'; btn.disabled = false; }
+}
+} else {
+document.body.classList.remove('is-logged-in'); window.currentUser = null; window.navTo('login');
+}
+});
+    function listenToUserUpdates(uid) { onSnapshot(doc(db, "users", uid), (doc) => { if(doc.exists() && window.currentUser) { window.currentUser = doc.data();
+window.currentUser.uid = uid;
+// Auto-remove restriction when plan updates to pro/early-bird
+if(window.currentUser.plan !== 'pending') {
+    document.body.classList.remove('pending-verification');
+    document.querySelector('.pending-portal-overlay').style.display = 'none';
+} else {
+    document.body.classList.add('pending-verification');
+} window.currentUser.progress = window.currentUser.progress || {}; window.currentUser.loStats = window.currentUser.loStats || {}; window.currentUser.mistakes = window.currentUser.mistakes || {}; window.currentUser.activityHistory = window.currentUser.activityHistory || {}; window.currentUser.savedMCQs = window.currentUser.savedMCQs || []; window.currentUser.bookmarks = window.currentUser.bookmarks || {}; window.currentUser.sessionHistory = window.currentUser.sessionHistory || []; window.currentUser.completedSets = window.currentUser.completedSets || {}; window.setupDashboard(); } }); }
     function listenToNotifications() { onSnapshot(collection(db, "notifications"), (snapshot) => { const nc = document.getElementById('notif-container'); nc.innerHTML = ''; let seenNotifs = JSON.parse(localStorage.getItem('seenNotifs') || '[]'); let hasUnread = false; if(snapshot.empty) { nc.innerHTML = '<p>No notifications.</p>'; document.getElementById('notif-badge-dot').style.display='none'; return; } snapshot.forEach((docSnap) => { const n = docSnap.data(); const nid = docSnap.id; if(!n.targetUser || n.targetUser === 'all' || n.targetUser === window.currentUser.uid) { if(!seenNotifs.includes(nid)) { hasUnread = true; if(Notification.permission === 'granted') { new Notification(n.title, { body: n.message, icon: 'https://i.imgur.com/wliwntu.png' }); seenNotifs.push(nid); localStorage.setItem('seenNotifs', JSON.stringify(seenNotifs)); } } nc.innerHTML += `<div class="notif-card glass-card" style="border:1px solid ${n.urgent ? 'var(--accent-red)' : 'var(--border-color)'}"><h4 style="margin-bottom:4px;">${n.title}</h4><p style="font-size:11px; color:var(--text-gray);">${n.message}</p></div>`; } }); document.getElementById('notif-badge-dot').style.display = hasUnread ? 'block' : 'none'; }); }
 
     window.toggleNotif = function() { document.getElementById('notif-panel').classList.toggle('active'); document.getElementById('notif-overlay').classList.toggle('active'); if(document.getElementById('notif-panel').classList.contains('active')) { document.getElementById('notif-badge-dot').style.display = 'none'; getDocs(collection(db, "notifications")).then(snap => { let ids = []; snap.forEach(d => { const n = d.data(); if(!n.targetUser || n.targetUser === 'all' || n.targetUser === window.currentUser.uid) ids.push(d.id); }); localStorage.setItem('seenNotifs', JSON.stringify(ids)); }); } }
@@ -1557,6 +1855,8 @@ select.app-input { padding-right: 32px; appearance: none; }
     window.executeRegister = async function() { const name = document.getElementById('r-name').value.trim(), classInfo = document.getElementById('r-class').value, college = document.getElementById('r-college').value.trim(), username = document.getElementById('r-user').value.trim(), pass = document.getElementById('r-pass').value.trim(), confirmPass = document.getElementById('r-confirm-pass').value.trim(); if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all fields."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { document.getElementById('r-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; document.getElementById('r-btn').disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: window.registerMode, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); await signOut(auth); document.getElementById('success-title').innerText = "Welcome!"; document.getElementById('success-message').innerText = "Your account has been created.\nPlease log in with your credentials to get started."; window.navTo('success'); } catch (error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { document.getElementById('r-btn').innerHTML = 'Continue'; document.getElementById('r-btn').disabled = false; } }
     window.executePremiumRegistration = async function() { const trxId = document.getElementById('pr-receipt').value.trim(); const btn = document.getElementById('btn-premium-action'); if(!trxId) return window.showToast("Please enter your transaction code."); if(window.currentUser) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; try { await updateDoc(doc(db, "users", window.currentUser.uid), { plan: "pending", receipt: trxId }); window._tempProUid = window.currentUser.uid; window.navTo('premium-success'); } catch(e) { window.showToast("Error updating account."); } finally { btn.innerHTML = 'Confirm Payment'; btn.disabled = false; } return; } const name = document.getElementById('pr-name').value.trim(), classInfo = document.getElementById('pr-class').value, college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim(); if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", receipt: trxId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); window.navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment'; btn.disabled = false; } }
     window.finishPremiumSuccess = async function() { const emailInput = document.getElementById('pr-confirm-email').value.trim(); if(!emailInput) return window.showToast("Please enter your email to receive updates."); if(window._tempProUid) { await updateDoc(doc(db, "users", window._tempProUid), { realEmail: emailInput }); window._tempProUid = null; } if(window.currentUser) { signOut(auth).then(()=> { window.navTo('login'); window.showToast("Log in to refresh your status", "success"); }); } else { window.navTo('login'); window.showToast("Log in using your credentials", "success"); } }
+window.handlePendingLogout = function() { signOut(auth).then(() => { window.navTo('login'); window.showToast("Logged out. Log in again to check status.", "info"); }); }
+window.handlePendingContinueToApp = function() { if(window.currentUser) { signOut(auth).then(()=> { window.navTo('login'); window.showToast("Log in to check your payment status", "info"); }); } else { window.navTo('login'); window.showToast("Log in to check your payment status", "info"); } }
     
     window.handleLogin = async function() { 
         const username = document.getElementById('loginUser').value.trim(), pass = document.getElementById('loginPass').value.trim(); 
@@ -1961,7 +2261,7 @@ window.navTo = function(viewId, skipBreadcrumb = false) {
     if(viewId === 'dashboard' && !skipBreadcrumb) window.bcHistory =[];
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const target=document.getElementById('view-'+viewId); if(target) target.classList.add('active'); scrollArea.scrollTo(0,0); 
     const titles = {'login':'Portal','register':'Create Account','dashboard':'ModMedicalis','practice-menu':'Practice Mode','flashcards':'Flashcard','mistakes':'My Mistakes','settings':'Settings','stats':'Analytics', 'rankings':'Rankings','quiz':'Practice Mode','history':'History','saved-mcqs':'Saved MCQs','bookmarks':'Bookmarks','step-config':'Session Setup','step-lo':'Learning Objectives','step-subject':'Select Subject','step-module':'Select Module','step-block':'Select Block','block-exam-menu':'Block Exams','premium-intro':'Premium','premium-register':'Premium Account','premium-success':'Premium Verification','invite':'Invitation','forgot-password':'Reset Password','results':'Results', 'qq-module':'Quick Qs', 'qq-subject':'Quick Qs', 'qq-lo':'Quick Qs', 'qq-content':'Quick Qs', 'mock-timing':'Mock Exam', 'mock-menu':'Mock Exam', 'review':'Review MCQs'};
-    const noHeaderViews =['initial-load', 'login', 'register', 'forgot-password', 'invite', 'success', 'premium-intro', 'premium-register', 'premium-success', 'quiz', 'flashcards', 'guessormess', 'vivaospe'];
+    const noHeaderViews =['login', 'register', 'forgot-password', 'invite', 'success', 'premium-intro', 'premium-register', 'premium-success', 'quiz', 'flashcards', 'guessormess', 'vivaospe'];
     const gHeader = document.getElementById('global-header');
     if(noHeaderViews.includes(viewId)) { if(gHeader) gHeader.style.display = 'none'; } else { if(gHeader) gHeader.style.display = 'flex'; const hb = document.getElementById('header-brand-text'); if(hb) hb.innerText = (viewId === 'dashboard') ? 'ModMedicalis' : (titles[viewId] || 'ModMedicalis'); const hLeft = document.querySelector('.header-left'); const hRight = document.querySelector('.header-right'); if(hLeft && hRight) { if(viewId === 'dashboard') { hLeft.style.opacity = '1'; hLeft.style.pointerEvents = 'auto'; hRight.style.opacity = '1'; hRight.style.pointerEvents = 'auto'; } else { hLeft.style.opacity = '0'; hLeft.style.pointerEvents = 'none'; hRight.style.opacity = '0'; hRight.style.pointerEvents = 'none'; } } }
     const bcbRoutes =['step-block', 'step-module', 'practice-menu', 'step-subject', 'step-lo', 'step-config', 'block-exam-menu', 'qq-module', 'qq-subject', 'qq-lo', 'qq-content', 'mock-timing', 'mock-menu'];
@@ -1972,7 +2272,7 @@ window.navTo = function(viewId, skipBreadcrumb = false) {
     if(viewId === 'dashboard' && window.currentUser) { setTimeout(()=> { window.updateCircStats(); window.renderContinueSection(); }, 100); }
     const mainNavs =['dashboard', 'stats', 'rankings', 'quick-qs']; 
     const bNav = document.getElementById('bottom-nav'); 
-    const hiddenViews =['initial-load', 'login', 'invite', 'register', 'premium-intro', 'premium-register', 'premium-success', 'success', 'forgot-password', 'settings', 'quiz', 'flashcards', 'step-config', 'results', 'mistakes', 'step-block', 'step-module', 'step-subject', 'step-lo', 'saved-mcqs', 'bookmarks', 'history', 'practice-menu', 'block-exam-menu', 'qq-module', 'qq-subject', 'qq-lo', 'qq-content', 'mock-timing', 'mock-menu', 'review', 'guessormess', 'vivaospe'];
+    const hiddenViews =['login', 'invite', 'register', 'premium-intro', 'premium-register', 'premium-success', 'success', 'forgot-password', 'settings', 'quiz', 'flashcards', 'step-config', 'results', 'mistakes', 'step-block', 'step-module', 'step-subject', 'step-lo', 'saved-mcqs', 'bookmarks', 'history', 'practice-menu', 'block-exam-menu', 'qq-module', 'qq-subject', 'qq-lo', 'qq-content', 'mock-timing', 'mock-menu', 'review', 'guessormess', 'vivaospe'];
     if(hiddenViews.includes(viewId)) { if(bNav) bNav.style.display = 'none'; } else { if(bNav) bNav.style.display = 'flex'; }
     if(mainNavs.includes(viewId)) { 
         let targetNav = viewId; document.querySelectorAll('.bottom-nav .nav-item').forEach(n=>n.classList.remove('active')); document.querySelectorAll(`.nav-item[data-nav="${targetNav}"]`).forEach(n=>n.classList.add('active')); 
@@ -2761,6 +3061,123 @@ window.loadQQContent = function() {
     filteredNotes.forEach(n => { c.innerHTML += `<div class="qq-note-card glass-card"><h3>${n.title || 'Quick Point'}</h3>${n.subHeading ? `<h4>${n.subHeading}</h4>` : ''}<p>${n.body || ''}</p></div>`; });
 }
 
+window.selectedYearForPlan = null;
+window.selectYearForPlan = function(year) {
+window.selectedYearForPlan = year;
+const card = document.getElementById('early-bird-plan-card');
+if(year === '1st' || year === '3rd') {
+card.style.display = 'block';
+card.scrollIntoView({behavior:'smooth', block:'center'});
+} else {
+window.showToast("Plan for " + year + " year will be available soon", "info");
+}
+};
+window.proceedToPayment = function() {
+if(!window.selectedYearForPlan) { window.showToast("Please select your study year first", "info"); return; }
+if(window.currentUser) {
+document.getElementById('premium-account-creation').style.display = 'none';
+document.getElementById('premium-reg-title').innerText = 'Complete Your Order';
+}
+navTo('premium-register');
+};
+window.applyDiscountCode = async function() {
+const code = document.getElementById('pr-discount-code').value.trim().toUpperCase();
+if(!code) return;
+try {
+const docSnap = await getDoc(doc(db, "discountCodes", code));
+if(docSnap.exists()) {
+const discount = docSnap.data();
+if(discount.active && discount.percentage) {
+const originalPrice = 1189;
+const discountedPrice = Math.round(originalPrice * (1 - discount.percentage/100));
+document.getElementById('final-price').innerText = discountedPrice;
+document.getElementById('discount-applied').style.display = 'block';
+window._appliedDiscount = { code, percentage: discount.percentage, finalPrice: discountedPrice };
+window.showToast("Discount applied: " + discount.percentage + "% off!", "success");
+} else {
+window.showToast("This code is not active", "error");
+}
+} else {
+window.showToast("Invalid discount code", "error");
+}
+} catch(e) {
+console.error(e);
+window.showToast("Error applying code", "error");
+}
+};
+window.enableNotifications = async function() {
+if('Notification' in window) {
+const permission = await Notification.requestPermission();
+if(permission === 'granted') {
+window.showToast("Notifications enabled!", "success");
+}
+}
+window.finishPremiumSuccess();
+};
+window.skipNotifications = function() {
+window.finishPremiumSuccess();
+};
+window.checkPremiumStatusOnLoad = async function() {
+    if(!window.currentUser) return;
+    const plan = window.currentUser.plan;
+    if(plan === 'pending') {
+        document.body.classList.add('pending-verification');
+        const activePage = document.querySelector('.page.active');
+        if(activePage && activePage.id !== 'view-dashboard') {
+            window.navTo('dashboard', true);
+        }
+    } else if(plan === 'early-bird') {
+        const activePage = document.querySelector('.page.active');
+        if(activePage && ['view-login','view-premium-locked','view-premium-success'].includes(activePage.id)) {
+            navTo('premium-activated');
+        }
+    }
+};
+window.executePremiumRegistration = async function() { const trxId = document.getElementById('pr-receipt').value.trim(); const btn = document.getElementById('btn-premium-action'); if(!trxId) return window.showToast("Please enter your transaction code."); let finalPrice = 1189; if(window._appliedDiscount && window._appliedDiscount.finalPrice) { finalPrice = window._appliedDiscount.finalPrice; } if(window.currentUser) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; try { await updateDoc(doc(db, "users", window.currentUser.uid), { plan: "pending", receipt: trxId, selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0 }); window._tempProUid = window.currentUser.uid; navTo('premium-success'); } catch(e) { window.showToast("Error updating account."); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } return; } const name = document.getElementById('pr-name').value.trim(), college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim(); if(!name || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo: "MBBS " + (window.selectedYearForPlan === '1st' ? '1st Year' : '3rd Year'), college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0, receipt: trxId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } };
+// CLEAN INITIALIZATION (Replaces the broken duplicate listener)
+window.checkPremiumStatusOnLoad = async function() {
+	if (!window.currentUser) return;
+	const plan = window.currentUser.plan;
+	if (plan === 'pending') {
+		document.body.classList.add('pending-verification');
+		const activePage = document.querySelector('.page.active');
+		if (activePage && activePage.id !== 'view-dashboard') {
+			window.navTo('dashboard', true);
+		}
+	} else if (plan === 'early-bird') {
+		const activePage = document.querySelector('.page.active');
+		if (activePage && ['view-login','view-premium-locked','view-premium-success'].includes(activePage.id)) {
+			window.navTo('premium-activated');
+		}
+	}
+};
+window.handlePendingContinueToApp = function() {
+	if (window.currentUser) {
+		signOut(auth).then(() => {
+			window.navTo('login');
+			window.showToast("Log in to check your payment status", "info");
+		});
+	} else {
+		window.navTo('login');
+		window.showToast("Log in to check your payment status", "info");
+	}
+};
+
+window.handlePendingContinueToApp = function() { 
+  if(window.currentUser) { 
+    signOut(auth).then(()=> { 
+      window.navTo('login'); 
+      window.showToast("Log in to check your payment status", "info"); 
+    }); 
+  } else { 
+    window.navTo('login'); 
+    window.showToast("Log in to check your payment status", "info"); 
+  } 
+}
+
 </script>
+
+<div id="view-premium-locked" class="page auth-page"><div class="page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content:center; min-height:100vh; padding:40px 20px;"><div style="width:80px; height:80px; border-radius:50%; background:rgba(59,130,246,0.1); display:flex; align-items:center; justify-content:center; margin-bottom:20px;"><i class="fa-solid fa-hourglass-half" style="font-size:32px; color:var(--modmed-primary);"></i></div><h1 style="font-size: 22px; color: var(--text-dark); letter-spacing: -0.5px; margin-bottom: 12px;">Payment Under Verification</h1><p style="font-size: 13px; color: var(--text-gray); line-height: 1.5; margin-bottom: 24px; max-width: 320px;">Your Early Bird plan access will be activated after payment verification. This usually takes 6-12 hours.</p><div class="glass-card" style="width:100%; max-width:340px; padding:16px; border-radius:20px; margin-bottom:20px; background:rgba(251,191,36,0.05); border:1px solid rgba(251,191,36,0.2);"><p style="font-size:12px; color:var(--text-dark); font-weight:600; margin-bottom:8px;"><i class="fa-solid fa-circle-info" style="color:#fbbf24; margin-right:6px;"></i> Important</p><p style="font-size:11px; color:var(--text-gray); line-height:1.5;">If your payment was done more than 12 hours ago, kindly email us at:</p><a href="mailto:modmedicals@gmail.com" style="display:block; margin-top:8px; font-size:12px; font-weight:800; color:var(--modmed-primary); text-decoration:none; background:var(--hover-bg); padding:10px; border-radius:12px; text-align:center;">modmedicals@gmail.com</a></div><button class="btn btn-alt" onclick="handlePendingLogout()" style="max-width:340px; background:transparent !important; border-color:transparent !important; color:var(--text-gray) !important;">Log Out</button></div></div>
+
 </body>
 </html>
