@@ -2476,34 +2476,44 @@ window.launchMistakeSession = function(mode) {
     window.startSessionWithData(false); 
 }
 
-window.renderDynamicSyllabus = function() { 
-    const bc = document.getElementById('dynamic-blocks-container'); 
-    bc.innerHTML = ''; 
-    const allowedBlocks = window.getSortedKeys(window.getAllowedBlocks(window.currentUser?.classInfo));
-    allowedBlocks.forEach((b, idx) => { 
-        let c = window.dynColors[idx%3], i = window.dynIcons[idx%6], n = b.replace(/_/g, ' '); 
-        bc.innerHTML += `<div class="list-card glass-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid ${i}"></i></div><div><h4>${n}</h4><p>View modules</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`; 
-    }); 
-}
+    window.renderDynamicSyllabus = function() {
+        const bc = document.getElementById('dynamic-blocks-container');
+        bc.innerHTML = '';
+        const allowedBlocks = window.getSortedKeys(window.getAllowedBlocks(window.currentUser?.classInfo));
+        const isFree = window.currentUser && window.currentUser.plan === 'free';
+        allowedBlocks.forEach((b, idx) => {
+            let c = window.dynColors[idx%3], i = window.dynIcons[idx%6], n = b.replace(/_/g, ' ');
+            if (isFree && idx > 0) {
+                bc.innerHTML += `<div class="list-card glass-card locked-set" style="pointer-events:none; opacity:0.5;"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid fa-lock"></i></div><div><h4>${n}</h4><p>Locked for Free Users</p></div></div><i class="fa-solid fa-lock"></i></div>`;
+            } else {
+                bc.innerHTML += `<div class="list-card glass-card" onclick="selectBlock('${b}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid ${i}"></i></div><div><h4>${n}</h4><p>View modules</p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
+            }
+        });
+    }
 
-window.selectBlock = function(b, el) { 
-    window.studyBlock = b; 
-    const mc = document.getElementById('dynamic-modules-container'); 
-    mc.innerHTML = ''; 
-    let mods = window.HARDCODED_SYLLABUS[window.studyBlock] ? window.getSortedKeys(window.HARDCODED_SYLLABUS[window.studyBlock]) :[];
-    if(mods.length === 0) return window.showToast("Coming Soon", "info");
-    mods.forEach((m, idx) => { 
-        let c = window.dynColors[(idx+1)%3], n = m.replace(/_/g, ' '); 
-        if(m==='H_&_L') n='H & L'; 
-        let allLOs =[]; 
-        for(let s in window.HARDCODED_SYLLABUS[window.studyBlock][m]) { 
-            allLOs.push(...Object.keys(window.HARDCODED_SYLLABUS[window.studyBlock][m][s])); 
-        } 
-        let count = window.getFilteredPool().filter(dbItem => allLOs.some(lo => matchFunc(lo, dbItem))).length; 
-        mc.innerHTML += `<div class="list-card glass-card" onclick="selectModule('${m}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid fa-book-medical"></i></div><div><h4>${n}</h4><p>View subjects <span class="mcq-badge">${count} MCQs</span></p></div></div><i class="fa-solid fa-chevron-right"></i></div>`; 
-    }); 
-    setTimeout(()=>window.navTo('step-module'), 40); 
-}
+    window.selectBlock = function(b, el) {
+        window.studyBlock = b;
+        const mc = document.getElementById('dynamic-modules-container');
+        mc.innerHTML = '';
+        let mods = window.HARDCODED_SYLLABUS[window.studyBlock] ? window.getSortedKeys(window.HARDCODED_SYLLABUS[window.studyBlock]) :[];
+        if(mods.length === 0) return window.showToast("Coming Soon", "info");
+        const isFree = window.currentUser && window.currentUser.plan === 'free';
+        mods.forEach((m, idx) => {
+            let c = window.dynColors[(idx+1)%3], n = m.replace(/_/g, ' ');
+            if(m==='H_&_L') n='H & L';
+            let allLOs =[];
+            for(let s in window.HARDCODED_SYLLABUS[window.studyBlock][m]) {
+                allLOs.push(...Object.keys(window.HARDCODED_SYLLABUS[window.studyBlock][m][s]));
+            }
+            let count = window.getFilteredPool().filter(dbItem => allLOs.some(lo => matchFunc(lo, dbItem))).length;
+            if (isFree && idx > 0) {
+                mc.innerHTML += `<div class="list-card glass-card locked-set" style="pointer-events:none; opacity:0.5;"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid fa-lock"></i></div><div><h4>${n}</h4><p>Locked for Free Users</p></div></div><i class="fa-solid fa-lock"></i></div>`;
+            } else {
+                mc.innerHTML += `<div class="list-card glass-card" onclick="selectModule('${m}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid fa-book-medical"></i></div><div><h4>${n}</h4><p>View subjects <span class="mcq-badge">${count} MCQs</span></p></div></div><i class="fa-solid fa-chevron-right"></i></div>`;
+            }
+        });
+        setTimeout(()=>window.navTo('step-module'), 40);
+    }
 
 window.selectMode = function(mode, el) { 
     window.studyMode = mode; window.bcHistory =[{id: 'dashboard', label: 'Home'}]; 
@@ -2554,26 +2564,38 @@ window.deselectAllSubjects = function(containerId) {
     document.querySelectorAll('#' + containerId + ' input[type="checkbox"]').forEach(cb => cb.checked = false);
 }
 
-window.populateSubjects = function() { 
-    const sc = document.getElementById('dynamic-subjects-container'); sc.innerHTML = ''; 
-    const subjects = window.HARDCODED_SYLLABUS[window.studyBlock][window.studyModule] || {}; 
-    window.getSortedKeys(subjects).forEach((s) => { 
-        let loList = Object.keys(subjects[s]); 
-        let sourceArray = window.getFilteredPool();
-        let labelText = window.studyMode === 'flashcards' ? 'Cards' : 'MCQs';
-        let count = sourceArray.filter(dbItem => loList.some(lo => matchFunc(lo, dbItem))).length; 
-        
-        sc.innerHTML += `
-        <label class="subject-list-item">
-            <input type="checkbox" value="${s}" onchange="handleSubjectSelection(this)">
-            <div class="subject-text-group">
+    window.populateSubjects = function() {
+        const sc = document.getElementById('dynamic-subjects-container'); sc.innerHTML = '';
+        const subjects = window.HARDCODED_SYLLABUS[window.studyBlock][window.studyModule] || {};
+        const subjectKeys = window.getSortedKeys(subjects);
+        const isFree = window.currentUser && window.currentUser.plan === 'free';
+        subjectKeys.forEach((s, idx) => {
+            let loList = Object.keys(subjects[s]);
+            let sourceArray = window.getFilteredPool();
+            let labelText = window.studyMode === 'flashcards' ? 'Cards' : 'MCQs';
+            let count = sourceArray.filter(dbItem => loList.some(lo => matchFunc(lo, dbItem))).length;
+            if (isFree && idx >= 3) {
+                sc.innerHTML += `
+                <div class="subject-list-item" style="pointer-events:none; opacity:0.5; background:var(--hover-bg);">
+                <div class="subject-text-group">
+                <span class="subject-title" style="color:var(--text-gray);">${s.replace(/_/g, ' ')}</span>
+                <span style="font-size:11px; color:var(--text-gray);"><i class="fa-solid fa-lock"></i> Locked</span>
+                </div>
+                <div class="subject-round-check"></div>
+                </div>`;
+            } else {
+                sc.innerHTML += `
+                <label class="subject-list-item">
+                <input type="checkbox" value="${s}" onchange="handleSubjectSelection(this)">
+                <div class="subject-text-group">
                 <span class="subject-title">${s.replace(/_/g, ' ')}</span>
                 <span style="font-size:11px; color:var(--text-gray);">${count} ${labelText}</span>
-            </div>
-            <div class="subject-round-check"></div>
-        </label>`; 
-    }); 
-}
+                </div>
+                <div class="subject-round-check"></div>
+                </label>`;
+            }
+        });
+    }
 
 window.selectPracticeSubMode = function(mode) { window.practiceSubMode = mode; let lbl = mode === 'lo' ? 'LO Wise' : (mode === 'class' ? 'Class Test' : 'Block Mock'); let target = mode === 'block' ? 'block-exam-menu' : 'step-subject'; window.pushBreadcrumb(target, lbl); if(mode === 'lo') { document.getElementById('step-subject-title').innerText = "LO Wise Practice"; window.populateSubjects(); window.navTo('step-subject'); } else if (mode === 'class') { document.getElementById('step-subject-title').innerText = "Class Test"; window.populateSubjects(); window.navTo('step-subject'); } else if (mode === 'block') { document.getElementById('block-exam-title').innerText = window.studyBlock.replace('_', ' ') + " Full Mock"; window.navTo('block-exam-menu'); } }
 
@@ -2585,53 +2607,66 @@ window.toggleLoOutcomes = function(e, id) {
     if(target) { target.classList.toggle('active'); }
 }
 
-window.goToLO = function(){ 
-    const subs = Array.from(document.querySelectorAll('#view-step-subject input:checked')).map(cb=>cb.value); 
-    if(subs.length === 0) return window.showToast("Select at least one subject", "info"); 
-    const container = document.getElementById('lo-container'); container.innerHTML = ''; 
-    window.studySubjects = subs.join(', ').replace(/_/g, ' '); 
-    window.pushBreadcrumb('step-lo', window.studySubjects || 'Subjects'); 
-    
-    subs.forEach(sub => { 
-        const loObj = window.HARDCODED_SYLLABUS[window.studyBlock]?.[window.studyModule]?.[sub] || {}; 
-        const loKeys = window.getSortedKeys(loObj);
-        if(loKeys.length > 0) { 
-            container.innerHTML += `<h3 style="color:var(--text-gray); font-size:11px; margin-top:16px; margin-bottom:8px; text-transform:uppercase; letter-spacing: 0.8px;">${sub.replace(/_/g, ' ')}</h3>`; 
-            loKeys.forEach(lo => { 
-                let sourceArray = window.getFilteredPool();
-                let count = sourceArray.filter(dbItem => matchFunc(lo, dbItem)).length; 
-                let label = window.studyMode === 'flashcards' ? 'Cards' : 'MCQs';
-                let outcomes = loObj[lo];
-                let toggleBtn = ''; let outcomesHtml = ''; let cleanId = 'outcomes-' + lo.replace(/[^a-zA-Z0-9]/g, '');
-
-                if(outcomes && outcomes.length > 0) {
-                    toggleBtn = `<div class="lo-toggle-btn" onclick="toggleLoOutcomes(event, '${cleanId}')"><i class="fa-solid fa-chevron-down"></i></div>`;
-                    outcomesHtml = `<div class="lo-outcomes" id="${cleanId}"><ul>` + outcomes.map(o => `<li>${o}</li>`).join('') + `</ul></div>`;
-                }
-
-                container.innerHTML += `
-                <div class="lo-wrapper">
-                    <label class="lo-label">
+    window.goToLO = function(){
+        const subs = Array.from(document.querySelectorAll('#view-step-subject input:checked')).map(cb=>cb.value);
+        if(subs.length === 0) return window.showToast("Select at least one subject", "info");
+        const container = document.getElementById('lo-container'); container.innerHTML = '';
+        window.studySubjects = subs.join(', ').replace(/_/g, ' ');
+        window.pushBreadcrumb('step-lo', window.studySubjects || 'Subjects');
+        const isFree = window.currentUser && window.currentUser.plan === 'free';
+        subs.forEach(sub => {
+            const loObj = window.HARDCODED_SYLLABUS[window.studyBlock]?.[window.studyModule]?.[sub] || {};
+            const loKeys = window.getSortedKeys(loObj);
+            if(loKeys.length > 0) {
+                container.innerHTML += `<h3 style="color:var(--text-gray); font-size:11px; margin-top:16px; margin-bottom:8px; text-transform:uppercase; letter-spacing: 0.8px;">${sub.replace(/_/g, ' ')}</h3>`;
+                loKeys.forEach((lo, idx) => {
+                    let sourceArray = window.getFilteredPool();
+                    let count = sourceArray.filter(dbItem => matchFunc(lo, dbItem)).length;
+                    let label = window.studyMode === 'flashcards' ? 'Cards' : 'MCQs';
+                    let outcomes = loObj[lo];
+                    let toggleBtn = ''; let outcomesHtml = ''; let cleanId = 'outcomes-' + lo.replace(/[^a-zA-Z0-9]/g, '');
+                    if(outcomes && outcomes.length > 0) {
+                        toggleBtn = `<div class="lo-toggle-btn" onclick="toggleLoOutcomes(event, '${cleanId}')"><i class="fa-solid fa-chevron-down"></i></div>`;
+                        outcomesHtml = `<div class="lo-outcomes" id="${cleanId}"><ul>` + outcomes.map(o => `<li>${o}</li>`).join('') + `</ul></div>`;
+                    }
+                    if (isFree && idx >= 5) {
+                        container.innerHTML += `
+                        <div class="lo-wrapper" style="pointer-events:none; opacity:0.5;">
+                        <div class="lo-card" style="background:var(--hover-bg);">
+                        <div style="flex:1;">
+                        <h4 style="color:var(--text-gray);">${lo}</h4>
+                        <span class="mcq-badge" style="margin-left:0; margin-top:6px; background:var(--hover-bg);"><i class="fa-solid fa-lock"></i> Locked</span>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                        <div class="subject-round-check"></div>
+                        </div>
+                        </div>
+                        </div>`;
+                    } else {
+                        container.innerHTML += `
+                        <div class="lo-wrapper">
+                        <label class="lo-label">
                         <input type="checkbox" value="${lo}">
                         <div class="lo-card">
-                            <div style="flex:1;">
-                                <h4>${lo}</h4>
-                                <span class="mcq-badge" style="margin-left:0; margin-top:6px;">${count} ${label}</span>
-                            </div>
-                            <div style="display:flex; align-items:center;">
-                                <div class="subject-round-check" style="width:20px; height:20px; margin-right:8px;"></div>
-                                ${toggleBtn}
-                            </div>
+                        <div style="flex:1;">
+                        <h4>${lo}</h4>
+                        <span class="mcq-badge" style="margin-left:0; margin-top:6px;">${count} ${label}</span>
                         </div>
-                    </label>
-                    ${outcomesHtml}
-                </div>`; 
-            }); 
-        } 
-    }); 
-    if(container.innerHTML === '') container.innerHTML = '<p>No specific LOs available yet.</p>'; 
-    const searchInput = document.getElementById('lo-search-input'); if(searchInput) searchInput.value = ''; window.filterLOs(); window.navTo('step-lo'); 
-}
+                        <div style="display:flex; align-items:center;">
+                        <div class="subject-round-check" style="width:20px; height:20px; margin-right:8px;"></div>
+                        ${toggleBtn}
+                        </div>
+                        </div>
+                        </label>
+                        ${outcomesHtml}
+                        </div>`;
+                    }
+                });
+            }
+        });
+        if(container.innerHTML === '') container.innerHTML = '<p>No specific LOs available yet.</p>';
+        const searchInput = document.getElementById('lo-search-input'); if(searchInput) searchInput.value = ''; window.filterLOs(); window.navTo('step-lo');
+    }
 
 window.filterLOs = function() { 
     let filter = document.getElementById('lo-search-input').value.toLowerCase(); 
@@ -2660,7 +2695,8 @@ window.renderSets = function(){
     filteredPool = window.distributePool(filteredPool, 15, diff); 
     const SET_SIZE = 15; const numSets = Math.ceil(filteredPool.length / SET_SIZE); 
     for(let i=0; i<numSets; i++) { 
-        const isLocked = (i > 0 && window.currentUser.plan !== 'pro'); 
+                    const isFree = window.currentUser && window.currentUser.plan === 'free';
+            const isLocked = (window.currentUser.plan !== 'pro') && (isFree ? i >= 3 : i > 0); 
         const startIdx = i * SET_SIZE, endIdx = Math.min((i + 1) * SET_SIZE, filteredPool.length), count = endIdx - startIdx; 
         const rawId = window.studyMode + '_' + diff + '_' + i + '_' + window.tempSelectedLOs.join('').substring(0,30); 
         const setId = rawId.replace(/[^a-zA-Z0-9_]/g, ''); 
