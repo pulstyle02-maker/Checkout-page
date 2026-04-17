@@ -1756,28 +1756,67 @@ window.requestPushPermissions = async function() {
                 try { localStorage.setItem('cached_flashcards', JSON.stringify(window.appData.flashcards)); } catch(e){} 
             } else { window.appData.flashcards =[]; }
 
-            // QUICK QS MAPPER
+            // QUICK QS MAPPER - Updated for Block 1 format with concatenated JSON objects
 if(qRes && qRes.ok) {
-    let qData = await qRes.json();
-    let rawNotes = Array.isArray(qData) ? qData : (qData.notes || qData.questions ||[]);
-    let parsedNotes =[];
-    rawNotes.forEach(n => {
-        let bodyContent = n.body || n.content || n.explanation || '';
-        if(!bodyContent && n.points && Array.isArray(n.points)) {
-            bodyContent = n.points.join('<br><br>');
-        }
-        parsedNotes.push({
-            id: n.id || Math.random().toString(),
-            lo: n.lo || 'General',
-            title: n.title || n.topic || 'Quick Note',
-            subHeading: n.subHeading || (n.topics && n.topics.length > 0 ? n.topics.join(', ') : ''),
-            body: bodyContent,
-            meta: n.meta || {}
-        });
-    });
-                window.appData.notes = parsedNotes; 
-                try { localStorage.setItem('cached_notes', JSON.stringify(window.appData.notes)); } catch(e){} 
-            } else { window.appData.notes =[]; }
+let parsedNotes =[];
+try {
+// Fetch as text first because file contains multiple concatenated JSON objects
+let rawText = await qRes.text();
+// Split by }{ pattern to separate individual JSON objects
+let jsonStrings = rawText.trim().split(/\}\s*\{/).map((s, i, arr) => {
+if(i === 0) return s + '}';
+if(i === arr.length - 1) return '{' + s;
+return '{' + s + '}';
+});
+// Parse each JSON object and extract nuggets
+jsonStrings.forEach(jsonStr => {
+try {
+let obj = JSON.parse(jsonStr);
+if(obj.nuggets && Array.isArray(obj.nuggets)) {
+obj.nuggets.forEach(nugget => {
+let lo = nugget.lo_heading || 'General';
+let contentArray = nugget.content || [];
+contentArray.forEach((contentItem, idx) => {
+// Convert **word** markdown to <strong>word</strong> HTML for highlighting
+let formattedContent = contentItem.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+parsedNotes.push({
+id: `${lo.replace(/[^a-zA-Z0-9]/g, '')}_${idx}_${Date.now()}`,
+lo: lo,
+title: lo.split('. ').pop() || 'Quick Note',
+subHeading: `${obj.module || ''} • ${obj.subject || ''}`,
+body: `<p>${formattedContent}</p>`,
+meta: { module: obj.module, subject: obj.subject, block: obj.block }
+});
+});
+});
+}
+} catch(e) { console.warn('Failed to parse quick qs chunk', e); }
+});
+} catch(e) { console.error('Error parsing quick-b1.json', e); }
+// Fallback to old format for other blocks if no nuggets found
+if(parsedNotes.length === 0 && qRes.ok) {
+try {
+let qData = await qRes.clone().json();
+let rawNotes = Array.isArray(qData) ? qData : (qData.notes || qData.questions ||[]);
+rawNotes.forEach(n => {
+let bodyContent = n.body || n.content || n.explanation || '';
+if(!bodyContent && n.points && Array.isArray(n.points)) {
+bodyContent = n.points.join('<br><br>');
+}
+parsedNotes.push({
+id: n.id || Math.random().toString(),
+lo: n.lo || 'General',
+title: n.title || n.topic || 'Quick Note',
+subHeading: n.subHeading || (n.topics && n.topics.length > 0 ? n.topics.join(', ') : ''),
+body: bodyContent,
+meta: n.meta || {}
+});
+});
+} catch(e) {}
+}
+window.appData.notes = parsedNotes;
+try { localStorage.setItem('cached_notes', JSON.stringify(window.appData.notes)); } catch(e){}
+} else { window.appData.notes =[]; }
 
             // USMLE MAPPER
             if(uRes && uRes.ok) { 
