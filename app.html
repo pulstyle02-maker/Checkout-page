@@ -8,9 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="ModMedicalis">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#3b82f6">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
+<meta http-equiv="Cache-Control" content="public, max-age=300, must-revalidate">
 <link rel="apple-touch-icon" href="https://i.imgur.com/wliwntu.png">
 <link rel="icon" type="image/png" href="https://i.imgur.com/wliwntu.png">
 <link rel="manifest" href="./manifest.json">
@@ -755,6 +753,26 @@ body.pending-verification .pending-portal-overlay { display: flex; }
 </style>
 </head>
 <body>
+
+<div id="pwa-fast-loader" style="position:fixed;inset:0;background:var(--bg-base);z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s ease;pointer-events:none;opacity:1;"><div class="brand-loader-ring"></div></div>
+<script>
+window.addEventListener('load', function() {
+const loader = document.getElementById('pwa-fast-loader');
+if(loader) {
+loader.style.opacity = '0';
+setTimeout(() => { loader.style.display = 'none'; }, 300);
+}
+});
+if ('serviceWorker' in navigator && window.matchMedia('(display-mode: standalone)').matches) {
+navigator.serviceWorker.ready.then(() => {
+const loader = document.getElementById('pwa-fast-loader');
+if(loader) {
+loader.style.opacity = '0';
+setTimeout(() => { loader.style.display = 'none'; }, 200);
+}
+});
+}
+</script>
 <div id="app-loader" class="app-loader-overlay hidden">
     <div class="brand-loader-ring"></div>
 </div>
@@ -2040,26 +2058,32 @@ document.querySelector('.pending-portal-overlay').style.display = 'none';
 window.handlePendingLogout = function() { signOut(auth).then(() => { window.navTo('login'); window.showToast("Logged out. Log in again to check status.", "info"); }); }
 window.handlePendingContinueToApp = function() { if(window.currentUser) { signOut(auth).then(()=> { window.navTo('login'); window.showToast("Log in to check your payment status", "info"); }); } else { window.navTo('login'); window.showToast("Log in to check your payment status", "info"); } }
     
-    window.handleLogin = async function() { 
-        const username = document.getElementById('loginUser').value.trim(), pass = document.getElementById('loginPass').value.trim(); 
-        if(!username || !pass) return window.showToast("Enter username and password.", "error"); 
-        const btn = document.getElementById('btn-login-action'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging in...'; btn.disabled = true; 
-        let fallbackEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; 
-        try { 
-            await signInWithEmailAndPassword(auth, fallbackEmail, pass); window.showToast("Logged in successfully!", "success"); 
-        } catch (fbErr) { 
-            try { 
-                const q = query(collection(db, "users"), where("username", "==", username)); 
-                const querySnapshot = await getDocs(q); 
-                if(querySnapshot.empty) throw new Error("Invalid credentials."); 
-                let targetDbPass = querySnapshot.docs[0].data().password; 
-                let targetEmail = querySnapshot.docs[0].data().email; 
-                await signInWithEmailAndPassword(auth, targetEmail, pass); window.showToast("Logged in successfully!", "success"); 
-            } catch (error) { 
-                console.error(error); window.showToast("Invalid credentials or server error."); btn.innerHTML = 'Log In'; btn.disabled = false; 
-            }
-        } 
-    }
+    window.handleLogin = async function() {
+const username = document.getElementById('loginUser').value.trim(), pass = document.getElementById('loginPass').value.trim();
+if(!username || !pass) return window.showToast("Enter username and password.", "error");
+const btn = document.getElementById('btn-login-action'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Logging in...'; btn.disabled = true;
+
+// Pre-warm Firebase connection in PWA mode
+if (window.matchMedia('(display-mode: standalone)').matches) {
+try { await auth.authStateReady(); } catch(e) {}
+}
+
+let fallbackEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local";
+try {
+await signInWithEmailAndPassword(auth, fallbackEmail, pass); window.showToast("Logged in successfully!", "success");
+} catch (fbErr) {
+try {
+const q = query(collection(db, "users"), where("username", "==", username));
+const querySnapshot = await getDocs(q);
+if(querySnapshot.empty) throw new Error("Invalid credentials.");
+let targetDbPass = querySnapshot.docs[0].data().password;
+let targetEmail = querySnapshot.docs[0].data().email;
+await signInWithEmailAndPassword(auth, targetEmail, pass); window.showToast("Logged in successfully!", "success");
+} catch (error) {
+console.error(error); window.showToast("Invalid credentials or server error."); btn.innerHTML = 'Log In'; btn.disabled = false;
+}
+}
+}
     
     window.updateSettingsBlocks = function() {
         const cls = document.getElementById('set-class').value || window.currentUser?.classInfo;
@@ -3550,7 +3574,9 @@ window.handlePendingContinueToApp = function() {
   }
 }
 if ('serviceWorker' in navigator) {
-navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration:', err));
+navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
+console.log('SW registered:', reg.scope);
+}).catch(err => console.log('SW registration:', err));
 }
 
 window.showSubHistory = function() {
