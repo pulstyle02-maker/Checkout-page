@@ -1740,21 +1740,30 @@ window.requestPushPermissions = async function() {
             } else { window.appData.mcqs =[]; }
             
             // FLASHCARDS MAPPER
-            if(fRes && fRes.ok) { 
-                let fData = await fRes.json(); 
-                let rawFc = Array.isArray(fData) ? fData : (fData.questions || fData.flashcards ||[]);
-                let parsedFc =[];
-                rawFc.forEach(f => {
-                    let front = f.front || f.question || 'Flashcard';
-                    let back = f.back || f.answer || f.explanation || '';
-                    if(f.options && typeof f.options === 'object' && !f.back && !f.answer) {
-                        back = f.options[f.ans] + "\n\n" + (f.explanation || "");
-                    }
-                    parsedFc.push({ id: f.id || Math.random().toString(), lo: f.lo || 'General', front: front, back: back });
-                });
-                window.appData.flashcards = parsedFc; 
-                try { localStorage.setItem('cached_flashcards', JSON.stringify(window.appData.flashcards)); } catch(e){} 
-            } else { window.appData.flashcards =[]; }
+if(fRes && fRes.ok) {
+let fData = await fRes.json();
+let rawFc = Array.isArray(fData) ? fData : (fData.questions || fData.flashcards ||[]);
+let parsedFc =[];
+rawFc.forEach(f => {
+let front = f.front || f.question || 'Flashcard';
+let back = f.back || f.answer || f.explanation || '';
+if(f.options && typeof f.options === 'object' && !f.back && !f.answer) {
+back = f.options[f.ans] + "\n" + (f.explanation || "");
+}
+front = front.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+back = back.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+let loCode = 'General';
+if(f.lo_tag) {
+let match = f.lo_tag.match(/^([A-Z]+-[A-Za-z]+-\d+)/i);
+if(match) {
+loCode = match[1];
+}
+}
+parsedFc.push({ id: f.id || Math.random().toString(), lo: loCode, front: front, back: back });
+});
+window.appData.flashcards = parsedFc;
+try { localStorage.setItem('cached_flashcards', JSON.stringify(window.appData.flashcards)); } catch(e){}
+} else { window.appData.flashcards =[]; }
 
             // QUICK QS MAPPER - Updated for Block 1 format with concatenated JSON objects
 if(qRes && qRes.ok) {
