@@ -33,7 +33,6 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Firebase Auth & Firestore - Network first, then cache
   if (url.hostname.includes('firebaseauth') || url.hostname.includes('firestore')) {
     event.respondWith(
       fetch(request)
@@ -47,7 +46,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // GitHub raw content - Cache first, then network
   if (url.hostname.includes('raw.githubusercontent.com')) {
     event.respondWith(
       caches.match(request).then(cached => {
@@ -61,7 +59,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets - Cache first
   if (request.destination === 'style' || request.destination === 'script' || request.destination === 'font' || request.destination === 'image') {
     event.respondWith(
       caches.match(request).then(cached => cached || fetch(request))
@@ -69,7 +66,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Default: Network first for HTML, cache fallback
   event.respondWith(
     fetch(request)
       .then(response => {
@@ -83,23 +79,45 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Push notifications
 self.addEventListener('push', event => {
-  const data = event.data ? event.data.json() : { title: 'ModMedicalis Update', body: 'Check your app for the latest updates.' };
-  self.registration.showNotification(data.title || 'ModMedicalis', {
-    body: data.body,
-    icon: 'https://i.imgur.com/wliwntu.png',
-    badge: 'https://i.imgur.com/wliwntu.png',
-    tag: 'modmedicalis-notification'
-  });
+  const data = event.data ? event.data.json() : { 
+    title: 'ModMedicalis Update', 
+    body: 'Check your app for the latest updates.', 
+    icon: 'https://i.imgur.com/wliwntu.png' 
+  };
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'ModMedicalis', {
+      body: data.body || '',
+      icon: data.icon || 'https://i.imgur.com/wliwntu.png',
+      badge: data.badge || 'https://i.imgur.com/wliwntu.png',
+      tag: data.tag || 'modmedicalis-notification',
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: 'open', title: 'Open App' },
+        { action: 'dismiss', title: 'Dismiss' }
+      ],
+      requireInteraction: true
+    })
+  );
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  event.waitUntil(clients.openWindow('./app.html'));
+  
+  if (event.action === 'open' || !event.action) {
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(clientList => {
+          if (clientList.length > 0) {
+            return clientList[0].focus();
+          }
+          return clients.openWindow('./');
+        })
+    );
+  }
 });
 
-// Background sync for login retry (optional but helpful)
 self.addEventListener('sync', event => {
   if (event.tag === 'sync-login') {
     event.waitUntil(self.clients.matchAll().then(clients => {
