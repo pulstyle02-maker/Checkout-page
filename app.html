@@ -1154,14 +1154,7 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
 <p style="color: rgba(255,255,255,0.9);">Practice previous years' official UHS MCQs</p>
 </div>
 </div>
-<div class="section-header" id="usmle-header" style="margin-top: 20px; margin-bottom: 8px;"><div class="section-title" style="background: var(--brand-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 16px; font-weight: 900; letter-spacing: 0.5px;">USMLE Step 1</div></div>
-<div class="gradient-practice-card" id="usmle-card" style="background-image: url('https://i.imgur.com/SyOZZws.png'); background-size: cover; background-position: center; position: relative;" onclick="startUsmleMode()">
-<div style="position: absolute; inset: 0; background: rgba(0,0,0,0.15); z-index: 1;"></div>
-<div style="position: relative; z-index: 2;">
-<h3 style="color: #fff; margin-bottom: 4px;">USMLE Focused</h3>
-<p style="color: rgba(255,255,255,0.9);">Master Step 1 tailored questions</p>
-</div>
-</div>
+
             <div id="batch29-grid" style="display:none; margin-top: 10px;">
             <div class="bento-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="bento-card interactive-card" style="grid-column: 1; grid-row: 1; min-height: 140px; background: linear-gradient(135deg, #ef4444, #f97316); box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);" onclick="window.triggerHaptic(); navTo('guessormess')">
@@ -1517,7 +1510,7 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
     const firebaseConfig = { apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI", authDomain: "modmedicalis-f7ca2.firebaseapp.com", projectId: "modmedicalis-f7ca2", storageBucket: "modmedicalis-f7ca2.firebasestorage.app", messagingSenderId: "786594019384", appId: "1:786594019384:web:1a86108fa496d05aadcecd" };
     const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
 
-    window.appData = { mcqs: [], flashcards: [], notes: [], usmle: [], pastpapers: [] }; window.currentUser = null; window.currentAvatar = "👨‍⚕️"; window.registerMode = 'free';
+    window.appData = { mcqs: [], flashcards: [], notes: [], usmle: [], pastpapers: [] }; window.currentUser = null; window.currentAvatar = "👨‍⚕️"; window.registerMode = 'free'; window.currentSessionId = localStorage.getItem('modmed_session_id') || (Date.now().toString(36) + Math.random().toString(36).substr(2)); localStorage.setItem('modmed_session_id', window.currentSessionId);
     window.currentQ = 0; window.score = 0; window.userAnswers = {}; window.studyMode = 'practice'; window.studyBlock = 'Block_1'; window.studyModule = ''; window.studySubjects = '';
     window.sessionData = []; window.currentPool = []; window.timerInterval = null; window.timeRemaining = 0; window.mockTimingMode = 'timed';
     window.currentSetId = null; window.tempSetData = null; window.sessionNewAtt = 0; window.sessionNewCor = 0; window.sessionLoUpdates = {}; window.sessionMistakeUpdates = {}; window.tempSelectedLOs = [];
@@ -1561,21 +1554,33 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
     
     // PUSH NOTIFICATIONS
     window.togglePushNotif = async function() {
-    if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        const icon = document.getElementById('settings-notif-icon');
-        if (permission === 'granted') {
-            icon.className = 'fa-solid fa-bell';
-            icon.style.color = 'var(--modmed-primary)';
-            window.showToast("Notifications enabled!", "success");
-        } else {
-            icon.className = 'fa-solid fa-bell-slash';
-            icon.style.color = 'var(--accent-red)';
-            window.showToast("Notifications denied. Enable them in browser settings.", "error");
-        }
-    } else {
-        window.showToast("Notifications not supported on this device.", "error");
-    }
+if ('Notification' in window) {
+const permission = await Notification.requestPermission();
+const icon = document.getElementById('settings-notif-icon');
+if (permission === 'granted') {
+icon.className = 'fa-solid fa-bell';
+icon.style.color = 'var(--modmed-primary)';
+if ('serviceWorker' in navigator) {
+try {
+const reg = await navigator.serviceWorker.ready;
+await reg.pushManager.subscribe({
+userVisibleOnly: true,
+applicationServerKey: null
+});
+window.showToast("Push subscription active!", "success");
+} catch(e) {
+console.log('Push subscription pending VAPID key');
+}
+}
+window.showToast("Notifications enabled!", "success");
+} else {
+icon.className = 'fa-solid fa-bell-slash';
+icon.style.color = 'var(--accent-red)';
+window.showToast("Notifications denied. Enable them in browser settings.", "error");
+}
+} else {
+window.showToast("Notifications not supported on this device.", "error");
+}
 }
 window.requestPushPermissions = async function() {
   if ('Notification' in window && Notification.permission === 'default' && !localStorage.getItem('modmed_first_notif')) {
@@ -1951,7 +1956,7 @@ try { localStorage.setItem('cached_notes', JSON.stringify(window.appData.notes))
             const docSnap = await getDoc(doc(db, "users", user.uid));
             if (docSnap.exists()) {
                 window.currentUser = docSnap.data();
-window.currentUser.uid = user.uid;
+window.currentUser.uid = user.uid; if (window.currentUser.activeSession && window.currentUser.activeSession !== window.currentSessionId) { await signOut(auth); window.showToast("Logged out: Account is already active on another device.", "info"); window.navTo('login'); return; }
 window.currentAvatar = window.currentUser.avatar || "👨‍⚕️";
 window.currentUser.progress = window.currentUser.progress || {};
 window.currentUser.loStats = window.currentUser.loStats || {};
@@ -2052,7 +2057,7 @@ document.querySelector('.pending-portal-overlay').style.display = 'none';
     window.toggleNotif = function() { document.getElementById('notif-panel').classList.toggle('active'); document.getElementById('notif-overlay').classList.toggle('active'); if(document.getElementById('notif-panel').classList.contains('active')) { document.getElementById('notif-badge-dot').style.display = 'none'; getDocs(collection(db, "notifications")).then(snap => { let ids = []; snap.forEach(d => { const n = d.data(); if(!n.targetUser || n.targetUser === 'all' || n.targetUser === window.currentUser.uid) ids.push(d.id); }); localStorage.setItem('seenNotifs', JSON.stringify(ids)); }); } }
     window.toggleSideMenu = function() { document.getElementById('side-menu').classList.toggle('active'); document.getElementById('side-menu-overlay').classList.toggle('active'); }
     window.prepRegister = function(mode) { window.registerMode = mode; document.getElementById('r-btn').innerHTML = 'Continue'; window.navTo('register'); }
-    window.executeRegister = async function() { const name = document.getElementById('r-name').value.trim(), classInfo = document.getElementById('r-class').value, college = document.getElementById('r-college').value.trim(), username = document.getElementById('r-user').value.trim(), pass = document.getElementById('r-pass').value.trim(), confirmPass = document.getElementById('r-confirm-pass').value.trim(); if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all fields."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { document.getElementById('r-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; document.getElementById('r-btn').disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: window.registerMode, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); await signOut(auth); document.getElementById('success-title').innerText = "Welcome!"; document.getElementById('success-message').innerText = "Your account has been created.\nPlease log in with your credentials to get started."; window.navTo('success'); } catch (error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { document.getElementById('r-btn').innerHTML = 'Continue'; document.getElementById('r-btn').disabled = false; } }
+    window.executeRegister = async function() { const name = document.getElementById('r-name').value.trim(), classInfo = document.getElementById('r-class').value, college = document.getElementById('r-college').value.trim(), username = document.getElementById('r-user').value.trim(), pass = document.getElementById('r-pass').value.trim(), confirmPass = document.getElementById('r-confirm-pass').value.trim(); if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all fields."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { document.getElementById('r-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; document.getElementById('r-btn').disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: window.registerMode, activeSession: window.currentSessionId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); await signOut(auth); document.getElementById('success-title').innerText = "Welcome!"; document.getElementById('success-message').innerText = "Your account has been created.\nPlease log in with your credentials to get started."; window.navTo('success'); } catch (error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { document.getElementById('r-btn').innerHTML = 'Continue'; document.getElementById('r-btn').disabled = false; } }
     window.executePremiumRegistration = async function() { const trxId = document.getElementById('pr-receipt').value.trim(); const btn = document.getElementById('btn-premium-action'); if(!trxId) return window.showToast("Please enter your transaction code."); if(window.currentUser) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; try { await updateDoc(doc(db, "users", window.currentUser.uid), { plan: "pending", receipt: trxId }); window._tempProUid = window.currentUser.uid; window.navTo('premium-success'); } catch(e) { window.showToast("Error updating account."); } finally { btn.innerHTML = 'Confirm Payment'; btn.disabled = false; } return; } const name = document.getElementById('pr-name').value.trim(), classInfo = document.getElementById('pr-class').value, college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim(); if(!name || !classInfo || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo, college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", receipt: trxId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); window.navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment'; btn.disabled = false; } }
     window.finishPremiumSuccess = async function() { const emailInput = document.getElementById('pr-confirm-email').value.trim(); if(!emailInput) return window.showToast("Please enter your email to receive updates."); if(window._tempProUid) { await updateDoc(doc(db, "users", window._tempProUid), { realEmail: emailInput }); window._tempProUid = null; } if(window.currentUser) { signOut(auth).then(()=> { window.navTo('login'); window.showToast("Log in to refresh your status", "success"); }); } else { window.navTo('login'); window.showToast("Log in using your credentials", "success"); } }
 window.handlePendingLogout = function() { signOut(auth).then(() => { window.navTo('login'); window.showToast("Logged out. Log in again to check status.", "info"); }); }
@@ -2070,7 +2075,7 @@ try { await auth.authStateReady(); } catch(e) {}
 
 let fallbackEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local";
 try {
-await signInWithEmailAndPassword(auth, fallbackEmail, pass); window.showToast("Logged in successfully!", "success");
+const cred = await signInWithEmailAndPassword(auth, fallbackEmail, pass); await updateDoc(doc(db, "users", cred.user.uid), { activeSession: window.currentSessionId }); window.showToast("Logged in successfully!", "success");
 } catch (fbErr) {
 try {
 const q = query(collection(db, "users"), where("username", "==", username));
@@ -2536,14 +2541,7 @@ window.navTo = function(viewId, skipBreadcrumb = false) {
 window.closeModals = function() { document.querySelectorAll('.action-modal, .paywall-modal, .avatar-modal, .modal-overlay, .notif-panel, .notif-overlay, .side-menu, .side-menu-overlay').forEach(el => el.classList.remove('active')); }
 window.showPaywallModal = function() { document.getElementById('modal-overlay').classList.add('active'); document.getElementById('paywall-modal').classList.add('active'); }
 
-window.startUsmleMode = function() {
-    if(window.currentUser.plan !== 'pro') return window.showPaywallModal(); window.studyMode = 'usmle'; window.bcHistory = [{id: 'dashboard', label: 'Home'}]; window.pushBreadcrumb('step-module', window.currentGlobalBlock === 'All' ? 'Prof Mode' : window.currentGlobalBlock.replace('_', ' ')); let footer = document.getElementById('module-mode-footer'); if(footer) { footer.innerText = 'USMLE Step 1 Mode'; footer.style.display = 'block'; }
-    if(window.currentGlobalBlock !== 'All') { 
-        window.studyBlock = window.currentGlobalBlock; const mc = document.getElementById('dynamic-modules-container'); mc.innerHTML = ''; let mods = window.HARDCODED_SYLLABUS[window.studyBlock] ? window.getSortedKeys(window.HARDCODED_SYLLABUS[window.studyBlock]) :[]; if(mods.length === 0) return window.showToast("Coming Soon", "info"); 
-        mods.forEach((m, idx) => { let c = window.dynColors[(idx+1)%3], n = m.replace(/_/g, ' '); if(m==='H_&_L') n='H & L'; let allLOs =[]; for(let s in window.HARDCODED_SYLLABUS[window.studyBlock][m]) { allLOs.push(...Object.keys(window.HARDCODED_SYLLABUS[window.studyBlock][m][s])); } let count = window.getFilteredPool().filter(dbItem => allLOs.some(lo => matchFunc(lo, dbItem))).length; mc.innerHTML += `<div class="list-card glass-card" onclick="selectModule('${m}', this)"><div class="list-card-left"><div class="list-icon ${c}"><i class="fa-solid fa-user-doctor"></i></div><div><h4>${n}</h4><p>View subjects <span class="mcq-badge">${count} USMLE Qs</span></p></div></div><i class="fa-solid fa-chevron-right"></i></div>`; }); 
-        window.navTo('step-module'); 
-    } else { window.navTo('step-block'); }
-}
+window.startUsmleMode = function() { window.showToast("USMLE mode has been disabled.", "info"); }
 
 window.checkProAction = function(action) { if(window.currentUser && window.currentUser.plan === 'pro') { if(action === 'mock') { window.navTo('mock-timing'); } return true; } window.showPaywallModal(); return false; }
 window.selectMockTiming = function(mode) { if(mode === 'timed' && window.currentUser.plan !== 'pro') return window.showPaywallModal(); window.mockTimingMode = mode; if(mode === 'timed') { document.querySelectorAll('.action-modal').forEach(m => m.classList.remove('active')); document.getElementById('modal-overlay').classList.add('active'); document.getElementById('mock-timer-setup-modal').classList.add('active'); } else { let profBtn = document.getElementById('mock-prof-btn'); if(profBtn) profBtn.style.display = window.currentGlobalBlock === 'All' ? 'flex' : 'none'; window.navTo('mock-menu'); } }
@@ -3532,7 +3530,7 @@ window.checkPremiumStatusOnLoad = async function() {
         }
     }
 };
-window.executePremiumRegistration = async function() { const trxId = document.getElementById('pr-receipt').value.trim(); const btn = document.getElementById('btn-premium-action'); if(!trxId) return window.showToast("Please enter your transaction code."); let finalPrice = 1189; if(window._appliedDiscount && window._appliedDiscount.finalPrice) { finalPrice = window._appliedDiscount.finalPrice; } if(window.currentUser) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; try { await updateDoc(doc(db, "users", window.currentUser.uid), { plan: "pending", receipt: trxId, selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0 }); window._tempProUid = window.currentUser.uid; navTo('premium-success'); } catch(e) { window.showToast("Error updating account."); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } return; } const name = document.getElementById('pr-name').value.trim(), college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim(); if(!name || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo: "MBBS " + (window.selectedYearForPlan === '1st' ? '1st Year' : '3rd Year'), college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0, receipt: trxId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } };
+window.executePremiumRegistration = async function() { const trxId = document.getElementById('pr-receipt').value.trim(); const btn = document.getElementById('btn-premium-action'); if(!trxId) return window.showToast("Please enter your transaction code."); let finalPrice = 1189; if(window._appliedDiscount && window._appliedDiscount.finalPrice) { finalPrice = window._appliedDiscount.finalPrice; } if(window.currentUser) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; try { await updateDoc(doc(db, "users", window.currentUser.uid), { plan: "pending", receipt: trxId, selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0 }); window._tempProUid = window.currentUser.uid; navTo('premium-success'); } catch(e) { window.showToast("Error updating account."); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } return; } const name = document.getElementById('pr-name').value.trim(), college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim(); if(!name || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo: "MBBS " + (window.selectedYearForPlan === '1st' ? '1st Year' : '3rd Year'), college, username, email: generatedEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0, receipt: trxId, activeSession: window.currentSessionId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } };
 // CLEAN INITIALIZATION (Replaces the broken duplicate listener)
 window.checkPremiumStatusOnLoad = async function() {
 	if (!window.currentUser) return;
