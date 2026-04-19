@@ -41,7 +41,7 @@
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .panel-header h2 { font-size: 20px; font-weight: 700; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 16px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+    th, td { padding: 16px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
     th { color: var(--text-gray); font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
     tr:hover { background-color: rgba(0,0,0,0.01); }
     td.pass-col { font-family: monospace; background: #f9fafb; padding: 4px 8px; border-radius: 6px; letter-spacing: 1px; color: #d97706; font-weight: bold;}
@@ -66,7 +66,7 @@
     .btn-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-danger:hover { background: #fecaca; }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .search-wrap { margin-bottom: 20px; display: flex; gap: 10px; }
+    .search-wrap { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
     .modal-overlay.active { display: flex; animation: fadeIn 0.2s; }
     .modal-card { background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 480px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
@@ -106,8 +106,19 @@
             <h2>User Database</h2>
         </div>
         <div class="search-wrap">
-            <input type="text" id="userSearchInput" class="input-field" placeholder="Search by name, username, email, or college..." style="flex:1;">
-            <button class="btn btn-primary" onclick="filterUsers()"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+            <input type="text" id="userSearchInput" class="input-field" placeholder="Search by name, username, email, or college..." style="flex:1;" onkeyup="renderUsers()">
+            <select id="userFilterStatus" class="input-field" style="width: auto; flex: none;" onchange="renderUsers()">
+                <option value="all">All Plans</option>
+                <option value="pending">Pending</option>
+                <option value="pro">Pro</option>
+                <option value="early-bird">Early-Bird</option>
+                <option value="free">Free</option>
+            </select>
+            <select id="userSort" class="input-field" style="width: auto; flex: none;" onchange="renderUsers()">
+                <option value="latest">Latest First</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+            <button class="btn btn-primary" onclick="renderUsers()"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
             <button class="btn btn-outline" onclick="clearUserSearch()"><i class="fa-solid fa-xmark"></i> Clear</button>
         </div>
         <div style="overflow-x:auto;">
@@ -125,13 +136,16 @@
         <!-- Invitations Section -->
         <div class="code-section">
             <h3><i class="fa-solid fa-key" style="color:var(--primary); margin-right:8px;"></i> Create Invitation Code</h3>
-            <div class="form-row">
-                <input type="text" id="newInviteCode" class="input-field" placeholder="Code (e.g. MOD-100)" style="flex:2;">
-                <select id="newInvitePlan" class="input-field" style="flex:1;">
+            <div class="form-row" style="flex-wrap: wrap;">
+                <input type="text" id="newInviteCode" class="input-field" placeholder="Code (e.g. MOD-100)" style="flex:2; min-width: 150px;">
+                <select id="newInvitePlan" class="input-field" style="flex:1; min-width: 120px;">
                     <option value="free">FREE</option>
                     <option value="pro">PRO</option>
                     <option value="early-bird">EARLY-BIRD</option>
                 </select>
+                <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; min-width: 120px;">
+                    <input type="checkbox" id="newInviteOneTime"> One-Time Use
+                </label>
                 <button class="btn btn-primary" id="createInviteBtn"><i class="fa-solid fa-plus"></i> Create</button>
             </div>
             <table id="invitesTable" style="margin-top:16px;">
@@ -256,16 +270,14 @@
     let currentEditNotifId = null;
     let userToDeleteUid = null;
 
-    // --- USERS ---
+    // --- USERS CORE ---
     const listenToUsers = () => {
-        const tbody = document.querySelector('#usersTable tbody');
-        const notifDropdown = document.getElementById('notifTargetUser');
-        
         onSnapshot(collection(db, "users"), (snapshot) => {
-            tbody.innerHTML = '';
-            notifDropdown.innerHTML = '<option value="all">Broadcast to All Users</option>';
             let total = 0, pro = 0, pending = 0, earlyBird = 0;
             globalUsers = [];
+
+            const notifDropdown = document.getElementById('notifTargetUser');
+            notifDropdown.innerHTML = '<option value="all">Broadcast to All Users</option>';
 
             snapshot.forEach((userDoc) => {
                 const user = userDoc.data();
@@ -277,29 +289,100 @@
                 if(user.plan === 'pro') pro++;
                 if(user.plan === 'pending') pending++;
                 if(user.plan === 'early-bird') earlyBird++;
-
-                const receiptHtml = user.receipt ? `<span class="receipt-text">${user.receipt}</span>` : '-';
-                const planClass = user.plan === 'early-bird' ? 'early-bird' : user.plan;
-                
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><div style="font-weight:800; color:#111;">${user.name}</div><div style="color:#6b7280; font-size:12px;">${user.classInfo} • ${user.college || 'N/A'}</div></td>
-                    <td><div style="font-size:13px;"><b>@${user.username}</b></div><div style="font-size:13px;">Pass: <span class="pass-col">${user.password || 'Hidden'}</span></div></td>
-                    <td><span class="badge ${planClass}">${user.plan.toUpperCase()}</span></td>
-                    <td>${receiptHtml}</td>
-                    <td>
-                        <button class="btn btn-outline edit-user-btn" data-uid="${uid}" data-user="${user.username}" data-pass="${user.password}" data-plan="${user.plan}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn btn-danger delete-user-btn" data-uid="${uid}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
             });
 
             document.getElementById('statTotalUsers').innerText = total;
             document.getElementById('statProUsers').innerText = pro;
             document.getElementById('statEarlyBirdUsers').innerText = earlyBird;
             document.getElementById('statPendingUsers').innerText = pending;
+
+            window.renderUsers();
         });
+    }
+
+    // --- RENDER & FILTER USERS ---
+    window.renderUsers = function() {
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = '';
+        
+        let filtered = [...globalUsers];
+        const term = document.getElementById('userSearchInput').value.toLowerCase();
+        const statusFilter = document.getElementById('userFilterStatus').value;
+        const sortOrder = document.getElementById('userSort').value;
+
+        // Apply Search
+        if(term) {
+            filtered = filtered.filter(u => 
+                (u.name||'').toLowerCase().includes(term) ||
+                (u.username||'').toLowerCase().includes(term) ||
+                (u.email||'').toLowerCase().includes(term) ||
+                (u.college||'').toLowerCase().includes(term)
+            );
+        }
+
+        // Apply Status Filter
+        if(statusFilter !== 'all') {
+            filtered = filtered.filter(u => u.plan === statusFilter);
+        }
+
+        // Apply Sorting by Date (Handles missing dates by throwing to bottom)
+        filtered.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return sortOrder === 'latest' ? dateB - dateA : dateA - dateB;
+        });
+
+        if(filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color:#6b7280;">No users found.</td></tr>';
+            return;
+        }
+
+        filtered.forEach(user => {
+            const receiptHtml = user.receipt ? `<span class="receipt-text">${user.receipt}</span>` : '-';
+            const planClass = user.plan === 'early-bird' ? 'early-bird' : user.plan;
+            
+            // New Registration Tracking
+            const isNewHtml = user.isNew === true ? `<span class="badge" style="background:#ef4444; color:white; margin-left:6px; animation: pulse 1.5s infinite;">NEW!</span>` : '';
+            const ackBtnHtml = user.isNew === true ? `<button class="btn btn-outline ack-btn" data-uid="${user.uid}" style="padding:6px 10px; font-size:12px; color:#16a34a; border-color:#16a34a;" title="Acknowledge & Mark Read"><i class="fa-solid fa-check"></i></button>` : '';
+
+            // Exact Registration Time Formatting (PST Timezone)
+            let exactDateStr = 'Unknown Registration Date';
+            if(user.createdAt) {
+                try {
+                    exactDateStr = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/Los_Angeles',
+                        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                        hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+                    }).format(new Date(user.createdAt));
+                } catch(e) {}
+            }
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <div style="font-weight:800; color:#111; display:flex; align-items:center;">${user.name} ${isNewHtml}</div>
+                    <div style="color:#6b7280; font-size:12px; margin-top:2px;"><i class="fa-solid fa-envelope"></i> ${user.email || 'No email provided'}</div>
+                    <div style="color:#6b7280; font-size:12px; margin-top:2px;">${user.classInfo || 'N/A'} • ${user.college || 'N/A'}</div>
+                    <div style="color:var(--primary); font-size:11px; margin-top:6px; font-weight:600;"><i class="fa-solid fa-clock"></i> ${exactDateStr}</div>
+                </td>
+                <td><div style="font-size:13px;"><b>@${user.username}</b></div><div style="font-size:13px;">Pass: <span class="pass-col">${user.password || 'Hidden'}</span></div></td>
+                <td><span class="badge ${planClass}">${(user.plan||'').toUpperCase()}</span></td>
+                <td>${receiptHtml}</td>
+                <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                    ${ackBtnHtml}
+                    <button class="btn btn-outline edit-user-btn" data-uid="${user.uid}" data-user="${user.username}" data-pass="${user.password}" data-plan="${user.plan}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-danger delete-user-btn" data-uid="${user.uid}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    window.clearUserSearch = function() {
+        document.getElementById('userSearchInput').value = '';
+        document.getElementById('userFilterStatus').value = 'all';
+        document.getElementById('userSort').value = 'latest';
+        renderUsers();
     }
 
     // --- INVITATIONS ---
@@ -310,10 +393,12 @@
             snapshot.forEach((codeDoc) => {
                 const data = codeDoc.data();
                 const codeId = codeDoc.id;
+                const oneTimeBadge = data.oneTime ? `<span class="badge" style="background:#fce7f3; color:#be185d; border: 1px solid #fbcfe8; margin-left:6px;">ONE-TIME</span>` : '';
+                
                 tbody.innerHTML += `
                     <tr>
                         <td><b style="color:var(--primary);">${codeId}</b></td>
-                        <td><span class="badge ${data.plan}">${data.plan.toUpperCase()}</span></td>
+                        <td><span class="badge ${data.plan}">${data.plan.toUpperCase()}</span> ${oneTimeBadge}</td>
                         <td style="font-size:12px; color:#6b7280;">${new Date(data.createdAt).toLocaleDateString()}</td>
                         <td><button class="btn btn-danger delete-invite-btn" data-id="${codeId}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-trash"></i></button></td>
                     </tr>`;
@@ -372,6 +457,12 @@
 
     // --- EVENT DELEGATION ---
     document.addEventListener('click', (e) => {
+        const ackBtn = e.target.closest('.ack-btn');
+        if(ackBtn) {
+            ackBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            updateDoc(doc(db, "users", ackBtn.dataset.uid), { isNew: false });
+            return;
+        }
         const editBtn = e.target.closest('.edit-user-btn');
         if(editBtn) {
             currentEditUid = editBtn.dataset.uid;
@@ -448,9 +539,15 @@
     document.getElementById('createInviteBtn').addEventListener('click', async () => {
         const code = document.getElementById('newInviteCode').value.trim().toUpperCase();
         const plan = document.getElementById('newInvitePlan').value;
+        const oneTime = document.getElementById('newInviteOneTime').checked;
         if(!code || code.length < 4) return alert("Code must be 4+ chars.");
-        await setDoc(doc(db, "invitationCodes", code), { plan, createdAt: new Date().toISOString() });
+        await setDoc(doc(db, "invitationCodes", code), { 
+            plan, 
+            oneTime: oneTime, 
+            createdAt: new Date().toISOString() 
+        });
         document.getElementById('newInviteCode').value = '';
+        document.getElementById('newInviteOneTime').checked = false;
     });
 
     document.getElementById('createDiscountBtn').addEventListener('click', async () => {
@@ -475,18 +572,6 @@
         document.getElementById('notifTitle').value = ''; document.getElementById('notifMsg').value = '';
         btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Notification'; btn.disabled = false;
     });
-
-    // --- SEARCH ---
-    window.filterUsers = function() {
-        const term = document.getElementById('userSearchInput').value.toLowerCase();
-        document.querySelectorAll('#usersTable tbody tr').forEach(row => {
-            row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
-        });
-    }
-    window.clearUserSearch = function() {
-        document.getElementById('userSearchInput').value = '';
-        document.querySelectorAll('#usersTable tbody tr').forEach(row => row.style.display = '');
-    }
 
     // --- INIT ---
     window.onload = () => {
