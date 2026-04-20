@@ -1342,7 +1342,22 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
         <div id="view-dashboard" class="page">
             <div class="page-wrapper" style="padding-top: 0;">
                 <div class="header-row" style="align-items: center;"><div class="greeting-box"><div class="greeting-sub" id="greeting-time">GOOD MORNING,</div><div class="greeting-main"><span id="greet-name" style="font-weight: 900 !important; font-size: 28px;"></span></div></div><div class="session-selector-wrapper" style="margin-top: 0; cursor: pointer;" onclick="showBlockChangeToast()"><strong id="current-session-name" style="background: var(--brand-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 14px; font-weight: 900; letter-spacing: 0.5px;">BLOCK 1</strong></div></div>
-                <div class="accuracy-card interactive-card" onclick="cycleDashboardStats()"><div class="streak-pill"><span style="color:red; font-size:12px;">🔥</span> <span id="streak-txt">7 DAY STREAK</span></div><div class="acc-label" id="acc-label">TOTAL ACCURACY</div><div class="acc-row"><div class="acc-value" id="txt-correct">0%</div><div class="acc-change" id="acc-change">TAP TO SWAP <i class="fa-solid fa-rotate"></i></div></div><div class="acc-progress-bar"><div class="acc-progress-fill" id="acc-fill-bar"></div></div><i class="fa-solid fa-bolt bg-icon" id="acc-bg-icon"></i></div>
+                
+                <style>
+                .stats-carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 12px; margin-bottom: 16px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+                .stats-carousel::-webkit-scrollbar { display: none; }
+                .stat-carousel-card { flex: 0 0 150px; scroll-snap-align: start; background: transparent; border: none; padding: 10px 8px; display: flex; flex-direction: column; justify-content: center; box-shadow: none; user-select: none; }
+                .stat-carousel-card i.stat-icon { font-size: 28px; margin-bottom: 16px; background: var(--brand-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .stat-carousel-card .stat-val { font-size: 26px; font-weight: 900; font-family: 'Inter', sans-serif; color: var(--text-dark); margin-bottom: 12px; line-height: 1; }
+                .stat-carousel-card .stat-lbl { font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 900; text-transform: uppercase; background: var(--brand-grad); color: #0a1122; padding: 6px 10px; border-radius: 0px; letter-spacing: 0.5px; display: inline-block; align-self: flex-start; }
+                </style>
+                <div class="stats-carousel" id="dashboard-stats-carousel">
+                    <div class="stat-carousel-card"><i class="fa-solid fa-fire-flame-curved stat-icon"></i><div class="stat-val" id="car-streak">0</div><div class="stat-lbl">DAILY STREAK</div></div>
+                    <div class="stat-carousel-card"><i class="fa-solid fa-bullseye stat-icon"></i><div class="stat-val" id="car-accuracy">0%</div><div class="stat-lbl">TOTAL ACCURACY</div></div>
+                    <div class="stat-carousel-card"><i class="fa-solid fa-layer-group stat-icon"></i><div class="stat-val" id="car-questions">0</div><div class="stat-lbl">QUESTIONS DONE</div></div>
+                    <div class="stat-carousel-card"><i class="fa-solid fa-book-open stat-icon"></i><div class="stat-val" id="car-syllabus">0%</div><div class="stat-lbl">SYLLABUS COVERED</div></div>
+                </div>
+
                 <div id="continue-section" style="display:none; margin-bottom: 24px;"><div class="section-header"><div class="section-title" style="background: var(--brand-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 16px; font-weight: 900; letter-spacing: 0.5px;">Resume Learning</div></div><div id="continue-container"></div></div>
                 <div class="section-header" id="kickstart-header" style="margin-top: 14px; margin-bottom: 8px;"><div class="section-title" style="background: var(--brand-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 16px; font-weight: 900; letter-spacing: 0.5px;">Kickstart Learning</div></div>
                 <div class="bento-grid" id="main-bento-grid">
@@ -2702,10 +2717,39 @@ if(opt.value !== 'MBBS 1st Year (Batch 29)') opt.disabled = true;
     }
     
     window.calculateStreak = function() { if(!window.currentUser) return; let now = new Date(); let todayStr = now.toDateString(); let lastStr = window.currentUser.lastActiveDate; if (lastStr !== todayStr) { let yesterday = new Date(now); yesterday.setDate(now.getDate() - 1); if (lastStr === yesterday.toDateString()) { window.currentUser.streak = (window.currentUser.streak || 0) + 1; } else { if(window.currentUser.streak > 1) { window.showToast("Your streak ended! Start fresh today.", "error"); } window.currentUser.streak = 1; } window.currentUser.lastActiveDate = todayStr; updateDoc(doc(db, "users", window.currentUser.uid), { streak: window.currentUser.streak, lastActiveDate: todayStr }); if(Notification.permission === 'granted' && window.currentUser.streak > 1) { new Notification("Streak Updated! 🔥", { body: `You are on a ${window.currentUser.streak} day streak! Keep it up!`, icon: 'https://i.imgur.com/wliwntu.png' }); } } }
-    window.cycleDashboardStats = function() { window.statCycleIndex = (window.statCycleIndex + 1) % 3; window.triggerHaptic(); window.updateCircStats(); }
+    window.cycleDashboardStats = function() {}
+
+    window.initStatsCarousel = function() {
+        const slider = document.getElementById('dashboard-stats-carousel');
+        if(!slider || slider.dataset.init) return;
+        slider.dataset.init = 'true';
+        let isDown = false; let startX; let scrollLeft;
+        slider.addEventListener('mousedown', (e) => { isDown = true; slider.style.scrollSnapType = 'none'; slider.style.cursor = 'grabbing'; startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft; });
+        slider.addEventListener('mouseleave', () => { isDown = false; slider.style.scrollSnapType = 'x mandatory'; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mouseup', () => { isDown = false; slider.style.scrollSnapType = 'x mandatory'; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mousemove', (e) => { if(!isDown) return; e.preventDefault(); const x = e.pageX - slider.offsetLeft; const walk = (x - startX) * 2; slider.scrollLeft = scrollLeft - walk; });
+        slider.addEventListener('touchstart', (e) => { slider.style.scrollSnapType = 'none'; }, {passive: true});
+        slider.addEventListener('touchend', (e) => { slider.style.scrollSnapType = 'x mandatory'; }, {passive: true});
+        
+        let scrollPos = 0; let direction = 1;
+        setInterval(() => {
+            if(isDown || document.hidden || !document.getElementById('view-dashboard').classList.contains('active')) return;
+            const cards = slider.querySelectorAll('.stat-carousel-card');
+            if(!cards.length) return;
+            const cardWidth = cards[0].offsetWidth + 12;
+            const maxScroll = slider.scrollWidth - slider.clientWidth;
+            
+            scrollPos += direction * cardWidth;
+            if(scrollPos >= maxScroll + cardWidth/2) { direction = -1; scrollPos = maxScroll - cardWidth; }
+            else if(scrollPos <= -cardWidth/2) { direction = 1; scrollPos = cardWidth; }
+            
+            slider.scrollTo({ left: scrollPos, behavior: 'smooth' });
+        }, 3500);
+    };
 
     window.updateCircStats = function() { 
         if(!window.currentUser) return; 
+        window.initStatsCarousel();
         let loStats = window.currentUser.loStats || {}; 
         let att = 0, cor = 0, uniqueLOs = 0; 
         for(let lo in loStats) { 
@@ -2717,20 +2761,15 @@ if(opt.value !== 'MBBS 1st Year (Batch 29)') opt.disabled = true;
         let totalLOs = window.getTotalLOsForBlock(window.currentGlobalBlock); 
         let syllabus = totalLOs > 0 ? Math.round((uniqueLOs / totalLOs) * 100) : 0; 
         
-        let streakEl = document.getElementById('streak-txt'); 
-        if(streakEl) streakEl.innerText = (window.currentUser.streak || 0) + " DAY STREAK"; 
-        let labelEl = document.getElementById('acc-label'); 
-        let valEl = document.getElementById('txt-correct'); 
-        let fillBar = document.getElementById('acc-fill-bar'); 
-        let iconEl = document.getElementById('acc-bg-icon'); 
+        let cStreak = document.getElementById('car-streak');
+        let cAcc = document.getElementById('car-accuracy');
+        let cQues = document.getElementById('car-questions');
+        let cSyl = document.getElementById('car-syllabus');
         
-        if(window.statCycleIndex === 0) { 
-            labelEl.innerText = "TOTAL ACCURACY"; valEl.innerHTML = totalAcc + "%"; fillBar.style.width = totalAcc + "%"; fillBar.style.background = "#ffffff"; iconEl.className = "fa-solid fa-bolt bg-icon"; 
-        } else if (window.statCycleIndex === 1) { 
-            labelEl.innerText = "QUESTIONS DONE"; valEl.innerHTML = att; fillBar.style.width = Math.min(100, (att / 1500) * 100) + "%"; fillBar.style.background = "#facc15"; iconEl.className = "fa-solid fa-bullseye bg-icon"; 
-        } else if (window.statCycleIndex === 2) { 
-            labelEl.innerText = "SYLLABUS COVERED"; valEl.innerHTML = syllabus + "%"; fillBar.style.width = syllabus + "%"; fillBar.style.background = "#34d399"; iconEl.className = "fa-solid fa-book-open bg-icon"; 
-        }
+        if(cStreak) cStreak.innerText = (window.currentUser.streak || 0);
+        if(cAcc) cAcc.innerText = totalAcc + "%";
+        if(cQues) cQues.innerText = att;
+        if(cSyl) cSyl.innerText = syllabus + "%";
     }
 
     window.cleanUpDeletedMCQs = async function() {
@@ -2783,20 +2822,14 @@ if(uHeader) uHeader.style.display = 'none';
 if(uCard) uCard.style.display = 'none';
 if(b29Grid) b29Grid.style.display = 'block';
 if(contSec) contSec.style.display = 'none';
-document.getElementById('acc-label').style.display = 'none';
-document.querySelector('.acc-row').style.display = 'none';
-document.querySelector('.acc-progress-bar').style.display = 'none';
-document.getElementById('acc-bg-icon').style.display = 'none';
+if(document.getElementById('dashboard-stats-carousel')) document.getElementById('dashboard-stats-carousel').style.display = 'none';
 } else {
 if(kickHeader) kickHeader.style.display = 'flex';
 if(mainBento) mainBento.style.display = 'grid';
 if(uHeader) uHeader.style.display = 'flex';
 if(uCard) uCard.style.display = 'flex';
 if(b29Grid) b29Grid.style.display = 'none';
-document.getElementById('acc-label').style.display = 'block';
-document.querySelector('.acc-row').style.display = 'flex';
-document.querySelector('.acc-progress-bar').style.display = 'block';
-document.getElementById('acc-bg-icon').style.display = 'block';
+if(document.getElementById('dashboard-stats-carousel')) document.getElementById('dashboard-stats-carousel').style.display = 'flex';
 }
 
 // FREE USER LOCK LOGIC
