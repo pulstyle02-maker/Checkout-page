@@ -1408,7 +1408,14 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
         <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:6px 0;">Forensic Medicine</td><td style="padding:6px 0; text-align:right;">20</td></tr>
         <tr style="font-weight:900;"><td style="padding:6px 0;">Total</td><td style="padding:6px 0; text-align:right;">100</td></tr>
     </table>
-    <p style="color:var(--accent-red); font-size:11px; margin-bottom:16px; font-weight:800;">WARNING: This code can only be used ONCE. Are you ready to start?</p>
+    
+    <div class="input-group" style="margin-bottom:16px;">
+        <i class="fa-solid fa-file-signature" style="color:var(--modmed-primary);"></i>
+        <select id="mid-block-mock-index" class="app-input glass-card">
+            <option value="1">Exam 1 (Mock A)</option>
+            <option value="2">Exam 2 (Mock B)</option>
+        </select>
+    </div>
     
     <div style="display: flex; flex-direction:column; gap: 8px;">
         <button class="btn" onclick="window.startMidBlockExam('timed')" style="margin:0; background: linear-gradient(135deg, #ef4444, #b91c1c) !important;"><i class="fa-solid fa-stopwatch"></i> Start Timed</button>
@@ -3014,34 +3021,54 @@ weekData.forEach((obj, i) => {
     }
 
 window.openMidBlockModal = function() {
+    const modal1 = document.getElementById('mid-block-modal');
+    const modal2 = document.getElementById('mid-block-tos-modal');
+    const overlay = document.getElementById('modal-overlay');
+    
+    if (modal1 && modal1.parentNode !== overlay.parentNode) overlay.parentNode.appendChild(modal1);
+    if (modal2 && modal2.parentNode !== overlay.parentNode) overlay.parentNode.appendChild(modal2);
+
     document.querySelectorAll('.action-modal').forEach(m => m.classList.remove('active'));
-    document.getElementById('modal-overlay').classList.add('active');
-    document.getElementById('mid-block-modal').classList.add('active');
-    document.getElementById('mid-block-roll').value = '';
-    document.getElementById('mid-block-code').value = '';
+    overlay.classList.add('active');
+    
+    if (window.currentUser && window.currentUser.midBlock7Unlocked) {
+        window._midBlockRoll = window.currentUser.midBlockRoll || 'Redeemed';
+        modal2.classList.add('active');
+    } else {
+        modal1.classList.add('active');
+        document.getElementById('mid-block-roll').value = '';
+        document.getElementById('mid-block-code').value = '';
+    }
 }
 
 window._midBlockRoll = null;
 
 window.validateMidBlock = async function() {
     const roll = document.getElementById('mid-block-roll').value.trim();
-    const code = document.getElementById('mid-block-code').value.trim();
+    const code = document.getElementById('mid-block-code').value.trim().toUpperCase();
     
     if(!roll || isNaN(roll) || parseInt(roll) < 1 || parseInt(roll) > 340) {
         return window.showToast("Please enter a valid Roll Number between 1 and 340.");
     }
     if(!code) return window.showToast("Please enter the invite code.");
 
+    if(code !== "THEGREAT28") {
+        return window.showToast("Invalid invite code.");
+    }
+
     try {
-        const codeDoc = await getDoc(doc(db, "midBlockCodes", code));
-        if(!codeDoc.exists()) {
-            return window.showToast("Invalid invite code.");
-        }
-        
         const rollDoc = await getDoc(doc(db, "midBlockRolls", roll));
         if(rollDoc.exists() && rollDoc.data().used) {
-            return window.showToast("This Roll Number has already been used to redeem the gift.");
+            if(rollDoc.data().uid !== window.currentUser.uid) {
+                return window.showToast("This Roll Number has already been used to redeem the gift.");
+            }
         }
+        
+        await updateDoc(doc(db, "users", window.currentUser.uid), { midBlock7Unlocked: true, midBlockRoll: roll });
+        window.currentUser.midBlock7Unlocked = true;
+        window.currentUser.midBlockRoll = roll;
+
+        await setDoc(doc(db, "midBlockRolls", roll), { used: true, uid: window.currentUser.uid, timestamp: new Date().toISOString() });
         
         window._midBlockRoll = roll;
         document.getElementById('mid-block-modal').classList.remove('active');
@@ -3056,55 +3083,195 @@ window.startMidBlockExam = async function(mode) {
     if(!window._midBlockRoll) return;
     
     try {
-        await setDoc(doc(db, "midBlockRolls", window._midBlockRoll), { used: true, uid: window.currentUser.uid, timestamp: new Date().toISOString() });
-        
+        let mockIndexSelect = document.getElementById('mid-block-mock-index');
+        let mockIndex = parseInt(mockIndexSelect ? mockIndexSelect.value : 1);
+
         window.isMidBlock = true;
         window.studyMode = 'mock';
         window.mockTimingMode = mode;
         window.mockSecondsPerQ = 60;
         
-        let allMcqs = window.appData.mcqs || [];
+        let allMcqs = window.appData.mcqs ||[];
         let finalData =[];
         
-        let pharmaPool = allMcqs.filter(q => {
-            let mod = (q.module || '').toLowerCase();
-            return mod.includes('foundation-ii') || mod.includes('general & clinical');
-        });
-        let pharmaSelected = pharmaPool.sort(() => Math.random() - 0.5).slice(0, 40);
-        pharmaSelected.forEach(q => q.subject = "Pharmacology");
-        finalData.push(...pharmaSelected);
+        let getNGrams = function(text, n) {
+            let words = (text||'').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w=>w.length>0);
+            let ngrams = new Set();
+            for(let i=0; i<=words.length-n; i++) ngrams.add(words.slice(i, i+n).join(' '));
+            return ngrams;
+        };
         
-        let pathoPool = allMcqs.filter(q => {
-            let l = q.lo || '';
-            return l === 'F2-Pa-003' || l === 'F2-Pa-004' || l === 'HIT-Pa-001' || l === 'HIT-Pa-003' || l === 'HIT-Pa-004';
+        let isDuplicate = function(newQ, selectedQs) {
+            let newNgrams = getNGrams(newQ.question, 6);
+            if(newNgrams.size === 0) return false;
+            for(let sq of selectedQs) {
+                let existingNgrams = getNGrams(sq.question, 6);
+                for(let ng of newNgrams) {
+                    if(existingNgrams.has(ng)) return true;
+                }
+            }
+            return false;
+        };
+
+        // Split pool deterministically so Mock 1 and Mock 2 never overlap
+        let getMockPool = function(pool) {
+            let sorted = [...pool].sort((a,b) => (a.id || '').localeCompare(b.id || ''));
+            return sorted.filter((_, i) => i % 2 === (mockIndex - 1));
+        };
+
+        let pullCustomMCQs = function(pool, targetCount, currentlySelected) {
+            let easy = pool.filter(q => (q.difficulty||'').toLowerCase() === 'easy').sort(() => Math.random() - 0.5);
+            let mod = pool.filter(q => (q.difficulty||'').toLowerCase() === 'moderate' || !q.difficulty).sort(() => Math.random() - 0.5);
+            let hard = pool.filter(q => (q.difficulty||'').toLowerCase() === 'hard').sort(() => Math.random() - 0.5);
+            
+            // 50% Easy, 30% Moderate, 20% Hard
+            let eCount = Math.round(targetCount * 0.50);
+            let mCount = Math.round(targetCount * 0.30);
+            let hCount = targetCount - eCount - mCount;
+            
+            let chunk =[];
+            let pullFromCategory = function(catPool, countNeeded) {
+                let added = 0;
+                for(let i=0; i<catPool.length && added<countNeeded; i++) {
+                    let q = catPool[i];
+                    if(!isDuplicate(q, currentlySelected) && !isDuplicate(q, chunk)) {
+                        chunk.push(q);
+                        added++;
+                        catPool.splice(i, 1);
+                        i--;
+                    }
+                }
+                while(added < countNeeded && catPool.length > 0) {
+                    chunk.push(catPool.shift());
+                    added++;
+                }
+            };
+
+            pullFromCategory(easy, eCount);
+            pullFromCategory(mod, mCount);
+            pullFromCategory(hard, hCount);
+            
+            let deficit = targetCount - chunk.length;
+            if(deficit > 0) {
+                let leftovers =[...easy, ...mod, ...hard].sort(() => Math.random() - 0.5);
+                pullFromCategory(leftovers, deficit);
+            }
+            return chunk;
+        };
+
+        let selectEqualLOs = function(pool, totalNeeded, subName, globalSelected, restrictedLOs =[], restrictedTarget = 0) {
+            let loMap = {};
+            pool.forEach(q => {
+                let lo = q.lo || 'General';
+                if(!loMap[lo]) loMap[lo] = [];
+                loMap[lo].push(q);
+            });
+            
+            let finalSelection =[];
+            let remaining = totalNeeded;
+
+            if (restrictedLOs.length > 0 && restrictedTarget > 0) {
+                let rPool =[];
+                restrictedLOs.forEach(rLo => {
+                    let matchingKeys = Object.keys(loMap).filter(k => matchFunc(rLo, {lo: k}));
+                    matchingKeys.forEach(k => {
+                        rPool.push(...loMap[k]);
+                        delete loMap[k];
+                    });
+                });
+                if (rPool.length > 0) {
+                    let limit = Math.min(restrictedTarget, remaining, rPool.length);
+                    let rSelected = pullCustomMCQs(rPool, limit, [...globalSelected, ...finalSelection]);
+                    finalSelection.push(...rSelected);
+                    remaining -= rSelected.length;
+                }
+            }
+
+            let loKeys = Object.keys(loMap);
+            if(loKeys.length > 0 && remaining > 0) {
+                let targetPerLo = Math.ceil(remaining / loKeys.length);
+                
+                loKeys.forEach(k => {
+                    let limit = Math.min(targetPerLo, remaining, loMap[k].length);
+                    let selected = pullCustomMCQs(loMap[k], limit, [...globalSelected, ...finalSelection]);
+                    finalSelection.push(...selected);
+                    remaining -= selected.length;
+                    loMap[k] = loMap[k].filter(q => !selected.includes(q));
+                });
+                
+                if(remaining > 0) {
+                    let leftovers = [];
+                    loKeys.forEach(k => leftovers.push(...loMap[k]));
+                    let extra = pullCustomMCQs(leftovers, remaining, [...globalSelected, ...finalSelection]);
+                    finalSelection.push(...extra);
+                    remaining -= extra.length;
+                }
+            }
+            
+            // To avoid mutating the original DB objects globally, create a shallow copy for the test
+            return finalSelection.map(q => ({...q, subject: subName}));
+        };
+
+        // Guarantee constraint matching via fallback logic
+        let fillSubject = function(targetCount, subName, mockPool, fullPool, rLOs=[], rTarget=0) {
+            let selected = selectEqualLOs(mockPool, targetCount, subName, finalData, rLOs, rTarget);
+            
+            // If mock half doesn't have enough, dip into the full pool to forcefully guarantee counts!
+            if (selected.length < targetCount) {
+                let needed = targetCount - selected.length;
+                let rem = fullPool.filter(q => !selected.some(sq => sq.id === q.id) && !finalData.some(fd => fd.id === q.id));
+                let extra = pullCustomMCQs(rem, needed, [...finalData, ...selected]);
+                selected.push(...extra.map(q => ({...q, subject: subName})));
+            }
+            return selected;
+        };
+
+        // 1. Pharmacology (40 MCQs)
+        let pharmaFullPool = allMcqs.filter(q => {
+            let mod = (q.module || '').toLowerCase().replace(/_/g, ' ');
+            let sub = (q.subject || '').toLowerCase().replace(/_/g, ' ');
+            let isFoundIIPharma = (mod.includes('foundation-ii') || mod.includes('foundation ii') || mod.includes('ebm')) && sub.includes('pharmacology');
+            let isGCPharmaLOs =['GCPh-Ph-001', 'GCPh-Ph-002', 'F2-Ph-001', 'F2-Ph-002'].some(lo => matchFunc(lo, q));
+            return isFoundIIPharma || isGCPharmaLOs;
         });
-        let pathoSelected = pathoPool.sort(() => Math.random() - 0.5).slice(0, 40);
-        pathoSelected.forEach(q => q.subject = "Pathology");
-        finalData.push(...pathoSelected);
+        let pharmaMockPool = getMockPool(pharmaFullPool);
+        finalData.push(...fillSubject(40, "Pharmacology", pharmaMockPool, pharmaFullPool,['F2-Ph-001', 'F2-Ph-002'], 4));
         
-        let forPool = allMcqs.filter(q => {
-            let l = q.lo || '';
-            return l === 'F2-For-001' || l === 'F2-For-003';
+        // 2. Pathology (40 MCQs)
+        let pathoFullPool = allMcqs.filter(q => {
+            return['F2-Pa-003', 'F2-Pa-004', 'HIT-Pa-001', 'HIT-Pa-003', 'HIT-Pa-004'].some(lo => matchFunc(lo, q));
         });
-        let forSelected = forPool.sort(() => Math.random() - 0.5).slice(0, 20);
-        forSelected.forEach(q => q.subject = "Forensic Medicine");
-        finalData.push(...forSelected);
+        let pathoMockPool = getMockPool(pathoFullPool);
+        finalData.push(...fillSubject(40, "Pathology", pathoMockPool, pathoFullPool,[], 0));
         
+        // 3. Forensic Medicine (20 MCQs)
+        let forFullPool = allMcqs.filter(q => {
+            return['F2-For-001', 'F2-For-002', 'F2-For-003'].some(lo => matchFunc(lo, q));
+        });
+        let forMockPool = getMockPool(forFullPool);
+        finalData.push(...fillSubject(20, "Forensic Medicine", forMockPool, forFullPool,[], 0));
+        
+        // Final fallback just in case total isn't 100
         while(finalData.length < 100) {
             let fallback = allMcqs.filter(q => { let info = window.getSyllabusInfo(q.lo); return info.block && info.block.replace(/ /g,'_') === 'Block_7'; });
-            let rem = fallback.filter(q => !finalData.includes(q)).sort(() => Math.random() - 0.5);
+            let rem = fallback.filter(q => !finalData.some(fd => fd.id === q.id)).sort(() => Math.random() - 0.5);
             if(rem.length === 0) break; 
-            rem[0].subject = "Mixed Block 7";
-            finalData.push(rem[0]);
+            finalData.push({...rem[0], subject: "Mixed Block 7"});
         }
         
-        finalData = finalData.sort(() => Math.random() - 0.5).slice(0, 100);
-        window.tempSetData = { id: `MidBlock7_${Date.now()}`, title: `Mid-Block 7 Exam`, data: finalData, isBlockExam: true };
+        // Enforce sequence: Pharma -> Patho -> Forensic
+        finalData.sort((a, b) => {
+            let order = { "Pharmacology": 1, "Pathology": 2, "Forensic Medicine": 3, "Mixed Block 7": 4 };
+            return (order[a.subject] || 5) - (order[b.subject] || 5);
+        });
+
+        window.tempSetData = { id: `MidBlock7_Mock${mockIndex}_${Date.now()}`, title: `Mid-Block 7 Exam ${mockIndex}`, data: finalData, isBlockExam: true };
         
         window.closeModals();
         window.startFreshSet();
         
     } catch(e) {
+        console.error(e);
         window.showToast("Error processing request.");
     }
 }
@@ -3861,7 +4028,7 @@ window.setupQuizMode = function(){
 
 window.startTimer = function(seconds){ window.timeRemaining=seconds; window.updateTimerUI(); window.timerInterval=setInterval(()=>{ window.timeRemaining--; window.updateTimerUI(); if(window.timeRemaining<=0){ clearInterval(window.timerInterval); clearInterval(window.mcqTimerInterval); window.showToast("Time is up!"); window.showResults(); } },1000); }
 window.updateTimerUI = function(){ const m=Math.floor(window.timeRemaining/60).toString().padStart(2,'0'), s=(window.timeRemaining%60).toString().padStart(2,'0'); document.getElementById('time-display').innerText=`${m}:${s}`; const box=document.getElementById('quiz-timer'); if(window.timeRemaining<=60 && window.timeRemaining>0) box.classList.add('danger'); else box.classList.remove('danger'); }
-window.populateJumper = function(selectId) { const jumper = document.getElementById(selectId); jumper.innerHTML = ''; for(let i=0; i<window.sessionData.length; i++) { let status = ''; if(window.userAnswers[i] !== undefined) status = ' ✓'; else if(i < window.currentQ) status = ' (Skipped)'; jumper.innerHTML += `<option value="${i}">Question ${i+1}${status}</option>`; } jumper.value = window.currentQ; }
+window.populateJumper = function(selectId) { const jumper = document.getElementById(selectId); jumper.innerHTML = ''; for(let i=0; i<window.sessionData.length; i++) { let status = ''; if(window.userAnswers[i] !== undefined) status = ' ✓'; else if(i < window.currentQ) status = ' (Skipped)'; let subj = window.isMidBlock ? ` (${window.sessionData[i].subject})` : ''; jumper.innerHTML += `<option value="${i}">Q${i+1}${subj}${status}</option>`; } jumper.value = window.currentQ; }
 window.jumpToQ = function(val) { window.currentQ = parseInt(val); window.loadQuestion(); }
 window.getLOName = function(loStr) { if(!loStr) return "LO"; return loStr.split('.').pop().trim(); }
 
