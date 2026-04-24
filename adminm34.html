@@ -72,7 +72,7 @@
     .modal-card { background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 480px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     .code-section { margin-bottom: 30px; padding: 20px; background: #f9fafb; border-radius: 12px; border: 1px dashed var(--border); }
     .code-section h3 { font-size: 16px; margin-bottom: 12px; color: var(--text-dark); }
-    .form-row { display: flex; gap: 10px; align-items: flex-end; }
+    .form-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px;}
     .form-row .input-field { margin-bottom: 0; }
 </style>
 </head>
@@ -111,6 +111,7 @@
                 <option value="all">All Plans</option>
                 <option value="pending">Pending</option>
                 <option value="pro">Pro</option>
+                <option value="super-mod">Super-Mod</option>
                 <option value="early-bird">Early-Bird</option>
                 <option value="free">Free</option>
             </select>
@@ -123,7 +124,7 @@
         </div>
         <div style="overflow-x:auto;">
             <table id="usersTable">
-                <thead><tr><th>Student Info</th><th>Credentials</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Student Info</th><th>Credentials</th><th>Status</th><th>Payment / Promo</th><th>Actions</th></tr></thead>
                 <tbody><tr><td colspan="5" style="text-align:center; padding: 40px; color:#6b7280;">Loading live user data...</td></tr></tbody>
             </table>
         </div>
@@ -141,6 +142,7 @@
                 <select id="newInvitePlan" class="input-field" style="flex:1; min-width: 120px;">
                     <option value="free">FREE</option>
                     <option value="pro">PRO</option>
+                    <option value="super-mod">SUPER-MOD</option>
                     <option value="early-bird">EARLY-BIRD</option>
                 </select>
                 <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; min-width: 120px;">
@@ -156,16 +158,23 @@
 
         <!-- Discounts Section -->
         <div class="code-section">
-            <h3><i class="fa-solid fa-tag" style="color:var(--early-bird); margin-right:8px;"></i> Create Discount Code</h3>
+            <h3><i class="fa-solid fa-tag" style="color:var(--early-bird); margin-right:8px;"></i> Create Discount / Promo Code</h3>
+            
             <div class="form-row" style="flex-wrap: wrap;">
                 <input type="text" id="newDiscountCode" class="input-field" placeholder="Discount Code" style="flex:2; min-width: 150px;">
                 <input type="number" id="discountPercentage" class="input-field" placeholder="% OFF" min="1" max="100" style="flex:1; min-width: 100px;">
                 <input type="date" id="discountExpiry" class="input-field" style="flex:1.5; min-width: 140px;">
+            </div>
+            
+            <div class="form-row" style="flex-wrap: wrap;">
+                <input type="text" id="ambassadorName" class="input-field" placeholder="Ambassador Name (Optional)" style="flex:1; min-width: 150px;">
+                <input type="text" id="ambassadorCollege" class="input-field" placeholder="College Name (Optional)" style="flex:1; min-width: 150px;">
                 <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" id="discountActive" checked> Active</label>
                 <button class="btn btn-primary" id="createDiscountBtn"><i class="fa-solid fa-plus"></i> Create</button>
             </div>
+            
             <table id="discountsTable" style="margin-top:16px;">
-                <thead><tr><th>Code</th><th>Discount</th><th>Valid Until</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Code</th><th>Ambassador</th><th>Discount</th><th>Usage</th><th>Valid Until</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -197,7 +206,8 @@
         <label style="font-size:12px; font-weight:600; color:var(--text-gray); display:block; margin-bottom:4px; margin-top:12px;">Status / Plan</label>
         <select id="editPlan" class="input-field" style="background:#f9fafb; font-weight:700;">
             <option value="free">FREE</option>
-            <option value="pro">PRO (Premium)</option>
+            <option value="pro">PRO</option>
+            <option value="super-mod">SUPER-MOD (Premium)</option>
             <option value="early-bird">🐦 Early-Bird</option>
             <option value="pending">PENDING</option>
         </select>
@@ -244,7 +254,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, doc, updateDoc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, updateDoc, addDoc, setDoc, deleteDoc, onSnapshot, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
@@ -286,7 +296,7 @@
                 notifDropdown.innerHTML += `<option value="${uid}">${user.name} (@${user.username})</option>`;
                 
                 total++;
-                if(user.plan === 'pro') pro++;
+                if(user.plan === 'pro' || user.plan === 'super-mod') pro++;
                 if(user.plan === 'pending') pending++;
                 if(user.plan === 'early-bird') earlyBird++;
             });
@@ -325,7 +335,7 @@
             filtered = filtered.filter(u => u.plan === statusFilter);
         }
 
-        // Apply Sorting by Date (Handles missing dates by throwing to bottom)
+        // Apply Sorting by Date
         filtered.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -338,15 +348,15 @@
         }
 
         filtered.forEach(user => {
-            const receiptHtml = user.receipt ? `<span class="receipt-text">${user.receipt}</span>` : '-';
+            const receiptHtml = user.receipt ? `<div style="margin-bottom:6px;"><span class="receipt-text">TRX: ${user.receipt}</span></div>` : '';
+            const promoHtml = user.discountApplied ? `<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fa-solid fa-tag"></i> ${user.discountApplied} (${user.discountPercentage}%)</span>` : '';
+            const paymentColumn = (receiptHtml || promoHtml) ? `${receiptHtml}${promoHtml}` : '-';
+
             const planClass = user.plan === 'early-bird' ? 'early-bird' : user.plan;
-            
-            // New Registration Tracking
             const isNewHtml = user.isNew === true ? `<span class="badge" style="background:#ef4444; color:white; margin-left:6px; animation: pulse 1.5s infinite;">NEW!</span>` : '';
             const ackBtnHtml = user.isNew === true ? `<button class="btn btn-outline ack-btn" data-uid="${user.uid}" style="padding:6px 10px; font-size:12px; color:#16a34a; border-color:#16a34a;" title="Acknowledge & Mark Read"><i class="fa-solid fa-check"></i></button>` : '';
 
-            // Exact Registration Time Formatting (PST Timezone)
-            let exactDateStr = 'Unknown Registration Date';
+            let exactDateStr = 'Unknown Date';
             if(user.createdAt) {
                 try {
                     exactDateStr = new Intl.DateTimeFormat('en-US', {
@@ -361,13 +371,13 @@
             tr.innerHTML = `
                 <td>
                     <div style="font-weight:800; color:#111; display:flex; align-items:center;">${user.name} ${isNewHtml}</div>
-                    <div style="color:#6b7280; font-size:12px; margin-top:2px;"><i class="fa-solid fa-envelope"></i> ${user.email || 'No email provided'}</div>
+                    <div style="color:#6b7280; font-size:12px; margin-top:2px;"><i class="fa-solid fa-envelope"></i> ${user.contactEmail || user.email || 'No email'}</div>
                     <div style="color:#6b7280; font-size:12px; margin-top:2px;">${user.classInfo || 'N/A'} • ${user.college || 'N/A'}</div>
                     <div style="color:var(--primary); font-size:11px; margin-top:6px; font-weight:600;"><i class="fa-solid fa-clock"></i> ${exactDateStr}</div>
                 </td>
                 <td><div style="font-size:13px;"><b>@${user.username}</b></div><div style="font-size:13px;">Pass: <span class="pass-col">${user.password || 'Hidden'}</span></div></td>
                 <td><span class="badge ${planClass}">${(user.plan||'').toUpperCase()}</span></td>
-                <td>${receiptHtml}</td>
+                <td>${paymentColumn}</td>
                 <td style="display:flex; gap:6px; flex-wrap:wrap;">
                     ${ackBtnHtml}
                     <button class="btn btn-outline edit-user-btn" data-uid="${user.uid}" data-user="${user.username}" data-pass="${user.password}" data-plan="${user.plan}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-pen"></i></button>
@@ -418,10 +428,16 @@
                 const statusClass = isExpired ? 'expired' : (data.active ? 'valid' : 'expired');
                 const statusText = isExpired ? 'Expired' : (data.active ? 'Active' : 'Inactive');
                 
+                // Track Usage & Ambassador
+                const usage = data.usageCount || 0;
+                const ambDetails = data.ambassadorName ? `${data.ambassadorName}<br><span style="font-size:11px;color:#6b7280;">${data.ambassadorCollege||''}</span>` : '<span style="color:#9ca3af;">-</span>';
+                
                 tbody.innerHTML += `
                     <tr>
                         <td><b style="color:var(--early-bird);">${codeId}</b></td>
+                        <td>${ambDetails}</td>
                         <td><span style="font-weight:700; color:#16a34a;">${data.percentage}% OFF</span></td>
+                        <td><span class="badge free">${usage} Uses</span></td>
                         <td><span class="expiry-text ${statusClass}">${data.validUntil ? new Date(data.validUntil).toLocaleDateString() : 'Never'}</span></td>
                         <td><span class="badge" style="background:${data.active && !isExpired ? '#dcfce7' : '#fee2e2'}; color:${data.active && !isExpired ? '#166534' : '#991b1b'};">${statusText}</span></td>
                         <td><button class="btn btn-danger delete-discount-btn" data-id="${codeId}" style="padding:6px 10px; font-size:12px;"><i class="fa-solid fa-trash"></i></button></td>
@@ -460,9 +476,10 @@
         const ackBtn = e.target.closest('.ack-btn');
         if(ackBtn) {
             ackBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            updateDoc(doc(db, "users", ackBtn.dataset.uid), { isNew: false });
+            updateDoc(doc(db, "users", ackBtn.dataset.uid), { isNew: false }).catch(err => console.error(err));
             return;
         }
+        
         const editBtn = e.target.closest('.edit-user-btn');
         if(editBtn) {
             currentEditUid = editBtn.dataset.uid;
@@ -472,6 +489,7 @@
             document.getElementById('editUserModal').classList.add('active');
             return;
         }
+        
         const delBtn = e.target.closest('.delete-user-btn');
         if(delBtn) {
             userToDeleteUid = delBtn.dataset.uid;
@@ -480,10 +498,13 @@
             document.getElementById('deleteUserModal').classList.add('active');
             return;
         }
+        
         const delInvite = e.target.closest('.delete-invite-btn');
         if(delInvite) { if(confirm('Delete invitation code?')) deleteDoc(doc(db, "invitationCodes", delInvite.dataset.id)); return; }
+        
         const delDiscount = e.target.closest('.delete-discount-btn');
         if(delDiscount) { if(confirm('Delete discount code?')) deleteDoc(doc(db, "discountCodes", delDiscount.dataset.id)); return; }
+        
         const editNotif = e.target.closest('.edit-notif-btn');
         if(editNotif) {
             currentEditNotifId = editNotif.dataset.id;
@@ -495,28 +516,68 @@
         }
     });
 
-    // --- MODAL BUTTONS ---
+    // --- MODAL BUTTONS (WITH TRY/CATCH FIXES) ---
     document.getElementById('cancelUserEditBtn').addEventListener('click', () => document.getElementById('editUserModal').classList.remove('active'));
+    
     document.getElementById('saveUserEditBtn').addEventListener('click', async () => {
         const btn = document.getElementById('saveUserEditBtn');
         const u = document.getElementById('editUsername').value.trim();
         const p = document.getElementById('editPassword').value.trim();
         const pl = document.getElementById('editPlan').value;
         if(!u || !p) return alert("Fields required.");
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
         btn.disabled = true;
-        await updateDoc(doc(db, "users", currentEditUid), { username: u, password: p, plan: pl });
-        document.getElementById('editUserModal').classList.remove('active');
-        btn.innerHTML = '<i class="fa-solid fa-save"></i> Save'; btn.disabled = false;
+        
+        try {
+            const user = globalUsers.find(x => x.uid === currentEditUid);
+            let updates = { username: u, password: p, plan: pl };
+            
+            // Check if we are activating a paying user who used a code
+            if (user && (pl === 'pro' || pl === 'super-mod' || pl === 'early-bird')) {
+                if (user.discountApplied && !user.discountCounted) {
+                    updates.discountCounted = true;
+                }
+            }
+            
+            await updateDoc(doc(db, "users", currentEditUid), updates);
+            
+            // If we successfully counted the discount, increment it in the db
+            if (updates.discountCounted && user.discountApplied) {
+                 const codeSnap = await getDoc(doc(db, "discountCodes", user.discountApplied));
+                 if(codeSnap.exists()) {
+                    await updateDoc(doc(db, "discountCodes", user.discountApplied), { 
+                        usageCount: (codeSnap.data().usageCount || 0) + 1 
+                    });
+                 }
+            }
+            
+            document.getElementById('editUserModal').classList.remove('active');
+        } catch (error) {
+            console.error("Error updating user:", error);
+            alert("Permission Denied: Ensure your Firestore security rules allow writes, or you have Admin Privileges. \n\n" + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save'; 
+            btn.disabled = false;
+        }
     });
 
     document.getElementById('cancelDeleteBtn').addEventListener('click', () => document.getElementById('deleteUserModal').classList.remove('active'));
     document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
         const btn = document.getElementById('confirmDeleteBtn');
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
-        await deleteDoc(doc(db, "users", userToDeleteUid));
-        document.getElementById('deleteUserModal').classList.remove('active');
-        btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
+        btn.disabled = true;
+        
+        try {
+            await deleteDoc(doc(db, "users", userToDeleteUid));
+            document.getElementById('deleteUserModal').classList.remove('active');
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            alert("Permission Denied: Ensure your Firestore security rules allow writes. \n\n" + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-trash"></i> Permanently Delete';
+            btn.disabled = false;
+        }
     });
 
     document.getElementById('cancelNotifEditBtn').addEventListener('click', () => document.getElementById('editNotifModal').classList.remove('active'));
@@ -526,38 +587,82 @@
         const m = document.getElementById('editNotifMsg').value.trim();
         const u = document.getElementById('editNotifUrgent').checked;
         if(!t || !m) return alert("Fields required.");
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        await updateDoc(doc(db, "notifications", currentEditNotifId), { title: t, message: m, urgent: u });
-        document.getElementById('editNotifModal').classList.remove('active');
-        btn.innerHTML = '<i class="fa-solid fa-save"></i> Save';
+        
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        btn.disabled = true;
+        try {
+            await updateDoc(doc(db, "notifications", currentEditNotifId), { title: t, message: m, urgent: u });
+            document.getElementById('editNotifModal').classList.remove('active');
+        } catch (error) {
+            alert("Error updating notification: " + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-save"></i> Save';
+            btn.disabled = false;
+        }
     });
+    
     document.getElementById('deleteNotifBtn').addEventListener('click', async () => {
-        if(confirm("Delete notification?")) { deleteDoc(doc(db, "notifications", currentEditNotifId)); document.getElementById('editNotifModal').classList.remove('active'); }
+        if(confirm("Delete notification?")) { 
+            try {
+                await deleteDoc(doc(db, "notifications", currentEditNotifId)); 
+                document.getElementById('editNotifModal').classList.remove('active'); 
+            } catch(error) {
+                alert("Error deleting notification: " + error.message);
+            }
+        }
     });
 
     // --- CREATE CODES ---
     document.getElementById('createInviteBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('createInviteBtn');
         const code = document.getElementById('newInviteCode').value.trim().toUpperCase();
         const plan = document.getElementById('newInvitePlan').value;
         const oneTime = document.getElementById('newInviteOneTime').checked;
         if(!code || code.length < 4) return alert("Code must be 4+ chars.");
-        await setDoc(doc(db, "invitationCodes", code), { 
-            plan, 
-            oneTime: oneTime, 
-            createdAt: new Date().toISOString() 
-        });
-        document.getElementById('newInviteCode').value = '';
-        document.getElementById('newInviteOneTime').checked = false;
+        
+        try {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+            await setDoc(doc(db, "invitationCodes", code), { plan, oneTime: oneTime, createdAt: new Date().toISOString() });
+            document.getElementById('newInviteCode').value = '';
+            document.getElementById('newInviteOneTime').checked = false;
+        } catch(error) {
+            alert("Error creating invite code: " + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Create'; btn.disabled = false;
+        }
     });
 
     document.getElementById('createDiscountBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('createDiscountBtn');
         const code = document.getElementById('newDiscountCode').value.trim().toUpperCase();
         const pct = parseInt(document.getElementById('discountPercentage').value);
         const exp = document.getElementById('discountExpiry').value;
+        const ambName = document.getElementById('ambassadorName').value.trim();
+        const ambCollege = document.getElementById('ambassadorCollege').value.trim();
         const active = document.getElementById('discountActive').checked;
+        
         if(!code || !pct) return alert("Code & percentage required.");
-        await setDoc(doc(db, "discountCodes", code), { percentage: pct, validUntil: exp ? new Date(exp).toISOString() : null, active, createdAt: new Date().toISOString() });
-        document.getElementById('newDiscountCode').value = ''; document.getElementById('discountPercentage').value = '';
+        
+        try {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+            await setDoc(doc(db, "discountCodes", code), { 
+                percentage: pct, 
+                validUntil: exp ? new Date(exp).toISOString() : null, 
+                active, 
+                ambassadorName: ambName,
+                ambassadorCollege: ambCollege,
+                usageCount: 0,
+                createdAt: new Date().toISOString() 
+            });
+            document.getElementById('newDiscountCode').value = ''; 
+            document.getElementById('discountPercentage').value = '';
+            document.getElementById('ambassadorName').value = '';
+            document.getElementById('ambassadorCollege').value = '';
+        } catch(error) {
+            alert("Error creating discount: " + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Create'; btn.disabled = false;
+        }
     });
 
     document.getElementById('sendNotifBtn').addEventListener('click', async () => {
@@ -567,10 +672,16 @@
         const msg = document.getElementById('notifMsg').value.trim();
         const urg = document.getElementById('notifUrgent').checked;
         if(!title || !msg) return alert("Title & message required.");
+        
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...'; btn.disabled = true;
-        await addDoc(collection(db, "notifications"), { targetUser: t, title, message: msg, urgent: urg, timestamp: new Date().toISOString() });
-        document.getElementById('notifTitle').value = ''; document.getElementById('notifMsg').value = '';
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Notification'; btn.disabled = false;
+        try {
+            await addDoc(collection(db, "notifications"), { targetUser: t, title, message: msg, urgent: urg, timestamp: new Date().toISOString() });
+            document.getElementById('notifTitle').value = ''; document.getElementById('notifMsg').value = '';
+        } catch(error) {
+            alert("Error sending notification: " + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Notification'; btn.disabled = false;
+        }
     });
 
     // --- INIT ---
