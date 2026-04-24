@@ -22,7 +22,7 @@
 
 // FIX FOR CANCEL BUTTONS
 window.cancelPremium = function() {
-    if (window.currentUser && window.currentUser.uid) {
+    if (window.currentUser && window.currentUser.uid && window.currentUser.plan !== 'pending') {
         window.navTo('dashboard');
     } else {
         window.navTo('login');
@@ -512,8 +512,8 @@ select.app-input { padding-right: 32px; appearance: none; }
 .cc-progress-text { font-size: 12px; font-weight: 600; opacity: 0.95; }
 .cc-right { position: relative; z-index: 2; width: 34px; height: 34px; background: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--modmed-primary); font-size: 14px; flex-shrink: 0; margin-left: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); } .cc-right i { margin-left: 2px; }
 
-.action-modal, .paywall-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -40%) scale(0.95); width: 90%; max-width: 320px; z-index: 1001; padding: 24px 20px; opacity: 0; pointer-events: none; transition: all 0.4s; text-align: center; }
-.action-modal.active, .paywall-modal.active { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+.action-modal, .paywall-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -40%) scale(0.95); width: 90%; max-width: 320px; z-index: 10000 !important; padding: 24px 20px; opacity: 0; pointer-events: none; transition: all 0.4s; text-align: center; }
+.action-modal.active, .paywall-modal.active { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; z-index: 10000 !important; }
 .paywall-icon { font-size: 28px; color: #fbbf24; margin-bottom: 10px; }
 
 .list-card { padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 10px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: all 0.2s ease; }
@@ -1021,15 +1021,21 @@ pointer-events: none;
 }
 
 /* --- NEW OVERRIDES START --- */
-/* 1. Global 8px Border Radius for modern look */
+/* 1 & 3. 20px Border Radius for specified elements & Fix Bottom Nav */
 .btn, .btn-alt, .btn-auth-primary, .btn-auth-secondary, .btn-auth-text, .btn-native-primary, .btn-native-premium, .btn-validate-modern, 
 .action-modal, .paywall-modal, .toast, .glass-card, .bento-card, .list-card, .premium-header-card, .pending-message-card, 
 .order-summary-card, .payment-guide-box, .invite-glass-box, .native-app-input, .premium-input, .app-input, 
-.bottom-nav, .bottom-nav .nav-item, .rank-card, .review-list-item, .fc::before, .fc::after, .fc-front, .fc-back {
-    border-radius: 8px !important;
+.bottom-nav, .bottom-nav .nav-item, .rank-card, .review-list-item, .fc::before, .fc::after, .fc-front, .fc-back,
+.subject-list-item, .continue-card, .gradient-practice-card {
+    border-radius: 20px !important;
 }
 
-/* 2. Fix Install App Popup Cutoff */
+.bottom-nav {
+    height: 58px !important;
+    padding: 0 6px !important;
+}
+
+/* 2 & 4. Fix Install App Popup Cutoff and Overlay Z-index */
 #install-popup-modal {
     max-width: 90% !important;
     width: 360px !important;
@@ -1040,12 +1046,15 @@ pointer-events: none;
     transform: translate(-50%, -50%) !important;
     padding: 0 !important;
     background: var(--bg-card) !important;
-    border-radius: 8px !important;
+    border-radius: 20px !important;
     border: 1px solid var(--border-color);
+    z-index: 10000 !important; /* Ensure it stays on top of overlay */
 }
-#install-popup-modal > div:last-child { height: auto !important; max-height: 60vh; }
+.modal-overlay.active {
+    z-index: 9999 !important;
+}
 
-/* 3. Dark Theme Force for Auth/Payment Pages */
+/* 8. Dark Theme Force for Auth/Payment Pages */
 .auth-page, .login-wrapper, .auth-page-wrapper {
     background: #0a1122 !important; 
 }
@@ -1059,13 +1068,15 @@ pointer-events: none;
 }
 .btn-auth-secondary { background: transparent !important; color: #ffffff !important; }
 
-/* 4. Fix Step 1 & Step 2 Layout Alignment (Inputs squished right) */
+/* 5. Fix Step 1 & Step 2 Layout Alignment (Fixing the right-squish) */
 .auth-step-pane {
     width: 100%;
     display: none;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch !important;
+    text-align: left !important;
     box-sizing: border-box;
+    padding: 0 !important;
 }
 .auth-step-pane.active {
     display: flex;
@@ -1073,9 +1084,12 @@ pointer-events: none;
 .premium-input-group {
     width: 100%;
     box-sizing: border-box;
+    text-align: left !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
-/* 5. Center Home Icon in Bottom Nav (Flush & Modern) */
+/* Center Home Icon in Bottom Nav (Flush & Modern) */
 .bottom-nav .center-fab {
     position: relative !important;
     top: 0 !important;
@@ -1087,6 +1101,7 @@ pointer-events: none;
     border: none !important;
     box-shadow: none !important;
     padding: 8px 4px !important;
+    border-radius: 20px !important;
 }
 .bottom-nav .center-fab i {
     color: var(--text-gray) !important;
@@ -1114,22 +1129,29 @@ pointer-events: none;
     min-height: 420px;
     display: flex; flex-direction: column; justify-content: center;
     position: relative; overflow: hidden;
+    border-radius: 20px !important;
 }
 .pending-message-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
-    background: var(--brand-grad); border-radius: 8px 8px 0 0; opacity: 1; z-index: 10;
+    background: var(--brand-grad); opacity: 1; z-index: 10;
 }
 .pending-message-card::after {
     content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 5px;
-    background: var(--brand-grad); border-radius: 0 0 8px 8px; opacity: 1; z-index: 10;
+    background: var(--brand-grad); opacity: 1; z-index: 10;
 }
 .pending-message-card h3 { color: #ffffff !important; font-size: 22px !important; }
-.pending-message-card p { color: rgba(255,255,255,0.85) !important; font-size: 14px !important; }
-.pending-cta { color: #0a1122 !important; background: var(--brand-grad) !important; font-size: 14px !important; }
+.pending-message-card p { color: rgba(255,255,255,0.85) !important; font-size: 14px !important; margin-bottom: 20px !important; }
+.pending-cta { color: #0a1122 !important; background: var(--brand-grad) !important; font-size: 14px !important; margin: 0 !important; width: 100% !important; }
 
-/* 7. Super Mod Card Outline Only */
-.glass-plan-wrapper { background: var(--brand-grad) !important; padding: 2px !important; box-shadow: none !important; }
-.glass-plan-inner { background: #0a1122 !important; backdrop-filter: none !important; }
+/* Super Mod Card Outline Only */
+.glass-plan-wrapper { background: var(--brand-grad) !important; padding: 2px !important; box-shadow: none !important; border-radius: 20px !important; }
+.glass-plan-inner { background: #0a1122 !important; backdrop-filter: none !important; border-radius: 18px !important; }
+
+/* 10. Floating Rocket Animation */
+@keyframes hoverRocket {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-8px) rotate(3deg); }
+}
 /* --- NEW OVERRIDES END --- */
 </style>
 </head>
@@ -1183,6 +1205,17 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
     <div class="notif-panel" id="notif-panel"><div class="notif-header"><h3>Notifications</h3><i class="fa-solid fa-xmark close-btn" onclick="toggleNotif()" style="background: var(--hover-bg); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer;"></i></div><div id="notif-container"></div></div>
     <div class="modal-overlay" id="modal-overlay" onclick="closeModals()"></div>
     
+    <!-- INSTALL APP POPUP MOVED HERE TO ESCAPE TRAPPED STACKING CONTEXT -->
+    <div class="action-modal" id="install-popup-modal">
+        <div style="position:relative; padding:16px 20px; background:var(--brand-grad); border-radius: 20px 20px 0 0;">
+            <h3 style="color:#0a1122; font-size:16px; font-weight:900; margin:0;">Install Guide</h3>
+            <i class="fa-solid fa-xmark flat-icon-btn" style="position:absolute; right:12px; top:12px; width:28px; height:28px; color:#0a1122;" onclick="closeInstallPopup()"></i>
+        </div>
+        <div style="padding: 0; text-align: center; width: 100%; border-radius: 0 0 20px 20px; overflow: hidden; background: #0a1122;">
+            <iframe src="https://www.modmedicalis.online/tuto" style="width:100%; height:450px; border:none; display: block;"></iframe>
+        </div>
+    </div>
+
     <div class="action-modal glass-card" id="logout-modal"><div style="font-size: 28px; color: var(--accent-red); margin-bottom: 10px;"><i class="fa-solid fa-right-from-bracket"></i></div><h3 style="font-size: 18px; margin-bottom: 6px;">Log Out</h3><p style="color:var(--text-gray); font-weight:400; font-size:13px; margin-bottom: 16px;">Are you sure you want to log out?</p><div style="display: flex; gap: 10px;"><button class="btn btn-alt" onclick="closeModals()" style="flex:1; margin:0;">No</button><button class="btn" onclick="confirmLogout()" style="flex:1; margin:0; background: var(--accent-red) !important; box-shadow: 0 4px 10px rgba(255,45,85,0.2);">Yes</button></div></div>
     
     <div class="action-modal glass-card" id="bookmark-list-modal">
@@ -1240,18 +1273,20 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
    <!-- Pending Verification Shield Overlay -->
 <div class="pending-portal-overlay">
     <div class="pending-message-card">
-          <img src="https://i.imgur.com/wliwntu.png" alt="ModMedicalis" style="height: 75px; margin: 0 auto 20px; filter: drop-shadow(0 0 15px rgba(59,130,246,0.4));">
-          <h3>Verification in Progress</h3>
-          <p>Your account is currently under review. Dashboard access is limited until your payment is confirmed. Typical processing time: 6-12 hours.</p>
-          <button class="pending-cta" onclick="window.handlePendingCheck()">Check Status</button>
-          <button class="pending-cta" id="pending-notif-btn" onclick="window.requestPushNotifPermission()">
+      <img src="https://i.imgur.com/wliwntu.png" alt="ModMedicalis" style="height: 75px; margin: 0 auto 20px; filter: drop-shadow(0 0 15px rgba(59,130,246,0.4));">
+      <h3>Verification in Progress</h3>
+      <p>Your account is currently under review. Dashboard access is limited until your payment is confirmed. Typical processing time: 6-12 hours.</p>
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+          <button class="pending-cta" style="border-radius: 10px !important;" onclick="window.handlePendingCheck()">Check Status</button>
+          <button class="pending-cta" id="pending-notif-btn" style="border-radius: 10px !important;" onclick="window.requestPushNotifPermission()">
               <i class="fa-solid fa-bell" style="margin-right:6px;"></i> Turn on Notifications
           </button>
-          <button class="pending-cta" onclick="window.location.href='mailto:modmedicalis@gmail.com?subject=Payment%20Verification%20Delay';">
+          <button class="pending-cta" style="border-radius: 10px !important;" onclick="window.location.href='mailto:modmedicalis@gmail.com?subject=Payment%20Verification%20Delay';">
               <i class="fa-solid fa-envelope" style="margin-right:6px;"></i> Email Support (> 12 hrs)
           </button>
-          <button class="pending-cta" style="background: transparent !important; border: 1px solid rgba(255,255,255,0.2); color: #ffffff !important; margin-top: 5px; box-shadow: none;" onclick="document.body.classList.remove('pending-verification'); document.querySelector('.pending-portal-overlay').style.display = 'none'; window.navTo('login');">Go Back to Login</button>
-    </div>
+          <button class="pending-cta" style="border-radius: 10px !important; background: transparent !important; border: 1px solid rgba(255,255,255,0.2); color: #ffffff !important; margin-top: 5px; box-shadow: none;" onclick="document.body.classList.remove('pending-verification'); document.querySelector('.pending-portal-overlay').style.display = 'none'; window.navTo('login');">Go Back to Login</button>
+      </div>
+</div>
 </div>
 
  <div class="main-content no-scrollbar" id="main-scroll-area">
@@ -1350,19 +1385,6 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
 <i class="fa-solid fa-download" style="margin-right:8px;"></i> HOW TO INSTALL APP
 </button>
 </div>
-<div class="action-modal" id="install-popup-modal">
-<div style="position:relative; padding:16px 20px; background:var(--brand-grad);">
-<h3 style="color:#0a1122; font-size:16px; font-weight:900; margin:0;">Install Guide</h3>
-<i class="fa-solid fa-xmark flat-icon-btn" style="position:absolute; right:12px; top:12px; width:28px; height:28px; color:#0a1122;" onclick="closeInstallPopup()"></i>
-</div>
-<div style="padding: 30px 20px; text-align: center;">
-    <i class="fa-solid fa-mobile-screen-button" style="font-size: 54px; color: var(--modmed-primary); margin-bottom: 20px;"></i>
-    <h2 style="font-size: 18px; font-weight: 800; color: var(--text-dark); margin-bottom: 12px;">How to Install</h2>
-    <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 24px;">Follow our quick tutorial on how to install the app on your device for the best experience.</p>
-    <a href="https://www.youtube.com/watch?v=yYJ4pY6h1D8" target="_blank" class="btn" style="text-decoration: none; display: inline-flex; width: 100%; max-width: 300px; margin: 0 auto; justify-content: center;">Watch Tutorial <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: 8px;"></i></a>
-    <p style="font-size: 11px; color: var(--text-gray); margin-top: 20px;">Or tap <b>"Share"</b> then <b>"Add to Home Screen"</b> on iOS Safari, or tap <b>"Install App"</b> on Chrome/Android.</p>
-</div>
-</div>
                     
                 </div>
             </div>
@@ -1425,38 +1447,31 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
             <div class="glass-plan-wrapper">
                 <div class="glass-plan-inner">
                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-                        <div style="width:50px; height:50px; border-radius:14px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; animation:bounce 2s infinite;">
-                            <img src="https://img.icons8.com/fluency/256/rocket.png" style="width:40px; height:40px; object-fit:contain;" alt="Rocket">
-                        </div>
-                        <div>
-                            <div style="font-size:18px; font-weight:900; background:var(--brand-grad-text); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">SUPER-MOD</div>
-                            <div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:2px; text-transform: uppercase; letter-spacing: 1px;">Selected: <span id="dynamic-block-text" style="color:#ffffff; font-weight:800;">BLOCK 1</span></div>
-                        </div>
-                    </div>
-                    
-                    <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:16px;">
-                        <div style="font-size:28px; font-weight:900; color:#ffffff;">Rs 1,500</div>
-                        <div style="font-size:14px; color:rgba(255,255,255,0.5); text-decoration:line-through;">Rs 2,500</div>
-                        <div style="font-size:10px; font-weight:800; background:rgba(34,197,94,0.2); color:#4ade80; padding:4px 8px; border-radius:8px;">Save Rs 1,000</div>
-                    </div>
-                    
-                    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px; padding-left: 2px;">
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>30,000+ MCQs banks</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Thousands of FLASHCARDS</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>QUICK Qs (MCQs based notes)</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>UHS past MCQs</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Mistakes review system</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Pre made & custom class tests</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>20+ MOCK exams of the block</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Detailed Explanation of all MCQs</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>Thousands of FLASHCARDS</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>QUICK Qs (MCQs based notes)</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>UHS past MCQs</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>Mistakes review system</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>Pre made & custom class tests</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>20+ MOCK exams of the block</span></div>
-                        <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:var(--text-dark); font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:var(--accent-green); margin-top:3px; font-size: 14px;"></i><span>Detailed Explanation of all MCQs</span></div>
-                    </div>
+    <div style="width:50px; height:50px; border-radius:14px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; animation: hoverRocket 4s ease-in-out infinite;">
+        <img src="https://cdn3d.iconscout.com/3d/premium/thumb/rocket-4993666-4160492.png" style="width:46px; height:46px; object-fit:contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));" alt="Rocket">
+    </div>
+    <div>
+        <div style="font-size:18px; font-weight:900; background:var(--brand-grad-text); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">SUPER-MOD</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.6); margin-top:2px; text-transform: uppercase; letter-spacing: 1px;">Selected: <span id="dynamic-block-text" style="color:#ffffff; font-weight:800;">BLOCK 1</span></div>
+    </div>
+</div>
+
+<div style="display:flex; align-items:baseline; gap:8px; margin-bottom:16px;">
+    <div style="font-size:28px; font-weight:900; color:#ffffff;">Rs 1,500</div>
+    <div style="font-size:14px; color:rgba(255,255,255,0.5); text-decoration:line-through;">Rs 2,500</div>
+    <div style="font-size:10px; font-weight:800; background:rgba(34,197,94,0.2); color:#4ade80; padding:4px 8px; border-radius:8px;">Save Rs 1,000</div>
+</div>
+
+<div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px; padding-left: 2px;">
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>30,000+ MCQs banks</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Thousands of FLASHCARDS</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>QUICK Qs (MCQs based notes)</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>UHS past MCQs</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Mistakes review system</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Pre made & custom class tests</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>20+ MOCK exams of the block</span></div>
+    <div style="display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#ffffff; font-weight: 500;"><i class="fa-solid fa-circle-check" style="color:#ffffff; margin-top:3px; font-size: 14px;"></i><span>Detailed Explanation of all MCQs</span></div>
+</div>
                     
                     <button class="btn" onclick="window.proceedToPayment()" style="width:100%; background:var(--brand-grad) !important; color:#0a1122 !important; font-weight:900; font-size:15px; padding:16px; border-radius:16px; box-shadow:0 10px 25px rgba(59,130,246,0.3);">Proceed to Payment</button>
                 </div>
@@ -1608,8 +1623,9 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
                         </div>
 
                         <div class="premium-input-group" style="background: rgba(59,130,246,0.05); padding: 18px 16px; border-radius: 20px; border: 1px dashed rgba(59,130,246,0.4); margin-bottom: 28px;">
-                            <label style="color: var(--modmed-primary); padding-left: 2px;">Discount Code (Optional)</label>
-                            <div style="display:flex; gap:8px;">
+                            <label style="color: var(--modmed-primary); padding-left: 2px;">Ambassador Discount Code (Optional)</label>
+<p style="font-size: 10px; color: var(--text-gray); margin-bottom: 8px; margin-top: -4px; padding-left: 2px;">Discount codes are officially given by our ambassadors</p>
+<div style="display:flex; gap:8px;">
                                 <div class="premium-input-wrapper" style="flex: 1;">
                                     <i class="fa-solid fa-tag input-icon"></i>
                                     <input type="text" id="pr-discount-code" class="premium-input" placeholder="Enter code">
@@ -1815,10 +1831,10 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
     <button class="btn-cancel-app" onclick="window.cancelPremium()">Cancel</button>
     
     <div style="margin-top: 24px; width: 100%; max-width: 360px;">
-          <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 24px; padding: 24px 20px; text-align: center; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
-            <span id="invite-type-1" style="display:block; margin-bottom: 10px; font-size: 16px; font-weight: 900; background: var(--brand-grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5px;"></span>
-            <span id="invite-type-2" style="display:block; line-height: 1.65; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85);"></span>
-          </div>
+          <div style="padding: 10px 20px; text-align: center;">
+  <span id="invite-type-1" style="display:block; margin-bottom: 12px; font-size: 24px; font-weight: 900; background: var(--brand-grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5px;"></span>
+  <span id="invite-type-2" style="display:block; line-height: 1.65; font-size: 18px; font-weight: 600; color: #ffffff;"></span>
+</div>
         </div>
   </div>
 </div>
