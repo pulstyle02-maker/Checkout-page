@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robbins Pathology: WBC Disorders Flowchart</title>
+    
+    <!-- External Libraries -->
+    <!-- Cytoscape for Flowchart visualization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <!-- Dagre layout for hierarchical tree structure -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --secondary: #3b82f6;
+            --bg-color: #f8fafc;
+            --panel-bg: #ffffff;
+            --text-dark: #0f172a;
+            --text-light: #475569;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .export-btns button {
+            background-color: white;
+            color: var(--primary);
+            border: none;
+            padding: 0.5rem 1rem;
+            margin-left: 0.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .export-btns button:hover {
+            background-color: #e2e8f0;
+        }
+
+        /* Main Layout */
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Cytoscape Container */
+        #cy {
+            flex: 1;
+            height: 100%;
+            background-color: #f1f5f9;
+        }
+
+        /* Controls Overlay */
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .controls button {
+            display: block;
+            width: 100%;
+            margin-bottom: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        .controls button:last-child { margin-bottom: 0; }
+
+        /* Sidebar Styles */
+        #sidebar {
+            width: 400px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border);
+            padding: 1.5rem;
+            overflow-y: auto;
+            box-shadow: -4px 0 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        #sidebar h2 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid var(--secondary);
+            padding-bottom: 0.5rem;
+        }
+
+        #sidebar .category {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--secondary);
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
+        #sidebar .content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-light);
+        }
+
+        #sidebar .content h4 {
+            color: var(--text-dark);
+            margin-top: 1rem;
+            margin-bottom: 0.2rem;
+        }
+
+        #sidebar .content ul {
+            padding-left: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .placeholder-text {
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 50%;
+            font-style: italic;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            #main-container {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: 40%;
+                border-left: none;
+                border-top: 2px solid var(--primary);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>WBC Disorders (Robbins Pathology)</h1>
+        <div class="export-btns">
+            <button onclick="exportTXT()">Export TXT</button>
+            <button onclick="exportPDF()">Export PDF</button>
+        </div>
+    </header>
+
+    <div id="main-container">
+        <div id="cy"></div>
+        <div class="controls">
+            <button onclick="cy.zoom(cy.zoom() + 0.2)">Zoom In (+)</button>
+            <button onclick="cy.zoom(cy.zoom() - 0.2)">Zoom Out (-)</button>
+            <button onclick="cy.fit()">Fit Graph</button>
+        </div>
+        <div id="sidebar">
+            <div id="sidebar-content">
+                <div class="placeholder-text">Select a node in the flowchart to view comprehensive pathological, microscopic, genetic, and clinical details.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Register cytoscape-dagre layout
+        cytoscape.use(cytoscapeDagre);
+
+        // --- EXHAUSTIVE DATA STRUCTURE (BASED ON BIG ROBBINS) ---
+        // Formatting function for standardizing pathology descriptions
+        const formatDetails = (genetics, morphology, markers, clinical, pathogenesis) => `
+            ${pathogenesis ? `<h4>Pathogenesis & Genetics</h4><p>${pathogenesis}</p>` : ''}
+            ${genetics ? `<h4>Genetics / Mutations</h4><p>${genetics}</p>` : ''}
+            ${morphology ? `<h4>Morphology (Gross & Microscopic)</h4><p>${morphology}</p>` : ''}
+            ${markers ? `<h4>Immunophenotype / Markers</h4><p>${markers}</p>` : ''}
+            ${clinical ? `<h4>Clinical Features</h4><p>${clinical}</p>` : ''}
+        `;
+
+        const wbcData = [
+            { id: 'wbc', label: 'White Blood Cell Disorders', cat: 'root', details: 'Broad classification of WBC disorders into Non-Neoplastic (reactive/deficiency) and Neoplastic (malignant expansions of lymphoid, myeloid, or histiocytic lineages).' },
+            
+            // --- NON-NEOPLASTIC ---
+            { id: 'nonneo', label: 'Non-Neoplastic Disorders', cat: 'nonneo', parentId: 'wbc', details: 'Includes Leukopenias (deficiencies) and Reactive Proliferations (Leukocytosis, Lymphadenitis).' },
+            { id: 'leukopenia', label: 'Leukopenia', cat: 'nonneo', parentId: 'nonneo', details: formatDetails('','','','Decreased peripheral white blood cells. Neutropenia (agranulocytosis) and Lymphopenia are the most common variants.','Caused by decreased production (marrow failure, aplastic anemia, drugs like chemo) or accelerated destruction (immune, splenomegaly).') },
+            { id: 'reactive', label: 'Reactive Proliferations', cat: 'nonneo', parentId: 'nonneo', details: formatDetails('','Reactive leukocytosis and lymphadenitis.','','Infectious mononucleosis, acute and chronic non-specific lymphadenitis.','Response to infections, inflammation, and stress.') },
+            { id: 'im', label: 'Infectious Mononucleosis', cat: 'nonneo', parentId: 'reactive', details: formatDetails('EBV infects B cells via CD21 receptor.','Atypical lymphocytes (Downey cells) in peripheral blood: large, abundant cytoplasm with skirt-like edges wrapping around RBCs. Paracortical hyperplasia in lymph nodes.','CD8+ T cells (the atypical cells are reactive T cells, NOT the infected B cells).','Fever, sore throat, generalized lymphadenitis, hepatosplenomegaly. Heterophile antibody positive (Monospot test). Risk of splenic rupture.') },
+            
+            // --- NEOPLASTIC ---
+            { id: 'neo', label: 'Neoplastic Disorders', cat: 'neo', parentId: 'wbc', details: 'Monoclonal proliferations of white blood cells. Broadly divided by cell of origin: Lymphoid, Myeloid, and Histiocytic/Dendritic neoplasms.' },
+            
+            // --- HISTIOCYTIC ---
+            { id: 'histio', label: 'Histiocytic Neoplasms', cat: 'histio', parentId: 'neo', details: 'Proliferations of macrophages and dendritic cells. Most important is Langerhans Cell Histiocytosis (LCH).' },
+            { id: 'lch', label: 'Langerhans Cell Histiocytosis', cat: 'histio', parentId: 'histio', details: formatDetails('BRAF V600E mutation in ~60% of cases.','<b>EM:</b> Birbeck granules (tennis racket appearance) containing langerin. Cells have folded, grooved, "coffee bean" nuclei and abundant eosinophilic cytoplasm. Background rich in eosinophils.','CD1a+, S100+, Langerin (CD207)+.','1. <b>Multisystem LCH (Letterer-Siwe disease):</b> <2 yrs old, skin rash, cystic bone lesions, fatal if untreated.<br>2. <b>Unisystem LCH (Eosinophilic Granuloma):</b> Benign skeletal lesion in older kids/adults.<br>3. <b>Hand-Schüller-Christian triad:</b> Calvarial bone defects, diabetes insipidus, exophthalmos.') },
+
+            // --- MYELOID ---
+            { id: 'myeloid', label: 'Myeloid Neoplasms', cat: 'myeloid', parentId: 'neo', details: 'Originating from hematopoietic progenitor cells. Categorized into Acute Myeloid Leukemia (AML), Myelodysplastic Syndromes (MDS), and Myeloproliferative Neoplasms (MPN).' },
+            
+            // AML
+            { id: 'aml', label: 'Acute Myeloid Leukemia (AML)', cat: 'myeloid', parentId: 'myeloid', details: formatDetails('Classified by genetics: t(8;21) RUNX1/RUNX1T1; inv(16) CBFB/MYH11; t(15;17) PML-RARA; mutated NPM1, FLT3, CEBPA.','>20% myeloid blasts in marrow (except if t(8;21), inv(16) or t(15;17) are present - then % doesn\'t matter). <b>Auer rods:</b> needle-like azurophilic granules (crystalized MPO), especially in APML.','MPO (Myeloperoxidase)+, CD13+, CD33+, CD34+, CD117+.','Adults (median 65). Fatigue, pallor, bleeding, infections. <b>APML t(15;17):</b> High risk of DIC, responds to All-Trans Retinoic Acid (ATRA) which forces blasts to mature.') },
+            
+            // MDS
+            { id: 'mds', label: 'Myelodysplastic Syndromes (MDS)', cat: 'myeloid', parentId: 'myeloid', details: formatDetails('Cytogenetic abnormalities: Monosomy 5, Monosomy 7, del(5q), del(7q), Trisomy 8. Mutations in epigenetic regulators (TET2), RNA splicing (SF3B1).','Hypercellular marrow but peripheral cytopenias (ineffective hematopoiesis). <b>Erythroid:</b> Ring sideroblasts (iron in mitochondria), megaloblastoid change. <b>Myeloid:</b> Pseudo-Pelger-Huët cells (neutrophils with 2 lobes resembling pince-nez glasses). <b>Megakaryocytes:</b> Pawn-ball nuclei.','','Older adults. Progressive cytopenias. High risk of transformation to AML (10-40%). 5q- syndrome: severe anemia but good prognosis, responds to lenalidomide.') },
+            
+            // MPN
+            { id: 'mpn', label: 'Myeloproliferative Neoplasms (MPN)', cat: 'myeloid', parentId: 'myeloid', details: 'Mutated constitutively active tyrosine kinases lead to growth factor-independent proliferation. Includes CML, PV, ET, PMF. Can transition into "spent phase" (myelofibrosis) or blast crisis.' },
+            { id: 'cml', label: 'Chronic Myeloid Leukemia (CML)', cat: 'myeloid', parentId: 'mpn', details: formatDetails('t(9;22)(q34;q11.2) - Philadelphia Chromosome. Fuses BCR to ABL1, creating a constitutively active tyrosine kinase.','100% cellularity marrow. Blood shows extreme leukocytosis (>100,000) with full spectrum of granulocytic differentiation. Increased basophils. "Sea-blue histiocytes" in marrow.','Low Leukocyte Alkaline Phosphatase (LAP) score differentiates from leukemoid reaction.','Splenomegaly. Triphasic course: Chronic -> Accelerated -> Blast Crisis (70% AML, 30% ALL). Treatment: Tyrosine Kinase Inhibitors (Imatinib/Gleevec).') },
+            { id: 'pv', label: 'Polycythemia Vera (PV)', cat: 'myeloid', parentId: 'mpn', details: formatDetails('JAK2 V617F mutation in >97% of cases. Renders erythropoietin receptor constitutively active.','Panmyelosis (proliferation of all three lineages), but erythroid is dominant. Marrow is hypercellular. Peripheral blood shows absolute erythrocytosis.','Erythropoietin (EPO) levels are LOW (negative feedback).','Plethora, cyanosis, headache, blurry vision. <b>Pruritus after hot shower</b> (basophil histamine release). Risk of DVT, Budd-Chiari syndrome. Gout (high cell turnover).') },
+            { id: 'et', label: 'Essential Thrombocythemia (ET)', cat: 'myeloid', parentId: 'mpn', details: formatDetails('JAK2 V617F (50%), CALR (30%), or MPL (10%) mutations.','Massive proliferation of megakaryocytes in marrow, which are abnormally large with staghorn nuclei. Peripheral blood shows sustained marked thrombocytosis (>450,000).','Diagnosis of exclusion (rule out PV, PMF, CML, reactive thrombocytosis).','Erythromelalgia (burning, throbbing in hands/feet due to platelet sludging), bleeding, and thrombosis. Does NOT progress to myelofibrosis or acute leukemia as often as PV or PMF.') },
+            { id: 'pmf', label: 'Primary Myelofibrosis', cat: 'myeloid', parentId: 'mpn', details: formatDetails('JAK2 (50%), CALR, or MPL mutations. Pathogenesis: Neoplastic megakaryocytes release PDGF and TGF-beta, stimulating non-neoplastic fibroblasts to lay down collagen.','Early phase: hypercellular. Late "spent" phase: intense diffuse reticulin/collagen fibrosis in marrow. <b>Peripheral Blood:</b> Leukoerythroblastosis, <b>Teardrop RBCs (dacrocytes)</b> due to squeezing through fibrotic marrow.','','Massive splenomegaly due to extramedullary hematopoiesis. Fatigue, weight loss, night sweats. Poor prognosis.') },
+
+            // --- LYMPHOID ---
+            { id: 'lymphoid', label: 'Lymphoid Neoplasms', cat: 'lymphoid', parentId: 'neo', details: 'Tumors of B-cell, T-cell, or NK-cell origin. Grouped by differentiation stage (precursor vs. peripheral) and presentation (Leukemia vs. Lymphoma).' },
+            
+            // Precursor
+            { id: 'precursor', label: 'Precursor Lymphoid Neoplasms', cat: 'lymphoid', parentId: 'lymphoid', details: 'Acute Lymphoblastic Leukemia/Lymphoma (ALL). B-ALL is most common in children, T-ALL in adolescents.' },
+            { id: 'ball', label: 'B-ALL', cat: 'lymphoid', parentId: 'precursor', details: formatDetails('Hyperdiploidy (>50 chromosomes) or t(12;21)[ETV6-RUNX1] = good prognosis. t(9;22) Ph+ ALL, t(v;11q23) KMT2A = poor prognosis. Mutations in PAX5, EBF1.','Marrow replaced by lymphoblasts: scanty cytoplasm, condensed chromatin, indistinct nucleoli.','TdT+ (Terminal deoxynucleotidyl transferase - marker of immature blasts), CD19+, CD10+ (CALLA), CD20 (variable), sIg-.','Most common childhood cancer (peak 3 yrs). Bone pain, marrow failure (anemia, neutropenia, thrombocytopenia). CNS and testicular involvement common.') },
+            { id: 'tall', label: 'T-ALL', cat: 'lymphoid', parentId: 'precursor', details: formatDetails('Gain of function mutations in NOTCH1 (up to 70% of cases).','Similar to B-ALL blasts. Scanty agranular cytoplasm.','TdT+, CD1a, CD2, CD3, CD4, CD5, CD7, CD8. (Usually double positive CD4+/CD8+ or double negative).','Presents as a <b>Mediastinal thymic mass</b> in adolescent males. Pleural effusions, SVC syndrome, high WBC count.') },
+
+            // Peripheral B-Cell
+            { id: 'matureb', label: 'Mature (Peripheral) B-Cell Neoplasms', cat: 'lymphoid', parentId: 'lymphoid', details: 'Arise from mature B-cells (naive, germinal center, or post-germinal center). Represents the majority of Non-Hodgkin Lymphomas (NHLs).' },
+            
+            { id: 'cll', label: 'CLL / SLL', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('Trisomy 12, del(11q), del(13q), del(17p) TP53. High frequency of unmutated IgV_H denotes aggressive course.','Lymph nodes diffusely effaced by small resting lymphocytes mixed with prolymphocytes forming "proliferation centers" (pathognomonic). <b>Peripheral blood:</b> Absolute lymphocytosis, <b>Smudge cells</b> (fragile lymphocytes crushed during slide prep).','CD19+, CD20+ (dim), CD23+, <b>CD5+</b> (anomalous T-cell marker on a B-cell), surface Ig (dim).','Most common leukemia in Western adults (>60 yrs). Often asymptomatic. Hypogammaglobulinemia (infections are leading cause of death). AIHA. Richter Transformation to DLBCL (rapidly enlarging node).') },
+            
+            { id: 'follicular', label: 'Follicular Lymphoma', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('<b>t(14;18)(q32;q21)</b>: IgH promoter (14) placed next to <b>BCL2</b> (18). Overexpression of BCL2 inhibits apoptosis (immortal cells). Mutations in KMT2D (MLL2).','Nodular/follicular growth pattern effacing architecture. Two cell types: <b>Centrocytes</b> (small, cleaved/angulated nuclei) and <b>Centroblasts</b> (large, multiple nucleoli). NO tingible body macrophages (because cells don\'t die).','CD19+, CD20+, CD10+, <b>BCL6+</b>, <b>BCL2+</b>, CD5-.','Adults. Indolent, waxing and waning generalized painless lymphadenopathy. Incurable but slow growing. Risk of transformation to DLBCL (30-50%).') },
+            
+            { id: 'dlbcl', label: 'Diffuse Large B-Cell Lymphoma (DLBCL)', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('Mutations in BCL6 promoter (30%), t(14;18) involving BCL2 (30%). Can have MYC translocations. "Double-hit" (MYC + BCL2) is very aggressive.','Diffuse pattern obliterating architecture. Cells are LARGE (3-4x size of resting lymphocyte), vesicular nucleus, prominent nucleoli, abundant cytoplasm. High mitotic rate.','CD19+, CD20+, CD10 (+/-), BCL6 (+/-). Ki-67 high.','Most common NHL in adults. Aggressive, rapidly enlarging symptomatic mass at nodal or extranodal sites (GI tract, brain). Potentially curable with intensive chemo (R-CHOP).') },
+            
+            { id: 'burkitt', label: 'Burkitt Lymphoma', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('<b>t(8;14)(q24;q32)</b>: c-MYC oncogene (8) to IgH (14). Leads to extreme over-expression of MYC (transcription factor) causing rapid proliferation.','Sheets of intermediate-sized uniform lymphoid cells. Very high mitotic index. <b>"Starry Sky" pattern:</b> prominent tingible-body macrophages (stars) clearing dead apoptotic cells against a dark background of basophilic tumor cells (sky).','CD19+, CD20+, CD10+, BCL6+, BCL2-, <b>Ki-67 ~100%</b>.','1. <b>Endemic (African):</b> Jaw/facial mass, 100% EBV+. <br>2. <b>Sporadic:</b> Abdominal mass (ileocecum), 20% EBV+. <br>3. <b>HIV-associated.</b> Highly aggressive but highly curable.') },
+            
+            { id: 'mantle', label: 'Mantle Cell Lymphoma', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('<b>t(11;14)(q13;q32)</b>: Cyclin D1 (11) to IgH (14). Overexpression of Cyclin D1 drives cells from G1 to S phase.','Expands mantle zone around germinal centers, or diffuse. Small to intermediate cells with irregular, cleaved nuclei. Unlike CLL, no proliferation centers.','CD19+, CD20+, <b>CD5+</b>, <b>Cyclin D1+</b>, CD23- (distinguishes from CLL).','Older males. Often presents at stage IV with generalized LAD, marrow, splenic, and GI involvement (lymphomatoid polyposis). Moderately aggressive, incurable, poor prognosis.') },
+            
+            { id: 'mzl', label: 'Marginal Zone Lymphoma', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('t(11;18)(q21;q21), t(14;18), t(1;14). Upregulates BCL10 or MALT1 promoting NF-kB survival pathway.','Arises in post-germinal center marginal zone. Lymphoepithelial lesions (tumor cells invading glandular epithelium).','CD19+, CD20+, CD5-, CD10-.','Arises in chronic inflammatory states (Hashimoto, Sjögren, H. pylori gastritis). Extranodal form called MALToma. Can regress if offending antigen/bacteria is eradicated (e.g., treating H. pylori).') },
+            
+            { id: 'hairy', label: 'Hairy Cell Leukemia', cat: 'lymphoid', parentId: 'matureb', details: formatDetails('<b>BRAF V600E</b> mutation in >90% of cases.','<b>Blood:</b> Cells with fine, hair-like cytoplasmic projections. <b>Marrow:</b> "Fried egg" appearance, induces massive reticulin fibrosis (dry tap). <b>Spleen:</b> Red pulp engorgement (beefy red spleen, obliterates white pulp).','<b>TRAP+</b> (Tartrate-Resistant Acid Phosphatase). CD19+, CD20+, CD11c+, CD25+, CD103+, Annexin A1+.','Middle-aged males. Massive splenomegaly, pancytopenia (infections, bleeding). Exquisitely sensitive to purine analogs (Cladribine) - excellent prognosis.') },
+
+            // Plasma Cell
+            { id: 'plasma', label: 'Plasma Cell Neoplasms', cat: 'lymphoid', parentId: 'matureb', details: 'Terminally differentiated B-cells secreting monoclonal immunoglobulins (M-protein/Paraprotein).' },
+            { id: 'mm', label: 'Multiple Myeloma', cat: 'lymphoid', parentId: 'plasma', details: formatDetails('Frequent translocations involving IgH (14q32) with cyclin D1, D3. Deletions of 17p (TP53). Tumor cells produce MIP1a, upregulating RANKL, activating osteoclasts.','Marrow replaced (>10%) by malignant plasma cells: eccentric nucleus, clock-face chromatin, perinuclear halo. <b>Mott cells</b> (filled with Russell bodies/IgG), <b>Rouleaux formation</b> of RBCs in blood.','CD138+, CD38+, CD56+, CD19-. Monoclonal cytoplasmic Ig.','<b>CRAB</b> symptoms: <b>C</b>alcium elevated, <b>R</b>enal failure (myeloma cast nephropathy / Bence-Jones proteins), <b>A</b>nemia, <b>B</b>one lesions (punched-out lytic lesions in skull/spine). Primary AL Amyloidosis.') },
+            { id: 'mgus', label: 'MGUS & Smoldering Myeloma', cat: 'lymphoid', parentId: 'plasma', details: formatDetails('','<b>MGUS:</b> <10% marrow plasma cells. <b>Smoldering:</b> 10-60% marrow plasma cells.','','<b>Monoclonal Gammopathy of Undetermined Significance:</b> M-spike present but NO CRAB symptoms. Very common in elderly. 1% per year progress to Multiple Myeloma.') },
+            { id: 'wm', label: 'Waldenström Macroglobulinemia', cat: 'lymphoid', parentId: 'plasma', details: formatDetails('MYD88 L265P mutation in >90%.','Marrow infiltration by lymphocytes, plasmacytoid lymphocytes, and plasma cells (Lymphoplasmacytic Lymphoma). Does NOT secrete bone-resorbing factors.','Monoclonal <b>IgM</b> in serum.','Hyperviscosity syndrome (IgM is a massive pentamer): blurred vision, retinal hemorrhage, stroke, Raynaud phenomenon, bleeding. NO lytic bone lesions.') },
+
+            // Mature T/NK
+            { id: 'maturet', label: 'Mature T/NK-Cell Neoplasms', cat: 'lymphoid', parentId: 'lymphoid', details: 'Rarer than B-cell lymphomas. Generally more aggressive. Present with prominent skin or midline tissue involvement.' },
+            { id: 'mycosis', label: 'Mycosis Fungoides / Sézary Syndrome', cat: 'lymphoid', parentId: 'maturet', details: formatDetails('','Epidermotropism: CD4+ T cells infiltrate the epidermis forming <b>Pautrier microabscesses</b>. Cells have cerebriform (brain-like) profoundly folded nuclei.','CD3+, CD4+, CD8-.','<b>Mycosis Fungoides:</b> Cutaneous patches -> plaques -> tumors. <b>Sézary Syndrome:</b> Leukemic phase with generalized erythroderma and circulating Sézary cells.') },
+            { id: 'atll', label: 'Adult T-Cell Leukemia/Lymphoma', cat: 'lymphoid', parentId: 'maturet', details: formatDetails('Caused by infection with <b>HTLV-1</b> retrovirus. Viral Tax protein activates NF-kB.','Multilobated "cloverleaf" or "flower" nuclei in circulating lymphocytes.','CD4+, CD25+.','Endemic to Japan, Caribbean, West Africa. Rapidly fatal. Features: Skin lesions, generalized LAD, hepatosplenomegaly, <b>hypercalcemia</b> (lytic bone lesions due to osteoclast-activating factors), aggressive leukemia.') },
+            { id: 'alcl', label: 'Anaplastic Large Cell Lymphoma (ALCL)', cat: 'lymphoid', parentId: 'maturet', details: formatDetails('t(2;5)(p23;q35) fuses NPM to <b>ALK</b> (Anaplastic Lymphoma Kinase) -> constitutively active tyrosine kinase.','Large cells with abundant cytoplasm and horseshoe- or kidney-shaped nuclei (<b>Hallmark cells</b>). Often mimics metastatic carcinoma.','<b>CD30+</b>, ALK+, CD3+/-. EMA+.','ALK+ form seen in children/young adults, good prognosis with chemo. ALK- form in older adults, poor prognosis. Often involves soft tissue and lymph nodes.') },
+
+            // Hodgkin Lymphoma
+            { id: 'hl', label: 'Hodgkin Lymphoma (HL)', cat: 'lymphoid', parentId: 'neo', details: 'Characterized by rare neoplastic giant cells (Reed-Sternberg cells) sitting in a massive background of reactive inflammatory cells (lymphocytes, eosinophils, histiocytes) attracted by cytokines (IL-5, TGF-b).' },
+            { id: 'chl', label: 'Classical Hodgkin Lymphoma', cat: 'lymphoid', parentId: 'hl', details: formatDetails('Activation of NF-kB. EBV infection is a cofactor in some subtypes (Mixed Cellularity).','<b>Reed-Sternberg (RS) Cell:</b> Large cell with bilobed nucleus, prominent eosinophilic inclusion-like nucleoli (Owl-eye appearance). Background inflammatory infiltrate determines subtype.','<b>CD15+, CD30+</b>, CD45-, CD20-. PAX5 weak+.','Bimodal age curve (20s, >50s). Painless lymphadenopathy (cervical). "B symptoms": fever, night sweats, weight loss. Spreads contiguously. Highly curable.') },
+            { id: 'ns', label: 'Nodular Sclerosis (Classical HL)', cat: 'lymphoid', parentId: 'chl', details: formatDetails('','Broad collagen bands divide lymph node into circumscribed nodules. Variant RS cell: <b>Lacunar cell</b> (cytoplasm retracts during fixation leaving the nucleus in an empty space).','CD15+, CD30+','Most common subtype (65-70%). Young adult females. Lower cervical, supraclavicular, and mediastinal mass. Excellent prognosis.') },
+            { id: 'mc', label: 'Mixed Cellularity (Classical HL)', cat: 'lymphoid', parentId: 'chl', details: formatDetails('EBV positive in 70% of cases.','Classic diagnostic mononuclear and binuclear RS cells are plentiful. Abundant eosinophils (IL-5 from RS cells), macrophages, lymphocytes. NO sclerosis.','CD15+, CD30+','Older males. Present with advanced stage and B symptoms. Good prognosis.') },
+            { id: 'nlphl', label: 'Nodular Lymphocyte Predominant HL', cat: 'lymphoid', parentId: 'hl', details: formatDetails('Non-classical variant. Unrelated to EBV.','<b>Popcorn cells (L&H cells):</b> Variant RS cells with multi-lobated, puffy nuclei. Background of purely reactive B lymphocytes. No typical RS cells, no eosinophils.','<b>CD20+, CD45+, BCL6+</b>. NEGATIVE for CD15 and CD30.','Young males. Cervical/axillary lymphadenopathy. Extremely indolent, but can transform to Diffuse Large B-Cell Lymphoma (DLBCL).') }
+        ];
+
+        // Construct Cytoscape Elements from wbcData
+        const elements = [];
+        wbcData.forEach(node => {
+            elements.push({
+                data: { id: node.id, label: node.label, cat: node.cat, details: node.details }
+            });
+            if (node.parentId) {
+                elements.push({
+                    data: { source: node.parentId, target: node.id }
+                });
+            }
+        });
+
+        // Initialize Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: elements,
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'width': 'label',
+                        'padding': '12px',
+                        'font-size': '12px',
+                        'font-weight': 'bold',
+                        'color': '#fff',
+                        'background-color': '#475569',
+                        'border-width': 2,
+                        'border-color': '#0f172a',
+                        'shape': 'round-rectangle',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '150px'
+                    }
+                },
+                {
+                    selector: 'node[cat="root"]',
+                    style: { 'background-color': '#1e3a8a', 'border-color': '#1e40af', 'font-size': '14px', 'padding': '16px' }
+                },
+                {
+                    selector: 'node[cat="nonneo"]',
+                    style: { 'background-color': '#059669', 'border-color': '#047857' }
+                },
+                {
+                    selector: 'node[cat="neo"]',
+                    style: { 'background-color': '#b91c1c', 'border-color': '#991b1b' }
+                },
+                {
+                    selector: 'node[cat="myeloid"]',
+                    style: { 'background-color': '#d97706', 'border-color': '#b45309' }
+                },
+                {
+                    selector: 'node[cat="lymphoid"]',
+                    style: { 'background-color': '#7c3aed', 'border-color': '#6d28d9' }
+                },
+                {
+                    selector: 'node[cat="histio"]',
+                    style: { 'background-color': '#db2777', 'border-color': '#be185d' }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#94a3b8',
+                        'target-arrow-color': '#94a3b8',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier'
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-width': 4,
+                        'border-color': '#fbbf24',
+                        'shadow-blur': 10,
+                        'shadow-color': '#fbbf24',
+                        'shadow-opacity': 0.8
+                    }
+                }
+            ],
+            layout: {
+                name: 'dagre',
+                rankDir: 'TB',
+                spacingFactor: 1.2,
+                nodeSep: 60,
+                rankSep: 80
+            },
+            minZoom: 0.2,
+            maxZoom: 3,
+            wheelSensitivity: 0.1
+        });
+
+        // Interactive Sidebar Update on Click
+        cy.on('tap', 'node', function(evt){
+            const nodeData = evt.target.data();
+            const sidebar = document.getElementById('sidebar-content');
+            
+            // Map category to a readable string
+            const catMap = {
+                'root': 'Main Category',
+                'nonneo': 'Non-Neoplastic Disorder',
+                'neo': 'Neoplastic Disorder',
+                'myeloid': 'Myeloid Neoplasm',
+                'lymphoid': 'Lymphoid Neoplasm',
+                'histio': 'Histiocytic Neoplasm'
+            };
+
+            let contentHTML = `
+                <h2>${nodeData.label}</h2>
+                <div class="category">${catMap[nodeData.cat]}</div>
+                <div class="content">${nodeData.details}</div>
+            `;
+            
+            sidebar.innerHTML = contentHTML;
+        });
+
+        // Utility: Strip HTML tags for TXT export
+        function stripHtml(html) {
+            let tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            let text = tmp.textContent || tmp.innerText || "";
+            // Add some line breaks back for readability in txt
+            return text.replace(/Pathogenesis & Genetics/g, '\n- Pathogenesis & Genetics:')
+                       .replace(/Genetics \/ Mutations/g, '\n- Genetics / Mutations:')
+                       .replace(/Morphology \(Gross & Microscopic\)/g, '\n- Morphology:')
+                       .replace(/Immunophenotype \/ Markers/g, '\n- Markers:')
+                       .replace(/Clinical Features/g, '\n- Clinical Features:');
+        }
+
+        // --- EXPORT TO TXT ---
+        function exportTXT() {
+            let textContent = "ROBBINS PATHOLOGY: WHITE BLOOD CELL DISORDERS\n";
+            textContent += "================================================\n\n";
+
+            wbcData.forEach(node => {
+                textContent += `[ ${node.label.toUpperCase()} ]\n`;
+                textContent += stripHtml(node.details).trim() + "\n\n";
+                textContent += "------------------------------------------------\n\n";
+            });
+
+            const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "WBC_Disorders_Robbins.txt";
+            link.click();
+        }
+
+        // --- EXPORT TO PDF ---
+        async function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape A4
+
+            // 1. Capture the Cytoscape Graph as an image
+            // Fit to view before capturing
+            cy.fit();
+            const png64 = cy.png({ bg: '#ffffff', full: true, scale: 2 });
+            
+            // Add title to first page
+            pdf.setFontSize(16);
+            pdf.text("Robbins Pathology: WBC Disorders Flowchart", 10, 10);
+            
+            // Add graph image (calculating aspect ratio to fit A4)
+            const imgProps = pdf.getImageProperties(png64);
+            const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            pdf.addImage(png64, 'PNG', 10, 20, pdfWidth, pdfHeight);
+
+            // 2. Add text details to subsequent pages
+            pdf.addPage('p', 'mm', 'a4'); // Portrait for text
+            pdf.setFontSize(14);
+            pdf.text("Comprehensive Pathology Details", 10, 20);
+            
+            let yPos = 30;
+            pdf.setFontSize(10);
+            
+            wbcData.forEach(node => {
+                if(yPos > 270) {
+                    pdf.addPage();
+                    yPos = 20;
+                }
+                
+                pdf.setFont("helvetica", "bold");
+                pdf.text(node.label, 10, yPos);
+                yPos += 5;
+                
+                pdf.setFont("helvetica", "normal");
+                const cleanText = stripHtml(node.details).trim();
+                
+                // Split text to fit width
+                const splitText = pdf.splitTextToSize(cleanText, 190);
+                pdf.text(splitText, 10, yPos);
+                
+                yPos += (splitText.length * 5) + 10;
+            });
+
+            pdf.save("WBC_Disorders_Robbins.pdf");
+        }
+    </script>
+</body>
+</html>
