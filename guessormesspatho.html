@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUESS OR MESS - Pathology OSPE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@300;400;500;600;700;800&family=Courier+Prime&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ospe-paper: #ffffff;
+            --ospe-bg: #f3f4f6;
+            --primary: #2563eb;
+            --text-main: #1f2937;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--ospe-bg);
+            color: var(--text-main);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-arial {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .signature {
+            font-family: 'Caveat', cursive;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Wooden Table Background for OSPE Exam */
+        .wood-table-bg {
+            background-color: #3e2723;
+            background-image: url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        /* Realistic Physical Paper Styling */
+        .ospe-sheet {
+            background-color: #ffffff;
+            color: #000000;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 5px 15px rgba(0,0,0,0.3);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .flashcard-inner {
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+
+        /* Global scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        /* Custom scrollbar for flashcard back to fix overflow */
+        .flashcard-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .flashcard-scroll::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+        .flashcard-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+
+        .mode-radio:checked + label {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e3a8a;
+            box-shadow: inset 0 0 0 1px #3b82f6;
+        }
+        
+        .mode-radio:checked + label svg {
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 glass-nav z-50 flex justify-around items-center py-3 md:top-0 md:bottom-auto md:shadow-sm">
+        <button onclick="showView('dashboard')" class="flex flex-col items-center text-slate-400 hover:text-blue-600 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+            <span class="text-[10px] mt-1.5 font-bold uppercase tracking-wider">Home</span>
+        </button>
+        <button onclick="showView('flashcards')" class="flex flex-col items-center text-slate-400 hover:text-blue-600 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12l5 5 10-10"></path><path d="M2 12l5 5L9 15"></path></svg>
+            <span class="text-[10px] mt-1.5 font-bold uppercase tracking-wider">Cards</span>
+        </button>
+        <button onclick="showView('ospe-lobby')" class="flex flex-col items-center text-slate-400 hover:text-blue-600 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span class="text-[10px] mt-1.5 font-bold uppercase tracking-wider">OSPE</span>
+        </button>
+    </nav>
+
+    <div id="main-content" class="pb-28 md:pt-24 min-h-screen flex flex-col">
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="view flex-grow p-6 animate-fade-in flex flex-col justify-center">
+            <div class="max-w-md mx-auto text-center w-full">
+                <img src="https://i.imgur.com/wliwntu.png" alt="Guess or Mess Logo" class="w-32 h-32 object-contain mx-auto mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
+                <h1 class="text-4xl font-black text-slate-900 tracking-tight mb-2">GUESS OR <span class="text-blue-600">MESS</span></h1>
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-widest mb-10">Pathology Mastery</p>
+                
+                <div class="grid gap-4">
+                    <button onclick="showView('flashcards')" class="group bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 flex items-center gap-5 transition-all duration-300 transform hover:-translate-y-1">
+                        <div class="bg-blue-50 p-3.5 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <h3 class="font-bold text-slate-800 text-lg">Flashcards</h3>
+                            <p class="text-xs text-slate-500 font-medium">20 High-yield slides</p>
+                        </div>
+                        <svg class="ml-auto text-slate-300 group-hover:text-blue-500 transition-colors" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+
+                    <button onclick="showView('ospe-lobby')" class="group bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-200 flex items-center gap-5 transition-all duration-300 transform hover:-translate-y-1">
+                        <div class="bg-indigo-50 p-3.5 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <h3 class="font-bold text-slate-800 text-lg">OSPE Exam</h3>
+                            <p class="text-xs text-slate-500 font-medium">100 Unique Stations</p>
+                        </div>
+                        <svg class="ml-auto text-slate-300 group-hover:text-indigo-500 transition-colors" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flashcards View -->
+        <div id="view-flashcards" class="view hidden p-4 flex-grow flex flex-col justify-center">
+            <div class="max-w-md mx-auto w-full">
+                <div class="flex justify-between items-center mb-6">
+                    <button onclick="showView('dashboard')" class="text-slate-400 hover:text-slate-700 transition p-2 -ml-2">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <h2 class="font-bold text-lg text-slate-800">Morphology Deck</h2>
+                    <button onclick="shuffleDeck()" class="text-blue-600 font-bold text-sm bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">Shuffle</button>
+                </div>
+
+                <div id="card-container" class="w-full h-[520px] perspective-1000">
+                    <!-- Dynamic Card Content -->
+                </div>
+
+                <div class="flex gap-4 mt-8">
+                    <button onclick="prevCard()" class="flex-1 py-4 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition active:scale-95">Previous</button>
+                    <button onclick="nextCard()" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold shadow-md shadow-blue-200 hover:bg-blue-700 transition active:scale-95">Next Card</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- OSPE Lobby View -->
+        <div id="view-ospe-lobby" class="view hidden p-6 flex-grow">
+            <div class="max-w-2xl mx-auto">
+                <div class="flex items-center gap-3 mb-6">
+                    <button onclick="showView('dashboard')" class="text-slate-400 hover:text-slate-700 transition">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <h2 class="text-2xl font-black text-slate-800">OSPE Setup</h2>
+                </div>
+
+                <!-- Mode Selection -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-8">
+                    <h3 class="font-bold text-slate-800 mb-3 text-sm uppercase tracking-wider">Select Examination Mode</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="relative">
+                            <input type="radio" name="ospe-mode" id="mode-timed" class="mode-radio hidden" value="timed" checked onchange="updateModeSelection()">
+                            <label for="mode-timed" class="flex flex-col items-center justify-center p-4 border border-slate-200 rounded-xl cursor-pointer transition-all hover:bg-slate-50">
+                                <svg class="mb-2 text-slate-400" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span class="font-bold text-sm">Timed</span>
+                                <span class="text-xs text-slate-500 mt-1 text-center">6 minutes per station</span>
+                            </label>
+                        </div>
+                        <div class="relative">
+                            <input type="radio" name="ospe-mode" id="mode-untimed" class="mode-radio hidden" value="untimed" onchange="updateModeSelection()">
+                            <label for="mode-untimed" class="flex flex-col items-center justify-center p-4 border border-slate-200 rounded-xl cursor-pointer transition-all hover:bg-slate-50">
+                                <svg class="mb-2 text-slate-400" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253"></path></svg>
+                                <span class="font-bold text-sm">Practice</span>
+                                <span class="text-xs text-slate-500 mt-1 text-center">Untimed & relaxed</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3 class="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider">Available Stations (100)</h3>
+                <!-- Make list scrollable inside lobby -->
+                <div class="grid gap-3 h-[400px] overflow-y-auto pr-2 flashcard-scroll" id="ospe-station-list">
+                    <!-- Stations dynamically listed -->
+                </div>
+            </div>
+        </div>
+
+        <!-- OSPE Exam View (Wooden Table) -->
+        <div id="view-ospe-exam" class="view hidden wood-table-bg fixed inset-0 z-40 overflow-y-auto pb-28 pt-4 md:pt-6">
+            <div class="max-w-4xl mx-auto px-4 md:px-8 pt-4">
+                
+                <!-- Exam Controls (Floating above paper) -->
+                <div class="flex justify-between items-center mb-6 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20 shadow-lg sticky top-4 z-50">
+                    <button onclick="showView('ospe-lobby')" class="text-white font-bold text-xs uppercase tracking-wider bg-red-500/80 hover:bg-red-500 px-4 py-2 rounded-full transition flex items-center gap-2 shadow-sm">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        Exit Exam
+                    </button>
+                    <div id="timer-display" class="bg-blue-600 text-white px-5 py-2 rounded-full font-mono font-bold text-lg shadow-md flex items-center gap-2 border border-blue-400/50">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>06:00</span>
+                    </div>
+                </div>
+
+                <!-- The Physical Paper -->
+                <div id="ospe-paper-content" class="ospe-sheet p-8 md:p-12 mb-8">
+                    <!-- OSPE Station Paper Content Injected Here -->
+                </div>
+
+                <!-- Exam Actions (Floating below paper) -->
+                <div class="mt-8 flex gap-4 md:gap-6 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20 shadow-lg">
+                    <button id="btn-show-ans" onclick="toggleOspeAnswer()" class="flex-1 py-4 bg-white/90 text-slate-800 font-bold rounded-xl shadow hover:bg-white transition active:scale-95">Check Answer</button>
+                    <button id="btn-next-station" onclick="nextOspeStation()" class="flex-1 py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-900/50 hover:bg-blue-500 transition active:scale-95 flex items-center justify-center gap-2 border border-blue-400/50">
+                        Next Station
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Global Footer -->
+        <div class="mt-auto pt-8 pb-4 text-center">
+            <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Developed By</p>
+            <p class="signature text-slate-600">&copy; Mahrukh & Hasnain</p>
+        </div>
+    </div>
+
+    <script>
+        const pathologyData = [
+            {
+                url: "https://i.imgur.com/5oyEI4C.jpeg",
+                name: "Reactive changes in neutrophils",
+                desc: "Neutrophils containing coarse purple cytoplasmic granules (toxic granulations) and blue cytoplasmic patches of dilated endoplasmic reticulum (Döhle bodies) (arrow). Observed in bacterial sepsis.",
+                points: ["Toxic Granulations", "Döhle bodies (Dilated ER)", "Bacterial Sepsis context", "Peripheral blood smear evidence"],
+                scenarios: [
+                    { text: "A 25-year-old male presents to the ER with a 3-day history of high-grade fever, chills, and a productive cough with purulent sputum. His BP is 90/60 mmHg and HR is 110 bpm. Peripheral blood smear is shown.", questions: [{q: "Identify the two specific morphological abnormalities indicated in the neutrophils.", m: 4}, {q: "What is the likely underlying clinical condition?", m: 2}, {q: "What are the blue cytoplasmic patches (arrow) composed of?", m: 2}], answers: ["Toxic granulations and Döhle bodies.", "Severe bacterial infection / Sepsis.", "Dilated endoplasmic reticulum."] },
+                    { text: "A 40-year-old woman is brought to the ICU following major full-thickness burns covering 40% of her body. Her total leukocyte count is 25,000/μL. A smear is reviewed.", questions: [{q: "Comment on the morphology of the predominant cells shown.", m: 4}, {q: "Name the cytoplasmic patches indicated by the arrow.", m: 2}, {q: "What term describes this left-shifted, exaggerated leukocyte response to stress?", m: 2}], answers: ["Neutrophils display toxic granulations and Döhle bodies.", "Döhle bodies.", "Leukemoid reaction."] },
+                    { text: "A 15-year-old boy presents with severe right lower quadrant abdominal pain and rebound tenderness. Blood work reveals marked neutrophilia. His smear is shown.", questions: [{q: "What specific primary granules are visibly enlarged and darkened in these cells?", m: 4}, {q: "Identify the structure marked by the arrow.", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Toxic granulations (coarse purple granules).", "Döhle body.", "Reactive neutrophilia secondary to acute infection (e.g., appendicitis)."] },
+                    { text: "A 60-year-old male develops fever and hypotension 3 days post-abdominal surgery. His peripheral smear is requested to evaluate the sepsis.", questions: [{q: "Describe the changes seen in the cytoplasm of these neutrophils.", m: 4}, {q: "What does the presence of these findings indicate about marrow production?", m: 2}, {q: "Are these findings indicative of a clonal or reactive process?", m: 2}], answers: ["Presence of coarse purple toxic granulations and blue Döhle bodies.", "Accelerated neutrophil release and maturation under stress.", "Reactive process."] },
+                    { text: "A 30-year-old trauma victim develops Systemic Inflammatory Response Syndrome (SIRS). A peripheral blood smear shows atypical changes in the leukocytes.", questions: [{q: "Identify the cell lineage and its two acquired morphological changes.", m: 4}, {q: "What is the pathophysiological significance of toxic granulations?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Neutrophils with toxic granulations and Döhle bodies.", "They represent altered primary granules due to rapid cell maturation in systemic inflammation.", "Reactive changes in neutrophils / Sepsis."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/gk8F63b.jpeg",
+                name: "Follicular hyperplasia",
+                desc: "(A) Low-power view showing reactive follicle and mantle zone. (B) Dark zone shows mitotic figures and macrophages with apoptotic cells (tingible bodies).",
+                points: ["Mantle zone prominence", "Dark zone mitotic activity", "Tingible body macrophages", "Polarized germinal center"],
+                scenarios: [
+                    { text: "A 10-year-old boy presents with a tender, enlarged cervical lymph node 2 weeks after a severe bout of streptococcal pharyngitis. An excision biopsy is performed.", questions: [{q: "What architectural feature is highlighted in region (A)?", m: 4}, {q: "What are the clear cells containing debris in region (B) called?", m: 2}, {q: "Is this a monoclonal or polyclonal expansion?", m: 2}], answers: ["A reactive secondary lymphoid follicle with a prominent mantle zone.", "Tingible body macrophages.", "Polyclonal expansion."] },
+                    { text: "A 35-year-old female with long-standing Rheumatoid Arthritis develops generalized lymphadenopathy. A node biopsy is examined.", questions: [{q: "Describe the morphological activity seen in the dark zone (B).", m: 4}, {q: "What do the apoptotic bodies inside the macrophages represent?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["High mitotic activity and presence of tingible body macrophages clearing apoptotic cells.", "Apoptotic B-cells that failed affinity maturation.", "Reactive follicular hyperplasia."] },
+                    { text: "A 20-year-old male presents with fatigue, fever, and posterior cervical lymphadenopathy. Serology is positive for Toxoplasmosis. Biopsy shows the following features.", questions: [{q: "Identify the zones visible in the follicle in (A).", m: 4}, {q: "Comment on the specific cells seen in (B) clearing debris.", m: 2}, {q: "Why are these follicles considered 'polarized'?", m: 2}], answers: ["Germinal center (light and dark zones) and the surrounding mantle zone.", "Tingible body macrophages.", "They possess a distinct dark zone (proliferating centroblasts) and light zone (centrocytes)."] },
+                    { text: "A 25-year-old male recently diagnosed with early HIV infection develops painless generalized lymphadenopathy. The biopsy of an axillary node is shown.", questions: [{q: "Describe the overall pattern in (A) and the cellular activity in (B).", m: 4}, {q: "Are the features shown indicative of lymphoma?", m: 2}, {q: "What is the prominent rim of small resting lymphocytes in (A) called?", m: 2}], answers: ["(A) shows large, reactive follicles. (B) shows mitotic figures and tingible body macrophages.", "No, these are classic features of a reactive (benign) hyperplasia.", "Mantle zone."] },
+                    { text: "An 8-year-old girl is brought in with a swollen, tender axillary node after being scratched by a kitten. A node is excised to rule out malignancy.", questions: [{q: "Comment on the morphology in (A) and identify the specific macrophages in (B).", m: 4}, {q: "What infectious agent is most likely responsible?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["(A) Reactive follicle with mantle zone; (B) Tingible body macrophages with apoptotic debris.", "Bartonella henselae.", "Reactive follicular hyperplasia."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/PfQ7Zzk.jpeg",
+                name: "Acute lymphoblastic leukemia/lymphoma (ALL)",
+                desc: "(A) Lymphoblasts with condensed nuclear chromatin, small nucleoli, and scant agranular cytoplasm. (B & C) Flow cytometry showing TdT, CD22, CD10 positivity.",
+                points: ["Condensed chromatin", "TdT positive (nuclear)", "CD10/CD19/CD22 (B-cell)", "Childhood presentation"],
+                scenarios: [
+                    { text: "A 7-year-old boy has complained of headache and fever for the past week. On physical examination, there is tenderness of long bones, hepatosplenomegaly, and generalized lymphadenopathy. Laboratory studies show Hb: 8.8 g/dL; platelet count: 34 x10^9/L; and WBCs: 54 x10^9/L. Peripheral blood smear is shown.", questions: [{q: "Comment on the CBC and peripheral blood smear findings", m: 4}, {q: "Comment on the flow scatter plot", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Anemia, thrombocytopenia, leukocytosis. Smear shows lymphoblasts with condensed chromatin, small nucleoli, and scant agranular cytoplasm.", "Positivity for TdT (immaturity) and CD10/CD22 confirms a precursor B-cell lineage.", "B-cell Acute Lymphoblastic Leukemia (B-ALL)."] },
+                    { text: "A 4-year-old girl is brought in due to a limp, severe bone pain, and mucosal bleeding. A bone marrow aspirate (A) and flow cytometry (B, C) are performed.", questions: [{q: "What nuclear enzyme marker indicates the immature nature of these cells?", m: 4}, {q: "Interpret the flow cytometry parameters shown.", m: 2}, {q: "Why is the patient experiencing bone pain?", m: 2}], answers: ["Terminal deoxynucleotidyl transferase (TdT).", "Cells are positive for early B-cell markers (CD10, CD22) and TdT.", "Massive expansion of the marrow cavity by leukemic blasts."] },
+                    { text: "A 15-year-old boy presents with a large mediastinal mass and pleural effusion. Flow cytometry shows B-cell markers, indicating a different presentation of a similar disease.", questions: [{q: "Describe the cells seen in (A).", m: 4}, {q: "If this were a mediastinal mass, what alternative lineage (with similar morphology) is more likely?", m: 2}, {q: "What does CD10 positivity indicate?", m: 2}], answers: ["Agranular blasts with condensed chromatin and scant cytoplasm.", "T-cell ALL (T-ALL).", "Common ALL Antigen (CALLA) positivity, typical of Pre-B ALL."] },
+                    { text: "A 6-year-old child with Down syndrome presents with widespread petechiae and hepatosplenomegaly. Blood smear and flow are evaluated.", questions: [{q: "Identify the cells in (A) and their key morphological features.", m: 4}, {q: "What is the significance of TdT positivity in this context?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Lymphoblasts: high N:C ratio, condensed chromatin, scant agranular cytoplasm.", "It distinguishes lymphoblasts from mature lymphocytes and myeloblasts.", "Acute lymphoblastic leukemia."] },
+                    { text: "A 3-year-old boy has generalized lymphadenopathy and an absolute lymphocytosis of 60,000/μL. A smear and immunophenotyping are done.", questions: [{q: "Comment on the nucleoli and cytoplasm of the cells in (A).", m: 4}, {q: "Based on (B) & (C), what is the immunophenotype?", m: 2}, {q: "What age group is most classically affected by this disease?", m: 2}], answers: ["Small nucleoli with scant, agranular cytoplasm.", "Precursor B-cell (TdT+, CD10+, CD22+).", "Children (peak age 3-4 years)."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/DLZGT6F.jpeg",
+                name: "SLL / CLL (Lymph Node)",
+                desc: "(A) Low-power diffuse effacement. (B) Small round lymphocytes. Arrow indicates a prolymphocyte (larger, central nucleolus).",
+                points: ["Architecture effacement", "Small round lymphocytes", "Prolymphocytes present", "B-cell indolent course"],
+                scenarios: [
+                    { text: "A 65-year-old male presents with painless generalized lymphadenopathy. A biopsy of a cervical lymph node is performed and shown.", questions: [{q: "Describe the architecture in (A) and the cellular infiltrate in (B).", m: 4}, {q: "Identify the specific cell indicated by the arrow.", m: 2}, {q: "What is the most likely diagnosis?", m: 2}], answers: ["(A) shows diffuse effacement of nodal architecture. (B) shows a monotonous population of small round lymphocytes.", "A prolymphocyte (larger cell with a prominent central nucleolus).", "Small Lymphocytic Lymphoma / Chronic Lymphocytic Leukemia (SLL/CLL)."] },
+                    { text: "A 70-year-old female presents with autoimmune hemolytic anemia and mildly enlarged lymph nodes. Node biopsy reveals the following.", questions: [{q: "Comment on the morphology of the predominant cells in (B).", m: 4}, {q: "What is the significance of the cell with the central nucleolus (arrow)?", m: 2}, {q: "What classic surface marker co-expression defines this disease?", m: 2}], answers: ["Monotonous, small, mature-appearing lymphocytes with condensed chromatin.", "It is a prolymphocyte; aggregates of these form 'proliferation centers'.", "CD5 and CD23 co-expression on B-cells."] },
+                    { text: "A 60-year-old male with a history of recurrent respiratory infections (hypogammaglobulinemia) undergoes a lymph node biopsy.", questions: [{q: "Describe the histological pattern seen in (A).", m: 4}, {q: "Identify the larger cell indicated by the arrow.", m: 2}, {q: "Why do patients with this condition often develop hypogammaglobulinemia?", m: 2}], answers: ["Diffuse effacement of normal nodal architecture without distinct follicles.", "Prolymphocyte.", "The neoplastic B-cells are dysfunctional and suppress normal B-cell antibody production."] },
+                    { text: "An incidental enlarged supraclavicular node is excised from a 75-year-old male during an unrelated surgery. The histology is shown.", questions: [{q: "Comment on the morphology in (B) and the cell marked by the arrow.", m: 4}, {q: "Is this considered an indolent or aggressive lymphoma?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Predominantly small resting lymphocytes mixed with scattered larger prolymphocytes (arrow).", "Indolent.", "Small Lymphocytic Lymphoma (SLL)."] },
+                    { text: "A 68-year-old male presents with gradual fatigue and diffuse lymph node enlargement over 2 years. Node histology is presented.", questions: [{q: "Describe the architecture in (A) and the predominant cell type in (B).", m: 4}, {q: "Aggregates of the arrowed cells form what specific structures?", m: 2}, {q: "What is the leukemic counterpart of this disease?", m: 2}], answers: ["(A) Diffuse architectural effacement. (B) Small mature lymphocytes.", "Proliferation centers.", "Chronic Lymphocytic Leukemia (CLL)."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/44oXwkQ.jpeg",
+                name: "Chronic lymphocytic leukemia (Smear)",
+                desc: "Peripheral smear flooded with small lymphocytes. Smudge cells present. Spherocytes present due to coexistent AIHA.",
+                points: ["Smudge cells / Basket cells", "Cracked-nut chromatin", "Coexistent AIHA (Spherocytes)", "Nucleated RBCs (Leukoerythroblastosis)"],
+                scenarios: [
+                    { text: "A 68-year-old male presents for a routine checkup. He is completely asymptomatic, but his CBC reveals a WBC count of 60,000/μL, predominantly lymphocytes. The smear is shown.", questions: [{q: "Identify the disrupted, smudged structures in the smear.", m: 4}, {q: "Describe the morphology of the intact lymphocytes.", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Smudge cells (or basket cells) due to fragile neoplastic lymphocytes.", "Small, mature-appearing lymphocytes with condensed 'cracked-nut' chromatin and scant cytoplasm.", "Chronic Lymphocytic Leukemia (CLL)."] },
+                    { text: "A 72-year-old female presents with fatigue and clinical jaundice. CBC shows absolute lymphocytosis, elevated reticulocytes, and a positive direct Coombs test. Smear is shown.", questions: [{q: "What specific red blood cell morphology is present explaining the jaundice?", m: 4}, {q: "Identify the disrupted nucleated cells seen.", m: 2}, {q: "What is the complication occurring in this patient?", m: 2}], answers: ["Spherocytes.", "Smudge cells.", "Secondary Autoimmune Hemolytic Anemia (AIHA) complicating CLL."] },
+                    { text: "A 60-year-old male's routine blood work shows marked absolute lymphocytosis. A peripheral blood smear is prepared, revealing numerous fragile cells.", questions: [{q: "Comment on the morphology of the predominant WBCs and the damaged cells.", m: 4}, {q: "What is the classic immunophenotype of these cells?", m: 2}, {q: "Are these cells mature or immature?", m: 2}], answers: ["Small round lymphocytes with dense chromatin and numerous smudge cells (crushed during slide prep).", "CD5+, CD23+, CD20+ (dim), surface Ig (dim).", "Mature."] },
+                    { text: "An elderly patient presents with severe anemia and high WBC count. The smear shows nucleated RBCs, spherocytes, and predominantly small lymphocytes with disrupted forms.", questions: [{q: "Identify the disrupted cells and explain their origin.", m: 4}, {q: "Why are nucleated RBCs and spherocytes seen here?", m: 2}, {q: "What is the most likely diagnosis?", m: 2}], answers: ["Smudge cells; they are fragile leukemic lymphocytes crushed during slide preparation.", "Spherocytes due to AIHA; nucleated RBCs due to marrow stress/leukoerythroblastosis.", "CLL with Autoimmune Hemolytic Anemia."] },
+                    { text: "A 65-year-old male is evaluated for persistent lymphocytosis. Physical exam shows mild splenomegaly. His peripheral smear is shown.", questions: [{q: "Describe the chromatin pattern of the intact lymphocytes.", m: 4}, {q: "Name the artifactual cells that are highly characteristic of this disease.", m: 2}, {q: "What is the clinical course of this disease?", m: 2}], answers: ["Condensed, dark 'blocky' or 'cracked-nut' chromatin.", "Smudge cells.", "Indolent, slowly progressive course."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/gbpNDSk.jpeg",
+                name: "SLL / CLL (Liver)",
+                desc: "Low-power view of a typical periportal lymphocytic infiltrate involving the liver.",
+                points: ["Periportal infiltrate", "Infiltration of hepatic sinusoids", "Systemic B-cell involvement", "Indolent progression"],
+                scenarios: [
+                    { text: "A 70-year-old male with known Chronic Lymphocytic Leukemia presents with mild hepatomegaly. A liver biopsy is taken to assess the extent of involvement.", questions: [{q: "Describe the pattern of the cellular infiltrate in the liver tissue.", m: 4}, {q: "Which specific zones or structures of the liver are primarily expanded?", m: 2}, {q: "What type of cells make up this infiltrate?", m: 2}], answers: ["Dense, monotonous lymphocytic infiltrate expanding the periportal tracts.", "The portal tracts (periportal areas) and extending into hepatic sinusoids.", "Small, mature neoplastic B-lymphocytes."] },
+                    { text: "An elderly female with mildly deranged LFTs undergoes a liver biopsy. An incidental finding of a dense mononuclear infiltrate is noted.", questions: [{q: "Comment on the morphology of the infiltrate shown.", m: 4}, {q: "Given the pattern, what systemic hematopoietic disorder is most likely?", m: 2}, {q: "What would the peripheral blood smear likely show?", m: 2}], answers: ["Prominent periportal accumulation of small, mature lymphocytes.", "Chronic Lymphocytic Leukemia / Small Lymphocytic Lymphoma (CLL/SLL).", "Absolute lymphocytosis with smudge cells."] },
+                    { text: "A 65-year-old male with an absolute lymphocytosis of 80,000/μL complains of a dragging sensation in the right upper quadrant. Liver biopsy is shown.", questions: [{q: "Identify the main histopathological abnormality in this low-power view.", m: 4}, {q: "Is this primary liver disease or a systemic process?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Massive expansion of portal tracts by a uniform lymphocytic infiltrate.", "Systemic neoplastic process involving the liver.", "Hepatic involvement by CLL."] },
+                    { text: "An autopsy of an 80-year-old male with a long-standing, indolent leukemia includes examination of the liver. The tissue section is provided.", questions: [{q: "Describe the distribution of the leukemic cells in this organ.", m: 4}, {q: "How does this differ morphologically from an acute hepatitis infiltrate?", m: 2}, {q: "What is the likely underlying disease?", m: 2}], answers: ["Dense, circumscribed lymphocytic infiltrates localized primarily to the periportal regions.", "It is much more dense, monotonous, and lacks significant hepatocellular necrosis.", "CLL/SLL."] },
+                    { text: "A 68-year-old patient with generalized lymphadenopathy, splenomegaly, and hepatomegaly has CD5+/CD23+ B-cells in the blood. A liver section is shown.", questions: [{q: "Comment on the tissue architecture and the infiltrative pattern.", m: 4}, {q: "What is the surface marker profile of these infiltrating cells?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Hepatic parenchyma with striking periportal expansion by small lymphocytes.", "CD5+, CD23+, CD19+, CD20+ (dim).", "Hepatic infiltration by CLL."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/cPDPViP.jpeg",
+                name: "Follicular lymphoma (Lymph Node)",
+                desc: "(A) Nodular aggregates. (B) Mix of Centrocytes (cleaved nuclei) and Centroblasts (larger with nucleoli).",
+                points: ["Nodular growth pattern", "Centrocytes (cleaved)", "Centroblasts (large)", "t(14;18) BCL2+"],
+                scenarios: [
+                    { text: "A 55-year-old female presents with a history of painless, waxing and waning cervical lymphadenopathy over the past 3 years. A biopsy is performed.", questions: [{q: "Describe the architectural pattern in (A) and the specific cell types seen in (B).", m: 4}, {q: "What hallmark genetic translocation is associated with this disease?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["(A) Nodular/follicular growth pattern. (B) A mix of small cleaved cells (centrocytes) and larger cells with nucleoli (centroblasts).", "t(14;18) involving the BCL2 gene.", "Follicular Lymphoma."] },
+                    { text: "A 60-year-old male is found to have asymptomatic, generalized lymphadenopathy during a routine physical exam. The node biopsy is shown.", questions: [{q: "Comment on the low-power appearance (A) and identify the 'cleaved' cells in (B).", m: 4}, {q: "Why do these neoplastic cells survive and accumulate instead of undergoing apoptosis?", m: 2}, {q: "Is this typically an indolent or highly aggressive disease?", m: 2}], answers: ["(A) Nodular aggregates replacing normal architecture. (B) Centrocytes (cleaved nuclei).", "Overexpression of the anti-apoptotic protein BCL2 due to t(14;18).", "Indolent."] },
+                    { text: "A 58-year-old female is incidentally found to have enlarged mesenteric lymph nodes on an abdominal ultrasound. Biopsy reveals the following.", questions: [{q: "Describe the two distinct cell populations visible in (B).", m: 4}, {q: "Unlike reactive follicular hyperplasia, what feature is typically absent in these neoplastic nodules?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Centrocytes (small, angular/cleaved nuclei) and Centroblasts (larger, vesicular chromatin, nucleoli).", "Tingible body macrophages (lack of apoptosis).", "Follicular Lymphoma."] },
+                    { text: "A 50-year-old female presents with a persistently enlarged cervical node. FISH analysis of the biopsy is positive for t(14;18). The histology is shown.", questions: [{q: "Describe the architecture in (A) and the cells with multiple nucleoli in (B).", m: 4}, {q: "What gene is upregulated as a result of the translocation?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["(A) Nodular pattern. (B) Centroblasts (large cells with prominent nucleoli).", "BCL2 (an anti-apoptotic gene).", "Follicular Lymphoma."] },
+                    { text: "A 65-year-old male undergoes excision of an axillary node. The pathologist notes a completely effaced architecture with back-to-back nodules.", questions: [{q: "Comment on the morphology in (A) and (B).", m: 4}, {q: "How does the grading of this lymphoma typically work?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["(A) Effaced architecture with nodular aggregates. (B) Mixture of centrocytes and centroblasts.", "Grading is based on the absolute number of centroblasts per high-power field.", "Follicular Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/jgFa4BL.jpeg",
+                name: "Diffuse large B-cell lymphoma (DLBCL)",
+                desc: "Tumor cells have large nuclei, open chromatin, and prominent nucleoli. Aggressive morphology.",
+                points: ["Large atypical nuclei", "Open vesicular chromatin", "Prominent nucleoli", "Diffuse growth pattern"],
+                scenarios: [
+                    { text: "A 60-year-old male presents with a rapidly enlarging, painless mass in his neck over the past 4 weeks. A biopsy is performed and shown.", questions: [{q: "Describe the nuclear morphology of the tumor cells.", m: 4}, {q: "What architectural growth pattern is implied by the disease name?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Large atypical nuclei, open vesicular chromatin, and prominent multiple nucleoli.", "Diffuse growth pattern (effacing normal node architecture completely).", "Diffuse Large B-Cell Lymphoma (DLBCL)."] },
+                    { text: "A 65-year-old female presents with fever, drenching night sweats, weight loss, and a massive retroperitoneal mass. A core biopsy is evaluated.", questions: [{q: "Comment on the cell size and nucleolar features seen in the biopsy.", m: 4}, {q: "Is this considered an indolent or aggressive lymphoma?", m: 2}, {q: "What lineage do these cells typically belong to?", m: 2}], answers: ["Cells are 3-4x the size of normal lymphocytes with prominent nucleoli and vesicular chromatin.", "Aggressive.", "B-cell lineage (CD19+, CD20+)."] },
+                    { text: "A 55-year-old male complains of dysphagia and is found to have massive asymmetrical tonsillar enlargement (Waldeyer's ring involvement).", questions: [{q: "Describe the morphological features of the neoplastic infiltrate.", m: 4}, {q: "What common mutations are associated with this disease?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Sheets of large atypical lymphoid cells with open chromatin and prominent nucleoli.", "Mutations in BCL6, BCL2, or MYC.", "Diffuse Large B-Cell Lymphoma."] },
+                    { text: "A 70-year-old female with a 5-year history of indolent follicular lymphoma suddenly develops a rapidly growing nodal mass.", questions: [{q: "Identify the cells and describe their morphology.", m: 4}, {q: "What is the term for this sudden transformation from an indolent lymphoma?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Large B-cells with vesicular chromatin and prominent nucleoli.", "Richter transformation.", "DLBCL (arising from Follicular Lymphoma)."] },
+                    { text: "An HIV-positive patient presents with a rapidly growing destructive mass in the gastrointestinal tract. Biopsy is shown.", questions: [{q: "Describe the cytological details of the cells present.", m: 4}, {q: "What viral association is sometimes seen in immunodeficiency-associated cases?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Large, pleomorphic nuclei with open chromatin and distinct nucleoli, growing in a diffuse pattern.", "Epstein-Barr Virus (EBV).", "Diffuse Large B-Cell Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/ZPSl1nf.jpeg",
+                name: "DLBCL (Spleen)",
+                desc: "Isolated large mass in the spleen. Typical of aggressive B-cell lymphomas compared to indolent multifocal expansion.",
+                points: ["Isolated splenic mass", "Destruction of white pulp", "Rapidly growing", "Clinical urgency"],
+                scenarios: [
+                    { text: "A 60-year-old male presents with severe left upper quadrant pain, fever, and weight loss. CT scan reveals a solitary, large 10 cm mass in the spleen. Splenectomy is performed (shown).", questions: [{q: "Describe the gross appearance of the spleen.", m: 4}, {q: "How does this gross pattern contrast with indolent lymphomas (like CLL or Follicular) in the spleen?", m: 2}, {q: "What is the most likely diagnosis?", m: 2}], answers: ["A single, large, destructive, fleshy tumor mass replacing normal splenic parenchyma.", "Indolent lymphomas typically cause diffuse, multifocal expansion (miliary pattern), whereas aggressive ones form large isolated masses.", "Diffuse Large B-Cell Lymphoma (DLBCL) of the spleen."] },
+                    { text: "A 65-year-old female presents with an isolated, rapidly growing splenic lesion and prominent 'B symptoms'. The gross specimen is shown.", questions: [{q: "Comment on the morphological presentation of the tumor in this organ.", m: 4}, {q: "What microscopic features would you expect if you biopsied this mass?", m: 2}, {q: "What is the clinical nature of this tumor?", m: 2}], answers: ["A solitary, circumscribed large mass destroying the splenic architecture.", "Sheets of large atypical B-cells with prominent nucleoli and vesicular chromatin.", "Aggressive and rapidly growing."] },
+                    { text: "A 70-year-old male undergoes splenectomy for a rapidly expanding splenic mass that is threatening to rupture. The gross specimen is examined.", questions: [{q: "Identify the gross pathology shown.", m: 4}, {q: "What compartment of the spleen is primarily destroyed by this mass?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["A large, solitary, fleshy neoplastic mass in the spleen.", "It destructively effaces both the white and red pulp.", "DLBCL."] },
+                    { text: "A 55-year-old female presents with massive splenomegaly. Imaging shows a single large tumor rather than diffuse enlargement. Gross specimen is shown.", questions: [{q: "Contrast this gross appearance with that of Chronic Myeloid Leukemia (CML) in the spleen.", m: 4}, {q: "What is the likely cell of origin for this tumor?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["This shows a discrete massive tumor mass, whereas CML shows diffuse, uniform enlargement due to red pulp expansion.", "Mature B-cell.", "Aggressive B-cell lymphoma (DLBCL)."] },
+                    { text: "A 62-year-old male with severe night sweats and a solitary splenic defect on imaging undergoes surgery. The cut section of the spleen is presented.", questions: [{q: "Describe the lesion visible in the spleen.", m: 4}, {q: "Given its discrete and massive nature, what is the likely grade of this lymphoma?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["A prominent, isolated, fleshy white mass replacing normal tissue.", "High-grade / Aggressive.", "DLBCL."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/DOwzLWk.jpeg",
+                name: "Burkitt lymphoma",
+                desc: "(A) 'Starry sky' appearance due to tingible body macrophages. (B) Monotonous tumor cells, high mitotic index.",
+                points: ["Starry sky appearance", "High mitotic index", "c-MYC translocation t(8;14)", "EBV association"],
+                scenarios: [
+                    { text: "A 7-year-old African boy presents with a massive, rapidly growing tumor involving his mandible. Biopsy of the mass is shown.", questions: [{q: "What is the classic architectural pattern seen in (A) and what cells cause the 'stars'?", m: 4}, {q: "Describe the cytological features in (B).", m: 2}, {q: "What viral infection is heavily associated with this endemic form?", m: 2}], answers: ["'Starry sky' pattern; the 'stars' are tingible body macrophages clearing apoptotic debris.", "Monotonous, medium-sized lymphoid cells with high mitotic activity and prominent lipid vacuoles.", "Epstein-Barr Virus (EBV)."] },
+                    { text: "A 10-year-old boy presents with an ileocecal mass leading to intussusception. A biopsy of the resected mass is examined.", questions: [{q: "Identify the pattern in (A) and the predominant cells in (B).", m: 4}, {q: "What hallmark genetic translocation is characteristic of this tumor?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["(A) Starry sky pattern. (B) Monotonous medium-sized B-cells with high mitotic index.", "t(8;14) involving the c-MYC oncogene.", "Sporadic Burkitt Lymphoma."] },
+                    { text: "A 25-year-old HIV-positive male presents with a rapidly expanding abdominal mass. Histology is shown.", questions: [{q: "Comment on the macrophage activity in (A) and the cellular proliferation in (B).", m: 4}, {q: "Why are there so many tingible body macrophages present?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["(A) Macrophages creating a 'starry sky'. (B) Extremely high proliferative rate of tumor cells.", "The extremely high proliferation rate is accompanied by a high rate of apoptosis, requiring clearance by macrophages.", "Immunodeficiency-associated Burkitt Lymphoma."] },
+                    { text: "An 8-year-old boy presents with a rapidly growing cervical mass. In situ hybridization is positive for EBV, and KI-67 fraction is nearly 100%.", questions: [{q: "Describe the morphological features in (A) and (B).", m: 4}, {q: "What does a Ki-67 index of nearly 100% signify?", m: 2}, {q: "What gene is overexpressed due to the classic translocation?", m: 2}], answers: ["(A) Starry sky appearance. (B) Monotonous medium-sized cells with prominent mitoses.", "Virtually all tumor cells are actively proliferating (extremely aggressive).", "c-MYC oncogene."] },
+                    { text: "A 12-year-old boy develops massive ascites and omental thickening. Biopsy of the omental mass reveals the following pattern.", questions: [{q: "Identify the specific architectural pattern in (A) and its cellular components.", m: 4}, {q: "What is the typical cell surface phenotype?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Starry sky pattern; dark background of monotonous B-cells interspersed with pale tingible body macrophages.", "Mature B-cell (CD19+, CD20+, surface IgM+, CD10+, BCL6+).", "Burkitt Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/K6hXNy0.jpeg",
+                name: "Multiple myeloma (Marrow)",
+                desc: "Marrow cells replaced by plasma cells. Multiple nuclei, prominent nucleoli, and Ig cytoplasmic droplets.",
+                points: ["Malignant Plasma Cells", "Clock-face chromatin", "Russell bodies / Mott cells", "Lytic bone lesions"],
+                scenarios: [
+                    { text: "A 65-year-old male presents with severe lower back pain and hypercalcemia. A bone marrow aspirate is performed and shown.", questions: [{q: "Identify the predominant malignant cells and describe their morphology.", m: 4}, {q: "What are the cytoplasmic inclusion droplets often seen in these cells called?", m: 2}, {q: "What classic skeletal finding would you expect on a skull X-ray?", m: 2}], answers: ["Malignant plasma cells with eccentric nuclei, 'clock-face' chromatin, prominent nucleoli, and perinuclear clear zones (Golgi).", "Russell bodies (if cytoplasmic) or Dutcher bodies (if intranuclear).", "Punched-out lytic bone lesions."] },
+                    { text: "A 70-year-old female presents with renal failure, anemia, and rouleaux formation on her peripheral blood smear. A marrow biopsy is shown.", questions: [{q: "Comment on the morphology, particularly the nuclei, of the cells filling the marrow.", m: 4}, {q: "What protein is likely to be found in her urine?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Sheets of plasma cells, some with multiple nuclei and prominent nucleoli, replacing normal marrow elements.", "Bence Jones protein (free light chains).", "Multiple Myeloma."] },
+                    { text: "A 60-year-old male is evaluated for unexplained anemia and lytic bone lesions. Marrow biopsy reveals sheets of atypical cells.", questions: [{q: "Identify the cells and describe their characteristic chromatin pattern.", m: 4}, {q: "What finding would be expected on Serum Protein Electrophoresis (SPEP)?", m: 2}, {q: "What is the term for a plasma cell completely packed with immunoglobulin globules?", m: 2}], answers: ["Malignant plasma cells with eccentric nuclei and 'clock-face' or 'cartwheel' chromatin.", "A prominent M-spike (monoclonal gammopathy).", "Mott cell."] },
+                    { text: "A 68-year-old female with recurrent bacterial pneumonias is found to have an IgG M-spike. Bone marrow is examined.", questions: [{q: "Describe the cytological features of the neoplastic infiltrate.", m: 4}, {q: "Why is she susceptible to recurrent bacterial infections?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Atypical plasma cells with prominent nucleoli, multinucleation, and cytoplasmic immunoglobulin droplets.", "Decreased production of normal, functional immunoglobulins (humoral immunodeficiency).", "Multiple Myeloma."] },
+                    { text: "A 72-year-old male presents with a pathological fracture of the femur. Lab tests show elevated creatinine and calcium levels. Marrow is shown.", questions: [{q: "Identify the abnormal cells and any specific inclusions.", m: 4}, {q: "What is the mechanism of hypercalcemia in this disease?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Malignant plasma cells; cytoplasmic inclusions (Russell bodies) are present.", "Neoplastic cells secrete factors (like MIP-1α, RANKL) that activate osteoclasts, leading to bone resorption.", "Multiple Myeloma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/yq1hi9q.jpeg",
+                name: "Reed-Sternberg variants",
+                desc: "(A) Diagnostic RS (Owl eye). (B) Mononuclear. (C) Lacunar variant. (D) L&H / Popcorn variant.",
+                points: ["Owl-eye Nuclei (Diagnostic)", "Lacunar cells (Nodular Sclerosis)", "Popcorn cells (Lymphocyte Predominant)", "CD15+/CD30+"],
+                scenarios: [
+                    { text: "A 25-year-old female presents with a mediastinal mass and severe pruritus. A biopsy shows various large cells in an inflammatory background.", questions: [{q: "Identify the classic cell seen in (A) and its characteristic morphology.", m: 4}, {q: "Which variant is typically seen in the Nodular Sclerosis subtype (C)?", m: 2}, {q: "What is the standard immunophenotype for the cell in (A)?", m: 2}], answers: ["Diagnostic Reed-Sternberg cell; large bilobed nucleus with prominent eosinophilic nucleoli ('owl-eye' appearance).", "Lacunar variant (C).", "CD15+, CD30+, CD20-, CD45-."] },
+                    { text: "A 30-year-old male presents with painless cervical lymphadenopathy that becomes painful after drinking alcohol. Biopsy cells are shown.", questions: [{q: "Describe the morphological differences between (A) and (B).", m: 4}, {q: "Which cell (D) is associated with the Lymphocyte Predominant subtype?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["(A) is a classic binucleate RS cell (owl-eye). (B) is a mononuclear variant (Hodgkin cell) with a single prominent nucleolus.", "The L&H or 'popcorn' cell (D).", "Classic Hodgkin Lymphoma."] },
+                    { text: "A 40-year-old male with night sweats and EBV positivity undergoes a lymph node biopsy. Different variants of the tumor cells are isolated.", questions: [{q: "Identify the cells in (A), (C), and (D).", m: 4}, {q: "How does the immunophenotype of (D) differ from (A)?", m: 2}, {q: "What type of cells typically make up the bulk of the tumor mass in this disease?", m: 2}], answers: ["(A) Classic RS cell. (C) Lacunar cell. (D) L&H (popcorn) cell.", "(D) is typically CD20+, CD45+ and negative for CD15/CD30.", "Reactive inflammatory cells (lymphocytes, eosinophils, macrophages)."] },
+                    { text: "A 20-year-old male presents with an enlarged axillary node without 'B symptoms'. Biopsy reveals a specific variant (D) among small lymphocytes.", questions: [{q: "Describe the morphology of the cell in (D).", m: 4}, {q: "Which specific subtype of Hodgkin Lymphoma is characterized by cell (D)?", m: 2}, {q: "Identify the cell in (C) and its artifactual clear space.", m: 2}], answers: ["Multilobated nucleus resembling a popcorn kernel (L&H variant).", "Nodular Lymphocyte Predominant Hodgkin Lymphoma (NLPHL).", "Lacunar cell; the clear space is an artifact of formalin fixation retracting the cytoplasm."] },
+                    { text: "A 35-year-old female presents with generalized lymphadenopathy and fever. Node biopsy shows multiple variants of large atypical cells.", questions: [{q: "Comment on the nuclear features of the diagnostic cell in (A).", m: 4}, {q: "Identify the mononuclear variant in (B).", m: 2}, {q: "What is the overarching diagnosis for a tumor containing cells (A) or (C)?", m: 2}], answers: ["Binucleate with large, inclusion-like eosinophilic nucleoli and an abundant cytoplasm.", "Hodgkin cell (mononuclear variant).", "Hodgkin Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/XMDl3c4.jpeg",
+                name: "Hodgkin Lymphoma (Nodular Sclerosis)",
+                desc: "Low-power bands of pink acellular collagen subdividing tumor into nodules.",
+                points: ["Collagen bands", "Nodular architecture", "Lacunar RS cells", "Most common HL subtype"],
+                scenarios: [
+                    { text: "A 24-year-old female is found to have an incidental mediastinal mass on a routine chest X-ray. A core needle biopsy is performed.", questions: [{q: "Describe the low-power architectural findings in the biopsy.", m: 4}, {q: "What specific variant of Reed-Sternberg cell is typically abundant in these nodules?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Broad bands of pink, acellular collagen subdividing the lymphoid tissue into circumscribed nodules.", "Lacunar cells.", "Nodular Sclerosis Hodgkin Lymphoma."] },
+                    { text: "A 28-year-old female presents with a firm cervical node and a dry cough. Biopsy reveals thick fibrous bands and nodules.", questions: [{q: "Comment on the composition of the bands dividing the tumor.", m: 4}, {q: "What is the demographic profile most commonly affected by this specific subtype?", m: 2}, {q: "What is the prognosis for this subtype?", m: 2}], answers: ["They are composed of dense, acellular collagen (fibrosis).", "Young adults, with a slight female predominance.", "Excellent prognosis with modern therapy."] },
+                    { text: "A 22-year-old male presents with widening of the mediastinum on X-ray. A biopsy of the mass is shown.", questions: [{q: "Identify the specific pattern of sclerosis seen here.", m: 4}, {q: "Are classic 'owl-eye' Reed-Sternberg cells frequent or rare in this subtype compared to mixed cellularity?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Nodular sclerosis pattern, with collagen bands encircling tumor nodules.", "They are relatively infrequent; lacunar variants predominate.", "Nodular Sclerosis Hodgkin Lymphoma."] },
+                    { text: "A 30-year-old female presents with a supraclavicular node and severe pruritus. Histology shows nodules separated by thick pink bands.", questions: [{q: "Describe the morphological features of the surrounding fibrous bands.", m: 4}, {q: "What is the cellular composition inside the nodules?", m: 2}, {q: "What is the most common subtype of Hodgkin Lymphoma?", m: 2}], answers: ["Broad, eosinophilic, acellular collagenous bands.", "A polymorphic inflammatory background (lymphocytes, eosinophils) mixed with lacunar RS cells.", "Nodular Sclerosis."] },
+                    { text: "A 26-year-old female has a firm neck mass excised. The cut surface is nodular, and microscopy is shown.", questions: [{q: "Identify the striking low-power architectural feature.", m: 4}, {q: "How does the gross appearance of this lymph node correlate with the microscopy?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Thick fibrous bands of collagen encapsulating cellular nodules.", "The dense collagen bands impart a firm, nodular macroscopic appearance.", "Nodular Sclerosis Hodgkin Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/T2hYbA9.jpeg",
+                name: "Hodgkin Lymphoma (Mixed-cellularity)",
+                desc: "Diagnostic binucleate RS cell surrounded by eosinophils, lymphocytes, and macrophages.",
+                points: ["Polymorphic background", "Eosinophilia", "Classic RS cell", "EBV correlation"],
+                scenarios: [
+                    { text: "A 50-year-old HIV-positive male presents with prominent night sweats, fever, and generalized lymphadenopathy. Node biopsy is shown.", questions: [{q: "Identify the large central cell and describe its morphology.", m: 4}, {q: "Describe the background cellular infiltrate.", m: 2}, {q: "What viral infection in the tumor cells is highly associated (about 70%) with this subtype?", m: 2}], answers: ["Classic Reed-Sternberg cell; binucleate with large, eosinophilic 'owl-eye' nucleoli.", "A polymorphic mix of eosinophils, lymphocytes, and macrophages.", "Epstein-Barr Virus (EBV)."] },
+                    { text: "A 60-year-old male presents with generalized lymphadenopathy. Biopsy shows abundant classic RS cells in a heterogeneous background.", questions: [{q: "Comment on the prominent inflammatory cells surrounding the central RS cell.", m: 4}, {q: "Which cytokine secreted by the RS cells is responsible for recruiting the eosinophils?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Abundant eosinophils (bilobed nuclei, red granules), mature lymphocytes, and macrophages.", "IL-5.", "Mixed-cellularity Hodgkin Lymphoma."] },
+                    { text: "A 45-year-old male reports a 15-kg weight loss and fever. Biopsy reveals a biphasic population of a few large cells in a reactive background.", questions: [{q: "Describe the cytological details of the classic RS cell shown.", m: 4}, {q: "Why is the subtype named 'mixed-cellularity'?", m: 2}, {q: "Does this subtype typically have collagen banding?", m: 2}], answers: ["Large cell with two nuclear lobes, each containing a prominent eosinophilic nucleolus surrounded by a clear halo.", "Because the background contains a diverse (mixed) inflammatory infiltrate without a single dominating reactive cell type or fibrosis.", "No, it lacks the broad collagen bands seen in Nodular Sclerosis."] },
+                    { text: "A 55-year-old male is noted to have prominent peripheral eosinophilia and enlarged retroperitoneal lymph nodes. A node biopsy is presented.", questions: [{q: "Identify the characteristic 'owl-eye' cell and the surrounding granulated cells.", m: 4}, {q: "What is the immunophenotype of the 'owl-eye' cell?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Diagnostic Reed-Sternberg cell surrounded by eosinophils.", "CD15+, CD30+, CD20-, CD45-.", "Mixed-cellularity Hodgkin Lymphoma."] },
+                    { text: "A 65-year-old male with rapidly enlarging nodes and severe 'B symptoms' undergoes an excision biopsy.", questions: [{q: "Comment on the relative abundance of classic RS cells here compared to the nodular sclerosis subtype.", m: 4}, {q: "Identify the specific reactive cells in the background.", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Classic diagnostic RS cells are much more frequent and easily found in mixed-cellularity than in nodular sclerosis.", "Eosinophils, lymphocytes, plasma cells, and histiocytes.", "Mixed-cellularity Hodgkin Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/v9lSQJ9.jpeg",
+                name: "Hodgkin Lymphoma (Lymphocyte Predominance)",
+                desc: "Mature lymphocytes surrounding scattered pale-staining popcorn cells (L&H variants).",
+                points: ["Predominantly lymphocytic", "Popcorn cells (L&H variant)", "CD20+ variant", "Indolent course"],
+                scenarios: [
+                    { text: "A 35-year-old male presents with an isolated, painless cervical lymph node. He has no fever, night sweats, or weight loss. Biopsy is shown.", questions: [{q: "Identify the large, pale-staining atypical cells and describe their nuclei.", m: 4}, {q: "Describe the background infiltrate.", m: 2}, {q: "What is the classic immunophenotype of these specific large cells, and how does it differ from classic HL?", m: 2}], answers: ["Lymphohistiocytic (L&H) or 'popcorn' cells; they have multilobated, puffy nuclei resembling popcorn kernels.", "Overwhelmingly composed of small, mature, reactive lymphocytes.", "They are CD20+, CD45+ and negative for CD15/CD30, unlike classic RS cells."] },
+                    { text: "A 40-year-old male has a slow-growing axillary node excised. Microscopy shows a nodular infiltrate of small lymphocytes with rare large cells.", questions: [{q: "Comment on the morphology of the 'popcorn' cells.", m: 4}, {q: "Are eosinophils and plasma cells typical in the background of this subtype?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Large cells with vesicular, multilobated nuclei and less prominent nucleoli than classic RS cells.", "No, they are characteristically sparse or absent; the background is predominantly lymphocytes.", "Nodular Lymphocyte Predominant Hodgkin Lymphoma (NLPHL)."] },
+                    { text: "A 30-year-old male with a painless neck swelling for several months undergoes biopsy. The image reveals scattered L&H variants.", questions: [{q: "Identify the specific variant of the Reed-Sternberg cell shown.", m: 4}, {q: "What is the clinical prognosis for this specific subtype?", m: 2}, {q: "Does this tumor have a strong association with EBV?", m: 2}], answers: ["L&H (Lymphohistiocytic) variant or popcorn cell.", "Very indolent course, excellent prognosis, though it can recur locally.", "No, unlike mixed-cellularity, it is rarely associated with EBV."] },
+                    { text: "A 45-year-old male's biopsy shows a vaguely nodular pattern composed entirely of small lymphocytes and histiocytes, with rare larger cells.", questions: [{q: "Describe the cytological features of the large L&H cells.", m: 4}, {q: "Why is this classified as a non-classic form of Hodgkin Lymphoma?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Delicate, multilobated nuclei with pale chromatin and small nucleoli.", "Because the neoplastic cells retain a B-cell immunophenotype (CD20+) and lack classic RS markers (CD15/CD30).", "Lymphocyte Predominant Hodgkin Lymphoma."] },
+                    { text: "A 38-year-old male presents with recurrent localized lymphadenopathy. A previous biopsy years ago showed the same morphology.", questions: [{q: "Comment on the predominant cell type in the background.", m: 4}, {q: "Identify the characteristic neoplastic cells scattered within.", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Small, mature resting lymphocytes.", "Popcorn cells (L&H cells).", "Nodular Lymphocyte Predominant Hodgkin Lymphoma."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/YIUIV0f.jpeg",
+                name: "AML (FAB M1 Subtype)",
+                desc: "Myeloblasts with delicate chromatin, nucleoli, and fine azurophilic granules. CD34+, CD33+.",
+                points: ["Myeloblasts", "Fine azurophilic granules", "CD34/CD13/CD33", "Lack of maturation"],
+                scenarios: [
+                    { text: "A 50-year-old male presents with extreme fatigue, mucosal bleeding, and a WBC count of 60,000/μL. A peripheral blood smear is examined.", questions: [{q: "Identify the cells and describe their nuclear and cytoplasmic features.", m: 4}, {q: "What surface markers would flow cytometry typically reveal?", m: 2}, {q: "What is the likely diagnosis?", m: 2}], answers: ["Myeloblasts with large nuclei, delicate (lacy) chromatin, multiple nucleoli, and fine azurophilic granules in the cytoplasm.", "CD34, CD33, CD13, and MPO positivity.", "Acute Myeloid Leukemia (AML)."] },
+                    { text: "A 65-year-old female presents with severe pancytopenia. Bone marrow aspirate reveals 40% large mononuclear cells. The aspirate is shown.", questions: [{q: "Comment on the chromatin pattern and nucleoli of the blasts.", m: 4}, {q: "How does the presence of fine azurophilic granules help distinguish these from lymphoblasts?", m: 2}, {q: "What is the minimum blast percentage in the marrow required for this diagnosis?", m: 2}], answers: ["Delicate, finely dispersed chromatin with 2-4 prominent nucleoli.", "Granules indicate myeloid differentiation (myeloperoxidase positive), which lymphoblasts lack.", "20% blasts."] },
+                    { text: "A 55-year-old male presents with fever and severe neutropenia. Peripheral smear shows large primitive cells that are CD34+ and MPO+.", questions: [{q: "Describe the morphological features of the myeloblasts shown.", m: 4}, {q: "What does CD34 positivity indicate?", m: 2}, {q: "What is the clinical consequence of marrow replacement by these cells?", m: 2}], answers: ["High N:C ratio, lacy chromatin, visible nucleoli, and scant cytoplasm with fine granules.", "It is a marker of hematopoietic stem cells/immature blasts.", "Pancytopenia (anemia, bleeding, infections)."] },
+                    { text: "A 60-year-old female presents with unexplained bruising and lethargy. Her smear displays a uniform population of large, immature cells.", questions: [{q: "Identify the cells and comment on their cytoplasmic contents.", m: 4}, {q: "In the FAB classification, what does 'M1' denote?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Myeloblasts; the cytoplasm contains fine azurophilic primary granules.", "AML without maturation (blasts predominate with <10% maturing myeloid cells).", "Acute Myeloid Leukemia."] },
+                    { text: "A 45-year-old male presents with gingival bleeding. Smear shows blasts with a high N:C ratio, delicate chromatin, and nucleoli.", questions: [{q: "Describe the morphological distinction between these cells and normal lymphocytes.", m: 4}, {q: "What enzyme is responsible for the azurophilic granules?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["These blasts are larger, have lacy (not clumped) chromatin, distinct nucleoli, and granular cytoplasm.", "Myeloperoxidase (MPO).", "Acute Myeloid Leukemia."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/VTeZrTH.jpeg",
+                name: "Acute Promyelocytic Leukemia (t(15;17))",
+                desc: "Neoplastic promyelocytes with coarse granules and needle-like Auer rods (center).",
+                points: ["Auer Rods (Faggot cells)", "Coarse primary granules", "t(15;17) translocation", "Emergency (DIC risk)"],
+                scenarios: [
+                    { text: "A 30-year-old male presents with severe epistaxis, oozing from IV puncture sites, and prolonged PT/aPTT. A peripheral smear is immediately reviewed.", questions: [{q: "Identify the needle-like structures seen in the center of the cell.", m: 4}, {q: "What life-threatening complication is this patient experiencing?", m: 2}, {q: "What is the specific chromosomal translocation associated with this disease?", m: 2}], answers: ["Multiple Auer rods (forming a 'faggot cell').", "Disseminated Intravascular Coagulation (DIC).", "t(15;17) [PML-RARA fusion]."] },
+                    { text: "A 35-year-old female presents with sudden onset of widespread petechiae. Smear shows atypical promyelocytes heavily laden with granules.", questions: [{q: "Describe the cytoplasm of these neoplastic promyelocytes.", m: 4}, {q: "What targeted therapy is used to force these cells to mature?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Packed with coarse primary (azurophilic) granules and prominent Auer rods.", "All-trans retinoic acid (ATRA).", "Acute Promyelocytic Leukemia (APL / FAB M3)."] },
+                    { text: "A 28-year-old male is admitted with a catastrophic intracranial hemorrhage and a high WBC count. A hypergranular cell from the smear is shown.", questions: [{q: "Identify the composition of the rod-like structures.", m: 4}, {q: "How does the heavy granulation contribute to the patient's hemorrhage?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Crystallized primary granules (myeloperoxidase).", "Release of procoagulant factors from the granules triggers severe DIC.", "Acute Promyelocytic Leukemia."] },
+                    { text: "A 40-year-old female presents in DIC. Peripheral smear reveals cells with bilobed/folded nuclei and cytoplasm completely obscured by granules.", questions: [{q: "Comment on the prominent cytoplasmic inclusions (Auer rods) in the center cell.", m: 4}, {q: "What is the fusion gene created by the characteristic translocation?", m: 2}, {q: "Is this condition considered a medical emergency?", m: 2}], answers: ["Numerous bundled Auer rods characteristic of 'faggot cells'.", "PML-RARA.", "Yes, due to the high risk of fatal DIC."] },
+                    { text: "A 32-year-old male complains of severe fatigue and massive bruising. Genetic testing reveals a t(15;17) mutation. Smear is shown.", questions: [{q: "Identify the cell type and its defining morphological hallmark.", m: 4}, {q: "What receptor function is disrupted by the PML-RARA fusion?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Atypical promyelocyte characterized by bundled Auer rods and dense coarse granules.", "The Retinoic Acid Receptor alpha (RAR-α), blocking myeloid maturation.", "Acute Promyelocytic Leukemia."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/iW9jj0L.jpeg",
+                name: "Chronic Myeloid Leukemia (Smear)",
+                desc: "Many mature neutrophils, metamyelocytes, and a myelocyte in peripheral smear.",
+                points: ["Full granulocytic spectrum", "Left shift to myelocytes", "Basophilia presence", "t(9;22) BCR-ABL1"],
+                scenarios: [
+                    { text: "A 50-year-old male presents with massive splenomegaly. His WBC count is 150,000/μL, but he is largely asymptomatic. His smear is shown.", questions: [{q: "Describe the full spectrum of cells visible in this smear.", m: 4}, {q: "What score is typically very low in this disease compared to a leukemoid reaction?", m: 2}, {q: "What is the underlying genetic abnormality?", m: 2}], answers: ["A full spectrum of myeloid maturation: mature neutrophils, band forms, metamyelocytes, and myelocytes.", "Leukocyte Alkaline Phosphatase (LAP) score.", "t(9;22) forming the BCR-ABL1 fusion gene (Philadelphia chromosome)."] },
+                    { text: "A 55-year-old female complains of fatigue and early satiety. Smear shows marked leukocytosis with a left shift and absolute basophilia.", questions: [{q: "Identify the different stages of granulocytic maturation present.", m: 4}, {q: "What is the significance of increased basophils in this context?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Mature segmented neutrophils, metamyelocytes (kidney-bean nuclei), and myelocytes.", "Basophilia is highly characteristic of myeloproliferative neoplasms, especially CML.", "Chronic Myeloid Leukemia."] },
+                    { text: "A 45-year-old male's routine CBC shows a WBC count of 100,000/μL. A smear is prepared to differentiate from a reactive process.", questions: [{q: "Comment on the morphology that indicates a 'left shift'.", m: 4}, {q: "What targeted tyrosine kinase inhibitor revolutionized treatment for this?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Presence of immature myeloid precursors (myelocytes, metamyelocytes) in the peripheral blood.", "Imatinib.", "Chronic Myeloid Leukemia (Chronic Phase)."] },
+                    { text: "A 60-year-old male presents with left upper quadrant pain and a peripheral blood smear showing predominantly granulocytes at various stages.", questions: [{q: "Describe the cells seen and their maturation pattern.", m: 4}, {q: "What defines the transition to an accelerated or blast phase?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Orderly progression of myeloid cells from myelocytes to fully mature neutrophils.", "Increasing blast count (>20% for blast crisis), increasing basophils, or new genetic abnormalities.", "Chronic Myeloid Leukemia."] },
+                    { text: "A 48-year-old female presents with gouty arthritis due to hyperuricemia and marked leukocytosis. Smear shows a 'myelocyte bulge'.", questions: [{q: "Identify the predominant cell lineages expanding in this smear.", m: 4}, {q: "Why does the patient have hyperuricemia?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["The full spectrum of the neutrophilic lineage.", "Increased cell turnover and DNA breakdown leading to elevated uric acid.", "Chronic Myeloid Leukemia."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/7HSjUCK.jpeg",
+                name: "Chronic Myeloid Leukemia (Spleen)",
+                desc: "Enormous spleen with expanded red pulp from neoplastic hematopoiesis.",
+                points: ["Massive splenomegaly", "Red pulp expansion", "Extramedullary hematopoiesis", "MPN hallmark"],
+                scenarios: [
+                    { text: "A 55-year-old male with a known t(9;22) translocation presents with a severe dragging sensation in his left upper quadrant. A splenectomy is performed.", questions: [{q: "Describe the gross appearance of this spleen.", m: 4}, {q: "Which specific compartment of the spleen is massively expanded here?", m: 2}, {q: "What process is occurring within the spleen to cause this?", m: 2}], answers: ["Massive, uniformly enlarged spleen with a homogeneous, fleshy cut surface (weighing several kilograms).", "The red pulp.", "Extramedullary hematopoiesis by neoplastic myeloid cells."] },
+                    { text: "A 60-year-old female with a WBC count of 200,000/μL is found to have massive splenomegaly crossing the midline. The gross specimen is shown.", questions: [{q: "Contrast this gross uniform enlargement with that seen in aggressive splenic lymphomas.", m: 4}, {q: "What happens to the white pulp in this condition?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["This is a diffuse, uniform enlargement without discrete tumor masses, unlike the large isolated masses of DLBCL.", "It is compressed and obliterated by the expanding red pulp.", "Chronic Myeloid Leukemia."] },
+                    { text: "A 50-year-old male presents with early satiety and a massive abdominal mass. Blood smear shows a left shift. The spleen is eventually removed.", questions: [{q: "Identify the gross pathology and its cause.", m: 4}, {q: "What is the underlying molecular defect driving this proliferation?", m: 2}, {q: "To which category of diseases does this belong?", m: 2}], answers: ["Massive splenomegaly due to infiltration by neoplastic myeloid precursors.", "BCR-ABL1 fusion kinase.", "Myeloproliferative Neoplasms (MPNs)."] },
+                    { text: "A 65-year-old male with a massively enlarged spleen develops sudden, severe LUQ pain. Examination of the excised spleen shows a pale, wedge-shaped area at the periphery.", questions: [{q: "Describe the primary uniform pathology of the spleen shown.", m: 4}, {q: "What caused the sudden severe pain and pale wedge-shaped area?", m: 2}, {q: "What is the underlying diagnosis?", m: 2}], answers: ["Diffuse, massive enlargement with a homogeneous meaty appearance.", "Splenic infarction due to outstripping of the blood supply by the massive organ size.", "Chronic Myeloid Leukemia."] },
+                    { text: "A 45-year-old female presents with hypermetabolic symptoms (weight loss, sweating) and a huge abdominal mass. The splenic section is evaluated.", questions: [{q: "Comment on the size and cut surface of the spleen.", m: 4}, {q: "Why do patients experience early satiety with this finding?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Enormously enlarged with a diffuse, homogeneous red pulp expansion.", "The massive spleen physically compresses the adjacent stomach.", "Chronic Myeloid Leukemia."] }
+                ]
+            },
+            {
+                url: "https://i.imgur.com/GIewkQT.jpeg",
+                name: "Polycythemia Vera (Spent Phase)",
+                desc: "Massive splenomegaly due to extramedullary hematopoiesis in setting of advanced myelofibrosis.",
+                points: ["Spent phase fibrosis", "Massive splenomegaly", "JAK2 mutation history", "Anemia develops late"],
+                scenarios: [
+                    { text: "A 70-year-old male with a 10-year history of plethora, intense itching after hot showers, and repeated phlebotomies now presents with severe anemia and a massive spleen.", questions: [{q: "Describe the gross appearance of the spleen shown.", m: 4}, {q: "What phase of the disease has this patient entered?", m: 2}, {q: "What is the mechanism of the massive splenomegaly?", m: 2}], answers: ["Massively enlarged spleen with a firm, homogeneous cut surface.", "The 'spent phase' (post-polycythemic myelofibrosis).", "Extramedullary hematopoiesis due to marrow fibrosis."] },
+                    { text: "A 75-year-old female with a known JAK2 V617F mutation for 15 years transitions from having an elevated hematocrit to being pancytopenic. Gross spleen is shown.", questions: [{q: "Comment on the macroscopic features of the spleen.", m: 4}, {q: "What would a bone marrow biopsy show at this current stage?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Extreme, diffuse splenomegaly obliterating normal architecture.", "Extensive collagenous fibrosis (myelofibrosis) with atypical megakaryocytes.", "Polycythemia Vera (Spent Phase)."] },
+                    { text: "A 68-year-old male presents with massive splenomegaly. His peripheral smear shows prominent 'tear drop' red blood cells (dacrocytes). Spleen is shown.", questions: [{q: "Identify the organ and describe its pathology.", m: 4}, {q: "Why do 'tear drop' cells appear in the peripheral blood?", m: 2}, {q: "What is the underlying diagnosis given a history of high Hb?", m: 2}], answers: ["Spleen; showing massive enlargement due to red pulp expansion.", "RBCs are squeezed and deformed as they exit the fibrotic bone marrow.", "Polycythemia Vera progressing to Myelofibrosis."] },
+                    { text: "A 72-year-old female presents with severe LUQ pain. Bone marrow aspiration yields a 'dry tap'. Her spleen is resected due to massive size.", questions: [{q: "Contrast this spleen's appearance with that of a normal spleen.", m: 4}, {q: "What causes the 'dry tap' in the bone marrow?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["It is exponentially larger, heavier, and lacks the normal distinction of white pulp.", "Replacement of the marrow space by dense reticulin and collagen fibrosis.", "Spent phase of Polycythemia Vera."] },
+                    { text: "A 65-year-old male followed for years for a high hemoglobin count is noted to have a progressive drop in Hb over the last 2 years, alongside an increasing abdominal mass.", questions: [{q: "Describe the gross morphology of the resected mass.", m: 4}, {q: "What cytokine primarily drives the marrow fibrosis in this condition?", m: 2}, {q: "What is the diagnosis?", m: 2}], answers: ["Massively enlarged spleen with diffuse, fleshy red pulp expansion.", "PDGF and TGF-β secreted by neoplastic megakaryocytes.", "Polycythemia Vera (Spent Phase)."] }
+                ]
+            }
+        ];
+
+        // Create exactly 100 stations by flattening the scenarios from the 20 URLs
+        const ospeStations = pathologyData.flatMap(item => 
+            item.scenarios.map(scenario => ({
+                url: item.url,
+                name: item.name,
+                desc: item.desc,
+                points: item.points,
+                scenario: scenario
+            }))
+        );
+
+        let currentCardIndex = 0;
+        let activeDeck = [...pathologyData]; // Keep original 20 cards for Flashcards
+        let currentStationIndex = 0;
+        let ospeTimer = null;
+        let timeLeft = 360; // 6 minutes to match paper
+        let isTimedMode = true;
+
+        function updateModeSelection() {
+            isTimedMode = document.getElementById('mode-timed').checked;
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            if (viewId === 'flashcards') renderCard();
+            if (viewId === 'ospe-lobby') renderStationList();
+            stopTimer();
+        }
+
+        // FLASHCARD LOGIC (Remains 20 unique cards)
+        function renderCard() {
+            const container = document.getElementById('card-container');
+            const item = activeDeck[currentCardIndex];
+            container.innerHTML = `
+                <div class="flashcard w-full h-full relative cursor-pointer group" onclick="this.classList.toggle('flipped')">
+                    <div class="flashcard-inner relative w-full h-full">
+                        <!-- Front -->
+                        <div class="absolute inset-0 bg-white border border-slate-200 rounded-[2rem] p-5 flex flex-col backface-hidden shadow-lg group-hover:shadow-xl transition-shadow">
+                            <div class="flex-1 flex items-center justify-center overflow-hidden bg-slate-50 rounded-2xl border border-slate-100">
+                                <img src="${item.url}" class="max-h-full rounded-xl object-contain mix-blend-multiply">
+                            </div>
+                            <div class="mt-5 text-center shrink-0">
+                                <span class="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">Morphology Slide</span>
+                                <p class="text-slate-400 text-xs mt-2 font-medium">Tap card to reveal diagnosis</p>
+                            </div>
+                        </div>
+                        <!-- Back -->
+                        <div class="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800 text-white border border-slate-700 rounded-[2rem] p-6 md:p-8 flex flex-col backface-hidden rotate-y-180 shadow-2xl overflow-y-auto overflow-x-hidden flashcard-scroll">
+                            <h3 class="text-xl md:text-2xl font-black text-blue-400 mb-4 border-b border-slate-700/50 pb-3 leading-tight shrink-0">${item.name}</h3>
+                            <p class="text-sm text-slate-300 italic mb-5 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/10 shrink-0">${item.desc}</p>
+                            <div class="space-y-3.5 mt-auto flex-1">
+                                ${item.points.map(p => `<div class="flex gap-3 text-sm font-medium items-start"><div class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div><span class="text-slate-200">${p}</span></div>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function nextCard() { currentCardIndex = (currentCardIndex + 1) % activeDeck.length; renderCard(); }
+        function prevCard() { currentCardIndex = (currentCardIndex - 1 + activeDeck.length) % activeDeck.length; renderCard(); }
+        function shuffleDeck() { activeDeck.sort(() => Math.random() - 0.5); currentCardIndex = 0; renderCard(); }
+
+        // OSPE LOGIC (Uses the 100 flattened stations)
+        function renderStationList() {
+            const list = document.getElementById('ospe-station-list');
+            list.innerHTML = ospeStations.map((d, i) => `
+                <div onclick="startOspe(${i})" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 flex justify-between items-center cursor-pointer transition-all hover:-translate-y-0.5 group">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors">${i+1}</div>
+                        <span class="font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Station ${i+1}</span>
+                    </div>
+                    <svg class="text-slate-300 group-hover:text-blue-500 transition-colors" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+            `).join('');
+        }
+
+        function startOspe(index) {
+            currentStationIndex = index;
+            showView('ospe-exam');
+            startTimer();
+            renderOspeStation();
+        }
+
+        function renderOspeStation() {
+            const paper = document.getElementById('ospe-paper-content');
+            const stationData = ospeStations[currentStationIndex];
+            const scenario = stationData.scenario;
+
+            paper.innerHTML = `
+                <!-- Top Section -->
+                <div class="text-center font-bold mb-4 text-black font-arial">
+                    <div class="text-lg tracking-wide italic">Objectively Structured Performance Evaluation</div>
+                    <div class="text-[22px] underline mt-1 decoration-2 underline-offset-2">Observed Station ${currentStationIndex + 1}</div>
+                </div>
+                
+                <div class="flex justify-between font-bold text-sm text-black font-arial">
+                    <div>Marks: 08</div>
+                    <div>Time Allowed: ${isTimedMode ? '06' : '00'}</div>
+                </div>
+                <div class="font-bold text-sm mb-4 text-black font-arial">minutes</div>
+
+                <div class="text-sm text-black font-arial">
+                    <div class="font-bold underline text-lg">For Organizer:</div>
+                    <div class="font-bold mt-1">Requirements:</div>
+                    <div class="flex gap-1 md:gap-8 text-sm mb-2 mt-1 flex-wrap">
+                        <span>1. Response Sheet</span>
+                        <span>2.Pen/ball point</span>
+                        <span>3.Table</span>
+                        <span>4.Chair /Stool</span>
+                    </div>
+                    <div class="font-bold text-base underline mt-2 tracking-tight">Topic: Identification of photograph, WBCs malignant disorders</div>
+                </div>
+
+                <div class="flex items-center mt-8 mb-8 font-arial">
+                    <div class="flex-grow border-t-2 border-dashed border-black"></div>
+                    <span class="mx-2 font-bold text-[13px] text-black tracking-wide">(Cut along the dotted line)</span>
+                    <div class="flex-grow border-t-2 border-dashed border-black"></div>
+                </div>
+
+                <div class="flex flex-col items-center gap-2 mb-8">
+                    <img src="${stationData.url}" class="max-w-full max-h-[350px] object-contain">
+                </div>
+
+                <div class="border-t-2 border-dashed border-black mt-8 mb-2 font-arial"></div>
+                
+                <div class="flex justify-between font-bold text-sm text-black font-arial mt-1">
+                    <div>Marks: 08</div>
+                    <div>Time Allowed: ${isTimedMode ? '06' : '00'}</div>
+                </div>
+                <div class="font-bold text-sm mb-4 text-black font-arial">minutes</div>
+
+                <div class="text-sm text-black font-arial">
+                    <div class="font-bold underline text-[19px] mb-1">For Candidate:</div>
+                    <div class="mb-5 text-justify leading-relaxed text-[15px]">${scenario.text}</div>
+
+                    <div class="font-bold underline text-[19px] mb-1">Task:</div>
+                    <div class="font-bold mb-3 text-[15px]">Carefully read and answer the following question:</div>
+                    
+                    <div class="space-y-1.5 text-[15px] w-full max-w-3xl">
+                        <div class="flex justify-between items-start">
+                            <div class="flex gap-2"><span>a.</span><span>${scenario.questions[0].q}</span></div>
+                            <div class="font-bold whitespace-nowrap pl-4">(${scenario.questions[0].m})</div>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <div class="flex gap-2"><span>b.</span><span>${scenario.questions[1].q}</span></div>
+                            <div class="font-bold whitespace-nowrap pl-4">(${scenario.questions[1].m})</div>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <div class="flex gap-2"><span>c.</span><span>${scenario.questions[2].q}</span></div>
+                            <div class="font-bold whitespace-nowrap pl-4">(${scenario.questions[2].m})</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Answer Key (Appended dynamically, styled distinctly from paper) -->
+                <div id="ospe-answer-key" class="hidden mt-10 p-5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-900 shadow-inner font-sans">
+                    <div class="flex items-center gap-2 mb-3">
+                        <svg class="text-emerald-600" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="font-black text-emerald-800 uppercase tracking-wide">Model Answer Key</p>
+                    </div>
+                    
+                    <p class="mb-3"><span class="font-bold text-emerald-700 uppercase text-xs tracking-wider">Diagnosis:</span><br><span class="text-base font-semibold">${stationData.name}</span></p>
+                    
+                    <div class="mb-4">
+                        <span class="font-bold text-emerald-700 uppercase text-xs tracking-wider">Specific Answers:</span>
+                        <ul class="mt-2 space-y-2 text-emerald-800 bg-white/60 p-3 rounded-lg border border-emerald-100/50">
+                            <li class="flex items-start gap-2"><span class="font-bold text-emerald-600">a.</span> <span>${scenario.answers[0]}</span></li>
+                            <li class="flex items-start gap-2"><span class="font-bold text-emerald-600">b.</span> <span>${scenario.answers[1]}</span></li>
+                            <li class="flex items-start gap-2"><span class="font-bold text-emerald-600">c.</span> <span>${scenario.answers[2]}</span></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="border-t border-emerald-200/60 my-3 pt-3"></div>
+                    <p class="mb-2"><span class="font-bold text-emerald-700 uppercase text-[10px] tracking-wider">Key Morphological Findings:</span><br>${stationData.points.join(', ')}</p>
+                    <p><span class="font-bold text-emerald-700 uppercase text-[10px] tracking-wider">Robbins Reference:</span><br><span class="italic text-xs">${stationData.desc}</span></p>
+                </div>
+            `;
+            document.getElementById('btn-show-ans').innerText = "Check Answer";
+        }
+
+        function toggleOspeAnswer() {
+            const key = document.getElementById('ospe-answer-key');
+            key.classList.toggle('hidden');
+            document.getElementById('btn-show-ans').innerText = key.classList.contains('hidden') ? "Check Answer" : "Hide Key";
+        }
+
+        function nextOspeStation() {
+            currentStationIndex = (currentStationIndex + 1) % ospeStations.length;
+            renderOspeStation();
+            resetTimer();
+        }
+
+        function startTimer() {
+            resetTimer();
+            if (!isTimedMode) {
+                document.getElementById('timer-display').innerHTML = `
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    <span>Practice</span>
+                `;
+                document.getElementById('timer-display').classList.remove('bg-red-500');
+                document.getElementById('timer-display').classList.add('bg-indigo-600');
+                return;
+            }
+
+            document.getElementById('timer-display').classList.add('bg-blue-600');
+            document.getElementById('timer-display').classList.remove('bg-indigo-600');
+            
+            ospeTimer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                if (timeLeft <= 0) {
+                    clearInterval(ospeTimer);
+                    alert("TIME UP! Move to the next station.");
+                }
+            }, 1000);
+        }
+
+        function resetTimer() {
+            timeLeft = 360; // 6 mins matching printed paper
+            if(isTimedMode) updateTimerDisplay();
+        }
+
+        function stopTimer() {
+            if(ospeTimer) clearInterval(ospeTimer);
+        }
+
+        function updateTimerDisplay() {
+            if (!isTimedMode) return;
+            
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            const display = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            document.getElementById('timer-display').innerHTML = `
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>${display}</span>
+            `;
+            
+            // Critical warning
+            if (timeLeft < 30) {
+                document.getElementById('timer-display').classList.replace('bg-blue-600', 'bg-red-500');
+                document.getElementById('timer-display').classList.add('animate-pulse');
+            } else {
+                document.getElementById('timer-display').classList.replace('bg-red-500', 'bg-blue-600');
+                document.getElementById('timer-display').classList.remove('animate-pulse');
+            }
+        }
+
+        // Initialize
+        showView('dashboard');
+    </script>
+</body>
+</html>
