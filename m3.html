@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ModMedicalis - MBBS Block Notes & Visual Mnemonics</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Oswald & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            header: ['Oswald', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+          colors: {
+            brand: {
+              dark: '#1e2333',
+              pink: '#fca5a5',
+              blue: '#7dd3fc',
+              purple: '#c084fc',
+              yellow: '#fde047',
+              white: '#ffffff',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Global Smooth Setup */
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #ea580c 0%, #be185d 50%, #1e1b4b 100%);
+      padding: 0.5rem;
+      overflow-x: hidden;
+    }
+    
+    @media (min-width: 768px) {
+      body { padding: 3rem; }
+    }
+
+    .main-canvas {
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      overflow-x: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* Standardized Card Aesthetics */
+    .comic-card {
+      background: white;
+      border: 6px solid white;
+      border-radius: 12px;
+      box-shadow: 0 0 0 2px #1e2333, 4px 6px 0px rgba(30, 35, 51, 0.15);
+      cursor: pointer;
+      will-change: transform, z-index, box-shadow;
+      overflow: hidden;
+    }
+
+    /* Deck Layout */
+    .deck-container { 
+      position: relative; 
+      height: 300px; 
+      width: 100%; 
+      max-width: 600px; 
+      margin: 0 auto; 
+      perspective: 1000px;
+    }
+    @media (min-width: 768px) {
+      .deck-container { height: 380px; }
+    }
+
+    .deck-card {
+      position: absolute;
+      left: 0; right: 0; top: 0; bottom: 0;
+      margin: auto; 
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transform-origin: bottom center;
+    }
+
+    /* Desktop Fanning */
+    .card-pos-1 { transform: rotate(-24deg) translateX(-130px) translateY(20px); z-index: 10; }
+    .card-pos-2 { transform: rotate(-12deg) translateX(-65px) translateY(5px); z-index: 20; }
+    .card-pos-3 { transform: rotate(0deg) translateX(0) translateY(-5px); z-index: 30; }
+    .card-pos-4 { transform: rotate(12deg) translateX(65px) translateY(5px); z-index: 20; }
+    .card-pos-5 { transform: rotate(24deg) translateX(130px) translateY(20px); z-index: 10; }
+
+    /* Mobile Fanning */
+    @media (max-width: 767px) {
+      .card-pos-1 { transform: rotate(-24deg) translateX(-85px) translateY(25px); }
+      .card-pos-2 { transform: rotate(-12deg) translateX(-45px) translateY(5px); }
+      .card-pos-3 { transform: rotate(0deg) translateX(0) translateY(-5px); }
+      .card-pos-4 { transform: rotate(12deg) translateX(45px) translateY(5px); }
+      .card-pos-5 { transform: rotate(24deg) translateX(85px) translateY(25px); }
+    }
+
+    .deck-card:hover {
+      transform: translateY(-40px) scale(1.1) rotate(0deg) !important;
+      z-index: 50 !important;
+      box-shadow: 0 0 0 2px #1e2333, 8px 12px 20px rgba(30, 35, 51, 0.25);
+    }
+    
+    .card-hover-standard {
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .card-hover-standard:hover {
+      transform: translateY(-10px) scale(1.02);
+      z-index: 40;
+      box-shadow: 0 0 0 2px #1e2333, 8px 12px 20px rgba(30, 35, 51, 0.25);
+    }
+
+    .pill-btn {
+      background: #1e2333;
+      color: white;
+      border-radius: 999px;
+      padding: 0.5rem 1.5rem;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      transition: all 0.2s ease-out;
+    }
+    .pill-btn:hover { background: #374151; transform: translateY(-2px); }
+
+    .toggle-wrapper {
+      border: 2px solid #1e2333;
+      border-radius: 999px;
+      padding: 0.25rem;
+      display: inline-flex;
+      align-items: center;
+      background: white;
+      position: relative;
+    }
+    .toggle-text {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.85rem;
+      padding: 0.25rem 1rem;
+      z-index: 2;
+      transition: color 0.3s;
+      cursor: pointer;
+    }
+
+    .marquee {
+      white-space: nowrap;
+      overflow: hidden;
+      box-sizing: border-box;
+      background: #1e2333;
+      color: white;
+      padding: 0.5rem 0;
+      border-top: 2px solid #1e2333;
+      border-bottom: 2px solid #1e2333;
+    }
+    .marquee p {
+      display: inline-block;
+      padding-left: 100%;
+      animation: marquee 25s linear infinite;
+      font-family: 'Oswald', sans-serif;
+      letter-spacing: 0.1em;
+      will-change: transform;
+    }
+    @keyframes marquee {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(-100%, 0); }
+    }
+
+    .striped-bg {
+      background: repeating-linear-gradient(45deg, #fde047, #fde047 10px, #fef08a 10px, #fef08a 20px);
+      border-top: 2px solid #1e2333;
+    }
+
+    .scroll-hide {
+      opacity: 0;
+      filter: blur(4px);
+      transform: translateY(30px);
+      transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), 
+                  transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), 
+                  filter 0.8s ease-out;
+      will-change: opacity, transform, filter;
+    }
+    .scroll-hide.show {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+    .slide-left { transform: translateX(-40px); }
+    .slide-right { transform: translateX(40px); }
+    .slide-left.show, .slide-right.show { transform: translateX(0); }
+
+    .border-b-thick { border-bottom: 2px solid #1e2333; }
+    .border-t-thick { border-top: 2px solid #1e2333; }
+    .title-badge {
+      background: #1e2333;
+      color: white;
+      padding: 0.2rem 1rem;
+      border-radius: 4px;
+      display: inline-block;
+      font-family: 'Oswald', sans-serif;
+      letter-spacing: 0.05em;
+    }
+    
+    /* Artwork Image Styles */
+    .card-art {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+    }
+  </style>
+</head>
+<body class="text-brand-dark antialiased">
+
+  <div class="main-canvas max-w-[1280px] mx-auto min-h-screen relative flex flex-col">
+    
+    <!-- HEADER AREA -->
+    <header class="flex justify-between items-center p-4 md:px-8 md:py-5 border-b-thick sticky top-0 bg-white/95 backdrop-blur-sm z-50">
+      <button class="pill-btn hidden md:block">BUY THE BUNDLE</button>
+      
+      <!-- Central Toggle -->
+      <div class="toggle-wrapper mx-auto md:mx-0">
+        <span class="toggle-text text-brand-dark">STUDY</span>
+        <div class="w-8 h-8 bg-brand-dark rounded-full flex items-center justify-center text-white text-xs z-10 mx-1">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <span class="toggle-text text-slate-400">RETAIN</span>
+      </div>
+
+      <button class="pill-btn hidden md:block">BUY THE NOTES</button>
+      <button class="pill-btn md:hidden"><i class="fa-solid fa-cart-shopping"></i></button>
+    </header>
+
+    <!-- SECTION 1: HERO -->
+    <section id="sec1" class="scroll-section bg-brand-blue flex-grow relative pb-16 pt-8 border-b-thick overflow-hidden">
+      <div class="text-center relative z-10 scroll-hide">
+        <h1 class="bg-brand-dark text-white font-header text-4xl sm:text-5xl md:text-7xl uppercase tracking-wider inline-block px-6 py-2 transform -rotate-1 shadow-lg mb-8 mx-2">
+          MODMEDICALIS!
+        </h1>
+      </div>
+
+      <!-- Fanned Deck Area mapping to the Minor Subjects -->
+      <div class="deck-container mt-8 mb-12 scroll-hide">
+        
+        <!-- Card 1: Pathology -->
+        <div onclick="openModal('pathology')" class="comic-card deck-card w-36 h-52 md:w-48 md:h-64 card-pos-1 bg-[#fca5a5]">
+          <div class="absolute top-2 left-2 bg-white text-brand-dark rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center font-header text-xs md:text-sm z-10 shadow-sm border border-brand-dark">1</div>
+          <div class="h-28 md:h-32 bg-[#fef2f2] m-1 rounded-t-lg flex items-center justify-center overflow-hidden border border-brand-dark">
+            <img src="https://i.imgur.com/5C6oRPm.png" alt="Pathology Art" class="card-art">
+          </div>
+          <div class="bg-brand-dark text-white text-center mt-1 py-1 font-header text-sm md:text-lg tracking-wide uppercase">Pathology</div>
+          <div class="bg-white border-t border-brand-dark text-center py-1 text-[9px] md:text-[10px] font-body text-slate-600 px-1 leading-tight">
+            Compiled LOs for cellular injury & systemic path.
+          </div>
+        </div>
+
+        <!-- Card 2: Pharmacology -->
+        <div onclick="openModal('pharmacology')" class="comic-card deck-card w-36 h-52 md:w-48 md:h-64 card-pos-2 bg-[#60a5fa]">
+          <div class="absolute top-2 left-2 bg-white text-brand-dark rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center font-header text-xs md:text-sm z-10 shadow-sm border border-brand-dark">2</div>
+          <div class="h-28 md:h-32 bg-[#eff6ff] m-1 rounded-t-lg flex items-center justify-center overflow-hidden border border-brand-dark">
+            <img src="https://i.imgur.com/YkQq0LJ.png" alt="Pharmacology Art" class="card-art">
+          </div>
+          <div class="bg-brand-dark text-white text-center mt-1 py-1 font-header text-sm md:text-lg tracking-wide uppercase">Pharmacology</div>
+          <div class="bg-white border-t border-brand-dark text-center py-1 text-[9px] md:text-[10px] font-body text-slate-600 px-1 leading-tight">
+            Master drug classes and toxicities visually.
+          </div>
+        </div>
+
+        <!-- Card 3: Deck Back -->
+        <div class="comic-card deck-card w-36 h-52 md:w-48 md:h-64 card-pos-3 bg-brand-dark p-1">
+          <div class="w-full h-full border-2 border-white rounded-lg overflow-hidden">
+            <img src="https://i.imgur.com/wgvAR5x.png" alt="Card Back" class="w-full h-full object-cover">
+          </div>
+        </div>
+
+        <!-- Card 4: Behavioural Sciences -->
+        <div onclick="openModal('behavioural')" class="comic-card deck-card w-36 h-52 md:w-48 md:h-64 card-pos-4 bg-[#fbcfe8]">
+          <div class="absolute top-2 left-2 bg-white text-brand-dark rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center font-header text-xs md:text-sm z-10 shadow-sm border border-brand-dark">3</div>
+          <div class="h-28 md:h-32 bg-[#faf5ff] m-1 rounded-t-lg flex items-center justify-center overflow-hidden border border-brand-dark">
+            <img src="https://i.imgur.com/Z0PxJag.png" alt="Behavioural Sciences Art" class="card-art">
+          </div>
+          <div class="bg-brand-dark text-white text-center mt-1 py-1 font-header text-sm md:text-lg tracking-wide uppercase leading-tight">Behavioural</div>
+          <div class="bg-white border-t border-brand-dark text-center py-1 text-[9px] md:text-[10px] font-body text-slate-600 px-1 leading-tight">
+            Psychiatry foundations & medical ethics.
+          </div>
+        </div>
+
+        <!-- Card 5: Community Med -->
+        <div onclick="openModal('community')" class="comic-card deck-card w-36 h-52 md:w-48 md:h-64 card-pos-5 bg-[#fde047]">
+          <div class="absolute top-2 left-2 bg-white text-brand-dark rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center font-header text-xs md:text-sm z-10 shadow-sm border border-brand-dark">4</div>
+          <div class="h-28 md:h-32 bg-[#fefce8] m-1 rounded-t-lg flex items-center justify-center overflow-hidden border border-brand-dark">
+            <img src="https://i.imgur.com/dSduyTg.png" alt="Community Med Art" class="card-art bg-white">
+          </div>
+          <div class="bg-brand-dark text-white text-center mt-1 py-1 font-header text-sm md:text-[16px] tracking-wide uppercase leading-tight">Community Med</div>
+          <div class="bg-white border-t border-brand-dark text-center py-1 text-[9px] md:text-[10px] font-body text-slate-600 px-1 leading-tight">
+            Epidemiology, stats, & public health LOs.
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-8 md:mt-16 scroll-hide relative z-10 px-4">
+        <div class="bg-white border-2 border-brand-dark px-4 md:px-6 py-2 inline-block rounded-lg font-body text-xs md:text-sm font-semibold shadow-[4px_4px_0px_#1e2333] mb-6 uppercase tracking-wide">
+          Compiled Notes & Visual Mnemonics for MBBS Minors
+        </div>
+        <p class="max-w-2xl mx-auto font-body text-sm md:text-base text-brand-dark leading-relaxed font-medium">
+          <strong class="font-bold">ModMedicalis</strong> is a dedicated platform crafting the ultimate study notes for your MBBS minor subjects. We compile scattered topics from massive textbooks into beautiful, easy-to-digest visual decks perfectly aligned with your curriculum.
+        </p>
+      </div>
+    </section>
+
+    <!-- SECTION 2: MARQUEE -->
+    <section id="sec2" class="scroll-section marquee scroll-hide">
+      <p>
+        ✦ PATHOLOGY ✦ COMMUNITY MEDICINE ✦ PHARMACOLOGY ✦ BEHAVIOURAL SCIENCES ✦ AGING ✦ UHS CURRICULUM ✦
+      </p>
+    </section>
+
+    <!-- SECTION 3: THE PROBLEM & SOLUTION -->
+    <section id="sec3" class="scroll-section flex flex-col md:flex-row min-h-[500px]">
+      <!-- Left Text -->
+      <div class="w-full md:w-1/2 p-8 md:p-12 lg:p-16 border-b-thick md:border-b-0 md:border-r-thick flex flex-col justify-center scroll-hide slide-left">
+        <div class="mb-6">
+          <span class="bg-brand-dark text-white font-header text-2xl px-4 py-1 rounded-md transform -rotate-2 inline-block">THE PROBLEM</span>
+        </div>
+        <p class="font-body text-sm md:text-base leading-relaxed mb-6">
+          In 1st and 2nd year (Blocks 1 through 6), basic sciences like anatomy and physiology take the spotlight. But what about the <strong>minor subjects</strong>? Pathology, Community Medicine, Pharmacology, Behavioural Sciences, and Aging.
+        </p>
+        <p class="font-body text-sm md:text-base leading-relaxed mb-6">
+          These subjects have scattered Learning Objectives (LOs) in our curriculum. The syllabus isn't massive, yet they are incredibly difficult to grasp because the information is buried deep within huge, dense textbooks.
+        </p>
+        <div class="mb-6 mt-4">
+          <span class="bg-brand-pink text-brand-dark font-header text-xl px-4 py-1 rounded-md transform rotate-1 inline-block border-2 border-brand-dark">OUR SOLUTION</span>
+        </div>
+        <p class="font-body text-sm md:text-base leading-relaxed">
+          We compile all the minor subjects directly from UHS-recommended resources. By aligning these scattered LOs with colorful illustrations and highly-retainable visual mnemonics, we make learning the hardest topics easier and a lot more fun!
+        </p>
+      </div>
+      
+      <!-- Right Illustration (Exploding Head) -->
+      <div class="w-full md:w-1/2 bg-brand-purple relative overflow-hidden flex items-end justify-center pt-16 scroll-hide slide-right group">
+        <!-- Decorative Badge -->
+        <div class="absolute top-1/4 md:top-1/3 left-4 md:-left-8 bg-white border-2 border-brand-dark rounded-full w-20 h-20 md:w-24 md:h-24 flex items-center justify-center shadow-lg z-20 group-hover:rotate-180 transition-transform duration-700">
+          <div class="text-center font-header text-[8px] md:text-[10px] tracking-widest uppercase leading-tight circular-text">
+            Spark an idea ✦ Spark an idea
+          </div>
+          <i class="fa-solid fa-lightbulb absolute text-xl md:text-2xl text-brand-yellow"></i>
+        </div>
+
+        <img src="https://i.imgur.com/fcwYRhc.png" alt="Clinical Illustration" class="w-full max-w-[280px] md:max-w-[360px] h-auto object-contain transform translate-y-4 drop-shadow-2xl relative z-10 transition-transform duration-500 group-hover:scale-105">
+      </div>
+    </section>
+
+    <!-- SECTION 4: MEET THE MINORS -->
+    <section id="sec4" class="scroll-section bg-brand-pink border-t-thick border-b-thick pt-12 pb-8 scroll-hide">
+      <div class="text-center mb-10">
+        <h2 class="bg-brand-dark text-white font-header text-2xl px-6 py-1 rounded-md inline-block uppercase tracking-wide shadow-md mx-4">
+          Meet The Minors
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-6 md:px-12 max-w-6xl mx-auto">
+        
+        <!-- Grid Card 1 -->
+        <div onclick="openModal('pathology')" class="comic-card flex flex-col hover:-translate-y-2 transition-transform cursor-pointer !border-4">
+          <div class="bg-[#fed7aa] h-40 m-1 rounded-t-md border border-brand-dark flex justify-center items-end overflow-hidden">
+             <img src="https://i.imgur.com/5C6oRPm.png" alt="Pathology" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-2 mt-1">
+            <h3 class="font-header text-xl uppercase leading-none">Pathology</h3>
+          </div>
+          <div class="bg-white text-center py-1 border-t border-brand-dark">
+            <p class="font-body text-[10px] font-bold text-slate-800 uppercase">BLOCKS 1-6</p>
+          </div>
+        </div>
+
+        <!-- Grid Card 2 -->
+        <div onclick="openModal('pharmacology')" class="comic-card flex flex-col hover:-translate-y-2 transition-transform cursor-pointer lg:translate-y-2 !border-4">
+          <div class="bg-[#bfdbfe] h-40 m-1 rounded-t-md border border-brand-dark flex justify-center items-end overflow-hidden">
+             <img src="https://i.imgur.com/YkQq0LJ.png" alt="Pharmacology" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-2 mt-1">
+            <h3 class="font-header text-xl uppercase leading-none">Pharmacology</h3>
+          </div>
+          <div class="bg-white text-center py-1 border-t border-brand-dark">
+            <p class="font-body text-[10px] font-bold text-slate-800 uppercase">DRUGS & TOXINS</p>
+          </div>
+        </div>
+
+        <!-- Grid Card 3 -->
+        <div onclick="openModal('behavioural')" class="comic-card flex flex-col hover:-translate-y-2 transition-transform cursor-pointer lg:-translate-y-2 !border-4">
+          <div class="bg-[#bbf7d0] h-40 m-1 rounded-t-md border border-brand-dark flex justify-center items-end overflow-hidden">
+             <img src="https://i.imgur.com/Z0PxJag.png" alt="Behavioural Sciences" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-2 mt-1">
+            <h3 class="font-header text-xl uppercase leading-none">Behavioural</h3>
+          </div>
+          <div class="bg-white text-center py-1 border-t border-brand-dark">
+            <p class="font-body text-[10px] font-bold text-slate-800 uppercase">PSYCH & ETHICS</p>
+          </div>
+        </div>
+
+        <!-- Grid Card 4 -->
+        <div onclick="openModal('community')" class="comic-card flex flex-col hover:-translate-y-2 transition-transform cursor-pointer !border-4">
+          <div class="bg-[#fef08a] h-40 m-1 rounded-t-md border border-brand-dark flex justify-center items-end overflow-hidden">
+             <img src="https://i.imgur.com/Xd6HYNb.png" alt="Community Med" class="w-full h-full object-cover bg-white">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-2 mt-1">
+            <h3 class="font-header text-xl uppercase leading-none">Community</h3>
+          </div>
+          <div class="bg-white text-center py-1 border-t border-brand-dark">
+            <p class="font-body text-[10px] font-bold text-slate-800 uppercase">PUBLIC HEALTH</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="text-center mt-10">
+        <button class="bg-brand-dark text-white font-header text-sm rounded-full px-6 py-2 tracking-wide hover:bg-slate-800 transition-colors">
+          View All Minors
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION 5: DIVIDER -->
+    <section id="sec5" class="scroll-section h-10 md:h-12 striped-bg w-full border-b-thick scroll-hide slide-up"></section>
+
+    <!-- SECTION 6: BLOCK HIGHLIGHT 1 (Pathology) -->
+    <section id="sec6" class="scroll-section flex flex-col md:flex-row min-h-[400px] bg-white border-b-thick">
+      <div class="w-full md:w-1/2 flex justify-center items-center p-12 bg-red-50 border-b-thick md:border-b-0 md:border-r-thick scroll-hide slide-left">
+        <div onclick="openModal('pathology')" class="comic-card card-hover-standard w-40 h-56 md:w-48 md:h-64 bg-[#fca5a5] transform -rotate-3 hover:rotate-0 flex flex-col p-1">
+          <div class="flex-grow flex items-center justify-center border border-brand-dark rounded-t-lg overflow-hidden bg-white">
+            <img src="https://i.imgur.com/5C6oRPm.png" alt="Pathology" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-2 mt-1"><h3 class="font-header text-sm md:text-base">PATHOLOGY</h3></div>
+        </div>
+      </div>
+      <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center scroll-hide slide-right">
+        <span class="title-badge mb-4 text-sm md:text-base self-start">UHS ALIGNED</span>
+        <h2 class="font-header text-3xl md:text-4xl mb-4 text-brand-dark uppercase leading-tight">Master Pathology</h2>
+        <p class="font-body text-sm text-slate-600 mb-6 leading-relaxed">
+          Stop getting lost in Robbins. We have extracted every single Pathology Learning Objective for your year and compiled them into bite-sized, visual notes that guarantee retention.
+        </p>
+        <button onclick="openModal('pathology')" class="pill-btn self-start"><i class="fa-solid fa-eye mr-2"></i>Preview Notes</button>
+      </div>
+    </section>
+
+    <!-- SECTION 7: BLOCK HIGHLIGHT 2 (Pharmacology) -->
+    <section id="sec7" class="scroll-section flex flex-col md:flex-row-reverse min-h-[400px] bg-white border-b-thick">
+      <div class="w-full md:w-1/2 flex justify-center items-center p-12 bg-blue-50 border-b-thick md:border-b-0 md:border-l-thick scroll-hide slide-right">
+        <div onclick="openModal('pharmacology')" class="comic-card card-hover-standard w-40 h-56 md:w-48 md:h-64 bg-[#60a5fa] transform rotate-3 hover:rotate-0 flex flex-col p-1">
+          <div class="flex-grow flex items-center justify-center border border-brand-dark rounded-t-lg overflow-hidden bg-white">
+            <img src="https://i.imgur.com/YkQq0LJ.png" alt="Pharmacology" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-2 mt-1"><h3 class="font-header text-sm md:text-base">PHARMACOLOGY</h3></div>
+        </div>
+      </div>
+      <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center scroll-hide slide-left">
+        <span class="title-badge mb-4 text-sm md:text-base self-start bg-blue-700">HIGH YIELD</span>
+        <h2 class="font-header text-3xl md:text-4xl mb-4 text-brand-dark uppercase leading-tight">Visual Pharmacology</h2>
+        <p class="font-body text-sm text-slate-600 mb-6 leading-relaxed">
+          Pharmacology is notorious for rote memorization. We turn drug classes, side effects, and mechanisms of action into illustrated characters and memorable mnemonics.
+        </p>
+        <button onclick="openModal('pharmacology')" class="pill-btn self-start"><i class="fa-solid fa-eye mr-2"></i>Preview Notes</button>
+      </div>
+    </section>
+
+    <!-- SECTION 8: BLOCK HIGHLIGHT 3 (Comm Med & Behavioural) -->
+    <section id="sec8" class="scroll-section py-12 md:py-16 bg-[#f0fdf4] border-b-thick flex flex-col items-center text-center px-6 scroll-hide slide-up">
+      <span class="title-badge mb-4 bg-green-700 text-sm md:text-base">BLOCKS 1 TO 6</span>
+      <h2 class="font-header text-3xl md:text-5xl mb-6 text-brand-dark uppercase leading-tight">Community & Behavioural</h2>
+      <p class="font-body text-sm md:text-base text-slate-600 max-w-2xl mb-10 leading-relaxed">
+        The ultimate foundation for your board exams. Don't ignore these minors until the last week. Our decks integrate Epidemiology, Stats, and Psychiatry ethics seamlessly into your study routine.
+      </p>
+      <div class="flex flex-row gap-6 justify-center">
+        <div onclick="openModal('community')" class="comic-card card-hover-standard w-32 h-48 md:w-40 md:h-56 bg-[#fef08a] transform -rotate-6 hover:rotate-0 flex flex-col p-1">
+          <div class="flex-grow flex items-center justify-center border border-brand-dark rounded-t-lg overflow-hidden bg-white">
+            <img src="https://i.imgur.com/Xd6HYNb.png" alt="Community Med" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-1 mt-1 font-header text-[10px] md:text-sm uppercase">Community Med</div>
+        </div>
+        <div onclick="openModal('behavioural')" class="comic-card card-hover-standard w-32 h-48 md:w-40 md:h-56 bg-[#fbcfe8] transform rotate-6 hover:rotate-0 flex flex-col p-1">
+          <div class="flex-grow flex items-center justify-center border border-brand-dark rounded-t-lg overflow-hidden bg-white">
+            <img src="https://i.imgur.com/Z0PxJag.png" alt="Behavioural Sciences" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-brand-dark text-white text-center py-1 mt-1 font-header text-[10px] md:text-sm uppercase">Behavioural</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 9: VISUAL LOGIC DEMO -->
+    <section id="sec9" class="scroll-section py-12 md:py-16 px-6 md:px-16 flex flex-col-reverse md:flex-row items-center bg-white border-b-thick gap-8 md:gap-12 scroll-hide">
+      <div class="w-full md:w-1/2">
+        <div class="bg-brand-dark text-green-400 p-4 md:p-6 rounded-xl font-mono text-xs md:text-sm shadow-xl border border-slate-700 h-full overflow-x-auto whitespace-pre">
+<div class="flex gap-2 mb-4">
+  <div class="w-3 h-3 rounded-full bg-red-500"></div>
+  <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+  <div class="w-3 h-3 rounded-full bg-green-500"></div>
+</div>
+<span class="text-slate-400">// Visualizing Learning Objectives (LOs)</span>
+<span class="text-pink-400">function</span> <span class="text-blue-300">learnPathology</span>(topic) {
+  if (topic.includes(<span class="text-yellow-300">'Cellular Injury'</span>)) {
+    return <span class="text-yellow-300">'Reversible vs Irreversible'</span>;
+  }
+  <span class="text-slate-500">// Note: Link with visual mnemonic #42</span>
+  <div class="border-l-2 border-slate-600 pl-2 mt-2 ml-4">student.retention += 100;
+aceExam();</div>
+}
+        </div>
+      </div>
+      <div class="w-full md:w-1/2">
+        <h2 class="font-header text-3xl md:text-4xl mb-4 text-brand-dark uppercase leading-tight">Code Your Brain. Ace Your Minors.</h2>
+        <p class="font-body text-sm md:text-base text-slate-600 mb-6 leading-relaxed">
+          Our unique approach maps medical diagnostic trees and UHS LOs to simple, visual logic formats. This builds stronger neural pathways and guarantees higher retention rates than reading blocks of text.
+        </p>
+        <div class="flex gap-4">
+          <button class="bg-brand-yellow font-header text-brand-dark px-6 py-2 rounded-full border-2 border-brand-dark shadow-[2px_2px_0px_#1e2333] hover:translate-y-1 transition-transform">
+            Try Demo Deck
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 10: FOOTER CTA -->
+    <section id="sec10" class="scroll-section bg-brand-dark text-white py-16 md:py-20 px-6 text-center scroll-hide slide-up flex-grow flex flex-col justify-center">
+      <h2 class="font-header text-4xl sm:text-5xl md:text-6xl uppercase tracking-wider mb-6 text-brand-yellow drop-shadow-md leading-tight">
+        Grab The Complete Notes
+      </h2>
+      <p class="font-body text-sm md:text-base text-slate-300 max-w-lg mx-auto mb-10 leading-relaxed">
+        Stop ignoring the minor subjects. Secure the full 1st & 2nd Year Bundle (Blocks 1-6) today and master Pathology, Pharmacology, Community Medicine, and Behavioural Sciences effortlessly.
+      </p>
+      <div class="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6">
+        <button class="bg-brand-pink text-brand-dark font-header text-lg md:text-xl px-8 py-4 rounded-xl border-4 border-white hover:scale-105 transition-transform shadow-[4px_4px_0px_white] md:shadow-[6px_6px_0px_white]">
+          BUY PHYSICAL NOTES
+        </button>
+        <button class="bg-brand-blue text-brand-dark font-header text-lg md:text-xl px-8 py-4 rounded-xl border-4 border-white hover:scale-105 transition-transform shadow-[4px_4px_0px_white] md:shadow-[6px_6px_0px_white]">
+          BUY DIGITAL APP
+        </button>
+      </div>
+    </section>
+
+  </div> <!-- End Main Canvas -->
+
+  <!-- MODAL UI WITH CUSTOM ART INTEGRATION -->
+  <div id="ui-modal" class="fixed inset-0 bg-[#1e2333]/90 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center p-4 overflow-y-auto">
+    <!-- Close Button -->
+    <button onclick="closeModal()" class="fixed top-4 right-4 md:top-6 md:right-6 text-white hover:text-brand-pink text-3xl z-50">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <div class="relative w-full max-w-4xl flex flex-col md:flex-row items-center justify-center my-auto py-8">
+      
+      <!-- Modal Left Card (Character/Art - tilted left) -->
+      <div class="bg-white p-2 rounded-2xl transform md:-rotate-6 shadow-2xl z-20 w-56 sm:w-64 md:w-72 border-4 border-white mb-[-30px] md:mb-0 md:mr-[-40px] relative transition-transform hover:rotate-0 hover:z-30">
+        
+        <div id="modal-art-bg" class="bg-[#bfdbfe] h-40 sm:h-48 md:h-64 rounded-xl border-2 border-brand-dark flex items-center justify-center overflow-hidden relative">
+          <img id="modal-image" src="" alt="Subject Artwork" class="w-full h-full object-cover relative z-10">
+          
+          <!-- Overlay grid pattern -->
+          <div class="absolute inset-0 opacity-10 z-0" style="background-image: linear-gradient(#1e2333 1px, transparent 1px), linear-gradient(90deg, #1e2333 1px, transparent 1px); background-size: 20px 20px;"></div>
+        </div>
+        
+        <!-- Nameplate -->
+        <div class="bg-brand-dark text-white mt-2 border-2 border-brand-dark flex flex-col items-center">
+          <h3 id="modal-name" class="font-header uppercase text-xl sm:text-2xl tracking-wide pt-2 leading-none">Subject</h3>
+          <div class="bg-white w-full text-brand-dark text-center py-1 mt-1 border-t-2 border-brand-dark">
+            <p id="modal-role" class="font-header text-[10px] sm:text-xs font-bold tracking-widest uppercase">BLOCKS 1-6</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Right Card (Code Terminal - tilted right) -->
+      <div class="bg-[#1e2333] text-white p-5 sm:p-6 md:p-8 rounded-2xl transform md:rotate-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-10 w-[95%] sm:w-[85%] md:w-[450px] border border-slate-600 transition-transform hover:rotate-0 hover:z-30">
+        
+        <div class="border-b border-slate-600 pb-2 mb-4">
+          <h3 class="font-header uppercase text-2xl sm:text-3xl tracking-wide">
+            <span id="modal-title-main">Subject Name</span>
+            <br>
+            <span id="modal-title-sub" class="text-xs sm:text-sm font-normal text-slate-400 tracking-widest">SUBJECT SUMMARY</span>
+          </h3>
+        </div>
+        
+        <p id="modal-desc" class="font-body text-xs md:text-sm text-slate-300 leading-relaxed mb-6">
+          Subject description goes here.
+        </p>
+
+        <p class="font-body text-xs text-slate-400 mb-2 italic">UHS Curriculum Logic:</p>
+        
+        <div class="bg-[#0f111a] p-3 sm:p-4 rounded-xl border border-slate-700 font-mono text-[10px] sm:text-xs text-green-400 leading-loose overflow-x-auto">
+          <pre id="modal-code">
+// LO Data
+          </pre>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+
+  <script>
+    // ---------------------------------------------------
+    // DATABASE FOR MODAL CONTENT (Updated for Minor Subjects)
+    // ---------------------------------------------------
+    const modalData = {
+      pathology: {
+        name: "Pathology", role: "BLOCKS 1-6", bg: "#fca5a5", 
+        img: "https://i.imgur.com/5C6oRPm.png",
+        desc: "Pathology dictates the foundation of disease mechanisms. We extract every core Learning Objective (LO) from cellular injury to systemic pathology and turn it into visual notes.",
+        code: "if (cell_stress > adaptation_limit) {\n  injury_type = 'Irreversible';\n  necrosis = true;\n  return membrane_damage;\n}"
+      },
+      pharmacology: {
+        name: "Pharmacology", role: "BLOCKS 1-6", bg: "#60a5fa", 
+        img: "https://i.imgur.com/YkQq0LJ.png",
+        desc: "Pharmacology is the master of drug classes and antidotes. We compile mechanisms of action and toxicities into memorable illustrations rather than dense paragraphs.",
+        code: "if (drug_class == 'Opioid') {\n  respiratory_rate = low;\n  pupils = 'pinpoint';\n  administer('Naloxone');\n}"
+      },
+      community: {
+        name: "Community Med", role: "BLOCKS 1-6", bg: "#fde047", 
+        img: "https://i.imgur.com/dSduyTg.png",
+        desc: "Community Medicine scales logic to populations. It's less about the individual and more about epidemiological stats, vaccine schedules, and public health LOs.",
+        code: "function preventDisease() {\n  primary = vaccine;\n  secondary = screening;\n  tertiary = rehab;\n  return public_health_up;\n}"
+      },
+      behavioural: {
+        name: "Behavioural", role: "BLOCKS 1-6", bg: "#fbcfe8", 
+        img: "https://i.imgur.com/Z0PxJag.png",
+        desc: "Behavioural Sciences outlines medical ethics and psychiatric foundations. We decode the complex scenarios into simple, visual rules to ace your ethics modules.",
+        code: "if (patient_refuses_treatment) {\n  if (has_capacity(patient)) {\n    respect_autonomy = true;\n    document_refusal();\n  }\n}"
+      },
+      aging: {
+        name: "Aging", role: "BLOCKS 4-6", bg: "#d8b4fe", 
+        img: "https://i.imgur.com/jlZtE5f.png",
+        desc: "Aging and Geriatrics cover the sensory and physiological decline in older populations. We visually map out age-related changes across all body systems.",
+        code: "if (patient_age > 65) {\n  check_vision(cataracts);\n  check_hearing(presbycusis);\n  adjust_drug_dosing();\n}"
+      }
+    };
+
+    // ---------------------------------------------------
+    // MODAL LOGIC 
+    // ---------------------------------------------------
+    function openModal(blockKey) {
+      const data = modalData[blockKey];
+      if(!data) return;
+
+      // Populate Left Card
+      document.getElementById('modal-art-bg').style.backgroundColor = data.bg;
+      document.getElementById('modal-image').src = data.img;
+      document.getElementById('modal-name').innerText = data.name;
+      document.getElementById('modal-role').innerText = data.role;
+
+      // Populate Right Card
+      document.getElementById('modal-title-main').innerText = data.name;
+      document.getElementById('modal-title-sub').innerText = data.role + " SUMMARY";
+      document.getElementById('modal-desc').innerText = data.desc;
+      document.getElementById('modal-code').innerText = data.code;
+
+      // Show Modal
+      const modal = document.getElementById('ui-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.style.overflow = 'hidden'; 
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('ui-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('ui-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    // ---------------------------------------------------
+    // SCROLL TRIGGER ANIMATIONS (Smoothed)
+    // ---------------------------------------------------
+    document.addEventListener("DOMContentLoaded", function() {
+      const observerOptions = { root: null, rootMargin: '0px', threshold: 0.1 };
+
+      const observer = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            requestAnimationFrame(() => {
+              entry.target.classList.add('show');
+            });
+            observer.unobserve(entry.target); 
+          }
+        });
+      }, observerOptions);
+
+      const animatedElements = document.querySelectorAll('.scroll-hide, .slide-left, .slide-right, .slide-up');
+      animatedElements.forEach(el => observer.observe(el));
+    });
+  </script>
+</body>
+</html>
