@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth bg-[#F5F5F7]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedNotes Pro | Elite MBBS Resources</title>
+    
+    <!-- Premium Web Fonts (Used in high-end Figma designs) -->
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Satoshi', 'sans-serif'],
+                        display: ['Clash Display', 'sans-serif'],
+                    },
+                    colors: {
+                        surface: '#F5F5F7',
+                        void: '#0A0A0B',
+                        primary: '#4F46E5', // Indigo
+                        accent: '#00D084', // Medical Teal
+                    },
+                    backgroundImage: {
+                        'mesh': 'radial-gradient(at 40% 20%, hsla(250,100%,74%,0.15) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(189,100%,56%,0.15) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(355,100%,93%,0) 0px, transparent 50%)',
+                        'glass': 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%)',
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+                        'floating': '0 30px 60px -10px rgba(0,0,0,0.1), 0 20px 30px -20px rgba(0,0,0,0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+
+    <style>
+        /* Base Resets & Typography Polish */
+        body { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+        ::selection { background: #4F46E5; color: white; }
+
+        /* Lenis Smooth Scroll Setup */
+        html.lenis { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+
+        /* Noise Texture Overlay */
+        .bg-noise {
+            position: fixed; inset: 0; z-index: 9999;
+            background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+            opacity: 0.035; mix-blend-mode: multiply; pointer-events: none;
+        }
+
+        /* Magnetic Button Wrapper */
+        .magnetic-wrap { display: inline-block; position: relative; }
+        .magnetic-btn { transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+
+        /* Custom Marquee */
+        .marquee-container { overflow: hidden; white-space: nowrap; width: 100%; display: flex; align-items: center; }
+        .marquee-content { display: flex; animation: marquee 20s linear infinite; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* Bento Grid Specifics */
+        .bento-item { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.05); border-radius: 2rem; overflow: hidden; transition: transform 0.4s ease, box-shadow 0.4s ease; }
+        .bento-item:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.05); }
+
+        /* Product Book 3D Effect */
+        .book-container { perspective: 1000px; }
+        .book {
+            position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: -15px 15px 30px rgba(0,0,0,0.1); border-radius: 0 16px 16px 0;
+        }
+        .book::before {
+            content: ''; position: absolute; top: 0; left: -15px; width: 15px; height: 100%;
+            background: linear-gradient(to right, #d1d5db, #f3f4f6);
+            transform-origin: right; transform: rotateY(-90deg); border-radius: 4px 0 0 4px;
+        }
+        .book-container:hover .book { transform: rotateY(15deg) rotateX(5deg) scale(1.05); box-shadow: -25px 25px 40px rgba(0,0,0,0.15); }
+
+        /* Custom Comparison Slider */
+        .comp-wrapper { position: relative; width: 100%; height: 60vh; min-height: 500px; border-radius: 2rem; overflow: hidden; cursor: col-resize; }
+        .comp-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background-size: cover; background-position: center; }
+        .comp-before { background-image: url('https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=1200&auto=format&fit=crop'); filter: grayscale(50%) contrast(1.2); }
+        .comp-after { background-color: #0A0A0B; clip-path: inset(0 50% 0 0); display: flex; align-items: center; justify-content: center; position: relative; }
+        .comp-handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #fff; transform: translateX(-50%); pointer-events: none; }
+        .comp-handle::after {
+            content: '< >'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 48px; height: 48px; background: #fff; color: #000; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-weight: 900; font-family: 'Satoshi';
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3); letter-spacing: -1px;
+        }
+
+        /* iPhone Mockup (CSS only) */
+        .iphone-frame {
+            border: 10px solid #18181b; border-radius: 2.5rem; position: relative; background: #000;
+            box-shadow: inset 0 0 0 2px #3f3f46, 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .iphone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 25px; background: #18181b; border-radius: 0 0 12px 12px; z-index: 20; }
+        
+        /* Hide scrollbars */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #F5F5F7; }
+        ::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-void">
+
+    <div class="bg-noise"></div>
+
+    <!-- Floating Navbar -->
+    <nav class="fixed w-full top-6 z-50 flex justify-center px-4 pointer-events-none">
+        <div class="bg-white/70 backdrop-blur-xl border border-white/40 shadow-glass rounded-full px-6 py-3 flex items-center justify-between w-full max-w-4xl pointer-events-auto transition-transform duration-500" id="navbar">
+            <a href="#" class="font-display font-bold text-xl tracking-tight">Med<span class="text-primary">Notes.</span></a>
+            <div class="hidden md:flex items-center gap-8 font-medium text-sm text-gray-600">
+                <a href="#manifesto" class="hover:text-primary transition-colors">Manifesto</a>
+                <a href="#resources" class="hover:text-primary transition-colors">Resources</a>
+                <a href="#platform" class="hover:text-primary transition-colors">Platform</a>
+                <a href="#reviews" class="hover:text-primary transition-colors">Wall of Love</a>
+            </div>
+            <div class="magnetic-wrap">
+                <a href="#resources" class="magnetic-btn bg-void text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-primary transition-colors flex items-center gap-2">
+                    Get Access <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section (Parallax & Oversized Typography) -->
+    <section class="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden bg-mesh">
+        <!-- Floating abstract graphic elements -->
+        <div class="absolute inset-0 pointer-events-none" id="parallax-container">
+            <!-- Floating Note Card 1 -->
+            <div class="absolute top-1/4 left-[10%] w-64 bg-white/60 backdrop-blur-lg p-4 rounded-2xl border border-white/50 shadow-floating transform -rotate-6 parallax-item" data-speed="-0.05">
+                <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mb-3">
+                    <svg class="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                </div>
+                <div class="h-2 w-3/4 bg-gray-200 rounded mb-2"></div>
+                <div class="h-2 w-1/2 bg-gray-200 rounded"></div>
+            </div>
+            <!-- Floating Note Card 2 -->
+            <div class="absolute bottom-1/4 right-[10%] w-72 bg-void p-5 rounded-2xl border border-white/10 shadow-floating transform rotate-3 parallax-item" data-speed="0.08">
+                <h3 class="text-white font-display font-semibold mb-2">Biochem Cheat Sheet</h3>
+                <div class="flex gap-2">
+                    <div class="h-16 w-1/2 bg-white/10 rounded-lg"></div>
+                    <div class="h-16 w-1/2 bg-primary/30 rounded-lg border border-primary/50"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-10 text-center max-w-5xl px-6 mx-auto flex flex-col items-center">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-void/10 bg-white/50 backdrop-blur-md text-sm font-semibold mb-8 fade-up">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                </span>
+                Updated for 2026 Modular Curriculum
+            </div>
+            
+            <h1 class="text-[12vw] sm:text-7xl lg:text-8xl font-display font-bold leading-[0.9] tracking-tighter mb-8 text-void fade-up" style="transition-delay: 0.1s;">
+                Minor subjects.<br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-500">Mastered in hours.</span>
+            </h1>
+            
+            <p class="text-lg lg:text-xl text-gray-600 max-w-2xl mb-12 font-medium fade-up" style="transition-delay: 0.2s;">
+                Stop drowning in Guyton and Snell. We distilled thousands of textbook pages into beautifully formatted, examiner-focused notes.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 fade-up" style="transition-delay: 0.3s;">
+                <div class="magnetic-wrap">
+                    <a href="#resources" class="magnetic-btn bg-void text-white px-8 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-2">
+                        Explore Blocks
+                    </a>
+                </div>
+                <div class="magnetic-wrap">
+                    <a href="#comparison" class="magnetic-btn bg-white border border-gray-200 text-void px-8 py-4 rounded-full font-bold text-lg hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2">
+                        See the difference
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Infinite Marquee -->
+    <div class="bg-void text-white py-4 border-y border-white/10 transform -rotate-1 relative z-20">
+        <div class="marquee-container font-display font-bold text-xl tracking-widest uppercase opacity-80">
+            <div class="marquee-content gap-8">
+                <span>ULTRA HIGH-YIELD</span> <span>•</span>
+                <span>NO FLUFF</span> <span>•</span>
+                <span>CLINICAL CORRELATES</span> <span>•</span>
+                <span>OSPE READY</span> <span>•</span>
+                <span>CHEAT SHEETS INCLUDED</span> <span>•</span>
+                <span>ULTRA HIGH-YIELD</span> <span>•</span>
+                <span>NO FLUFF</span> <span>•</span>
+                <span>CLINICAL CORRELATES</span> <span>•</span>
+                <span>OSPE READY</span> <span>•</span>
+            </div>
+            <div class="marquee-content gap-8 absolute top-0 left-full">
+                 <!-- Duplicate for seamless loop -->
+                 <span>ULTRA HIGH-YIELD</span> <span>•</span>
+                 <span>NO FLUFF</span> <span>•</span>
+                 <span>CLINICAL CORRELATES</span> <span>•</span>
+                 <span>OSPE READY</span> <span>•</span>
+                 <span>CHEAT SHEETS INCLUDED</span> <span>•</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bento Box Features Section -->
+    <section id="manifesto" class="py-32 px-6 max-w-7xl mx-auto">
+        <div class="mb-16">
+            <h2 class="text-4xl lg:text-6xl font-display font-bold tracking-tight mb-4 section-title">Why we built this.</h2>
+            <p class="text-xl text-gray-500 max-w-xl font-medium">Traditional studying is broken. We engineered a system that matches how the medical brain actually retains information.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-[250px]">
+            <!-- Bento Item 1: Large Statement -->
+            <div class="bento-item md:col-span-2 md:row-span-2 p-10 flex flex-col justify-between bg-gradient-to-br from-white to-gray-50">
+                <div>
+                    <div class="w-12 h-12 rounded-xl bg-void text-white flex items-center justify-center mb-6">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </div>
+                    <h3 class="text-3xl font-display font-bold mb-4">90% Less Fluff.<br>100% Core Concepts.</h3>
+                    <p class="text-gray-600 font-medium leading-relaxed">We analyzed 5 years of past papers across major medical universities. If it hasn't been tested or isn't clinically vital, it's not in the notes.</p>
+                </div>
+                <!-- Mini abstract chart -->
+                <div class="mt-8 h-32 w-full relative">
+                    <div class="absolute bottom-0 w-full h-1/2 bg-red-100 rounded-t-xl overflow-hidden flex items-end">
+                        <div class="w-full h-[90%] bg-red-500/20 text-xs font-bold text-red-700 p-2 text-center">Textbooks</div>
+                    </div>
+                    <div class="absolute bottom-0 left-1/4 w-1/2 h-full bg-accent rounded-t-xl flex items-center justify-center text-white font-bold text-sm shadow-xl z-10 transform scale-105">MedNotes</div>
+                </div>
+            </div>
+
+            <!-- Bento Item 2: Visual Learning -->
+            <div class="bento-item md:col-span-2 md:row-span-1 p-8 flex items-center gap-6 group">
+                <div class="flex-1">
+                    <h3 class="text-xl font-display font-bold mb-2">Visual Hierarchy</h3>
+                    <p class="text-gray-500 text-sm font-medium">Color-coded flowcharts and custom diagrams built for memory retention.</p>
+                </div>
+                <div class="w-32 h-32 relative shrink-0">
+                    <div class="absolute inset-0 bg-primary/10 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <!-- Custom SVG representing nodes -->
+                    <svg class="absolute inset-0 w-full h-full text-primary" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="50" cy="20" r="8" fill="currentColor"/>
+                        <circle cx="20" cy="80" r="8" fill="currentColor"/>
+                        <circle cx="80" cy="80" r="8" fill="currentColor"/>
+                        <path d="M50 28 L20 72 M50 28 L80 72 M20 80 L80 80" stroke-dasharray="4 4"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Bento Item 3: Dark Mode iPad Mockup -->
+            <div class="bento-item md:col-span-1 md:row-span-1 bg-void text-white p-8 relative overflow-hidden group">
+                <div class="relative z-10">
+                    <h3 class="text-xl font-display font-bold mb-2">Digital First</h3>
+                    <p class="text-gray-400 text-sm">Perfect on GoodNotes & Notability.</p>
+                </div>
+                <!-- Abstract iPad Edge -->
+                <div class="absolute -right-10 -bottom-10 w-48 h-48 border-8 border-gray-800 rounded-[2rem] bg-gray-900 shadow-2xl transform rotate-12 group-hover:rotate-0 transition-transform duration-500 flex flex-col p-4">
+                    <div class="w-1/2 h-2 bg-gray-700 rounded mb-2"></div>
+                    <div class="w-full h-2 bg-gray-800 rounded"></div>
+                </div>
+            </div>
+
+            <!-- Bento Item 4: Fast Delivery -->
+            <div class="bento-item md:col-span-1 md:row-span-1 p-8 flex flex-col justify-center items-center text-center">
+                <div class="text-4xl mb-2">⚡️</div>
+                <h3 class="text-lg font-display font-bold">Instant Access</h3>
+                <p class="text-gray-500 text-sm">Download immediately after purchase.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Custom Comparison Slider UI -->
+    <section id="comparison" class="py-32 bg-void text-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-16">
+                <div class="max-w-2xl">
+                    <h2 class="text-4xl lg:text-6xl font-display font-bold tracking-tight mb-4 text-white section-title">Spot the difference.</h2>
+                    <p class="text-xl text-gray-400 font-medium">Slide to reveal how MedNotes transforms chaotic textbook paragraphs into highly scannable, exam-ready blueprints.</p>
+                </div>
+            </div>
+
+            <div class="comp-wrapper shadow-2xl border border-white/10" id="sliderContainer">
+                <!-- Traditional Image Layer -->
+                <div class="comp-layer comp-before">
+                    <div class="absolute top-8 left-8 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 text-sm font-bold tracking-widest uppercase">Traditional Textbooks</div>
+                </div>
+                
+                <!-- Our Notes Layer (Generated via CSS layout to look like actual notes) -->
+                <div class="comp-layer comp-after" id="sliderAfter">
+                    <div class="absolute top-8 right-8 bg-primary/20 backdrop-blur-md px-4 py-2 rounded-full border border-primary/50 text-sm font-bold tracking-widest uppercase text-primary">MedNotes Pro</div>
+                    
+                    <!-- Faux Notes Layout -->
+                    <div class="w-full max-w-2xl mx-auto pl-10 pr-20 py-12 flex flex-col gap-6">
+                        <div class="inline-block px-3 py-1 bg-accent/20 text-accent rounded uppercase text-xs font-bold w-max">High Yield Concept</div>
+                        <h1 class="text-4xl font-display font-bold border-b border-white/10 pb-4">Epithelial Tissue Architecture</h1>
+                        <p class="text-gray-400 leading-relaxed text-lg">Characterized by close cell apposition and presence at a free surface. Avascular structure relying on diffusion from underlying lamina propria.</p>
+                        
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div class="bg-white/5 p-4 rounded-xl border border-white/10">
+                                <h4 class="text-primary font-bold mb-2">Simple Squamous</h4>
+                                <ul class="text-sm text-gray-400 space-y-2 list-disc list-inside">
+                                    <li>Endothelium (blood vessels)</li>
+                                    <li>Mesothelium (body cavities)</li>
+                                    <li>Bowman's capsule (kidney)</li>
+                                </ul>
+                            </div>
+                            <div class="bg-white/5 p-4 rounded-xl border border-white/10">
+                                <h4 class="text-accent font-bold mb-2">Clinical Correlate</h4>
+                                <p class="text-sm text-gray-400">Metaplasia occurs when one mature epithelial type is replaced by another (e.g., Barrett's esophagus: squamous to columnar).</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Handle -->
+                <div class="comp-handle" id="sliderHandle"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- E-Commerce / Resources Section -->
+    <section id="resources" class="py-32 bg-surface">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl lg:text-6xl font-display font-bold tracking-tight mb-6 text-void section-title">Select Your Module.</h2>
+                
+                <!-- Premium Custom Tabs -->
+                <div class="inline-flex bg-gray-200/50 p-1.5 rounded-full border border-gray-200">
+                    <button onclick="switchYear('y1')" id="tab-y1" class="px-8 py-3 rounded-full font-bold text-sm transition-all duration-300 bg-white text-void shadow-sm">1st Year MBBS</button>
+                    <button onclick="switchYear('y2')" id="tab-y2" class="px-8 py-3 rounded-full font-bold text-sm transition-all duration-300 text-gray-500 hover:text-void">2nd Year MBBS</button>
+                </div>
+            </div>
+
+            <!-- Year 1 Grid -->
+            <div id="grid-y1" class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <!-- Product Card 1 -->
+                <div class="group cursor-pointer book-container">
+                    <div class="book bg-white rounded-2xl p-6 h-[400px] flex flex-col justify-between border border-gray-100 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+                        <div>
+                            <div class="text-xs font-bold tracking-widest text-blue-600 uppercase mb-4">Foundation</div>
+                            <h3 class="text-3xl font-display font-bold text-void mb-2">Block 1</h3>
+                            <p class="text-gray-500 font-medium text-sm">General Anatomy, Embryology Basics, Histology.</p>
+                        </div>
+                        <div class="flex items-end justify-between z-10">
+                            <span class="text-2xl font-bold font-display text-void">$15</span>
+                            <div class="w-12 h-12 rounded-full bg-void text-white flex items-center justify-center transform group-hover:scale-110 group-hover:bg-primary transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Product Card 2 -->
+                <div class="group cursor-pointer book-container">
+                    <div class="book bg-white rounded-2xl p-6 h-[400px] flex flex-col justify-between border border-gray-100 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl"></div>
+                        <div>
+                            <div class="text-xs font-bold tracking-widest text-purple-600 uppercase mb-4">Blood & Immuno</div>
+                            <h3 class="text-3xl font-display font-bold text-void mb-2">Block 2</h3>
+                            <p class="text-gray-500 font-medium text-sm">Biochemistry Profiles, Micro-anatomy, Hematology.</p>
+                        </div>
+                        <div class="flex items-end justify-between z-10">
+                            <span class="text-2xl font-bold font-display text-void">$15</span>
+                            <div class="w-12 h-12 rounded-full bg-void text-white flex items-center justify-center transform group-hover:scale-110 group-hover:bg-primary transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Card 3 -->
+                <div class="group cursor-pointer book-container">
+                    <div class="book bg-void rounded-2xl p-6 h-[400px] flex flex-col justify-between border border-gray-800 relative overflow-hidden group-hover:border-primary/50 transition-colors">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-accent/20 rounded-full blur-3xl"></div>
+                        <div class="absolute top-4 right-4 bg-accent text-void text-xs font-bold px-3 py-1 rounded-full">Bestseller</div>
+                        <div>
+                            <div class="text-xs font-bold tracking-widest text-accent uppercase mb-4">Locomotor</div>
+                            <h3 class="text-3xl font-display font-bold text-white mb-2">Block 3</h3>
+                            <p class="text-gray-400 font-medium text-sm">Upper Limb & Lower Limb minor concepts.</p>
+                        </div>
+                        <div class="flex items-end justify-between z-10">
+                            <span class="text-2xl font-bold font-display text-white">$15</span>
+                            <div class="w-12 h-12 rounded-full bg-white text-void flex items-center justify-center transform group-hover:scale-110 transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Year 2 Grid (Hidden by Default) -->
+            <div id="grid-y2" class="grid grid-cols-1 md:grid-cols-3 gap-10 hidden">
+                <!-- Structure similar to above, abbreviated for brevity but fully styled -->
+                <div class="group cursor-pointer book-container">
+                    <div class="book bg-white rounded-2xl p-6 h-[400px] flex flex-col justify-between border border-gray-100 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl"></div>
+                        <div>
+                            <div class="text-xs font-bold tracking-widest text-orange-600 uppercase mb-4">Resp & CVS</div>
+                            <h3 class="text-3xl font-display font-bold text-void mb-2">Block 4</h3>
+                            <p class="text-gray-500 font-medium text-sm">Advanced Histology, Respiratory Biochem.</p>
+                        </div>
+                        <div class="flex items-end justify-between z-10">
+                            <span class="text-2xl font-bold font-display text-void">$18</span>
+                            <div class="w-12 h-12 rounded-full bg-void text-white flex items-center justify-center transform group-hover:scale-110 group-hover:bg-primary transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Additional items... -->
+                 <div class="group cursor-pointer book-container">
+                    <div class="book bg-white rounded-2xl p-6 h-[400px] flex flex-col justify-between border border-gray-100 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl"></div>
+                        <div>
+                            <div class="text-xs font-bold tracking-widest text-rose-600 uppercase mb-4">GIT & Renal</div>
+                            <h3 class="text-3xl font-display font-bold text-void mb-2">Block 5</h3>
+                            <p class="text-gray-500 font-medium text-sm">Digestive secretions, Renal biochem pathways.</p>
+                        </div>
+                        <div class="flex items-end justify-between z-10">
+                            <span class="text-2xl font-bold font-display text-void">$18</span>
+                            <div class="w-12 h-12 rounded-full bg-void text-white flex items-center justify-center transform group-hover:scale-110 group-hover:bg-primary transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div class="group cursor-pointer book-container">
+                    <div class="book bg-void rounded-2xl p-6 h-[400px] flex flex-col justify-between border border-gray-800 relative overflow-hidden group-hover:border-primary/50 transition-colors">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl"></div>
+                        <div>
+                            <div class="text-xs font-bold tracking-widest text-indigo-400 uppercase mb-4">Neuroscience</div>
+                            <h3 class="text-3xl font-display font-bold text-white mb-2">Block 6</h3>
+                            <p class="text-gray-400 font-medium text-sm">Neuroanatomy simplified, Special senses.</p>
+                        </div>
+                        <div class="flex items-end justify-between z-10">
+                            <span class="text-2xl font-bold font-display text-white">$18</span>
+                            <div class="w-12 h-12 rounded-full bg-white text-void flex items-center justify-center transform group-hover:scale-110 transition-all">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Platform / Reels Integration -->
+    <section id="platform" class="py-32 bg-white overflow-hidden border-y border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center">
+            
+            <!-- Context -->
+            <div>
+                <div class="w-16 h-16 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg')] bg-cover mb-8"></div>
+                <h2 class="text-4xl lg:text-6xl font-display font-bold tracking-tight mb-6 text-void section-title">We study out loud.</h2>
+                <p class="text-xl text-gray-500 font-medium mb-10 leading-relaxed">Join 50,000+ medicos on our Instagram where we drop weekly study hacks, OSPE walk-throughs, and free rapid-review diagrams.</p>
+                
+                <div class="magnetic-wrap">
+                    <a href="#" class="magnetic-btn bg-void text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-transform flex items-center gap-2 inline-flex">
+                        Follow @MedNotesPro
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- CSS Built Phone Reels Carousel -->
+            <div class="relative flex justify-center lg:justify-end pr-10">
+                <div class="iphone-frame w-[300px] h-[600px] z-10">
+                    <div class="iphone-notch"></div>
+                    <!-- Swiper inside Phone -->
+                    <div class="swiper phoneSwiper h-full w-full rounded-[1.5rem] overflow-hidden">
+                        <div class="swiper-wrapper">
+                            <!-- Reel 1 -->
+                            <div class="swiper-slide bg-gray-900 relative">
+                                <img src="https://images.unsplash.com/photo-1576091160550-2173ff9e5eb3?q=80&w=600&auto=format&fit=crop" class="w-full h-full object-cover opacity-80" alt="Reel">
+                                <div class="absolute bottom-8 left-4 right-4 text-white z-10">
+                                    <h4 class="font-bold text-lg leading-tight mb-2">Block 2 Histology Hack 🔬</h4>
+                                    <div class="flex items-center gap-3 text-sm opacity-80 font-medium">
+                                        <span class="flex items-center gap-1"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg> 12.4K</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Reel 2 -->
+                            <div class="swiper-slide bg-gray-900 relative">
+                                <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=600&auto=format&fit=crop" class="w-full h-full object-cover opacity-80" alt="Reel">
+                                <div class="absolute bottom-8 left-4 right-4 text-white z-10">
+                                    <h4 class="font-bold text-lg leading-tight mb-2">Stop messing up Neuroanatomy 🧠</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Background decorative elements -->
+                <div class="absolute top-1/2 left-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px] -z-10 transform -translate-y-1/2"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Wall of Love / Reviews -->
+    <section id="reviews" class="py-32 bg-surface">
+        <div class="text-center mb-16 px-6">
+            <h2 class="text-4xl lg:text-6xl font-display font-bold tracking-tight mb-4 text-void section-title">Wall of Love.</h2>
+            <p class="text-xl text-gray-500 font-medium">Scored a distinction? We want to hear about it.</p>
+        </div>
+
+        <!-- Premium Auto-Scrolling Masonry / Swiper -->
+        <div class="swiper reviewSwiper px-6 pb-16 max-w-[1400px] mx-auto">
+            <div class="swiper-wrapper">
+                <!-- Review Card 1 -->
+                <div class="swiper-slide">
+                    <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex items-center gap-1 mb-6 text-void">
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        </div>
+                        <p class="text-lg text-void font-medium flex-1 mb-8">"Ditched standard textbooks completely for Block 2. The immunology flowcharts are literally exactly what the examiners asked in my viva."</p>
+                        <div class="flex items-center gap-4 border-t border-gray-100 pt-6">
+                            <div class="w-12 h-12 bg-gray-100 rounded-full overflow-hidden grayscale"><img src="https://i.pravatar.cc/100?img=1" alt="User"></div>
+                            <div>
+                                <h4 class="font-bold font-display text-void">Ayesha K.</h4>
+                                <p class="text-sm text-gray-500">1st Year MBBS</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review Card 2 -->
+                <div class="swiper-slide">
+                    <div class="bg-void text-white p-8 rounded-3xl border border-gray-800 shadow-xl flex flex-col h-full transform md:-translate-y-4">
+                        <div class="flex items-center gap-1 mb-6 text-accent">
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        </div>
+                        <p class="text-lg font-medium flex-1 mb-8">"The UI of the PDFs is crazy. Looks like a high-end app. Content is 10/10. Saved my life during send-ups."</p>
+                        <div class="flex items-center gap-4 border-t border-gray-800 pt-6">
+                            <div class="w-12 h-12 bg-gray-800 rounded-full overflow-hidden grayscale"><img src="https://i.pravatar.cc/100?img=11" alt="User"></div>
+                            <div>
+                                <h4 class="font-bold font-display">Hassan R.</h4>
+                                <p class="text-sm text-gray-400">2nd Year MBBS</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review Card 3 -->
+                <div class="swiper-slide">
+                    <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col h-full">
+                        <div class="flex items-center gap-1 mb-6 text-void">
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                        </div>
+                        <p class="text-lg text-void font-medium flex-1 mb-8">"Neuroanatomy was making me rethink medical school. Block 6 notes made it actually logical. Huge respect to the team."</p>
+                        <div class="flex items-center gap-4 border-t border-gray-100 pt-6">
+                            <div class="w-12 h-12 bg-gray-100 rounded-full overflow-hidden grayscale"><img src="https://i.pravatar.cc/100?img=5" alt="User"></div>
+                            <div>
+                                <h4 class="font-bold font-display text-void">Zainab M.</h4>
+                                <p class="text-sm text-gray-500">Gold Medalist</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="swiper-pagination mt-12 relative"></div>
+        </div>
+    </section>
+
+    <!-- Team Section (Minimalist Editorial Style) -->
+    <section class="py-32 bg-white border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-gray-200 pb-10">
+                <h2 class="text-4xl lg:text-5xl font-display font-bold tracking-tight text-void">Built by<br>recent grads.</h2>
+                <p class="text-lg text-gray-500 font-medium max-w-sm text-right mt-6 md:mt-0">We suffered through the outdated system so you don't have to.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+                <!-- Profile 1 -->
+                <div class="group cursor-pointer">
+                    <div class="w-full aspect-[4/5] bg-gray-100 rounded-2xl overflow-hidden mb-6 relative">
+                        <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-700" alt="Dr. Sarah">
+                        <div class="absolute inset-0 bg-void/10 group-hover:bg-transparent transition-colors duration-700"></div>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-2xl font-display font-bold text-void">Dr. Sarah A.</h3>
+                            <p class="text-primary font-medium">Head of Academics</p>
+                        </div>
+                        <span class="text-sm font-bold text-gray-400">01</span>
+                    </div>
+                </div>
+                <!-- Profile 2 -->
+                <div class="group cursor-pointer transform md:translate-y-16">
+                    <div class="w-full aspect-[4/5] bg-gray-100 rounded-2xl overflow-hidden mb-6 relative">
+                        <img src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-700" alt="Dr. Omar">
+                        <div class="absolute inset-0 bg-void/10 group-hover:bg-transparent transition-colors duration-700"></div>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-2xl font-display font-bold text-void">Dr. Omar K.</h3>
+                            <p class="text-primary font-medium">Lead Editor</p>
+                        </div>
+                        <span class="text-sm font-bold text-gray-400">02</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Massive Footer -->
+    <footer class="bg-void text-white pt-32 pb-10 relative overflow-hidden">
+        <!-- Abstract Bg -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-5xl bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-void to-void pointer-events-none"></div>
+        
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            
+            <div class="text-center mb-32">
+                <h1 class="text-[12vw] font-display font-black leading-none tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500">ACE YOUR EXAMS.</h1>
+                <div class="magnetic-wrap">
+                    <a href="#resources" class="magnetic-btn bg-white text-void px-10 py-5 rounded-full font-bold text-xl hover:bg-gray-100 transition-colors inline-block">
+                        Get MedNotes Today
+                    </a>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-12 border-t border-white/10 pt-16 mb-16">
+                <div class="md:col-span-2">
+                    <a href="#" class="font-display font-bold text-2xl tracking-tight text-white mb-6 block">Med<span class="text-primary">Notes.</span></a>
+                    <p class="text-gray-400 max-w-sm font-medium">The modern standard for medical education. Designed by distinction holders, built for the next generation of doctors.</p>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-6 text-sm tracking-widest uppercase text-gray-500">Navigation</h4>
+                    <ul class="space-y-4 font-medium text-gray-300">
+                        <li><a href="#manifesto" class="hover:text-white transition-colors">The Manifesto</a></li>
+                        <li><a href="#resources" class="hover:text-white transition-colors">1st Year Resources</a></li>
+                        <li><a href="#resources" class="hover:text-white transition-colors">2nd Year Resources</a></li>
+                        <li><a href="#reviews" class="hover:text-white transition-colors">Wall of Love</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="font-bold mb-6 text-sm tracking-widest uppercase text-gray-500">Socials</h4>
+                    <ul class="space-y-4 font-medium text-gray-300">
+                        <li><a href="#" class="hover:text-white transition-colors flex items-center gap-2">Instagram <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a></li>
+                        <li><a href="#" class="hover:text-white transition-colors flex items-center gap-2">TikTok <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a></li>
+                        <li><a href="#" class="hover:text-white transition-colors flex items-center gap-2">Twitter / X <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row justify-between items-center text-sm text-gray-600 font-medium border-t border-white/10 pt-8">
+                <p>&copy; 2026 MedNotes Education. All rights reserved.</p>
+                <div class="flex gap-6 mt-4 md:mt-0">
+                    <a href="#" class="hover:text-gray-300 transition-colors">Privacy</a>
+                    <a href="#" class="hover:text-gray-300 transition-colors">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <!-- Lenis Smooth Scroll -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+    <!-- GSAP Core & ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+
+    <script>
+        // 1. Initialize Lenis Smooth Scroll (Premium Feel)
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true,
+        });
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        // 2. GSAP Registrations
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Navbar blur on scroll
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-white/80', 'backdrop-blur-xl', 'shadow-glass');
+                nav.classList.remove('bg-white/70');
+            } else {
+                nav.classList.remove('shadow-glass');
+            }
+        });
+
+        // 3. Parallax Hero Elements (Organic Floating based on Mouse)
+        document.addEventListener("mousemove", (e) => {
+            const x = (window.innerWidth - e.pageX * 2) / 100;
+            const y = (window.innerHeight - e.pageY * 2) / 100;
+            
+            document.querySelectorAll('.parallax-item').forEach(el => {
+                const speed = el.getAttribute('data-speed');
+                gsap.to(el, {
+                    x: x * speed * 100,
+                    y: y * speed * 100,
+                    duration: 1.5,
+                    ease: "power2.out"
+                });
+            });
+        });
+
+        // 4. Reveal Animations
+        gsap.utils.toArray('.fade-up').forEach((el, i) => {
+            gsap.from(el, {
+                y: 50, opacity: 0, duration: 1,
+                delay: el.style.transitionDelay ? parseFloat(el.style.transitionDelay) : 0,
+                ease: "power3.out"
+            });
+        });
+
+        gsap.utils.toArray('.section-title').forEach(title => {
+            gsap.from(title, {
+                scrollTrigger: { trigger: title, start: "top 85%" },
+                y: 40, opacity: 0, duration: 0.8, ease: "power2.out"
+            });
+        });
+
+        // 5. Magnetic Buttons
+        const magnets = document.querySelectorAll('.magnetic-wrap');
+        magnets.forEach(magnet => {
+            const btn = magnet.querySelector('.magnetic-btn');
+            magnet.addEventListener('mousemove', (e) => {
+                const rect = magnet.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                gsap.to(btn, { x: x * 0.3, y: y * 0.3, duration: 0.4, ease: "power2.out" });
+            });
+            magnet.addEventListener('mouseleave', () => {
+                gsap.to(btn, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1, 0.3)" });
+            });
+        });
+
+        // 6. Custom Comparison Slider Logic
+        const compContainer = document.getElementById('sliderContainer');
+        const compAfter = document.getElementById('sliderAfter');
+        const compHandle = document.getElementById('sliderHandle');
+        let isCompDragging = false;
+
+        const updateSlider = (e) => {
+            if (!isCompDragging) return;
+            const rect = compContainer.getBoundingClientRect();
+            let x = e.clientX || (e.touches && e.touches[0].clientX);
+            let pos = ((x - rect.left) / rect.width) * 100;
+            pos = Math.max(0, Math.min(pos, 100)); // clamp between 0 and 100
+            
+            compAfter.style.clipPath = `inset(0 ${100 - pos}% 0 0)`;
+            compHandle.style.left = `${pos}%`;
+        };
+
+        compContainer.addEventListener('mousedown', () => isCompDragging = true);
+        compContainer.addEventListener('touchstart', () => isCompDragging = true, {passive: true});
+        window.addEventListener('mouseup', () => isCompDragging = false);
+        window.addEventListener('touchend', () => isCompDragging = false);
+        window.addEventListener('mousemove', updateSlider);
+        window.addEventListener('touchmove', updateSlider, {passive: true});
+
+        // 7. Swiper Initializations
+        new Swiper('.reviewSwiper', {
+            slidesPerView: 1, spaceBetween: 24, grabCursor: true,
+            pagination: { el: '.swiper-pagination', clickable: true },
+            breakpoints: { 768: { slidesPerView: 2 }, 1024: { slidesPerView: 3 } }
+        });
+
+        new Swiper('.phoneSwiper', {
+            slidesPerView: 1, spaceBetween: 0, loop: true,
+            autoplay: { delay: 3000, disableOnInteraction: false },
+            effect: 'fade', fadeEffect: { crossFade: true }
+        });
+
+        // 8. E-Commerce Tabs
+        function switchYear(year) {
+            document.getElementById('grid-y1').classList.add('hidden');
+            document.getElementById('grid-y2').classList.add('hidden');
+            document.getElementById('tab-y1').className = "px-8 py-3 rounded-full font-bold text-sm transition-all duration-300 text-gray-500 hover:text-void";
+            document.getElementById('tab-y2').className = "px-8 py-3 rounded-full font-bold text-sm transition-all duration-300 text-gray-500 hover:text-void";
+            
+            document.getElementById('grid-' + year).classList.remove('hidden');
+            document.getElementById('tab-' + year).className = "px-8 py-3 rounded-full font-bold text-sm transition-all duration-300 bg-white text-void shadow-sm";
+            
+            // Re-trigger small GSAP pop on the newly visible grid
+            gsap.from('#grid-' + year + ' .book-container', {
+                y: 20, opacity: 0, duration: 0.5, stagger: 0.1, ease: "power2.out"
+            });
+        }
+    </script>
+</body>
+</html>
