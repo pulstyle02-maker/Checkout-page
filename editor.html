@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Snippet Search, Replace & Live Preview Tool</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+        /* Selection highlight inside the main editor */
+        #codeEditor::selection {
+            background-color: #f59e0b;
+            color: #000000;
+        }
+        /* Smooth transitions for slide animations */
+        .transition-height {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans h-full flex flex-col overflow-hidden selection:bg-indigo-500/30">
+
+    <!-- Premium Navigation Bar -->
+    <header class="bg-gray-900 border-b border-gray-800 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shrink-0 z-10">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl text-white shadow-lg shadow-indigo-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5.5 w-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-lg font-bold tracking-tight text-white">HTML Snippet Studio</h1>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20">v2.0 PRO</span>
+                </div>
+                <p class="text-[11px] text-gray-400">Intelligent, whitespace-insensitive search, replacement, and live rendering</p>
+            </div>
+        </div>
+
+        <!-- Toolbar Buttons & Controls -->
+        <div class="flex items-center gap-3">
+            <!-- Undo Button -->
+            <button id="undoBtn" onclick="undo()" class="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-gray-800 rounded-lg text-gray-200 transition-all flex items-center gap-1.5 text-xs font-semibold border border-gray-700/50" title="Undo (Ctrl+Z)" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+                Undo
+            </button>
+
+            <!-- Redo Button -->
+            <button id="redoBtn" onclick="redo()" class="p-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-gray-800 rounded-lg text-gray-200 transition-all flex items-center gap-1.5 text-xs font-semibold border border-gray-700/50" title="Redo (Ctrl+Y)" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+                </svg>
+                Redo
+            </button>
+
+            <div class="h-5 w-[1px] bg-gray-800"></div>
+
+            <!-- Demo Template -->
+            <button onclick="loadSampleTemplate()" class="px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 rounded-lg text-xs font-semibold transition-all">
+                Load Demo
+            </button>
+
+            <!-- Reset -->
+            <button onclick="clearAll()" class="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 rounded-lg text-xs font-semibold transition-all">
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Column: Controls & Code View -->
+        <div class="w-1/2 flex flex-col border-r border-gray-800 bg-gray-900/40 overflow-hidden">
+            
+            <!-- Left Tabs Bar -->
+            <div class="bg-gray-900/80 border-b border-gray-800 px-4 flex justify-between items-center shrink-0">
+                <div class="flex space-x-1 py-1.5">
+                    <button id="tabEditorBtn" onclick="switchLeftTab('editor')" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white transition-all">
+                        Active Workspace
+                    </button>
+                    <button id="tabLogBtn" onclick="switchLeftTab('changelog')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-all flex items-center gap-1.5">
+                        Change Log 
+                        <span id="logCounter" class="bg-gray-800 text-gray-400 text-[10px] px-1.5 py-0.5 rounded-md font-mono border border-gray-700">0</span>
+                    </button>
+                </div>
+                <div class="text-[11px] text-gray-500 font-mono" id="charCount">
+                    0 characters
+                </div>
+            </div>
+
+            <!-- Tab Content Frame -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                
+                <!-- Tab Workspace Editor & Smart Snippet Steps -->
+                <div id="tabEditor" class="flex-1 flex flex-col overflow-hidden">
+                    
+                    <!-- Smart Wizard Control Box -->
+                    <div class="p-4 bg-gray-900/60 border-b border-gray-800 flex flex-col gap-3 shrink-0">
+                        
+                        <!-- Step 1: Find Snippet (Always visible) -->
+                        <div class="flex flex-col">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-[11px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-indigo-500/15 text-indigo-400 flex items-center justify-center font-bold text-[10px]">1</span>
+                                    Find Code Snippet
+                                </label>
+                                <span id="searchIndicator" class="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-850 text-gray-400 border border-gray-800 transition-all">
+                                    No Active Search
+                                </span>
+                            </div>
+                            <div class="relative">
+                                <textarea id="searchSnippetInput" oninput="handleSearchInput()" placeholder="Paste the HTML segment you want to replace... (Spacing and newlines do not need to match exactly)" rows="2" class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-3 pr-24 py-2 text-xs text-yellow-300 font-mono placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all resize-none leading-normal" spellcheck="false"></textarea>
+                                <button onclick="clearSearch()" class="absolute right-2 top-2 text-gray-500 hover:text-gray-300 p-1 rounded hover:bg-gray-800 text-[10px] font-semibold">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Replace Snippet (Smooth Slide-down/Collapse) -->
+                        <div id="replaceStepContainer" class="hidden opacity-0 scale-95 transition-all duration-300 flex flex-col pt-2 border-t border-gray-800/60">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold text-[10px]">2</span>
+                                    Provide Replacement
+                                </label>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    Match Selected
+                                </span>
+                            </div>
+                            <div class="flex flex-col md:flex-row gap-3">
+                                <div class="flex-1 relative">
+                                    <textarea id="replaceSnippetInput" placeholder="Paste the new HTML code to put in its place..." rows="3" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-xs text-emerald-300 font-mono placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all resize-none leading-normal" spellcheck="false"></textarea>
+                                </div>
+                                <button id="replaceBtn" onclick="executeReplacement()" class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg text-white font-bold text-xs transition-all shadow-lg shadow-emerald-950/20 flex flex-col items-center justify-center gap-1 shrink-0 min-w-[140px] hover:-translate-y-0.5 active:translate-y-0 border border-emerald-400/20">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                    Replace Now
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Code Editor Box -->
+                    <div class="flex-1 flex flex-col p-4 bg-gray-950 relative overflow-hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Source HTML Document</label>
+                            <span class="text-[10px] text-gray-500">Auto-Select & Focus is Active</span>
+                        </div>
+                        <div class="flex-1 relative overflow-hidden rounded-xl border border-gray-800 bg-gray-900/40">
+                            <textarea id="codeEditor" oninput="handleEditorInput()" placeholder="Paste your single HTML file code here..." class="w-full h-full bg-transparent text-gray-300 font-mono p-4 text-xs focus:outline-none resize-none leading-relaxed block focus:ring-1 focus:ring-indigo-500/50" spellcheck="false"></textarea>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Tab: Change Log View -->
+                <div id="tabChangeLog" class="hidden flex-1 flex flex-col overflow-hidden p-5 bg-gray-950">
+                    <div class="flex items-center justify-between mb-4 shrink-0">
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Replacement Log History</h3>
+                            <p class="text-[11px] text-gray-400">Strict chronological log of successful code snippet replacements</p>
+                        </div>
+                        <button onclick="clearChangeLog()" class="px-3 py-1 bg-gray-900 hover:bg-gray-850 text-[10px] text-gray-300 rounded border border-gray-800 hover:text-white transition-all">
+                            Clear Log History
+                        </button>
+                    </div>
+
+                    <!-- Log Output Stream -->
+                    <div class="flex-1 overflow-y-auto space-y-3 pr-1" id="logList">
+                        <!-- Empty Logs Panel -->
+                        <div id="emptyLogState" class="h-full flex flex-col items-center justify-center text-center p-8 text-gray-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-2 text-gray-755" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                            </svg>
+                            <p class="text-xs font-semibold text-gray-400">No replacement logs recorded yet</p>
+                            <p class="text-[10px] text-gray-500 max-w-xs mt-1">Only actual modifications made via the Step-by-Step wizard flow are cataloged here.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Right Column: Premium Live Preview -->
+        <div class="w-1/2 flex flex-col bg-gray-950 overflow-hidden">
+            
+            <!-- Live Preview Topbar -->
+            <div class="bg-gray-900/80 border-b border-gray-800 px-4 py-2.5 flex items-center justify-between shrink-0">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                    <span class="text-xs font-bold text-gray-300">Live Render Canvas</span>
+                </div>
+
+                <!-- Simulation Layout Controls -->
+                <div class="flex items-center bg-gray-950 rounded-lg p-0.5 border border-gray-800 text-[10px] font-bold">
+                    <button id="viewDesktopBtn" onclick="setPreviewSize('desktop')" class="px-3 py-1 rounded-md bg-indigo-600 text-white transition-all flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Desktop
+                    </button>
+                    <button id="viewMobileBtn" onclick="setPreviewSize('mobile')" class="px-3 py-1 rounded-md text-gray-400 hover:text-white transition-all flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Mobile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Preview Sandbox Screen Wrapper -->
+            <div class="flex-1 bg-gray-900/20 p-5 flex justify-center items-center overflow-auto relative">
+                
+                <!-- Dynamic Target Iframe Wrapper -->
+                <div id="previewFrameContainer" class="w-full h-full bg-white rounded-xl shadow-2xl transition-all duration-300 overflow-hidden relative border border-gray-800">
+                    <!-- Overlay placeholder -->
+                    <div id="iframeOverlay" class="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center text-center p-6 z-10 hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-600 mb-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest">No Executable Content</h4>
+                        <p class="text-[11px] text-gray-500 max-w-xs mt-1">Please paste or load a valid HTML document on the left to initialize live testing.</p>
+                    </div>
+
+                    <iframe id="livePreview" class="w-full h-full border-none bg-white"></iframe>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Visual Action Notification -->
+    <div id="notificationAlert" class="fixed bottom-6 right-6 p-4 bg-gray-950/95 text-white rounded-xl shadow-2xl border border-gray-800 transform translate-y-24 opacity-0 transition-all duration-300 flex items-center gap-3.5 max-w-sm z-50 backdrop-blur-md">
+        <div id="notificationIcon" class="p-2 rounded-lg text-white"></div>
+        <div>
+            <h5 id="notificationTitle" class="font-bold text-xs">Action Success</h5>
+            <p id="notificationMsg" class="text-[11px] text-gray-400 mt-0.5">Operation completed.</p>
+        </div>
+    </div>
+
+    <!-- Script Blocks -->
+    <script>
+        // Memory & Revision History Configuration
+        let historyStack = [];
+        let historyIndex = -1;
+        let changeLogs = [];
+        
+        // Element bindings
+        const codeEditor = document.getElementById('codeEditor');
+        const searchInput = document.getElementById('searchSnippetInput');
+        const replaceInput = document.getElementById('replaceSnippetInput');
+        const searchIndicator = document.getElementById('searchIndicator');
+        const replaceStepContainer = document.getElementById('replaceStepContainer');
+        const replaceBtn = document.getElementById('replaceBtn');
+        const livePreview = document.getElementById('livePreview');
+        const previewContainer = document.getElementById('previewFrameContainer');
+        const iframeOverlay = document.getElementById('iframeOverlay');
+        const charCountEl = document.getElementById('charCount');
+        const logCounter = document.getElementById('logCounter');
+        const logList = document.getElementById('logList');
+        const emptyLogState = document.getElementById('emptyLogState');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+
+        // On Load initialization
+        window.addEventListener('load', () => {
+            loadSampleTemplate();
+            
+            // Set keyboard shortcuts
+            window.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            });
+        });
+
+        // Demo HTML Boilerplate with beautiful CSS styling
+        const sampleHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleek Client Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-8">
+
+    <div class="max-w-md w-full bg-slate-800/80 rounded-3xl p-8 border border-slate-700/60 shadow-2xl backdrop-blur-sm">
+        
+        <!-- Target Snippet Header -->
+        <div id="demo-header" class="mb-6 text-center">
+            <span class="bg-indigo-500/10 text-indigo-400 text-[11px] font-semibold tracking-wider px-3 py-1 rounded-full border border-indigo-500/20 uppercase">
+                System Active
+            </span>
+            <h1 class="text-2xl font-black text-white mt-3">Studio Workspace</h1>
+        </div>
+
+        <p class="text-slate-400 text-sm leading-relaxed mb-6 text-center">
+            Paste or structure your raw files in the editor. Search and replace modules will dynamically adapt and filter your content.
+        </p>
+
+        <!-- Dynamic Action Row -->
+        <div class="flex flex-col gap-2">
+            <button class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-2xl shadow-lg shadow-indigo-500/20 transition-all text-sm">
+                Get Started
+            </button>
+            <span class="text-slate-500 hover:text-slate-400 text-center text-xs mt-2 cursor-pointer block transition-all">
+                Dismiss Sandbox Frame
+            </span>
+        </div>
+
+    </div>
+
+</body>
+</html>`;
+
+        // Load Sample content
+        function loadSampleTemplate() {
+            codeEditor.value = sampleHTML;
+            historyStack = [];
+            historyIndex = -1;
+            changeLogs = [];
+            
+            pushToHistory(sampleHTML);
+            updatePreview();
+            clearSearch();
+            renderChangeLog();
+            showNotification('success', 'Boilerplate Instantiated', 'Demo layout code ready for experimentation.');
+        }
+
+        // Clear all states 
+        function clearAll() {
+            codeEditor.value = '';
+            clearSearch();
+            
+            pushToHistory('');
+            updatePreview();
+            showNotification('info', 'Reset complete', 'Workspace source text has been fully reset.');
+        }
+
+        // Search Reset
+        function clearSearch() {
+            searchInput.value = '';
+            replaceInput.value = '';
+            handleSearchInput();
+        }
+
+        // History Management Core
+        function pushToHistory(code) {
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+            historyStack.push(code);
+            historyIndex = historyStack.length - 1;
+            updateUndoRedoStates();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                codeEditor.value = historyStack[historyIndex];
+                updatePreview();
+                handleSearchInput();
+                updateUndoRedoStates();
+                showNotification('info', 'Undo applied', 'Returned to previous revision state.');
+            }
+        }
+
+        function redo() {
+            if (historyIndex < historyStack.length - 1) {
+                historyIndex++;
+                codeEditor.value = historyStack[historyIndex];
+                updatePreview();
+                handleSearchInput();
+                updateUndoRedoStates();
+                showNotification('info', 'Redo applied', 'Restored newer revision state.');
+            }
+        }
+
+        function updateUndoRedoStates() {
+            undoBtn.disabled = historyIndex <= 0;
+            redoBtn.disabled = historyIndex >= historyStack.length - 1;
+        }
+
+        // Editor Input Change Event
+        function handleEditorInput() {
+            pushToHistory(codeEditor.value);
+            updatePreview();
+            handleSearchInput();
+        }
+
+        // Whitespace & Special Character Escape Helper
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Whitespace-Insensitive Fuzzy Matching Search
+        let currentMatchResult = null;
+
+        function handleSearchInput() {
+            const rawCode = codeEditor.value;
+            const rawSearchQuery = searchInput.value;
+            
+            charCountEl.innerText = `${rawCode.length} characters`;
+
+            // If empty search parameters, reset selection/view state
+            if (!rawSearchQuery || !rawCode) {
+                setReplaceBoxVisibility(false);
+                searchIndicator.className = "text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-850 text-gray-400 border border-gray-800";
+                searchIndicator.innerText = "No Search Query";
+                currentMatchResult = null;
+                return;
+            }
+
+            // Create robust fuzzy regex ignoring spaces, tabs, and newlines
+            const escapedSearch = escapeRegExp(rawSearchQuery);
+            // Replace any string of whitespace (spaces, tabs, newlines) inside query with wildcard whitespace matcher
+            const fuzzyPatternString = escapedSearch.replace(/\s+/g, '\\s*');
+            
+            try {
+                const searchRegex = new RegExp(fuzzyPatternString, 'i');
+                const match = searchRegex.exec(rawCode);
+
+                if (match) {
+                    const matchedSubstring = match[0];
+                    const matchedIndex = match.index;
+
+                    // Match Statistics tracking 
+                    const globalMatches = [...rawCode.matchAll(new RegExp(fuzzyPatternString, 'gi'))];
+                    const matchCount = globalMatches.length;
+
+                    // Success indicators
+                    searchIndicator.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                    searchIndicator.innerText = `${matchCount} Fuzzy Match${matchCount > 1 ? 'es' : ''} Found`;
+
+                    // Focus and Select precise original text block
+                    codeEditor.focus();
+                    codeEditor.setSelectionRange(matchedIndex, matchedIndex + matchedSubstring.length);
+                    
+                    // Smoothly scroll text editor viewpoint to match coordinate
+                    const scrollMultiplier = codeEditor.scrollHeight / rawCode.length;
+                    codeEditor.scrollTop = (matchedIndex * scrollMultiplier) - (codeEditor.clientHeight / 2.5);
+
+                    // Capture current valid match state
+                    currentMatchResult = {
+                        startIndex: matchedIndex,
+                        matchLength: matchedSubstring.length,
+                        matchedOriginalText: matchedSubstring
+                    };
+
+                    // Reveal Step 2 Panel
+                    setReplaceBoxVisibility(true);
+
+                } else {
+                    // No matches discovered
+                    setReplaceBoxVisibility(false);
+                    searchIndicator.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                    searchIndicator.innerText = "No Matches Found";
+                    currentMatchResult = null;
+                }
+            } catch (err) {
+                // Prevent runtime regex parsing failures from crashing the browser
+                setReplaceBoxVisibility(false);
+                searchIndicator.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                searchIndicator.innerText = "Query Pattern Error";
+                currentMatchResult = null;
+            }
+        }
+
+        // Toggle Step 2 Smooth Reveal Animation
+        function setReplaceBoxVisibility(visible) {
+            if (visible) {
+                replaceStepContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    replaceStepContainer.classList.remove('opacity-0', 'scale-95');
+                }, 50);
+            } else {
+                replaceStepContainer.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => {
+                    replaceStepContainer.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        // Execute Snippet Replacements Flow
+        function executeReplacement() {
+            const originalSource = codeEditor.value;
+            const replacementText = replaceInput.value;
+
+            if (!currentMatchResult) {
+                showNotification('error', 'Execution Failed', 'No valid target snippet selected to replace.');
+                return;
+            }
+
+            const { startIndex, matchLength, matchedOriginalText } = currentMatchResult;
+
+            // Splice modification directly into file array
+            const modifiedSource = originalSource.substring(0, startIndex) + replacementText + originalSource.substring(startIndex + matchLength);
+
+            // Commit state changes
+            codeEditor.value = modifiedSource;
+            pushToHistory(modifiedSource);
+            updatePreview();
+
+            // Store modification to dedicated change log
+            addLogRecord(matchedOriginalText, replacementText);
+
+            // Clean-up Step-by-Step Flow: Hide replace box, clear search fields, refocus Find box
+            setReplaceBoxVisibility(false);
+            searchInput.value = '';
+            replaceInput.value = '';
+            currentMatchResult = null;
+            searchIndicator.className = "text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-850 text-gray-400 border border-gray-800";
+            searchIndicator.innerText = "No Search Query";
+
+            // Automatically refocus Step 1 find box for sequential replacements
+            searchInput.focus();
+
+            showNotification('success', 'Replacer Success', 'Snippet swapped successfully. A waiting log record was populated.');
+        }
+
+        // Render sandbox frame document
+        function updatePreview() {
+            const code = codeEditor.value.trim();
+            if (!code) {
+                iframeOverlay.classList.remove('hidden');
+                livePreview.srcdoc = "";
+                return;
+            }
+            iframeOverlay.classList.add('hidden');
+            livePreview.srcdoc = code;
+        }
+
+        // Clean Custom Log History Stream
+        function addLogRecord(originalSnippet, replacementSnippet) {
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const item = {
+                id: Date.now(),
+                timestamp,
+                removed: originalSnippet,
+                added: replacementSnippet
+            };
+            changeLogs.unshift(item);
+            renderChangeLog();
+        }
+
+        function renderChangeLog() {
+            logCounter.innerText = changeLogs.length;
+
+            if (changeLogs.length === 0) {
+                emptyLogState.classList.remove('hidden');
+                const logCards = logList.querySelectorAll('.log-card-item');
+                logCards.forEach(card => card.remove());
+                return;
+            }
+
+            emptyLogState.classList.add('hidden');
+            
+            // Re-render
+            const logCards = logList.querySelectorAll('.log-card-item');
+            logCards.forEach(card => card.remove());
+
+            changeLogs.forEach(log => {
+                const card = document.createElement('div');
+                card.className = "log-card-item bg-gray-900 border border-gray-800 rounded-xl p-3.5 hover:border-gray-700/80 transition-all flex flex-col gap-2.5";
+                
+                const cleanRemoved = escapeHTML(log.removed);
+                const cleanAdded = escapeHTML(log.added);
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between text-[11px] font-bold">
+                        <span class="text-indigo-400 font-sans">Modification Successful</span>
+                        <div class="flex items-center gap-1.5 text-gray-500 font-mono font-medium">
+                            <span>${log.timestamp}</span>
+                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5 font-mono text-[10px]">
+                        <div class="p-2.5 bg-rose-500/10 border border-rose-500/15 text-rose-300 rounded-lg overflow-x-auto whitespace-pre">
+                            <span class="block text-[8px] font-bold text-rose-500 font-sans tracking-widest uppercase mb-1">Removed Snippet</span>${cleanRemoved || '<em class="opacity-50 font-sans">Empty Code Segment</em>'}
+                        </div>
+                        <div class="p-2.5 bg-emerald-500/10 border border-emerald-500/15 text-emerald-300 rounded-lg overflow-x-auto whitespace-pre">
+                            <span class="block text-[8px] font-bold text-emerald-500 font-sans tracking-widest uppercase mb-1">Added Snippet</span>${cleanAdded || '<em class="opacity-50 font-sans">Empty Code Segment</em>'}
+                        </div>
+                    </div>
+                `;
+                logList.appendChild(card);
+            });
+        }
+
+        function clearChangeLog() {
+            changeLogs = [];
+            renderChangeLog();
+            showNotification('info', 'Change Log Reset', 'The chronological replacement log records have been wiped.');
+        }
+
+        // HTML safety sanitization
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // Simulation Screen View Adjusters
+        function setPreviewSize(mode) {
+            const viewDesktopBtn = document.getElementById('viewDesktopBtn');
+            const viewMobileBtn = document.getElementById('viewMobileBtn');
+
+            if (mode === 'desktop') {
+                previewContainer.style.maxWidth = "100%";
+                previewContainer.style.height = "100%";
+                viewDesktopBtn.className = "px-3 py-1 rounded-md bg-indigo-600 text-white font-bold transition-all flex items-center gap-1";
+                viewMobileBtn.className = "px-3 py-1 rounded-md text-gray-400 hover:text-white font-bold transition-all flex items-center gap-1";
+            } else if (mode === 'mobile') {
+                previewContainer.style.maxWidth = "375px";
+                previewContainer.style.height = "667px";
+                viewMobileBtn.className = "px-3 py-1 rounded-md bg-indigo-600 text-white font-bold transition-all flex items-center gap-1";
+                viewDesktopBtn.className = "px-3 py-1 rounded-md text-gray-400 hover:text-white font-bold transition-all flex items-center gap-1";
+            }
+        }
+
+        // Animated Notification Controller
+        function showNotification(type, title, message) {
+            const alertBox = document.getElementById('notificationAlert');
+            const iconBox = document.getElementById('notificationIcon');
+            const titleBox = document.getElementById('notificationTitle');
+            const msgBox = document.getElementById('notificationMsg');
+
+            if (type === 'success') {
+                iconBox.className = "p-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20";
+                iconBox.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            } else if (type === 'error') {
+                iconBox.className = "p-2 bg-rose-500/10 text-rose-400 rounded-lg border border-rose-500/20";
+                iconBox.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`;
+            } else {
+                iconBox.className = "p-2 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20";
+                iconBox.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            }
+
+            titleBox.innerText = title;
+            msgBox.innerText = message;
+
+            alertBox.classList.remove('opacity-0', 'translate-y-24');
+            alertBox.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                alertBox.classList.remove('opacity-100', 'translate-y-0');
+                alertBox.classList.add('opacity-0', 'translate-y-24');
+            }, 3000);
+        }
+
+        // Side-by-Side Tab controller
+        function switchLeftTab(tabId) {
+            const editorTab = document.getElementById('tabEditor');
+            const logTab = document.getElementById('tabChangeLog');
+            const editorBtn = document.getElementById('tabEditorBtn');
+            const logBtn = document.getElementById('tabLogBtn');
+
+            if (tabId === 'editor') {
+                editorTab.classList.remove('hidden');
+                logTab.classList.add('hidden');
+                editorBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white transition-all";
+                logBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-all flex items-center gap-1.5";
+            } else if (tabId === 'changelog') {
+                logTab.classList.remove('hidden');
+                editorTab.classList.add('hidden');
+                logBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white transition-all flex items-center gap-1.5";
+                editorBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-all";
+            }
+        }
+    </script>
+</body>
+</html>
+
+```
