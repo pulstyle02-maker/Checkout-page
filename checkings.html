@@ -362,19 +362,7 @@ display: none;
   color: var(--modmed-primary);
 }
 .bottom-nav .nav-item::after {
-  content: '';
-  position: absolute;
-  top: 10px;
-  width: 4px;
-  height: 4px;
-  background: var(--modmed-primary);
-  border-radius: 50%;
-  opacity: 0;
-  transition: all 0.3s ease;
-}
-.bottom-nav .nav-item.active::after {
-  opacity: 1;
-  top: 6px;
+  display: none !important;
 }
 .bottom-nav .notif-wrapper { position: relative; }
 .bottom-nav .notif-badge {
@@ -2094,19 +2082,30 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
         </div>
     </div>
 </div>
+<!-- TOP FIXED SEARCH BAR OVERLAY -->
+<div id="top-search-wrapper" class="top-search-wrapper">
+    <div class="top-search-bar">
+        <i class="fa-solid fa-magnifying-glass" style="color: var(--text-gray); font-size: 18px;"></i>
+        <input type="text" id="top-search-input" placeholder="Search topics, diseases, or LOs..." oninput="window.handleTopSearch(this.value)" autocomplete="off">
+        <i class="fa-solid fa-xmark" style="color: var(--text-gray); font-size: 20px; cursor: pointer; padding: 4px;" onclick="window.closeTopSearch()"></i>
+    </div>
+    <div id="top-search-results" class="top-search-results no-scrollbar">
+        <!-- Results inject here -->
+    </div>
+</div>
+<div id="top-search-backdrop" class="top-search-backdrop" onclick="window.closeTopSearch()"></div>
+
 <!-- MODERN BOTTOM NAVIGATION -->
     <div class="bottom-nav" id="bottom-nav" style="display:none;">
-    <div class="nav-item" data-nav="search" onclick="window.triggerHaptic(); window.showToast('Search coming soon', 'info')">
+    <div class="nav-item active center-fab" data-nav="dashboard" onclick="window.triggerHaptic(); navTo('dashboard')">
+        <i class="fa-solid fa-house"></i>
+    </div>
+    <div class="nav-item" id="nav-item-search" data-nav="search" onclick="window.triggerHaptic(); window.openTopSearch()">
         <i class="fa-solid fa-magnifying-glass"></i>
     </div>
     <div class="nav-item" data-nav="stats" onclick="window.triggerHaptic(); navToStats()">
         <i class="fa-regular fa-chart-bar"></i>
     </div>
-    
-    <div class="nav-item active center-fab" data-nav="dashboard" onclick="window.triggerHaptic(); navTo('dashboard')">
-        <i class="fa-solid fa-house"></i>
-    </div>
-    
     <div class="nav-item notif-wrapper" data-nav="notifs" onclick="window.triggerHaptic(); toggleNotif()">
         <div class="notif-badge" id="notif-badge-dot" style="top: 14px; right: 14px;"></div>
         <i class="fa-solid fa-bell"></i>
@@ -4768,6 +4767,350 @@ window.showSubHistory = function() {
     document.getElementById('modal-overlay').classList.add('active');
     document.getElementById('sub-history-modal').classList.add('active');
 }
+
+// ============================================
+// TOP FIXED SEARCH LOGIC (WITH HIGHLIGHT & AUTO-SELECT)
+// ============================================
+window.openTopSearch = function() {
+    // Make bottom nav search icon active
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('nav-item-search').classList.add('active');
+
+    document.getElementById('top-search-wrapper').classList.add('active');
+    document.getElementById('top-search-backdrop').classList.add('active');
+    
+    const input = document.getElementById('top-search-input');
+    input.value = '';
+    document.getElementById('top-search-results').innerHTML = `
+        <div class="search-empty-state">
+            <i class="fa-solid fa-book-open" style="font-size: 24px; margin-bottom: 10px; opacity:0.5;"></i>
+            <p>Start typing a topic, disease, or concept...</p>
+        </div>
+    `;
+    setTimeout(() => input.focus(), 100);
+};
+
+window.closeTopSearch = function() {
+    document.getElementById('top-search-wrapper').classList.remove('active');
+    document.getElementById('top-search-backdrop').classList.remove('active');
+    
+    // Return bottom nav active state to dashboard (Home)
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector('.bottom-nav .nav-item[data-nav="dashboard"]').classList.add('active');
+};
+
+window.handleTopSearch = function(query) {
+    const resultsContainer = document.getElementById('top-search-results');
+    const rawQuery = query.trim();
+    query = rawQuery.toLowerCase();
+    
+    if (!query || query.length < 2) {
+        resultsContainer.innerHTML = `
+            <div class="search-empty-state">
+                <i class="fa-solid fa-book-open" style="font-size: 24px; margin-bottom: 10px; opacity:0.5;"></i>
+                <p>Start typing a topic, disease, or concept...</p>
+            </div>
+        `;
+        return;
+    }
+
+    if (!window.loToNodeMap || Object.keys(window.loToNodeMap).length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="search-empty-state">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 24px; margin-bottom: 10px; opacity:0.5;"></i>
+                <p>Syllabus data not loaded yet.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Highlighting Regex function
+    const highlightRegex = new RegExp(`(${rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const highlightText = (text) => text.replace(highlightRegex, '<span class="search-highlight">$1</span>');
+
+    let matches = [];
+
+    for (let key in window.loToNodeMap) {
+        let node = window.loToNodeMap[key];
+        let loName = node.originalLo || '';
+        let moduleName = node.module || '';
+        let subjectName = node.subject || '';
+        let outcomes = node.outcomes || [];
+        
+        let isMatch = false;
+        if (loName.toLowerCase().includes(query) || moduleName.toLowerCase().includes(query) || subjectName.toLowerCase().includes(query)) {
+            isMatch = true;
+        } else {
+            for (let i = 0; i < outcomes.length; i++) {
+                if (outcomes[i].toLowerCase().includes(query)) {
+                    isMatch = true;
+                    break;
+                }
+            }
+        }
+
+        if (isMatch) {
+            matches.push(node);
+        }
+    }
+
+    if (matches.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="search-empty-state">
+                <i class="fa-solid fa-ghost" style="font-size: 24px; margin-bottom: 10px; opacity:0.5;"></i>
+                <p>No matching learning objectives found.</p>
+            </div>
+        `;
+        return;
+    }
+
+    matches = matches.slice(0, 15); // Top 15 results
+
+    let html = '';
+    matches.forEach(node => {
+        let title = node.originalLo;
+        let highlightedTitle = highlightText(title);
+
+        // Map over the outcomes, highlighting the query.
+        let highlightedOutcomes = (node.outcomes || []).map(outcome => `<li>${highlightText(outcome)}</li>`).join('');
+
+        html += `
+            <div class="search-result-card">
+                <div class="sr-title">${highlightedTitle}</div>
+                <div class="sr-meta">
+                    <span style="background:var(--bg-card); padding:2px 6px; border-radius:4px;">${node.module.replace(/_/g, ' ')}</span>
+                    <span style="background:var(--bg-card); padding:2px 6px; border-radius:4px;">${node.subject.replace(/_/g, ' ')}</span>
+                </div>
+                <ul class="sr-outcomes">
+                    ${highlightedOutcomes}
+                </ul>
+                <div class="sr-actions">
+                    <button class="sr-btn sr-btn-practice" onclick="window.jumpToSearchedLO('${node.originalLo.replace(/'/g, "\\'")}', 'practice')">
+                        <i class="fa-solid fa-bullseye"></i> Practice
+                    </button>
+                    <button class="sr-btn sr-btn-flashcard" onclick="window.jumpToSearchedLO('${node.originalLo.replace(/'/g, "\\'")}', 'flashcards')">
+                        <i class="fa-solid fa-bolt"></i> Cards
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    resultsContainer.innerHTML = html;
+};
+
+// Directly builds the view-step-lo page and auto-selects the requested LO
+window.jumpToSearchedLO = function(loStr, mode) {
+    window.closeTopSearch();
+    
+    if(window.currentUser && window.currentUser.plan === 'free') {
+        window.showToast("Practicing specific searched LOs is a Premium feature.", "info");
+        return window.showPaywallModal();
+    }
+
+    window.studyMode = mode;
+    window.practiceSubMode = 'lo';
+
+    let info = window.getSyllabusInfo(loStr);
+    window.studyBlock = info.block ? info.block.replace(/ /g, '_') : window.studyBlock;
+    window.studyModule = info.module ? info.module.replace(/ /g, '_') : window.studyModule;
+    window.studySubjects = info.subject ? info.subject.replace(/ /g, '_') : '';
+
+    // Setup breadcrumbs directly to bypass step-by-step clicks
+    window.bcHistory = [{id: 'dashboard', label: 'Home'}];
+    window.pushBreadcrumb('step-module', window.studyBlock.replace(/_/g, ' '));
+    window.pushBreadcrumb('step-subject', window.studyModule.replace(/_/g, ' '));
+    window.pushBreadcrumb('step-lo', window.studySubjects.replace(/_/g, ' '));
+
+    // Manually render the LO selection container for this subject
+    const container = document.getElementById('lo-container');
+    container.innerHTML = '';
+    
+    const loObj = window.HARDCODED_SYLLABUS[window.studyBlock]?.[window.studyModule]?.[window.studySubjects] || {};
+    const loKeys = window.getSortedKeys(loObj);
+
+    if(loKeys.length > 0) {
+        container.innerHTML += `<h3 style="color:var(--text-gray); font-size:11px; margin-top:16px; margin-bottom:8px; text-transform:uppercase; letter-spacing: 0.8px;">${window.studySubjects.replace(/_/g, ' ')}</h3>`;
+        
+        loKeys.forEach((lo, idx) => {
+            let isTarget = (lo === loStr); // The one we searched for
+            
+            let sourceArray = window.getFilteredPool();
+            let count = sourceArray.filter(dbItem => matchFunc(lo, dbItem)).length;
+            let label = window.studyMode === 'flashcards' ? 'Cards' : 'MCQs';
+            let outcomes = loObj[lo];
+            let isFree = window.currentUser?.plan === 'free';
+            let isLocked = isFree && idx > 1;
+
+            let toggleBtn = ''; let outcomesHtml = ''; let cleanId = 'outcomes-' + lo.replace(/[^a-zA-Z0-9]/g, '');
+
+            if(outcomes && outcomes.length > 0) {
+                let activeClass = isTarget ? 'active' : '';
+                let displayStyle = isTarget ? 'display:block;' : '';
+                toggleBtn = `<div class="lo-toggle-btn ${activeClass}" onclick="toggleLoOutcomes(event, '${cleanId}')"><i class="fa-solid fa-chevron-down"></i></div>`;
+                outcomesHtml = `<div class="lo-outcomes ${activeClass}" id="${cleanId}" style="${displayStyle}"><ul>` + outcomes.map(o => `<li>${o}</li>`).join('') + `</ul></div>`;
+            }
+
+            container.innerHTML += `
+            <div class="lo-wrapper ${isLocked ? 'card-locked-free' : ''}" ${isLocked ? 'onclick="event.preventDefault(); window.showPaywallModal()"' : ''}>
+                <label class="lo-label">
+                    <input type="checkbox" value="${lo}" ${isLocked ? 'disabled' : ''} ${isTarget ? 'checked' : ''}>
+                    <div class="lo-card" ${isTarget ? 'style="border-color: var(--modmed-primary); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);"' : ''}>
+                        <div style="flex:1;">
+                            <h4 ${isTarget ? 'style="color: var(--modmed-primary);"' : ''}>${lo}</h4>
+                            <span class="mcq-badge" style="margin-left:0; margin-top:6px;"><span class="num">${count}</span> <span class="txt">${label}</span></span>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <div class="subject-round-check" style="width:20px; height:20px; margin-right:8px; ${isTarget ? 'background: var(--modmed-primary); border-color: var(--modmed-primary);' : ''}"></div>
+                            ${toggleBtn}
+                        </div>
+                    </div>
+                </label>
+                ${outcomesHtml}
+            </div>`;
+        });
+    } else {
+        container.innerHTML = '<p>No specific LOs available yet.</p>';
+    }
+
+    const searchInput = document.getElementById('lo-search-input');
+    if(searchInput) searchInput.value = '';
+    window.filterLOs();
+
+    // Navigate to the LO View visually
+    window.navTo('step-lo');
+
+    // Scroll to the exact LO in the list so the user sees it
+    setTimeout(() => {
+        let checkedInput = document.querySelector('#lo-container input:checked');
+        if(checkedInput) {
+            checkedInput.closest('.lo-wrapper').scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+    }, 400);
+};
+</script>
+    document.getElementById('global-search-overlay').classList.add('active');
+    const input = document.getElementById('global-search-input');
+    input.value = '';
+    document.getElementById('global-search-results').innerHTML = `
+        <div class="search-empty-state">
+            <i class="fa-solid fa-book-open"></i>
+            <p>Type to search specific topics or LOs</p>
+        </div>
+    `;
+    setTimeout(() => input.focus(), 100);
+};
+
+window.closeGlobalSearch = function() {
+    document.getElementById('global-search-overlay').classList.remove('active');
+};
+
+window.handleGlobalSearch = function(query) {
+    const resultsContainer = document.getElementById('global-search-results');
+    query = query.trim().toLowerCase();
+    
+    if (!query || query.length < 2) {
+        resultsContainer.innerHTML = `
+            <div class="search-empty-state">
+                <i class="fa-solid fa-book-open"></i>
+                <p>Type to search specific topics or LOs</p>
+            </div>
+        `;
+        return;
+    }
+
+    if (!window.loToNodeMap || Object.keys(window.loToNodeMap).length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="search-empty-state">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <p>Syllabus data not loaded yet.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let matches = [];
+    let addedLOs = new Set();
+
+    for (let key in window.loToNodeMap) {
+        let node = window.loToNodeMap[key];
+        let loName = node.originalLo || '';
+        let moduleName = node.module || '';
+        let subjectName = node.subject || '';
+        let outcomesStr = (node.outcomes || []).join(' ').toLowerCase();
+
+        if (loName.toLowerCase().includes(query) || moduleName.toLowerCase().includes(query) || subjectName.toLowerCase().includes(query) || outcomesStr.includes(query)) {
+            if (!addedLOs.has(loName)) {
+                matches.push(node);
+                addedLOs.add(loName);
+            }
+        }
+    }
+
+    if (matches.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="search-empty-state">
+                <i class="fa-solid fa-ghost"></i>
+                <p>No matching learning objectives found.</p>
+            </div>
+        `;
+        return;
+    }
+
+    matches = matches.slice(0, 20); // Limit to top 20 results for performance
+
+    let html = '';
+    matches.forEach(node => {
+        let title = node.originalLo;
+        let codeMatch = title.match(/^([a-zA-Z0-9]+-[a-zA-Z0-9]+-\d+)/);
+        let code = codeMatch ? codeMatch[1] : 'LO';
+        let cleanTitle = title.replace(code, '').replace(/^[-.\s]+/, '');
+        if(!cleanTitle) cleanTitle = title;
+
+        html += `
+            <div class="search-result-card">
+                <div class="sr-title">${cleanTitle}</div>
+                <div class="sr-meta">
+                    <span class="sr-tag"><i class="fa-solid fa-hashtag" style="color:var(--text-gray);"></i> ${code}</span>
+                    <span class="sr-tag"><i class="fa-solid fa-layer-group" style="color:var(--modmed-primary);"></i> ${node.module.replace(/_/g, ' ')}</span>
+                </div>
+                <div class="sr-actions">
+                    <button class="sr-btn sr-btn-practice" onclick="window.startGlobalSearchSession('${node.originalLo.replace(/'/g, "\\'")}', 'practice')">
+                        <i class="fa-solid fa-bullseye"></i> Practice
+                    </button>
+                    <button class="sr-btn sr-btn-flashcard" onclick="window.startGlobalSearchSession('${node.originalLo.replace(/'/g, "\\'")}', 'flashcards')">
+                        <i class="fa-solid fa-bolt"></i> Cards
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    resultsContainer.innerHTML = html;
+};
+
+window.startGlobalSearchSession = function(loStr, mode) {
+    if(window.currentUser && window.currentUser.plan === 'free') {
+        window.showToast("Searching specific LOs is a Premium feature.", "info");
+        return window.showPaywallModal();
+    }
+    
+    window.closeGlobalSearch();
+    window.studyMode = mode;
+    window.tempSelectedLOs = [loStr];
+    window.practiceSubMode = 'lo';
+    
+    let info = window.getSyllabusInfo(loStr);
+    if(info && info.block) {
+        window.studyBlock = info.block.replace(/ /g, '_');
+    }
+    
+    window.showToast(`Loading ${mode}...`, 'success');
+    
+    setTimeout(() => {
+        window.prepSessionConfig();
+    }, 100);
+};
 </script>
 
 <div id="view-premium-locked" class="page auth-page"><div class="page-wrapper" style="text-align: center; display: flex; flex-direction: column; align-items: center; justify-content:center; min-height:100vh; padding:40px 20px;"><div style="width:80px; height:80px; border-radius:50%; background:rgba(59,130,246,0.1); display:flex; align-items:center; justify-content:center; margin-bottom:20px;"><i class="fa-solid fa-hourglass-half" style="font-size:32px; color:var(--modmed-primary);"></i></div><h1 style="font-size: 22px; color: var(--text-dark); letter-spacing: -0.5px; margin-bottom: 12px;">Payment Under Verification</h1><p style="font-size: 13px; color: var(--text-gray); line-height: 1.5; margin-bottom: 24px; max-width: 320px;">Your Early Bird plan access will be activated after payment verification. This usually takes 6-12 hours.</p><div class="glass-card" style="width:100%; max-width:340px; padding:16px; border-radius:20px; margin-bottom:20px; background:rgba(251,191,36,0.05); border:1px solid rgba(251,191,36,0.2);"><p style="font-size:12px; color:var(--text-dark); font-weight:600; margin-bottom:8px;"><i class="fa-solid fa-circle-info" style="color:#fbbf24; margin-right:6px;"></i> Important</p><p style="font-size:11px; color:var(--text-gray); line-height:1.5;">If your payment was done more than 12 hours ago, kindly email us at:</p><a href="mailto:modmedicals@gmail.com" style="display:block; margin-top:8px; font-size:12px; font-weight:800; color:var(--modmed-primary); text-decoration:none; background:var(--hover-bg); padding:10px; border-radius:12px; text-align:center;">modmedicals@gmail.com</a></div><button class="btn btn-alt" onclick="handlePendingLogout()" style="max-width:340px; background:transparent !important; border-color:transparent !important; color:var(--text-gray) !important;">Log Out</button></div></div>
@@ -4789,17 +5132,19 @@ h1, h2, h3, h4, .greeting-main, .score-display h1, .cc-title, .bento-title, .mod
 .gradient-practice-card::after { display: none !important; }
 
 /* --- Global Header --- */
-.global-header { background: rgba(248, 250, 252, 0.8) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; color: var(--text-dark) !important; box-shadow: none !important; border-bottom: 1px solid var(--border-color) !important; padding: calc(12px + env(safe-area-inset-top)) 20px 12px !important; }
+.global-header { background: rgba(248, 250, 252, 0.8) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; color: var(--text-dark) !important; box-shadow: none !important; border-bottom: 1px solid var(--border-color) !important; padding: calc(12px + env(safe-area-inset-top)) 16px 12px !important; }
+.header-left { justify-content: flex-start !important; }
+.header-right { justify-content: flex-end !important; }
 .brand { font-weight: 600 !important; letter-spacing: -0.03em !important; color: var(--text-dark) !important; }
-.action-btn-header { width: 36px !important; height: 36px !important; border-radius: 12px !important; background: var(--hover-bg) !important; color: var(--text-gray) !important; font-size: 16px !important; }
-.profile-avatar-header { width: 36px !important; height: 36px !important; border-radius: 12px !important; background: var(--hover-bg) !important; color: var(--text-gray) !important; }
+.action-btn-header { width: 36px !important; height: 36px !important; border-radius: 12px !important; background: var(--hover-bg) !important; color: var(--text-gray) !important; font-size: 16px !important; margin-left: 0 !important; }
+.profile-avatar-header { width: 36px !important; height: 36px !important; border-radius: 12px !important; background: var(--hover-bg) !important; color: var(--text-gray) !important; margin-right: 0 !important; }
 
 /* --- Breadcrumb --- */
 .global-breadcrumb-container { background: var(--bg-base) !important; box-shadow: none !important; border-bottom: 1px solid var(--border-color) !important; padding: 10px 16px !important; }
 .bc-item { background: var(--bg-card) !important; border: 1px solid var(--border-color) !important; color: var(--text-gray) !important; font-weight: 500 !important; text-transform: none !important; letter-spacing: 0 !important; padding: 4px 10px !important; border-radius: 8px !important; }
 .bc-item.current { color: #fff !important; background: var(--brand-grad) !important; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2) !important; }
 
-/* --- Fading Midnight Nav (With Microinteractions) --- */
+/* --- Fading Bottom Nav (With Microinteractions) --- */
 .bottom-nav { 
     width: 100% !important; 
     max-width: 100% !important; 
@@ -4819,9 +5164,9 @@ h1, h2, h3, h4, .greeting-main, .score-display h1, .cc-title, .bento-title, .mod
     -webkit-backdrop-filter: none !important;
 }
 
-/* Fading midnight blue (Light Mode) */
+/* Fading White (Light Mode) */
 html:not([data-theme="dark"]) .bottom-nav { 
-    background: linear-gradient(to top, #0f172a 20%, rgba(15, 23, 42, 0.7) 60%, transparent 100%) !important; 
+    background: linear-gradient(to top, #ffffff 20%, rgba(255, 255, 255, 0.8) 60%, transparent 100%) !important; 
 }
 
 .bottom-nav::before { display: none !important; }
@@ -4840,12 +5185,17 @@ html:not([data-theme="dark"]) .bottom-nav {
 /* Standard Clean Icons (No Double Lines) */
 .bottom-nav .nav-item i { 
     font-size: 22px !important; 
-    color: rgba(255, 255, 255, 0.5) !important; /* Light grey for non-active in both modes */
-    -webkit-text-stroke: 0 !important; /* Forces off the double-lined glitch */
+    color: rgba(255, 255, 255, 0.5) !important; /* Soft light grey for Dark Mode */
+    -webkit-text-stroke: 0 !important;
     margin-bottom: 0 !important;
     /* Spring-like smooth pop transition */
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
     transform-origin: center bottom;
+}
+
+/* Inactive Icons in Light Mode (Soft Dark Grey so they are visible on white) */
+html:not([data-theme="dark"]) .bottom-nav .nav-item i {
+    color: rgba(15, 23, 42, 0.4) !important; 
 }
 
 .bottom-nav .nav-item span { display: none !important; }
@@ -4858,32 +5208,15 @@ html:not([data-theme="dark"]) .bottom-nav {
     filter: drop-shadow(0 4px 10px rgba(99, 102, 241, 0.4));
 }
 
-/* Active State (Light Mode Override) */
+/* Active State (Light Mode Override: Midnight Blue) */
 html:not([data-theme="dark"]) .bottom-nav .nav-item.active i {
-    color: #ffffff !important; /* Active icon turns pure white */
-    filter: drop-shadow(0 4px 10px rgba(255, 255, 255, 0.3));
+    color: #0f172a !important; /* Midnight Blue */
+    filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.2));
 }
 
-/* Small active indicator dot */
+/* Small active indicator dot removed */
 .bottom-nav .nav-item::after {
-    content: '';
-    position: absolute;
-    bottom: 6px;
-    width: 4px;
-    height: 4px;
-    background: var(--modmed-primary);
-    border-radius: 50%;
-    opacity: 0;
-    transition: all 0.3s ease;
-    transform: scale(0);
-}
-.bottom-nav .nav-item.active::after {
-    opacity: 1;
-    transform: scale(1);
-    bottom: 10px;
-}
-html:not([data-theme="dark"]) .bottom-nav .nav-item::after {
-    background: #ffffff !important; /* White dot in light mode */
+    display: none !important;
 }
 
 .bottom-nav .nav-item.center-fab { 
@@ -5453,6 +5786,334 @@ IOS COMPACT KICKSTART GRID (Space-Efficient & Clean)
 [data-theme="dark"] .ios-compact-card:active {
     background: var(--hover-bg);
 }
+
+/* ============================================
+   TOP FIXED SEARCH BAR OVERLAY
+   ============================================ */
+.top-search-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 2999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.top-search-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.top-search-wrapper {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 3000;
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+.top-search-wrapper.active {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.top-search-bar {
+    background: rgba(248, 250, 252, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: calc(14px + env(safe-area-inset-top)) 20px 14px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+[data-theme="dark"] .top-search-bar {
+    background: rgba(15, 23, 42, 0.95);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+#top-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+#top-search-input::placeholder {
+    color: var(--text-gray);
+    font-weight: 400;
+}
+
+.top-search-results {
+    background: var(--bg-card);
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    border-radius: 0 0 24px 24px;
+}
+[data-theme="dark"] .top-search-results {
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+.search-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-gray);
+}
+
+.search-result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+}
+.sr-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark); /* Black text in light mode, white in dark mode */
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+.sr-meta {
+    font-size: 11px;
+    color: var(--text-gray);
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.sr-meta span {
+    background: var(--hover-bg) !important;
+    color: var(--text-gray) !important;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.sr-outcomes {
+    font-size: 12px;
+    color: var(--text-dark); /* Black text in light mode */
+    line-height: 1.5;
+    padding-left: 16px;
+    margin-bottom: 14px;
+}
+.sr-outcomes li {
+    margin-bottom: 6px;
+}
+.search-highlight {
+    background: #0f172a !important; /* Midnight blue highlight */
+    color: #ffffff !important; /* White text */
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 0px !important; /* Sharp corners */
+}
+[data-theme="dark"] .search-highlight {
+    background: #ffffff !important; /* Inverse for dark mode so it stands out */
+    color: #0f172a !important;
+}
+
+.sr-actions {
+    display: flex;
+    gap: 8px;
+}
+.sr-btn {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+}
+.sr-btn-practice {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--modmed-primary);
+}
+.sr-btn-flashcard {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--accent-green);
+}
+</style>
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: calc(80px + env(safe-area-inset-top));
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.search-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.search-container {
+    width: 90%;
+    max-width: 500px;
+    background: var(--bg-card) !important;
+    border-radius: 24px !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    transform: translateY(20px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2) !important;
+    border: 1px solid var(--border-color);
+}
+.search-overlay.active .search-container {
+    transform: translateY(0) scale(1);
+}
+.search-header {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--hover-bg);
+}
+.search-header .search-icon {
+    color: var(--modmed-primary);
+    font-size: 18px;
+    margin-right: 12px;
+}
+#global-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+#global-search-input::placeholder {
+    color: var(--text-gray);
+    font-weight: 400;
+}
+.search-header .close-search {
+    color: var(--text-gray);
+    font-size: 20px;
+    padding: 4px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.search-header .close-search:active {
+    color: var(--accent-red);
+}
+.search-results {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.search-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-gray);
+}
+.search-empty-state i {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+.search-empty-state p {
+    font-size: 14px;
+}
+.search-result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+}
+.search-result-card:active {
+    transform: scale(0.98);
+    background: var(--hover-bg);
+}
+.sr-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dark); /* Standard text color */
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+.sr-meta {
+    font-size: 11px;
+    color: var(--text-gray);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.sr-tag {
+    background: var(--hover-bg);
+    color: var(--text-gray);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+}
+.sr-tag i {
+    color: var(--modmed-primary) !important;
+}
+.sr-actions {
+    display: flex;
+    gap: 8px;
+}
+.sr-btn {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+    border: none;
+}
+.sr-btn-practice {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--modmed-primary);
+}
+.sr-btn-practice:active {
+    background: var(--modmed-primary);
+    color: #fff;
+}
+.sr-btn-flashcard {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--accent-green);
+}
+.sr-btn-flashcard:active {
+    background: var(--accent-green);
+    color: #fff;
+}
+</style>
 
 </body>
 </html>
