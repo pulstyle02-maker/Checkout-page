@@ -47,6 +47,8 @@ window.revealExplanation = function() {
     if (seeExpBtn) seeExpBtn.style.display = 'none';
     const askBtn = document.getElementById('btn-ask-modix');
     if (askBtn) askBtn.style.display = 'flex';
+    const mnemonicBtn = document.getElementById('btn-make-mnemonic');
+    if (mnemonicBtn) mnemonicBtn.style.display = 'flex';
 };
 
 window.startPlannerTask = function(loStr, mode) {
@@ -81,12 +83,12 @@ window.startPlannerTask = function(loStr, mode) {
     }
 };
 
-// Markdown Table Parser
+// Markdown Table Parser - Beautiful Styling
 window.parseMarkdownTable = function(text) {
-    // Basic Markdown Table to HTML Table conversion
     return text.replace(/(?:\|.*?)+\|/g, function(match) {
         let rows = match.split('\n').filter(r => r.trim());
-        let html = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; margin-bottom:10px; font-size:12px; text-align:left;">';
+        let html = '<div style="overflow-x:auto; margin: 16px 0; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.05);"><table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left; background: var(--bg-card);">';
+        let isHeaderDone = false;
         rows.forEach((row, i) => {
             if(row.includes('---')) return; // skip separator
             let cols = row.split('|').filter(c => c.trim() || c.includes(' '));
@@ -94,21 +96,131 @@ window.parseMarkdownTable = function(text) {
             html += '<tr style="border-bottom:1px solid var(--border-color);">';
             cols.forEach(col => {
                 let cellData = col.trim();
-                // Dynamically inject "Start" CTA buttons directly into the table
+                // Clean markdown from within table cells
+                cellData = cellData.replace(/[#*]/g, '');
+                
                 if (cellData.startsWith('START:')) {
                     let parts = cellData.split(':');
                     let lo = parts[1] ? parts[1].trim() : '';
                     let mode = parts[2] ? parts[2].trim().toLowerCase() : 'practice';
                     cellData = `<button class="btn modix-bg" style="padding:6px 12px; font-size:11px; font-weight:800; min-height:auto; height:auto; display:inline-block; margin:0; border-radius:100px; box-shadow:0 4px 10px rgba(155,114,203,0.3);" onclick="window.startPlannerTask('${lo.replace(/'/g, "\\'")}', '${mode}')">Start <i class="fa-solid fa-play"></i></button>`;
                 }
-                if(i === 0) html += `<th style="padding:8px; font-weight:800; background:var(--hover-bg);">${cellData}</th>`;
-                else html += `<td style="padding:8px;">${cellData}</td>`;
+                if(!isHeaderDone) html += `<th style="padding:12px 16px; font-weight:800; background:var(--hover-bg); color:var(--text-dark);">${cellData}</th>`;
+                else html += `<td style="padding:12px 16px; color:var(--text-gray);">${cellData}</td>`;
             });
             html += '</tr>';
+            isHeaderDone = true;
         });
         html += '</table></div>';
         return html;
     });
+};
+
+window._currentMnemonicText = "";
+window.saveMnemonic = async function(btn) {
+    if(!window.currentUser) return;
+    if(!window._currentMnemonicText) return window.showToast("No mnemonic to save.", "error");
+    const q = window.sessionData[window.currentQ];
+    let qText = q ? (q.question || q.front) : "Custom Mnemonic";
+    
+    window.currentUser.mnemonics = window.currentUser.mnemonics || [];
+    window.currentUser.mnemonics.push({
+        qText: qText,
+        mnemonic: window._currentMnemonicText,
+        date: new Date().toLocaleDateString()
+    });
+    
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved Successfully';
+    btn.style.background = 'var(--accent-green)';
+    btn.style.borderColor = 'var(--accent-green)';
+    btn.style.color = '#fff';
+    btn.disabled = true;
+    
+    try {
+        await updateDoc(doc(db, "users", window.currentUser.uid), { mnemonics: window.currentUser.mnemonics });
+        window.showToast("Mnemonic saved to 'My Mnemonics'!", "success");
+    } catch(e) {
+        window.showToast("Failed to save.", "error");
+    }
+};
+
+window.generateMnemonic = function() {
+    if(window.currentUser && window.currentUser.plan === 'free') {
+        return window.showPaywallModal();
+    }
+    
+    const q = window.sessionData[window.currentQ];
+    if(!q) return;
+
+    const modal = document.getElementById('modix-mcq-modal');
+    const overlay = document.getElementById('modal-overlay');
+
+    if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
+
+    overlay.style.setProperty('z-index', '99999', 'important');
+    modal.style.setProperty('z-index', '100000', 'important');
+    
+    overlay.classList.add('active');
+    modal.classList.add('active');
+
+    const mcqBox = document.getElementById('modix-mcq-box');
+    mcqBox.innerHTML = ``; 
+    
+    let correctStr = q.options ? q.options[q.correctIndex] : q.back;
+    
+    let systemContext = `You are an expert, highly creative medical tutor. \nQuestion: ${q.question || q.front}\nCorrect Answer: ${correctStr}\nGenerate a highly memorable, creative, and catchy mnemonic to help remember this concept. Make it clean, easy to read, and formatted beautifully. DO NOT USE '#' OR '*' CHARACTERS in your response. Output only the mnemonic and a brief mapping of what each letter stands for.`;
+
+    window.modixHistoryMCQ = [{ role: 'system', content: systemContext }];
+    window._isGeneratingMnemonic = true;
+    
+    const inputEl = document.getElementById('modix-mcq-input');
+    if (inputEl) {
+        inputEl.value = "Create a mnemonic for this answer.";
+        window.sendModixMCQ();
+    }
+};
+
+window.navToMnemonics = function() {
+    if(window.currentUser && window.currentUser.plan === 'free') return window.showPaywallModal();
+    window.navTo('saved-mcqs'); 
+    const titleEl = document.querySelector('#view-saved-mcqs h2'); 
+    const descEl = document.querySelector('#view-saved-mcqs p'); 
+    if(titleEl) titleEl.innerText = "My Mnemonics"; 
+    if(descEl) descEl.innerText = "Your personalized AI-generated memory aids.";
+    
+    let container = document.getElementById('saved-mcqs-container'); 
+    container.innerHTML = ''; 
+    let mList = window.currentUser.mnemonics || []; 
+    if(mList.length === 0) { 
+        container.innerHTML = '<p style="color:var(--text-gray); text-align:center; margin-top:40px;"><i class="fa-solid fa-brain" style="font-size:32px; color:#d97706; opacity:0.5; margin-bottom:10px; display:block;"></i>No mnemonics saved yet. Generate them in Practice Mode!</p>'; 
+        return; 
+    } 
+    
+    mList.slice().reverse().forEach((mItem, i) => { 
+        let realIndex = mList.length - 1 - i;
+        container.innerHTML += `
+        <div class="glass-card" style="padding:20px; margin-bottom:16px;">
+            <div style="font-size:11px; color:var(--text-gray); margin-bottom:8px; font-weight:600;"><i class="fa-regular fa-clock"></i> ${mItem.date || 'Recently'}</div>
+            <h4 style="font-size:14px; margin-bottom:12px; line-height:1.4; font-weight:600; color:var(--text-dark);">${mItem.qText}</h4>
+            <div style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 12px; padding: 16px; color: var(--text-dark); line-height: 1.6; font-size: 14px; white-space: pre-wrap;">
+                ${mItem.mnemonic}
+            </div>
+            <button class="btn btn-alt" style="margin-top:12px; color:var(--accent-red); border-color:var(--accent-red);" onclick="window.deleteMnemonic(${realIndex})"><i class="fa-solid fa-trash"></i> Delete Mnemonic</button>
+        </div>`; 
+    }); 
+};
+
+window.deleteMnemonic = async function(index) {
+    if(!window.currentUser) return;
+    window.currentUser.mnemonics.splice(index, 1);
+    try {
+        await updateDoc(doc(db, "users", window.currentUser.uid), { mnemonics: window.currentUser.mnemonics });
+        window.showToast("Mnemonic deleted.", "info");
+        window.navToMnemonics(); // Refresh
+    } catch(e) {
+        window.showToast("Failed to delete.", "error");
+    }
 };
 
 // Automatically patch navTo to handle MODIX hiding headers without breaking original arrays
@@ -191,15 +303,17 @@ window.renderModixResponse = function(chatBox, aiMsg) {
     let formattedHTML = "";
     let content = aiMsg.content || '';
     
-    // Thinking process is strictly hidden per request.
+    // Format bold before stripping *
+    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     
+    // Strip # and * for cleaner output as requested
+    content = content.replace(/[#*]/g, '');
+
     // Check for markdown tables and parse them cleanly
     if (content.includes('|')) {
         content = window.parseMarkdownTable ? window.parseMarkdownTable(content) : content;
     }
     
-    // Format bold and line breaks (avoid breaking HTML tables)
-    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     if (!content.includes('<table')) {
         content = content.replace(/\n/g, '<br>');
     } else {
@@ -208,7 +322,16 @@ window.renderModixResponse = function(chatBox, aiMsg) {
     }
 
     formattedHTML += content;
-    chatBox.innerHTML += `<div class="modix-msg ai">${formattedHTML}</div>`;
+    
+    let saveBtnHtml = '';
+    // If the flag was set indicating a Mnemonic was just generated, append the save button
+    if (window._isGeneratingMnemonic) {
+        window._currentMnemonicText = formattedHTML; // Store for saving
+        saveBtnHtml = `<div style="margin-top:16px; border-top:1px solid var(--border-color); padding-top:16px;"><button class="btn btn-alt" style="width:auto; padding:10px 20px; font-size:12px; font-weight:800; border-radius:100px; color:#d97706; border-color:#d97706; background:rgba(251,191,36,0.1); display:flex; align-items:center; gap:8px;" onclick="window.saveMnemonic(this)"><i class="fa-solid fa-bookmark"></i> Save Mnemonic to Library</button></div>`;
+        window._isGeneratingMnemonic = false; // Reset flag
+    }
+
+    chatBox.innerHTML += `<div class="modix-msg ai">${formattedHTML} ${saveBtnHtml}</div>`;
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
@@ -1349,6 +1472,7 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
         <div class="side-profile-box" style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--hover-bg); border-radius:16px; margin-bottom:20px; position:relative;"><div class="side-profile-avatar" id="side-avatar" style="font-size:32px; background:var(--bg-card); width:48px; height:48px; display:flex; align-items:center; justify-content:center; border-radius:50%; box-shadow:var(--shadow-sm);">👨‍⚕️</div><div style="flex:1;"><h4 id="side-name" style="font-size:14px; font-weight:800; color:var(--text-dark); margin-bottom:2px;">User</h4><span id="side-plan-tag" style="font-size:9px; font-weight:800; padding:3px 8px; border-radius:6px; background:var(--text-gray); color:#fff; text-transform:uppercase; letter-spacing:0.5px;">FREE</span></div><i class="fa-solid fa-pen" style="color:var(--text-gray); font-size:14px; cursor:pointer; padding:8px;" onclick="toggleSideMenu(); initSettings()"></i></div>
         <div class="side-menu-item" onclick="toggleSideMenu(); navToSaved()"><i class="fa-solid fa-star"></i> <div style="display:flex; flex-direction:column;"><span>Starred MCQs</span><span id="side-saved-count" style="font-size:10px; color:var(--text-gray); font-weight:400; margin-top:2px;">0 MCQs starred</span></div></div>
         <div class="side-menu-item" onclick="toggleSideMenu(); navToBookmarks()"><i class="fa-solid fa-bookmark"></i> <span>Bookmarks</span></div>
+        <div class="side-menu-item" onclick="toggleSideMenu(); navToMnemonics()"><i class="fa-solid fa-brain" style="color: #d97706;"></i> <span>My Mnemonics</span></div>
         <div class="side-menu-item" onclick="toggleSideMenu(); navToHistory()"><i class="fa-solid fa-clock-rotate-left"></i> <span>History</span></div>
         <div class="side-menu-item" onclick="toggleSideMenu(); showSubHistory()"><i class="fa-solid fa-receipt"></i> <span>Subscription History</span></div>
         <div class="side-menu-item" onclick="toggleSideMenu(); toggleTheme()"><i class="fa-solid fa-moon theme-icon-el" id="theme-toggle-icon"></i> <span>Toggle Theme</span></div>
@@ -2639,6 +2763,7 @@ setTimeout(() => { loader.style.display = 'none'; }, 200);
                 
                 <div style="display: flex; gap: 10px; margin-top:16px; align-items:center;" id="quiz-action-buttons">
                     <button class="btn btn-alt" id="btn-see-exp" style="display:none; flex: 1; padding:10px 20px; font-size:13px; font-weight:800;" onclick="revealExplanation()">See Explanation <i class="fa-solid fa-eye"></i></button>
+                    <button class="btn" id="btn-make-mnemonic" style="display:none; flex: 1; padding:10px 20px; font-size:13px; font-weight:800; border-radius:100px; background: rgba(251,191,36,0.1) !important; color: #d97706 !important; border: 1px solid #d97706 !important; box-shadow: none;" onclick="window.generateMnemonic()">Make Mnemonic <i class="fa-solid fa-lightbulb"></i></button>
                     <div id="btn-ask-modix" style="display:none; align-items:center; justify-content:center; width:50px; height:50px; border-radius:50%; cursor:pointer; flex-shrink:0; background: rgba(155, 114, 203, 0.15); border: 2px solid rgba(155, 114, 203, 0.4); box-shadow: 0 0 15px rgba(155, 114, 203, 0.4), inset 0 0 10px rgba(155, 114, 203, 0.2); backdrop-filter: blur(10px); transition: transform 0.2s;" onclick="this.style.transform='scale(0.9)'; setTimeout(()=>this.style.transform='scale(1)', 200); openModixMCQContext()">
                         <i class="fa-solid fa-sparkles modix-text" style="font-size:22px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));"></i>
                     </div>
@@ -4252,6 +4377,53 @@ window.toggleSaveMCQ = async function() {
     window.currentUser.savedMCQs = saved; await updateDoc(doc(db, "users", window.currentUser.uid), { savedMCQs: saved }); let sCount = document.getElementById('side-saved-count'); if(sCount) sCount.innerText = saved.length + " MCQs starred"; 
 }
 
+// FIREBASE-ENABLED MNEMONIC SAVING FUNCTIONS
+window.saveMnemonic = async function(btn) {
+    if(!window.currentUser) return;
+    if(!window._currentMnemonicText) return window.showToast("No mnemonic to save.", "error");
+    const q = window.sessionData[window.currentQ];
+    let qText = q ? (q.question || q.front) : "Custom Mnemonic";
+    
+    window.currentUser.mnemonics = window.currentUser.mnemonics || [];
+    window.currentUser.mnemonics.push({
+        qText: qText,
+        mnemonic: window._currentMnemonicText,
+        date: new Date().toLocaleDateString()
+    });
+    
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    btn.disabled = true;
+    
+    try {
+        await updateDoc(doc(db, "users", window.currentUser.uid), { mnemonics: window.currentUser.mnemonics });
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved Successfully';
+        btn.style.background = 'var(--accent-green)';
+        btn.style.borderColor = 'var(--accent-green)';
+        btn.style.color = '#fff';
+        window.showToast("Mnemonic saved to 'My Mnemonics'!", "success");
+    } catch(e) {
+        console.error(e);
+        window.currentUser.mnemonics.pop(); // Revert local state on fail
+        btn.innerHTML = '<i class="fa-solid fa-bookmark"></i> Retry Save';
+        btn.disabled = false;
+        window.showToast("Failed to save to Firebase.", "error");
+    }
+};
+
+window.deleteMnemonic = async function(index) {
+    if(!window.currentUser) return;
+    const removed = window.currentUser.mnemonics.splice(index, 1)[0];
+    try {
+        await updateDoc(doc(db, "users", window.currentUser.uid), { mnemonics: window.currentUser.mnemonics });
+        window.showToast("Mnemonic deleted.", "info");
+        window.navToMnemonics(); // Refresh the UI
+    } catch(e) {
+        console.error(e);
+        window.currentUser.mnemonics.splice(index, 0, removed); // Revert local state on fail
+        window.showToast("Failed to delete.", "error");
+    }
+};
+
 window.navTo = function(viewId, skipBreadcrumb = false) {
     if(viewId === 'dashboard' && !skipBreadcrumb) window.bcHistory =[];
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const target=document.getElementById('view-'+viewId); if(target) target.classList.add('active'); scrollArea.scrollTo(0,0); 
@@ -4935,6 +5107,7 @@ window.loadQuestion = function() {
     window.questionStartTime = Date.now();
     document.getElementById('paginated-top-row').style.display = 'flex'; document.getElementById('paginated-quiz-container').style.display = 'block'; document.getElementById('scrollable-quiz-container').style.display = 'none';
     window.tempSelectedAnswer = null; document.getElementById('btn-submit').style.display = 'none'; document.getElementById('exp-container').style.display = 'none'; document.getElementById('btn-see-exp').style.display = 'none';
+    const btnMnemonic = document.getElementById('btn-make-mnemonic'); if(btnMnemonic) btnMnemonic.style.display = 'none';
     
     if(window.studyMode !== 'mock') { document.getElementById('btn-skip').style.display = window.userAnswers[window.currentQ] !== undefined ? 'none' : 'flex'; document.getElementById('btn-next-mock').style.display = 'none'; } else { document.getElementById('btn-skip').style.display = 'none'; document.getElementById('btn-next-mock').style.display = 'flex'; }
     const q = window.sessionData[window.currentQ]; window.populateJumper('q-jumper'); window.updateLiveQuizStats();
