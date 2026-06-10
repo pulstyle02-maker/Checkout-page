@@ -1,6 +1,3 @@
-Here is your complete, updated single-file website. I have preserved every existing section, animation, and style exactly as-is, while adding the fully dynamic **Product Detail Pages**, **Dedicated Checkout Page**, and **Order Confirmation** flow. Everything is hash-routed (e.g., `#product=b1`, `#checkout`) so it behaves like real pages without a backend.
-
-```html
 <!DOCTYPE html>
 <html lang="en" class="overflow-x-hidden max-w-full">
 <head>
@@ -1155,8 +1152,8 @@ Here is your complete, updated single-file website. I have preserved every exist
             <p id="success-order-number" class="font-mono font-bold text-2xl text-brand-red mb-6"></p>
             <p class="font-sans text-xs text-gray-400 font-bold uppercase tracking-widest mb-8">Please take a screenshot of this page</p>
             <div class="flex flex-col gap-3">
-                <button onclick="navigateToHome()" class="w-full py-4 bg-brand-red text-white rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate transition-all">Continue Shopping</button>
-                <button onclick="navigateToHome()" class="w-full py-4 bg-white text-brand-slate border-2 border-brand-slate rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate hover:text-white transition-all">Go Back to Home</button>
+                <button onclick="closeSuccessModal()" class="w-full py-4 bg-brand-red text-white rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate transition-all">Continue Shopping</button>
+                <button onclick="closeSuccessModal()" class="w-full py-4 bg-white text-brand-slate border-2 border-brand-slate rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate hover:text-white transition-all">Go Back to Home</button>
             </div>
         </div>
     </div>
@@ -1483,6 +1480,12 @@ Here is your complete, updated single-file website. I have preserved every exist
             document.body.style.overflow = '';
         }
 
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+            document.getElementById('success-card').classList.add('scale-95', 'opacity-0');
+            navigateToHome();
+        }
+
         // ==================== CHECKOUT ====================
         function initCheckout() {
             if (checkoutCartSnapshot.length === 0) {
@@ -1641,6 +1644,24 @@ Here is your complete, updated single-file website. I have preserved every exist
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
 
+            // Prepare a clean payload for FormSubmit (Firebase timestamp breaks JSON.stringify)
+            const emailData = {
+                _subject: `New Order: ${currentOrderNumber} from ${fullName}`,
+                orderId: currentOrderNumber,
+                name: fullName,
+                phone: phone,
+                city: city,
+                address: address,
+                altAddress: altAddress || "None",
+                transactionId: transactionId,
+                referralCode: refCode || "None",
+                source: source,
+                itemsString: itemsString,
+                subtotal: subtotalClean,
+                total: totalClean,
+                date: new Date().toLocaleString()
+            };
+
             // 1. Save order to Firebase Database
             db.collection("orders").add(orderData).then(() => {
                 
@@ -1652,18 +1673,16 @@ Here is your complete, updated single-file website. I have preserved every exist
                 }
 
                 // 2. Send Email Backup via FormSubmit
-                fetch("https://formsubmit.co/ajax/modmedicalis@GMAIL.COM", {
+                fetch("https://formsubmit.co/ajax/modmedicalis@gmail.com", {
                     method: "POST",
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({
-                        _subject: `New Order: ${currentOrderNumber} from ${fullName}`,
-                        ...orderData
-                    })
+                    body: JSON.stringify(emailData)
                 }).finally(() => {
                     
                     // 3. Clear Cart & Show Success UI
                     if (cart.length > 0 && checkoutCartSnapshot === cart) {
                         cart = [];
+                        localStorage.removeItem('modCart');
                         updateCartUI();
                     }
                     checkoutCartSnapshot = [];
@@ -1695,7 +1714,7 @@ Here is your complete, updated single-file website. I have preserved every exist
         }
 
         // ==================== EXISTING CART LOGIC (PRESERVED) ====================
-        let cart = [];
+        let cart = JSON.parse(localStorage.getItem('modCart')) || [];
         let isCartOpen = false;
 
         const cartSidebar = document.getElementById('cart-sidebar');
@@ -1740,6 +1759,7 @@ Here is your complete, updated single-file website. I have preserved every exist
         }
 
         function updateCartUI() {
+            localStorage.setItem('modCart', JSON.stringify(cart));
             const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
             cartBadge.innerText = totalQty;
 
