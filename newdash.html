@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModMedicalis | Admin HQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:ital,wght@0,900;1,900&family=Manrope:wght@500;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Fira Sans Extra Condensed"', 'sans-serif'],
+                        sans: ['Manrope', 'sans-serif'],
+                    },
+                    colors: { brand: { red: '#EF4444', slate: '#111827', light: '#F9FAFB' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #F9FAFB; color: #111827; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .nav-btn.active { background-color: #EF4444; color: white; }
+    </style>
+</head>
+<body class="font-sans antialiased flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col justify-between h-full shadow-lg z-20 relative">
+        <div>
+            <div class="p-6 border-b border-gray-100 flex items-center gap-3">
+                <div class="w-10 h-10 bg-brand-slate rounded-lg flex items-center justify-center text-white font-display text-2xl italic">MM</div>
+                <h1 class="font-display text-2xl tracking-wide uppercase">Admin HQ</h1>
+            </div>
+            <nav class="p-4 space-y-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors hover:bg-gray-100 uppercase tracking-wide">📊 Overview</button>
+                <button onclick="switchTab('orders')" id="nav-orders" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors hover:bg-gray-100 text-gray-600 uppercase tracking-wide">📦 Orders</button>
+                <button onclick="switchTab('products')" id="nav-products" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors hover:bg-gray-100 text-gray-600 uppercase tracking-wide">🛍️ Products</button>
+                <button onclick="switchTab('ambassadors')" id="nav-ambassadors" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-lg transition-colors hover:bg-gray-100 text-gray-600 uppercase tracking-wide">🎓 Ambassadors</button>
+            </nav>
+        </div>
+        <div class="p-6 border-t border-gray-100">
+            <button id="seed-btn" onclick="seedDatabase()" class="w-full py-3 mb-3 bg-brand-red text-white rounded-lg font-bold text-xs uppercase hover:bg-red-600 hidden">Seed Database</button>
+            <p class="text-xs text-gray-400 text-center uppercase tracking-widest font-bold">Live Synced 🟢</p>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 h-full overflow-y-auto bg-brand-light p-8">
+        
+        <!-- DASHBOARD TAB -->
+        <div id="tab-dashboard" class="tab-content active space-y-6">
+            <h2 class="font-display text-4xl uppercase mb-6 text-brand-slate">Analytics Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Total Revenue</p>
+                    <p class="font-display text-4xl text-brand-slate" id="stat-revenue">Rs. 0</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Estimated Profit</p>
+                    <p class="font-display text-4xl text-green-500" id="stat-profit">Rs. 0</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Total Orders</p>
+                    <p class="font-display text-4xl text-brand-slate" id="stat-orders">0</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Ambassador Uses</p>
+                    <p class="font-display text-4xl text-brand-slate" id="stat-ambassador">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORDERS TAB -->
+        <div id="tab-orders" class="tab-content space-y-6">
+            <h2 class="font-display text-4xl uppercase mb-6 text-brand-slate">Live Orders</h2>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <table class="w-full text-left font-sans">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Order ID</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Items</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Ref Code</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100" id="orders-table-body">
+                        <!-- Loaded from Firebase -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PRODUCTS TAB -->
+        <div id="tab-products" class="tab-content space-y-6">
+            <h2 class="font-display text-4xl uppercase mb-6 text-brand-slate">Products Catalog</h2>
+            <div id="products-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Loaded from Firebase -->
+            </div>
+        </div>
+
+        <!-- AMBASSADORS TAB -->
+        <div id="tab-ambassadors" class="tab-content space-y-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-display text-4xl uppercase text-brand-slate">Ambassador Network</h2>
+                <button onclick="addAmbassador()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-xs uppercase hover:bg-brand-slate transition">+ Add Ambassador</button>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <table class="w-full text-left font-sans">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Code</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Discount %</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Times Used</th>
+                            <th class="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100" id="ambassadors-table-body">
+                        <!-- Loaded from Firebase -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 1. FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
+            authDomain: "modmedicalis-f7ca2.firebaseapp.com",
+            projectId: "modmedicalis-f7ca2",
+            storageBucket: "modmedicalis-f7ca2.firebasestorage.app",
+            messagingSenderId: "786594019384",
+            appId: "1:786594019384:web:8807ca2f622e162badcecd"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // 2. TAB SWITCHER
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('active', 'text-white', 'bg-brand-red');
+                b.classList.add('text-gray-600');
+            });
+            document.getElementById('tab-' + tabId).classList.add('active');
+            const btn = document.getElementById('nav-' + tabId);
+            btn.classList.add('active', 'bg-brand-red', 'text-white');
+            btn.classList.remove('text-gray-600');
+        }
+
+        // 3. AUTO-SEED DATABASE (Runs only if DB is empty)
+        async function checkAndSeed() {
+            const snapshot = await db.collection('products').get();
+            if (snapshot.empty) {
+                document.getElementById('seed-btn').classList.remove('hidden');
+            } else {
+                fetchData();
+            }
+        }
+
+        async function seedDatabase() {
+            const btn = document.getElementById('seed-btn');
+            btn.innerText = "Seeding...";
+            const initialProducts = [
+                { id: 'b1', name: 'Mind Your Minors Block 1', shortName: 'B1', price: 7999, originalPrice: 9999, productionCost: 2500, category: 'ms1', subtitle: 'FOUNDATION', color: 'bg-brand-slate', textColor: 'text-white', comingSoon: false },
+                { id: 'b2', name: 'Mind Your Minors Block 2', shortName: 'B2', price: 7999, originalPrice: 9999, productionCost: 2500, category: 'ms1', subtitle: 'CVS & RESP', color: 'bg-white', textColor: 'text-brand-red', comingSoon: false },
+                { id: 'b3', name: 'Mind Your Minors Block 3', shortName: 'B3', price: 7999, originalPrice: 9999, productionCost: 2500, category: 'ms1', subtitle: 'RENAL & GIT', color: 'bg-brand-red', textColor: 'text-white', comingSoon: false },
+                { id: 'b4', name: 'Mind Your Minors Block 4', shortName: 'B4', price: 8999, originalPrice: 10999, productionCost: 3000, category: 'ms2', subtitle: 'NEURO', color: 'bg-gray-800', textColor: 'text-white', comingSoon: true }
+            ];
+            const initialAmbassadors = [
+                { code: 'HASNAIN10', discount: 10, uses: 0 },
+                { code: 'AIMC15', discount: 15, uses: 0 }
+            ];
+
+            for (const p of initialProducts) { await db.collection('products').doc(p.id).set(p); }
+            for (const a of initialAmbassadors) { await db.collection('ambassadors').doc(a.code).set(a); }
+            
+            btn.innerText = "Done!";
+            setTimeout(() => btn.classList.add('hidden'), 1000);
+            fetchData();
+        }
+
+        // 4. FETCH LIVE DATA
+        function fetchData() {
+            // Live Orders
+            db.collection("orders").orderBy("timestamp", "desc").onSnapshot((querySnapshot) => {
+                const tbody = document.getElementById('orders-table-body');
+                tbody.innerHTML = '';
+                let totalRev = 0, totalOrders = 0, ambUses = 0;
+
+                querySnapshot.forEach((doc) => {
+                    const o = doc.data();
+                    totalRev += Number(o.subtotal || 0);
+                    totalOrders++;
+                    if (o.referralCode && o.referralCode !== "None") ambUses++;
+
+                    const encodedAddress = encodeURIComponent(o.address + ", " + o.city);
+                    const encodedItems = encodeURIComponent(o.itemsString);
+                    const whatsappLink = `https://wa.me/923096554421?text=MODMEDICALIS%20Order%20%23${o.orderId}%0AItems:%20${encodedItems}%0AAddress:%20${encodedAddress}%0APhone:%20${o.phone}`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="p-4 font-mono text-sm font-bold text-brand-slate">${o.orderId}</td>
+                            <td class="p-4"><p class="text-sm font-bold">${o.name}</p><p class="text-xs text-gray-500">${o.phone}</p></td>
+                            <td class="p-4 text-xs font-bold text-gray-600 whitespace-pre-line">${o.itemsString}</td>
+                            <td class="p-4 text-sm font-bold text-green-600">Rs. ${o.total}</td>
+                            <td class="p-4 text-sm font-bold text-brand-red">${o.referralCode || 'None'}</td>
+                            <td class="p-4 text-right">
+                                <a href="${whatsappLink}" target="_blank" class="bg-green-500 text-white px-3 py-2 rounded font-bold text-[10px] uppercase inline-flex items-center gap-1 hover:bg-green-600">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> Send
+                                </a>
+                            </td>
+                        </tr>`;
+                });
+                document.getElementById('stat-revenue').innerText = `Rs. ${totalRev.toLocaleString()}`;
+                document.getElementById('stat-orders').innerText = totalOrders;
+                document.getElementById('stat-ambassador').innerText = ambUses;
+                // Rough profit estimate: assuming 65% profit margin for dashboard visual
+                document.getElementById('stat-profit').innerText = `Rs. ${Math.round(totalRev * 0.65).toLocaleString()}`;
+            });
+
+            // Live Products
+            db.collection("products").onSnapshot((querySnapshot) => {
+                const container = document.getElementById('products-container');
+                container.innerHTML = '';
+                querySnapshot.forEach((doc) => {
+                    const p = doc.data();
+                    container.innerHTML += `
+                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                            <h3 class="font-display text-2xl text-brand-slate mb-4">${p.name}</h3>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Price</label><input type="number" id="price-${p.id}" value="${p.price}" class="w-full border rounded p-2 text-sm font-bold"></div>
+                                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Coming Soon</label>
+                                    <select id="soon-${p.id}" class="w-full border rounded p-2 text-sm font-bold">
+                                        <option value="false" ${!p.comingSoon ? 'selected' : ''}>Active</option>
+                                        <option value="true" ${p.comingSoon ? 'selected' : ''}>Yes</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button onclick="updateProduct('${p.id}')" class="w-full bg-brand-slate text-white py-2 rounded font-bold text-xs uppercase hover:bg-brand-red">Save Updates</button>
+                        </div>`;
+                });
+            });
+
+            // Live Ambassadors
+            db.collection("ambassadors").onSnapshot((querySnapshot) => {
+                const tbody = document.getElementById('ambassadors-table-body');
+                tbody.innerHTML = '';
+                querySnapshot.forEach((doc) => {
+                    const a = doc.data();
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="p-4 font-bold text-brand-slate">${a.code}</td>
+                            <td class="p-4 font-bold text-brand-red">${a.discount}%</td>
+                            <td class="p-4 font-bold text-gray-600">${a.uses || 0}</td>
+                            <td class="p-4 text-right"><button onclick="deleteAmbassador('${a.code}')" class="text-red-500 font-bold text-xs uppercase hover:underline">Delete</button></td>
+                        </tr>`;
+                });
+            });
+        }
+
+        // 5. UPDATE FUNCTIONS
+        function updateProduct(id) {
+            const price = Number(document.getElementById(`price-${id}`).value);
+            const comingSoon = document.getElementById(`soon-${id}`).value === 'true';
+            db.collection('products').doc(id).update({ price, comingSoon }).then(() => alert("Product Updated!"));
+        }
+
+        function addAmbassador() {
+            const code = prompt("Enter Ambassador Code (e.g. SIMS10):").toUpperCase();
+            if(!code) return;
+            const discount = Number(prompt("Enter Discount Percentage (e.g. 10):"));
+            db.collection('ambassadors').doc(code).set({ code, discount, uses: 0 });
+        }
+
+        function deleteAmbassador(code) {
+            if(confirm(`Delete ambassador ${code}?`)) {
+                db.collection('ambassadors').doc(code).delete();
+            }
+        }
+
+        // Init
+        window.onload = checkAndSeed;
+    </script>
+</body>
+</html>
