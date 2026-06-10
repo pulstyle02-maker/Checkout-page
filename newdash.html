@@ -33,6 +33,12 @@
         .label-sm { display: block; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; margin-bottom: 0.25rem; }
         #mobile-menu { transition: transform 0.3s ease-in-out; }
         .menu-open { transform: translateX(0) !important; }
+        
+        /* Smooth Custom Scrollbar for tables */
+        .table-wrapper::-webkit-scrollbar { height: 6px; }
+        .table-wrapper::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .table-wrapper::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
     </style>
 </head>
 <body class="font-sans antialiased flex flex-col md:flex-row h-screen overflow-hidden">
@@ -81,7 +87,7 @@
         <div id="tab-dashboard" class="tab-content active space-y-6">
             <h2 class="font-display text-3xl md:text-4xl uppercase mb-6 text-brand-slate">Analytics Engine</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
                 <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                     <p class="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest mb-1">Gross Revenue (Valid)</p>
                     <p class="font-display text-3xl text-brand-slate" id="stat-revenue">Rs. 0</p>
@@ -101,9 +107,9 @@
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full">
                     <h3 class="font-bold text-xs uppercase tracking-widest mb-4 text-gray-500">Sales Velocity (Recent)</h3>
-                    <canvas id="salesChart" height="200"></canvas>
+                    <div class="relative h-48 w-full"><canvas id="salesChart"></canvas></div>
                 </div>
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 overflow-hidden flex flex-col">
                     <h3 class="font-bold text-xs uppercase tracking-widest mb-4 text-gray-500 flex items-center gap-2">🔥 Trending Products</h3>
@@ -117,11 +123,28 @@
         <!-- ORDERS TAB -->
         <div id="tab-orders" class="tab-content space-y-6">
             <h2 class="font-display text-3xl md:text-4xl uppercase mb-6 text-brand-slate">Live Order Control</h2>
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full">
-                <table class="w-full text-left font-sans min-w-[800px]">
+            
+            <!-- Search & Filter -->
+            <div class="flex flex-col md:flex-row gap-4 mb-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div class="flex-1">
+                    <label class="label-sm">Search Orders</label>
+                    <input type="text" id="order-search" onkeyup="renderOrders()" placeholder="Search by Order ID, Name, Phone..." class="input-field py-2 text-xs">
+                </div>
+                <div class="w-full md:w-48">
+                    <label class="label-sm">Filter Status</label>
+                    <select id="order-filter" onchange="renderOrders()" class="input-field py-2 text-xs">
+                        <option value="all">All Orders</option>
+                        <option value="pending">⏳ Pending</option>
+                        <option value="done">✅ Done</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full table-wrapper">
+                <table class="w-full text-left font-sans min-w-[900px]">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-32">Order ID</th>
+                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-24">Order ID</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-48">Customer Info</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-48">Items & Financials</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-40">Status & Ref</th>
@@ -139,7 +162,7 @@
         <!-- DISPUTED ORDERS TAB -->
         <div id="tab-disputed" class="tab-content space-y-6">
             <h2 class="font-display text-3xl md:text-4xl uppercase mb-6 text-brand-red">Disputed / Returned Orders</h2>
-            <div class="bg-white rounded-xl border border-brand-red/20 shadow-sm overflow-x-auto w-full">
+            <div class="bg-white rounded-xl border border-brand-red/20 shadow-sm overflow-x-auto w-full table-wrapper">
                 <table class="w-full text-left font-sans min-w-[800px]">
                     <thead class="bg-red-50 border-b border-red-100">
                         <tr>
@@ -160,7 +183,7 @@
         <!-- PUBLISHER & INVENTORY TAB -->
         <div id="tab-inventory" class="tab-content space-y-6">
             <h2 class="font-display text-3xl md:text-4xl uppercase mb-6 text-brand-slate">Zubair Book Depot (Stock)</h2>
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full table-wrapper">
                 <table class="w-full text-left font-sans min-w-[800px]">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
@@ -195,19 +218,19 @@
                 <h2 class="font-display text-3xl md:text-4xl uppercase text-brand-slate">Live Reviews</h2>
                 <button onclick="addReviewModal()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Review</button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="reviews-container">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="reviews-container">
                 <!-- Loaded from Firebase -->
             </div>
             
             <div id="review-modal" class="hidden bg-white p-6 rounded-xl border border-brand-red shadow-2xl mb-6">
                 <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate">Add New Review</h3>
-                <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div><label class="label-sm">Student Name</label><input type="text" id="rev-name" class="input-field" placeholder="Ayesha Khan"></div>
                     <div><label class="label-sm">Initials</label><input type="text" id="rev-init" class="input-field" placeholder="AK"></div>
                     <div><label class="label-sm">Year/Batch</label><input type="text" id="rev-year" class="input-field" placeholder="MS-1"></div>
                     <div><label class="label-sm">College</label><input type="text" id="rev-coll" class="input-field" placeholder="KEMU"></div>
-                    <div class="col-span-2"><label class="label-sm">Review Text</label><textarea id="rev-text" class="input-field" rows="2"></textarea></div>
-                    <div><label class="label-sm">Link to Product</label><select id="rev-prod" class="input-field"></select></div>
+                    <div class="md:col-span-2"><label class="label-sm">Review Text</label><textarea id="rev-text" class="input-field" rows="2"></textarea></div>
+                    <div class="md:col-span-2"><label class="label-sm">Link to Product</label><select id="rev-prod" class="input-field"></select></div>
                 </div>
                 <div class="flex justify-end gap-3">
                     <button onclick="document.getElementById('review-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
@@ -218,15 +241,19 @@
 
         <!-- AMBASSADORS TAB -->
         <div id="tab-ambassadors" class="tab-content space-y-6">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 class="font-display text-3xl md:text-4xl uppercase text-brand-slate">Ambassadors</h2>
-                <button onclick="addAmbassador()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Code</button>
+                <div class="flex gap-2">
+                    <a href="ambassador.html" target="_blank" class="bg-gray-200 text-brand-slate px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-gray-300 transition shadow">Open Portal Link</a>
+                    <button onclick="addAmbassador()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Code</button>
+                </div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full">
-                <table class="w-full text-left font-sans min-w-[700px]">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full table-wrapper">
+                <table class="w-full text-left font-sans min-w-[900px]">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Code</th>
+                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">ID / Code</th>
+                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Portal Password</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Discount %</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Amb. Comm (Rs)</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Limit & Uses</th>
@@ -245,7 +272,7 @@
         <div id="tab-finances" class="tab-content space-y-6">
             <h2 class="font-display text-3xl md:text-4xl uppercase mb-6 text-brand-slate">Bank & Team Split</h2>
             
-            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6">
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6 w-full">
                 <h3 class="font-display text-2xl text-brand-slate mb-4">Treasury (Actual Liquidity)</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-gray-50 p-4 rounded border border-gray-200">
@@ -261,25 +288,26 @@
                         <div class="flex items-center gap-2"><span class="font-bold text-gray-500 text-sm">Rs.</span><input type="number" id="bank-cash" class="input-field py-1"></div>
                     </div>
                 </div>
-                <button onclick="saveTreasury()" class="mt-4 bg-brand-slate text-white px-6 py-2 rounded font-bold text-xs uppercase hover:bg-brand-red transition">Save Balances</button>
+                <button onclick="saveTreasury()" class="mt-4 w-full md:w-auto bg-brand-slate text-white px-6 py-2 rounded font-bold text-xs uppercase hover:bg-brand-red transition">Save Balances</button>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                         <h3 class="font-display text-2xl text-brand-slate">Team Equity Splits</h3>
-                        <span class="text-[10px] bg-green-100 text-green-700 font-bold px-2 py-1 rounded uppercase">Uses Final Retained Profit</span>
+                        <button onclick="addTeamMember()" class="text-brand-red text-xs font-bold uppercase hover:underline">+ Add Member</button>
                     </div>
+                    <div class="mb-4 text-[10px] bg-green-100 text-green-700 font-bold px-3 py-2 rounded uppercase text-center">Profit to be split is based on Final Retained Value</div>
                     <div id="team-container" class="space-y-4">
                         <!-- Loaded from Firebase -->
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                         <h3 class="font-display text-2xl text-brand-slate">Investments Ledger</h3>
                         <button onclick="addInvestment()" class="text-brand-red text-xs font-bold uppercase hover:underline">+ Add Record</button>
                     </div>
-                    <div id="investments-container" class="space-y-4">
+                    <div id="investments-container" class="space-y-4 max-h-[500px] overflow-y-auto">
                         <!-- Loaded from Firebase -->
                     </div>
                 </div>
@@ -297,7 +325,7 @@
             messagingSenderId: "786594019384",
             appId: "1:786594019384:web:8807ca2f622e162badcecd"
         };
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         const db = firebase.firestore();
 
         // 2. STATE OBJECT (Prevents nested listeners and race conditions)
@@ -373,28 +401,20 @@
             const btn = document.getElementById('seed-btn');
             btn.innerText = "Seeding Core Framework...";
             const initialProducts = [
-                { id: 'b1', name: 'Mind Your Minors Block 1', shortName: 'B1', price: 7999, originalPrice: 9999, productionCost: 2500, image: 'https://i.imgur.com/zFDh5b3.jpeg', comingSoon: false, category: 'ms1', subtitle: 'FOUNDATION', color: 'bg-brand-slate', textColor: 'text-white' },
-                { id: 'b2', name: 'Mind Your Minors Block 2', shortName: 'B2', price: 7999, originalPrice: 9999, productionCost: 2500, image: 'https://i.imgur.com/zFDh5b3.jpeg', comingSoon: false, category: 'ms1', subtitle: 'CVS & RESP', color: 'bg-white', textColor: 'text-brand-red' },
-                { id: 'b3', name: 'Mind Your Minors Block 3', shortName: 'B3', price: 7999, originalPrice: 9999, productionCost: 2500, image: 'https://i.imgur.com/zFDh5b3.jpeg', comingSoon: false, category: 'ms1', subtitle: 'RENAL & GIT', color: 'bg-brand-red', textColor: 'text-white' },
-                { id: 'b4', name: 'Mind Your Minors Block 4', shortName: 'B4', price: 8999, originalPrice: 10999, productionCost: 3000, image: 'https://i.imgur.com/zFDh5b3.jpeg', comingSoon: true, category: 'ms2', subtitle: 'NEURO', color: 'bg-gray-800', textColor: 'text-white' }
+                { id: 'b1', name: 'Mind Your Minors Block 1', shortName: 'B1', price: 7999, originalPrice: 9999, productionCost: 2500, image: 'https://i.imgur.com/zFDh5b3.jpeg', comingSoon: false, category: 'ms1', subtitle: 'FOUNDATION', color: 'bg-brand-slate', textColor: 'text-white' }
             ];
-            const initialAmbassadors = [{ code: 'HASNAIN10', discount: 10, commissionRate: 500, salesLimit: 100, uses: 0 }];
             const initialTeam = [
-                { id: 'hasnain', name: 'Muhammad Hasnain', equity: 60, withdrawn: 0 },
-                { id: 'lauren', name: 'Dr. Lauren Chen', equity: 20, withdrawn: 0 }
+                { id: 'hasnain', name: 'Muhammad Hasnain', equity: 60, withdrawn: 0, payoutHistory: [] },
             ];
-            const initialInvestments = [{ id: 'inv1', name: 'Initial Print Run', amount: 150000, date: new Date().toLocaleDateString(), investor: 'Hasnain' }];
 
             for (const p of initialProducts) { await db.collection('products').doc(p.id).set(p); }
-            for (const a of initialAmbassadors) { await db.collection('ambassadors').doc(a.code).set(a); }
             for (const t of initialTeam) { await db.collection('team').doc(t.id).set(t); }
-            for (const i of initialInvestments) { await db.collection('investments').doc(i.id).set(i); }
             
             btn.classList.add('hidden');
             initListeners();
         }
 
-        // 4. PARALLEL LISTENERS (No Nesting = No Crashes)
+        // 4. PARALLEL LISTENERS
         function initListeners() {
             db.collection("products").onSnapshot(snap => {
                 state.products = {};
@@ -453,7 +473,6 @@
             let salesMap = {};
             const chartDates = [], chartRevs = [];
 
-            // Reset Ambassador uses counter locally for accurate real-time limit checks
             let ambUsesCount = {};
 
             state.orders.forEach(o => {
@@ -462,13 +481,11 @@
                     rev += Number(o.subtotal || 0);
                     validOrders++;
                     
-                    // Safe Date Parsing
                     if (chartDates.length < 10 && o.timestamp && typeof o.timestamp.toDate === 'function') {
                         chartDates.unshift(o.timestamp.toDate().toLocaleDateString('en-GB', {day:'numeric', month:'short'}));
                         chartRevs.unshift(o.total || o.subtotal);
                     }
 
-                    // Calculate Production Cost
                     if (o.itemsString) {
                         Object.values(state.products).forEach(prod => {
                             if(o.itemsString.includes(prod.name)) {
@@ -480,26 +497,21 @@
                         });
                     }
 
-                    // Track Ambassador Uses
                     if (o.referralCode && o.referralCode !== 'None') {
                         ambUsesCount[o.referralCode] = (ambUsesCount[o.referralCode] || 0) + 1;
                     }
                 }
             });
 
-            // Ambassador Payouts
             let ambOwed = 0;
             Object.values(state.ambassadors).forEach(a => {
                 const actualUses = ambUsesCount[a.code] || 0;
-                // If the backend 'uses' is out of sync, we use the actual count from valid orders
                 ambOwed += actualUses * (a.commissionRate || 0);
             });
 
-            // Investments
             let totalInv = 0;
             state.investments.forEach(i => totalInv += Number(i.amount));
 
-            // Assign to state
             state.calc.totalRev = rev;
             state.calc.totalProdCost = cost;
             state.calc.grossProfit = rev - cost;
@@ -508,13 +520,11 @@
             state.calc.finalRetainedProfit = state.calc.grossProfit - totalInv - ambOwed;
             state.calc.salesDataForInventory = salesMap;
 
-            // Update DOM Dashboard
             document.getElementById('stat-revenue').innerText = `Rs. ${rev.toLocaleString()}`;
             document.getElementById('stat-gross-profit').innerText = `Rs. ${state.calc.grossProfit.toLocaleString()}`;
             document.getElementById('stat-final-profit').innerText = `Rs. ${state.calc.finalRetainedProfit.toLocaleString()}`;
             document.getElementById('stat-orders').innerText = validOrders;
 
-            // Render Trending
             let trendingHTML = '';
             const sortedProds = Object.keys(salesMap).sort((a,b) => salesMap[b] - salesMap[a]);
             sortedProds.forEach((pid, idx) => {
@@ -528,16 +538,14 @@
             document.getElementById('trending-container').innerHTML = trendingHTML || '<p class="text-xs text-gray-400">No sales data yet.</p>';
 
             updateChart(chartDates, chartRevs);
-            renderInventory(); // Update inventory table with new sales data
-            renderTeam(); // Re-render team equity with new final profit
+            renderInventory(); 
+            renderTeam(); 
         }
 
         // 6. RENDERERS
         function renderProducts() {
             const pCont = document.getElementById('products-container');
             const revSelect = document.getElementById('rev-prod');
-            
-            // Only update DOM if inputs are not focused to prevent typing interruption
             if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
 
             pCont.innerHTML = '';
@@ -573,23 +581,34 @@
         }
 
         function renderOrders() {
-            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+            if (document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'order-search') return;
 
             const oTbody = document.getElementById('orders-table-body');
             const dTbody = document.getElementById('disputed-table-body');
             oTbody.innerHTML = '';
             dTbody.innerHTML = '';
+            
+            const searchTerm = document.getElementById('order-search') ? document.getElementById('order-search').value.toLowerCase() : '';
+            const statusFilter = document.getElementById('order-filter') ? document.getElementById('order-filter').value : 'all';
 
-            state.orders.forEach(o => {
+            const filteredOrders = state.orders.filter(o => {
+                const matchTerm = (o.orderId||'').toLowerCase().includes(searchTerm) || (o.name||'').toLowerCase().includes(searchTerm) || (o.phone||'').includes(searchTerm);
+                const matchStatus = statusFilter === 'all' || (o.status || 'pending') === statusFilter;
+                return matchTerm && matchStatus;
+            });
+
+            filteredOrders.forEach(o => {
                 const status = o.status || 'pending';
                 const note = o.adminNote || '';
+                const txId = o.transactionId || 'Cash on Delivery';
                 
                 const dateStr = o.timestamp && typeof o.timestamp.toDate === 'function' 
-                    ? o.timestamp.toDate().toLocaleString() 
+                    ? o.timestamp.toDate().toLocaleString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) 
                     : 'Unknown Date';
 
                 if (status !== 'disputed') {
                     const whatsappLink = `https://wa.me/92${o.phone.replace(/^0/,'').replace(/\D/g,'')}?text=MODMEDICALIS%20Order%20%23${o.orderId}%0AProduct:%20${encodeURIComponent(o.itemsString)}%0AAddress:%20${encodeURIComponent(o.address + ", " + o.city)}`;
+                    
                     const statusHTML = `
                         <select onchange="updateOrderStatus('${o.docId}', this.value)" class="input-field py-1 text-[10px] ${status==='done'?'border-green-500 text-green-700':'border-yellow-400 text-yellow-700'}">
                             <option value="pending" ${status==='pending'?'selected':''}>⏳ Pending</option>
@@ -600,19 +619,19 @@
                     oTbody.innerHTML += `
                         <tr class="hover:bg-gray-50 transition border-l-4 ${status==='done'?'border-l-green-400':'border-l-yellow-400'}">
                             <td class="p-3"><p class="font-mono text-xs font-bold">${o.orderId}</p><p class="text-[9px] text-gray-400">${dateStr}</p></td>
-                            <td class="p-3"><p class="text-xs font-bold">${o.name}</p><p class="text-[9px] text-gray-500">${o.phone} • ${o.city}</p><p class="text-[9px] text-gray-400 truncate w-40" title="${o.address}">${o.address}</p></td>
+                            <td class="p-3"><p class="text-xs font-bold">${o.name}</p><p class="text-[10px] font-extrabold text-brand-slate">${o.phone}</p><p class="text-[9px] text-gray-500 font-bold uppercase">${o.city}</p><p class="text-[9px] text-gray-400 truncate w-40" title="${o.address}">${o.address}</p></td>
                             <td class="p-3"><p class="text-[10px] font-bold text-gray-600 mb-1 leading-tight">${o.itemsString}</p><p class="text-xs font-bold text-green-600">Rs. ${o.total}</p></td>
-                            <td class="p-3">${statusHTML}<p class="text-[9px] uppercase font-bold mt-1">Ref: <span class="text-brand-red">${o.referralCode || 'None'}</span></p></td>
-                            <td class="p-3"><div class="flex gap-1"><input type="text" id="note-${o.docId}" value="${note}" class="input-field py-1 text-[10px]"><button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold bg-gray-200 px-2 rounded hover:bg-brand-red hover:text-white">Save</button></div></td>
-                            <td class="p-3 text-right"><div class="flex flex-col gap-1 items-end"><a href="${whatsappLink}" target="_blank" class="bg-brand-slate text-white px-2 py-1 rounded text-[9px] font-bold uppercase hover:bg-brand-red">WhatsApp</a><button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[9px] font-bold uppercase hover:underline">Delete</button></div></td>
+                            <td class="p-3">${statusHTML}<p class="text-[9px] uppercase font-bold mt-1 text-gray-400">Tx: <span class="text-brand-slate">${txId}</span></p><p class="text-[9px] uppercase font-bold mt-0.5">Ref: <span class="text-brand-red">${o.referralCode || 'None'}</span></p></td>
+                            <td class="p-3"><div class="flex gap-1"><input type="text" id="note-${o.docId}" value="${note}" class="input-field py-1 text-[10px]"><button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold bg-gray-200 px-2 rounded hover:bg-brand-red hover:text-white transition">Save</button></div></td>
+                            <td class="p-3 text-right"><div class="flex flex-col gap-1 items-end"><a href="${whatsappLink}" target="_blank" class="bg-brand-slate text-white px-3 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-brand-red transition shadow-sm">WhatsApp</a><button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[9px] font-bold uppercase hover:underline mt-1">Delete</button></div></td>
                         </tr>`;
                 } else {
                     dTbody.innerHTML += `
                         <tr class="hover:bg-red-50 border-l-4 border-l-red-500">
                             <td class="p-3 font-mono text-xs font-bold text-red-600">${o.orderId}</td>
-                            <td class="p-3"><p class="text-xs font-bold">${o.name}</p><p class="text-[9px] text-gray-500">${o.phone}</p></td>
+                            <td class="p-3"><p class="text-xs font-bold">${o.name}</p><p class="text-[10px] font-extrabold">${o.phone}</p><p class="text-[9px] text-gray-500 uppercase">${o.city}</p></td>
                             <td class="p-3 text-xs font-bold text-gray-600">Rs. ${o.total}</td>
-                            <td class="p-3"><div class="flex gap-1"><input type="text" id="note-${o.docId}" value="${note}" class="input-field py-1 text-[10px] border-red-200"><button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold mt-1">Save</button></div></td>
+                            <td class="p-3"><div class="flex gap-1"><input type="text" id="note-${o.docId}" value="${note}" class="input-field py-1 text-[10px] border-red-200"><button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold mt-1 bg-red-200 px-2 rounded">Save</button></div></td>
                             <td class="p-3"><select onchange="updateOrderStatus('${o.docId}', this.value)" class="input-field py-1 text-[10px]"><option value="disputed" selected>❌ Disputed</option><option value="pending">⏳ Restore Pending</option></select></td>
                         </tr>`;
                 }
@@ -625,7 +644,6 @@
             aTbody.innerHTML = '';
             
             Object.values(state.ambassadors).forEach(a => {
-                // Ensure uses are calculated accurately from valid orders, not just DB snapshot
                 let actualUses = 0;
                 state.orders.forEach(o => {
                     if (o.status !== 'disputed' && o.referralCode === a.code) actualUses++;
@@ -637,11 +655,12 @@
                 aTbody.innerHTML += `
                     <tr>
                         <td class="p-3 font-bold text-brand-slate text-xs">${a.code} ${isCapped ? '<span class="text-[8px] bg-red-100 text-red-600 px-1 py-0.5 rounded-full block mt-1 w-max">CAPPED</span>' : ''}</td>
-                        <td class="p-3"><input type="number" id="a-disc-${a.code}" value="${a.discount}" class="w-12 input-field py-1 px-1 text-center text-xs inline"> %</td>
+                        <td class="p-3"><input type="text" id="a-pass-${a.code}" value="${a.password || ''}" class="w-24 input-field py-1 px-1 text-center text-xs inline font-mono border-dashed"></td>
+                        <td class="p-3"><input type="number" id="a-disc-${a.code}" value="${a.discount}" class="w-16 input-field py-1 px-1 text-center text-xs inline"> %</td>
                         <td class="p-3"><input type="number" id="a-comm-${a.code}" value="${a.commissionRate}" class="w-16 input-field py-1 px-1 text-center text-xs inline"></td>
                         <td class="p-3"><input type="number" id="a-limit-${a.code}" value="${a.salesLimit}" class="w-16 input-field py-1 px-1 text-center text-xs inline"> <br><span class="text-[9px] text-gray-400">(${actualUses} used)</span></td>
                         <td class="p-3 font-bold text-green-600 text-xs">Rs. ${earnings.toLocaleString()}</td>
-                        <td class="p-3 text-right"><button onclick="updateAmbassador('${a.code}')" class="text-brand-slate font-bold text-[9px] uppercase hover:text-brand-red mr-2">Save</button><button onclick="deleteAmbassador('${a.code}')" class="text-red-500 font-bold text-[9px] uppercase hover:underline">Del</button></td>
+                        <td class="p-3 text-right"><button onclick="updateAmbassador('${a.code}')" class="bg-brand-slate text-white px-2 py-1 rounded text-[9px] font-bold uppercase hover:bg-brand-red mr-1 transition shadow-sm">Save</button><button onclick="deleteAmbassador('${a.code}')" class="text-red-500 font-bold text-[9px] uppercase hover:underline">Del</button></td>
                     </tr>`;
             });
         }
@@ -661,11 +680,11 @@
                 iTbody.innerHTML += `
                     <tr class="hover:bg-gray-50 transition border-l-4 ${balance > 0 ? 'border-l-red-500' : 'border-l-green-500'}">
                         <td class="p-4"><p class="text-xs font-bold text-brand-slate uppercase">${p.shortName}</p><p class="text-[9px] text-gray-500">Prod Cost: Rs. ${p.productionCost}</p></td>
-                        <td class="p-4"><p class="text-[10px] font-bold text-green-600">${soldQty} Sold</p><div class="flex items-center gap-1 mt-1"><input type="number" id="inv-print-${p.id}" value="${printedQty}" class="w-14 input-field py-1 text-[10px] text-center"><span class="text-[9px] font-bold text-gray-500">Printed</span></div></td>
+                        <td class="p-4"><p class="text-[10px] font-bold text-green-600">${soldQty} Sold</p><div class="flex items-center gap-1 mt-1"><input type="number" id="inv-print-${p.id}" value="${printedQty}" class="w-16 input-field py-1 text-[10px] text-center"><span class="text-[9px] font-bold text-gray-500">Printed</span></div></td>
                         <td class="p-4 text-xs font-bold text-gray-600">Rs. ${totalOwed.toLocaleString()}</td>
-                        <td class="p-4"><div class="flex items-center gap-1"><span class="text-[10px] font-bold text-gray-500">Rs.</span><input type="number" id="inv-paid-${p.id}" value="${paid}" class="w-20 input-field py-1 text-[10px]"></div></td>
+                        <td class="p-4"><div class="flex items-center gap-1"><span class="text-[10px] font-bold text-gray-500">Rs.</span><input type="number" id="inv-paid-${p.id}" value="${paid}" class="w-24 input-field py-1 text-[10px]"></div></td>
                         <td class="p-4 text-xs font-extrabold ${balance > 0 ? 'text-brand-red' : 'text-green-500'}">Rs. ${balance.toLocaleString()}</td>
-                        <td class="p-4 text-right"><button onclick="updateInventory('${p.id}')" class="bg-brand-slate text-white px-3 py-1 rounded text-[9px] font-bold uppercase hover:bg-brand-red">Save Ledger</button></td>
+                        <td class="p-4 text-right"><button onclick="updateInventory('${p.id}')" class="bg-brand-slate text-white px-3 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-brand-red shadow-sm transition">Save Ledger</button></td>
                     </tr>`;
             });
         }
@@ -675,7 +694,7 @@
             iCont.innerHTML = '';
             state.investments.forEach(i => {
                 iCont.innerHTML += `
-                    <div class="flex justify-between items-center p-3 border-b border-gray-100 last:border-0">
+                    <div class="flex justify-between items-center p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition rounded">
                         <div><span class="block text-xs font-bold text-brand-slate uppercase">${i.name}</span><span class="block text-[9px] text-gray-400 font-bold tracking-wider">${i.date} • By ${i.investor}</span></div>
                         <span class="font-bold text-brand-red text-xs">Rs. ${Number(i.amount).toLocaleString()}</span>
                     </div>`;
@@ -691,30 +710,46 @@
             const safePool = state.calc.finalRetainedProfit > 0 ? state.calc.finalRetainedProfit : 0;
 
             state.team.forEach(t => {
-                totalEquity += t.equity;
+                totalEquity += Number(t.equity || 0);
                 const earned = Math.round(safePool * (t.equity / 100));
-                const available = earned - t.withdrawn;
+                const withdrawn = Number(t.withdrawn || 0);
+                const available = earned - withdrawn;
+                
+                let historyHTML = '';
+                if (t.payoutHistory && t.payoutHistory.length > 0) {
+                    historyHTML = `<div class="mt-2 pt-2 border-t border-gray-200 text-[9px]"><span class="font-bold text-gray-400 uppercase mb-1 block">Payout History:</span>`;
+                    t.payoutHistory.slice().reverse().forEach(p => {
+                        historyHTML += `<div class="flex justify-between text-gray-500 mb-1"><span>${p.date}</span><span class="font-bold text-brand-slate">Rs. ${Number(p.amount).toLocaleString()}</span></div>`;
+                    });
+                    historyHTML += `</div>`;
+                } else {
+                    historyHTML = `<p class="mt-2 text-[9px] italic text-gray-400">No payouts yet.</p>`;
+                }
 
                 tCont.innerHTML += `
-                    <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-xs text-brand-slate uppercase">${t.name}</span>
+                    <div class="flex flex-col gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                            <span class="font-bold text-sm text-brand-slate uppercase">${t.name}</span>
                             <div class="flex items-center gap-1">
-                                <input type="number" id="t-eq-${t.id}" value="${t.equity}" class="w-12 input-field py-1 px-1 text-center text-[10px]"> 
-                                <span class="text-[10px] font-bold text-gray-500">%</span>
-                                <button onclick="updateEquity('${t.id}')" class="ml-1 text-[9px] font-bold text-brand-slate uppercase hover:text-brand-red bg-gray-200 px-1 rounded">Save</button>
+                                <input type="number" id="t-eq-${t.id}" value="${t.equity}" class="w-14 input-field py-1 px-1 text-center text-xs"> 
+                                <span class="text-xs font-bold text-gray-500">%</span>
+                                <button onclick="updateEquity('${t.id}')" class="ml-1 text-[9px] font-bold bg-brand-slate text-white uppercase hover:bg-brand-red px-2 py-1 rounded shadow-sm">Save</button>
                             </div>
                         </div>
                         <div class="flex justify-between items-center mt-1">
-                            <div class="text-[9px] font-bold text-gray-500 uppercase">Withdrawn: Rs. ${t.withdrawn.toLocaleString()}</div>
-                            <div class="text-[10px] font-extrabold ${available > 0 ? 'text-green-600' : 'text-gray-400'}">Avail: Rs. ${available.toLocaleString()}</div>
+                            <div class="text-[10px] font-bold text-gray-500 uppercase">Total Profit Earned: Rs. ${earned.toLocaleString()}</div>
                         </div>
-                        <button onclick="logWithdrawal('${t.id}', '${t.name}', ${available}, ${t.withdrawn})" class="mt-1 w-full text-center text-[9px] font-bold text-brand-red border border-brand-red/20 bg-brand-red/5 rounded py-1 uppercase hover:bg-brand-red hover:text-white transition-all">Log Payout</button>
+                        <div class="flex justify-between items-center bg-white p-2 rounded border border-gray-100">
+                            <div class="text-[10px] font-bold text-red-400 uppercase">Withdrawn: Rs. ${withdrawn.toLocaleString()}</div>
+                            <div class="text-[11px] font-extrabold ${available > 0 ? 'text-green-600' : 'text-gray-400'}">Avail: Rs. ${available.toLocaleString()}</div>
+                        </div>
+                        <button onclick="logWithdrawal('${t.id}', '${t.name}', ${available}, ${withdrawn})" class="mt-1 w-full text-center text-[10px] font-bold text-white bg-brand-red rounded py-1.5 uppercase hover:bg-red-600 transition shadow-sm">Log Payout Transfer</button>
+                        ${historyHTML}
                     </div>`;
             });
             
             if(totalEquity !== 100 && state.team.length > 0) {
-                tCont.innerHTML = `<div class="bg-red-100 text-red-600 p-2 rounded text-[10px] font-bold mb-3 uppercase">Warning: Equity is ${totalEquity}%. Must equal 100%.</div>` + tCont.innerHTML;
+                tCont.innerHTML = `<div class="bg-red-100 border border-red-200 text-red-600 p-3 rounded text-[10px] font-bold mb-4 uppercase flex justify-between items-center"><span>⚠️ Warning: Total Equity is ${totalEquity}%. It should equal exactly 100%.</span></div>` + tCont.innerHTML;
             }
         }
 
@@ -768,17 +803,20 @@
         function addAmbassador() {
             const code = prompt("Enter Ambassador Code (e.g. KEMU10):")?.trim().toUpperCase();
             if(!code) return;
+            const password = Math.random().toString(36).slice(-6).toUpperCase(); // Auto Gen Password
             db.collection('ambassadors').doc(code).set({
                 code,
-                discount: Number(prompt("Customer Discount Percentage:")),
-                commissionRate: Number(prompt("Ambassador Commission per sale (Rs):")),
+                password,
+                discount: Number(prompt("Customer Discount Percentage (e.g. 10):")),
+                commissionRate: Number(prompt("Ambassador Commission per sale in Rs (e.g. 500):")),
                 salesLimit: Number(prompt("Sales Limit (0 for unlimited):") || 0),
                 uses: 0
-            }).then(() => showToast(`Ambassador Added`));
+            }).then(() => showToast(`Ambassador Added & Password Generated`));
         }
 
         function updateAmbassador(code) {
             db.collection('ambassadors').doc(code).update({
+                password: document.getElementById(`a-pass-${code}`).value,
                 discount: Number(document.getElementById(`a-disc-${code}`).value),
                 commissionRate: Number(document.getElementById(`a-comm-${code}`).value),
                 salesLimit: Number(document.getElementById(`a-limit-${code}`).value)
@@ -787,13 +825,33 @@
 
         function deleteAmbassador(code) { if(confirm("Delete code?")) db.collection('ambassadors').doc(code).delete(); }
 
-        function updateEquity(id) { db.collection('team').doc(id).update({ equity: Number(document.getElementById(`t-eq-${id}`).value) }).then(() => showToast("Equity Updated")); }
+        // TEAM FUNCTIONS
+        function addTeamMember() {
+            const name = prompt("Enter Team Member Full Name:");
+            if(!name) return;
+            const id = name.toLowerCase().replace(/\s+/g, '');
+            const equity = Number(prompt(`Enter Equity Percentage for ${name} (e.g. 20):`) || 0);
+            db.collection('team').doc(id).set({
+                id, name, equity, withdrawn: 0, payoutHistory: []
+            }).then(() => showToast(`Team Member Added`));
+        }
+
+        function updateEquity(id) { 
+            db.collection('team').doc(id).update({ equity: Number(document.getElementById(`t-eq-${id}`).value) }).then(() => showToast("Equity Updated")); 
+        }
         
         function logWithdrawal(id, name, available, currentWithdrawn) {
-            if(available <= 0) return alert("No funds available.");
-            const amount = Number(prompt(`How much is ${name} withdrawing? (Max: ${available})`));
-            if(!amount || amount <= 0 || amount > available) return;
-            db.collection('team').doc(id).update({ withdrawn: currentWithdrawn + amount }).then(() => showToast(`Payout logged`));
+            if(available <= 0) return alert("No funds available. Must have positive retained profit.");
+            const amount = Number(prompt(`How much is ${name} withdrawing? (Max available: Rs. ${available})`));
+            if(!amount || amount <= 0) return;
+            if(amount > available) return alert("Cannot withdraw more than available funds.");
+            
+            const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            
+            db.collection('team').doc(id).update({ 
+                withdrawn: currentWithdrawn + amount,
+                payoutHistory: firebase.firestore.FieldValue.arrayUnion({ amount: amount, date: dateStr })
+            }).then(() => showToast(`Payout of Rs. ${amount} logged for ${name}`));
         }
         
         function addInvestment() {
@@ -829,12 +887,12 @@
             if (chartInstance) chartInstance.destroy();
             const ctx = document.getElementById('salesChart').getContext('2d');
             chartInstance = new Chart(ctx, {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: labels.length ? labels : ['No Data'],
-                    datasets: [{ label: 'Revenue', data: data.length ? data : [0], backgroundColor: '#111827', borderRadius: 4 }]
+                    datasets: [{ label: 'Revenue', data: data.length ? data : [0], borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 3, fill: true, tension: 0.4 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { borderDash: [4, 4] } } } }
             });
         }
 
