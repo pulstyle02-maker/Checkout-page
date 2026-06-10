@@ -1,0 +1,1953 @@
+Here is your complete, updated single-file website. I have preserved every existing section, animation, and style exactly as-is, while adding the fully dynamic **Product Detail Pages**, **Dedicated Checkout Page**, and **Order Confirmation** flow. Everything is hash-routed (e.g., `#product=b1`, `#checkout`) so it behaves like real pages without a backend.
+
+```html
+<!DOCTYPE html>
+<html lang="en" class="overflow-x-hidden max-w-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ModMedicalis | Notes That Crush Exams</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP for scroll animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <!-- Typography: Fira Sans Extra Condensed for headers, Manrope for body text, Caveat for signature logos -->
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Fira+Sans+Extra+Condensed:ital,wght@0,900;1,900&family=Manrope:wght@500;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Fira Sans Extra Condensed"', 'sans-serif'],
+                        sans: ['Manrope', 'sans-serif'],
+                        signature: ['Caveat', 'cursive'],
+                    },
+                    colors: {
+                        brand: {
+                            red: '#EF4444',
+                            slate: '#111827',
+                            gray: '#E5E7EB',
+                            light: '#F9FAFB',
+                            white: '#FFFFFF'
+                        }
+                    },
+                    boxShadow: {
+                        'flat': '4px 4px 0px 0px rgba(239, 68, 68, 0.1)',
+                        'card': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 3s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-12px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        html, body {
+            max-width: 100vw;
+            overflow-x: hidden;
+            overscroll-behavior-x: none;
+            background-color: #FFFFFF;
+            color: #111827;
+        }
+        
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        .text-huge { 
+            font-size: clamp(3rem, 9vw, 10rem); 
+            line-height: 0.95; 
+            text-wrap: balance;
+            word-break: keep-all;
+            hyphens: auto;
+        }
+        .heading-style { font-weight: 900; text-transform: uppercase; letter-spacing: 0.02em; }
+        
+        .card-stack { position: relative; width: 220px; height: 320px; margin: 0 auto; z-index: 10; perspective: 1000px; }
+        .hero-card { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 16px; transform-origin: bottom center; will-change: transform; border: 2px solid rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; transition: transform 0.4s ease, filter 0.3s ease; box-shadow: 0 15px 35px -5px rgba(0,0,0,0.1); }
+        .hero-card:hover { filter: brightness(1.05); z-index: 20 !important; cursor: pointer; }
+
+        .highlight { position: relative; display: inline-block; z-index: 1; color: #111827; transition: color 0.3s ease; }
+        .highlight::after { content: ''; position: absolute; bottom: 4px; left: -2%; width: 104%; height: 25%; background-color: #EF4444; opacity: 0.15; z-index: -1; transition: height 0.3s ease; }
+        .highlight:hover::after { height: 100%; opacity: 0.1; }
+        .highlight:hover { color: #EF4444; }
+
+        .comp-table th, .comp-table td { padding: 1.5rem 1rem; border-bottom: 1px solid #E5E7EB; transition: background-color 0.3s ease; }
+        .comp-table tr:hover td { background-color: #F9FAFB; }
+        .comp-table tr:last-child td { border-bottom: none; }
+        
+        .slide-panel { transform: translateX(100%); transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+        .slide-panel.open { transform: translateX(0); }
+
+        @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+        @keyframes marquee-reverse { 0% { transform: translateX(-50%); } 100% { transform: translateX(0%); } }
+        .animate-marquee { display: flex; width: max-content; animation: marquee 40s linear infinite; }
+        .animate-marquee-reverse { display: flex; width: max-content; animation: marquee-reverse 40s linear infinite; }
+        .marquee-item { transition: transform 0.3s ease; cursor: default; }
+
+        .comparison-slider { position: relative; overflow: hidden; }
+        .before-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .carousel-spacer { flex: 0 0 calc(50vw - 150px); }
+        @media (min-width: 768px) {
+            .carousel-spacer { flex: 0 0 calc(50vw - 250px); }
+        }
+
+        .medical-mesh {
+            background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23000000' stroke-width='1.5' stroke-opacity='0.03'%3E%3Cpath d='M10 60 h20 l10 -30 l20 60 l10 -30 h40'/%3E%3Ccircle cx='90' cy='30' r='10'/%3E%3Cpath d='M85 30 h10 M90 25 v10'/%3E%3Crect x='20' y='90' width='16' height='8' rx='4' transform='rotate(-45 20 90)'/%3E%3Cpath d='M25 85 l8 8' transform='rotate(-45 20 90)' stroke-opacity='0.1'/%3E%3C/g%3E%3C/svg%3E");
+            background-repeat: repeat;
+        }
+
+        .book-mockup {
+            box-shadow: -4px 0 10px rgba(0,0,0,0.1), inset 4px 0 10px rgba(255,255,255,0.5);
+            border-radius: 4px 12px 12px 4px;
+        }
+        .spiral-bind {
+            background-image: radial-gradient(circle, #9ca3af 2px, transparent 2.5px);
+            background-size: 100% 12px;
+            background-position: left center;
+        }
+
+        .video-poster {
+            background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .video-poster::before {
+            content: '';
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            position: relative;
+        }
+        .video-poster::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 20px solid white;
+            border-top: 12px solid transparent;
+            border-bottom: 12px solid transparent;
+            margin-left: 5px;
+        }
+
+        /* MOBILE OPTIMIZATIONS: Reduced gaps and font sizes */
+        @media (max-width: 767px) {
+            .heading-style { font-size: 0.95em; }
+            .text-huge { 
+                font-size: clamp(2.2rem, 9vw, 5rem); 
+                line-height: 0.92; 
+                text-wrap: balance;
+                word-break: keep-all;
+            }
+            
+            section { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+            .min-h-\[120vh\] { min-height: 100vh !important; }
+            
+            .card-stack { 
+                width: 180px; 
+                height: 270px; 
+                margin-top: 0.75rem !important;
+            }
+            .hero-card { 
+                padding: 0.875rem; 
+            }
+            .hero-card .text-4xl { font-size: 1.75rem !important; }
+            .hero-card .w-24 { width: 4rem !important; height: 4rem !important; }
+            
+            .marquee-item { font-size: 1.4rem !important; }
+            .marquee-item.md\:text-5xl, .marquee-item.md\:text-6xl { font-size: 1.6rem !important; }
+            .comparison-slider { height: 500px !important; }
+            .before-image { padding: 1.25rem !important; }
+            .before-image .text-2xl { font-size: 1.125rem !important; }
+            .before-image .text-sm { font-size: 0.75rem !important; }
+            
+            .carousel-item { width: 240px !important; height: 380px !important; }
+            .carousel-item.md\:w-\[500px\], .carousel-item.md\:h-\[780px\] { width: 240px !important; height: 380px !important; }
+            
+            .comp-table th, .comp-table td { padding: 0.625rem 0.375rem !important; }
+            .comp-table .text-sm { font-size: 0.7rem !important; }
+            
+            .stat-number, .font-display.heading-style.text-\[6rem\], .font-display.heading-style.text-\[4rem\], 
+            .font-display.heading-style.text-\[4\.5rem\], .font-display.heading-style.text-\[7rem\],
+            .font-display.heading-style.text-\[8rem\], .font-display.heading-style.text-\[9rem\] {
+                font-size: 2.75rem !important;
+            }
+            
+            .ambassador-card { padding: 0.875rem !important; }
+            .ambassador-card .w-20 { width: 2.75rem !important; height: 2.75rem !important; }
+            .ambassador-card .text-lg { font-size: 0.85rem !important; }
+            .ambassador-card .text-xl { font-size: 0.9rem !important; }
+            
+            #cart-sidebar { width: 100% !important; }
+            #cart-sidebar .p-8 { padding: 0.875rem !important; }
+            #cart-sidebar .text-3xl { font-size: 1.375rem !important; }
+            #cart-sidebar .text-4xl { font-size: 1.5rem !important; }
+            
+            #checkout-card { padding: 1.25rem !important; }
+            #checkout-card .text-4xl { font-size: 1.375rem !important; }
+            
+            footer .py-20 { padding-top: 1.25rem !important; padding-bottom: 1.25rem !important; }
+            footer .text-2xl { font-size: 1.125rem !important; }
+            
+            nav .h-16 { height: 2.25rem !important; }
+            nav .text-xs { font-size: 0.625rem !important; }
+            nav .px-6 { padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
+            nav .py-6 { padding-top: 0.375rem !important; padding-bottom: 0.375rem !important; }
+        }
+
+        /* NEW: Product Page & Checkout Styles */
+        .product-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .product-slide.active { opacity: 1; }
+        .slide-dot { width: 8px; height: 8px; border-radius: 9999px; background: rgba(255,255,255,0.6); transition: all 0.3s ease; cursor: pointer; }
+        .slide-dot.active { width: 24px; background: #EF4444; }
+        .checkout-input { width: 100%; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 700; color: #111827; transition: all 0.2s; outline: none; }
+        .checkout-input:focus { border-color: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
+        .checkout-label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #9CA3AF; margin-bottom: 0.5rem; }
+        .check-path { stroke-dasharray: 48; stroke-dashoffset: 48; animation: drawCheck 0.6s ease forwards 0.3s; }
+        @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+        .success-ring { animation: scaleIn 0.4s ease forwards; }
+        @keyframes scaleIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body class="antialiased font-sans selection:bg-brand-red selection:text-white">
+
+    <!-- NAVIGATION -->
+    <nav class="relative w-full z-50 px-6 py-6 flex justify-between items-center bg-transparent">
+        <a href="#" onclick="navigateToHome(); return false;" class="pointer-events-auto cursor-pointer block hover:opacity-80 transition-opacity duration-300 relative inline-block pr-6">
+            <img src="https://i.imgur.com/wliwntu.png" alt="ModMedicalis Logo" class="h-16 md:h-20 w-auto object-contain">
+            <span class="absolute top-0 right-0 font-sans font-bold text-sm md:text-base text-brand-slate leading-none">TM</span>
+        </a>
+
+        <div class="flex gap-3 md:gap-5 font-sans font-bold text-xs md:text-sm pointer-events-auto items-center">
+            <a href="#table-section" onclick="navigateToHome(); return true;" class="hover:text-brand-red transition-colors hidden lg:block text-brand-slate uppercase tracking-widest px-4 py-2">The Difference</a>
+            <a href="#shop-section" onclick="navigateToHome(); return true;" class="hover:text-brand-red transition-colors hidden lg:block text-brand-slate uppercase tracking-widest px-4 py-2">Shop Blocks</a>
+            
+            <!-- Search Icon -->
+            <button class="p-2 text-brand-slate hover:text-brand-red transition-colors" aria-label="Search">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </button>
+            <!-- Menu Icon -->
+            <button class="p-2 text-brand-slate hover:text-brand-red transition-colors" aria-label="Menu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            
+            <button onclick="toggleCart()" class="bg-brand-red text-white border-2 border-brand-red px-6 py-2.5 rounded-sm hover:bg-white hover:text-brand-red active:scale-95 transition-all duration-300 flex items-center gap-3 font-bold uppercase tracking-wider">
+                SHOP <span id="cart-badge" class="bg-white text-brand-red text-xs w-5 h-5 flex items-center justify-center rounded-sm font-bold">0</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ==================== HOME VIEW ==================== -->
+    <div id="home-view">
+        <!-- SECTION 1: HERO (Background Image) -->
+        <section class="relative w-full aspect-[19/6] bg-white overflow-hidden z-10">
+            <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                <img src="https://i.imgur.com/aphoRbQ.jpeg" alt="Header Background" class="w-full h-full object-cover object-[center_65%] opacity-100">
+            </div>
+            <div class="absolute inset-0 z-10 bg-black/20 pointer-events-none"></div>
+        </section>
+
+        <!-- SECTION 2: STRATEGY -->
+        <section class="bg-white text-brand-slate pt-12 pb-24 text-center relative z-20">
+            <div class="max-w-6xl mx-auto px-4">
+                <div class="inline-block bg-brand-red text-white font-display heading-style italic text-lg md:text-xl px-8 py-4 shadow-flat cursor-default mb-6">
+                    OUR QUEST FOR HIGH YIELD
+                </div>
+                <h2 class="font-display heading-style text-[4rem] md:text-[6.5rem] leading-[0.9] text-brand-red mb-12 tracking-wide">
+                    STRATEGY THAT GETS<br><span class="italic">RESULTS EVERY TIME</span>
+                </h2>
+                
+                <div class="relative w-full h-[300px] flex justify-center items-center my-12 group">
+                    <div class="absolute w-40 h-56 bg-white rounded-xl transform -rotate-6 translate-x-[-130px] border-2 border-brand-gray shadow-card flex items-center justify-center p-4 z-0">
+                        <svg viewBox="0 0 50 50" class="w-16 h-16"><rect x="10" y="10" width="30" height="30" fill="none" stroke="#EF4444" stroke-width="4"/></svg>
+                    </div>
+                    <div class="absolute w-48 h-64 bg-brand-red rounded-xl z-10 shadow-card flex flex-col justify-center items-center text-center p-4">
+                        <div class="font-display heading-style italic text-6xl text-white leading-none">100%</div>
+                        <div class="font-sans font-bold text-xs uppercase text-white mt-3 tracking-widest bg-black/20 px-4 py-2 rounded-sm">Visually Integrated</div>
+                    </div>
+                    <div class="absolute w-40 h-56 bg-brand-slate rounded-xl transform rotate-6 translate-x-[130px] shadow-card flex items-center justify-center p-4 z-0">
+                        <svg viewBox="0 0 50 50" class="w-16 h-16"><circle cx="25" cy="25" r="15" fill="none" stroke="#FFFFFF" stroke-width="4"/></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MARQUEE 1: FORWARD -->
+            <div class="overflow-hidden w-full py-8 mt-16 relative z-30 bg-brand-red marquee-container">
+                <div class="animate-marquee whitespace-nowrap flex items-center gap-16">
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/VBI80dg.png" alt="Pathology" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">PATHOLOGY</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/q4yeUKo.png" alt="Pharmacology" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">PHARMACOLOGY</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/fmpkEgU.png" alt="Community Medicine" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">COMMUNITY MEDICINE</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/d1gfm5u.png" alt="Behavioural Sciences" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">BEHAVIOURAL SCIENCES</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/9QomQTU.png" alt="Aging" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">AGING</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/KmNP1qF.png" alt="Surgery" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">SURGERY</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/WGXqKsC.png" alt="Medicine" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">MEDICINE</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/VBI80dg.png" alt="Pathology" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">PATHOLOGY</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/q4yeUKo.png" alt="Pharmacology" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">PHARMACOLOGY</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/fmpkEgU.png" alt="Community Medicine" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">COMMUNITY MEDICINE</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/d1gfm5u.png" alt="Behavioural Sciences" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">BEHAVIOURAL SCIENCES</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/9QomQTU.png" alt="Aging" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">AGING</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/KmNP1qF.png" alt="Surgery" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">SURGERY</span>
+                    </div>
+                    <div class="marquee-item flex items-center gap-4">
+                        <img src="https://i.imgur.com/WGXqKsC.png" alt="Medicine" class="h-16 md:h-20 w-auto object-contain">
+                        <span class="font-display heading-style text-2xl md:text-3xl text-white uppercase tracking-wide">MEDICINE</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MARQUEE 2: REVERSE -->
+            <div class="overflow-hidden w-full py-8 relative z-30 bg-white marquee-container">
+                <div class="animate-marquee-reverse whitespace-nowrap flex items-center gap-16">
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/qrR2kzE.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/z1j9Fvp.png" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/ESzIDST.png" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/IJDPmHy.png" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/ne1PwvW.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/LP9u13q.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/gCFui4D.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/bDvw8kl.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/dpq6R2n.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/q0veTv4.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/qrR2kzE.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/z1j9Fvp.png" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/ESzIDST.png" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/IJDPmHy.png" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/ne1PwvW.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/LP9u13q.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/gCFui4D.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/bDvw8kl.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/dpq6R2n.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                    <div class="marquee-item h-20 md:h-28 flex items-center"><img src="https://i.imgur.com/q0veTv4.jpeg" alt="College" class="h-full w-auto object-contain"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SHOP GRID SECTION -->
+        <section id="shop-section" class="bg-brand-red py-24 px-6 relative z-20">
+            <div class="max-w-[1200px] mx-auto w-full relative z-10">
+                <div class="flex gap-8 mb-12 justify-start overflow-x-auto pb-4">
+                    <button id="tab-ms1" onclick="filterShop('ms1')" class="font-display heading-style text-2xl md:text-3xl tracking-tight text-white transition-colors drop-shadow-sm uppercase">MS-1</button>
+                    <button id="tab-ms2" onclick="filterShop('ms2')" class="font-display heading-style text-2xl md:text-3xl tracking-tight text-white/60 transition-colors uppercase">MS-2</button>
+                </div>
+                <div id="shop-container" class="flex gap-8 overflow-x-auto pb-12 pt-4 snap-x snap-mandatory no-scrollbar w-full">
+                    <!-- Products will be injected here live from Firebase -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: SLIDER COMPARISON -->
+        <section class="bg-brand-light text-brand-slate py-32 px-6 relative z-20 overflow-hidden">
+            <div class="max-w-4xl mx-auto text-center mb-16 relative z-10">
+                <h2 class="font-display heading-style text-[4.5rem] md:text-[8rem] leading-[0.9] text-brand-slate uppercase">SWIPE TO SEE<br><span class="italic text-brand-red">THE DIFFERENCE</span></h2>
+            </div>
+            <div class="max-w-4xl mx-auto rounded-xl overflow-hidden shadow-card relative comparison-slider h-[800px] md:h-[85vh] border-4 border-white bg-white">
+                <img src="https://i.imgur.com/zFDh5b3.jpeg" alt="ModMedicalis Notes" class="absolute inset-0 w-full h-full object-cover z-0">
+                <div id="before-slide" class="absolute inset-0 z-10 overflow-hidden" style="width: 50%;">
+                    <img src="https://i.imgur.com/pNVLhkC.jpeg" alt="Traditional Book" class="absolute inset-0 w-full h-full object-cover left-0">
+                </div>
+                <input type="range" min="0" max="100" value="50" id="slider-handle" class="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30">
+                <div id="slider-bar" class="absolute top-0 bottom-0 w-0.5 bg-white pointer-events-none z-20 transition-all duration-75 shadow-[0_0_10px_rgba(0,0,0,0.3)]" style="left: 50%;">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-brand-red flex items-center justify-center text-white font-bold shadow-lg">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3"></path></svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: REVIEWS -->
+        <section class="bg-brand-red py-32 px-6 relative z-20">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="font-display heading-style text-[4rem] md:text-[6rem] leading-[0.9] text-white mb-4">STUDENT <span class="italic text-brand-slate">REVIEWS</span></h2>
+                    <p class="font-sans text-white/90 text-lg font-bold max-w-2xl mx-auto">Trusted by 500+ students across 15+ medical colleges</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-2xl p-8 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] hover:-translate-y-2 transition-all duration-300">
+                        <div class="flex items-center gap-1 mb-4">
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        </div>
+                        <p class="font-sans text-brand-slate text-sm font-medium leading-relaxed mb-6">"The visual mnemonics completely changed how I study. I went from failing pharmacology to topping my class. These blocks are pure gold!"</p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center">
+                                <span class="font-display heading-style italic text-xl text-brand-red">AK</span>
+                            </div>
+                            <div>
+                                <div class="font-sans font-bold text-brand-slate text-sm">Ayesha Khan</div>
+                                <div class="font-sans text-xs text-gray-500 font-bold uppercase">MS-2 • KEMU</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-8 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] hover:-translate-y-2 transition-all duration-300">
+                        <div class="flex items-center gap-1 mb-4">
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        </div>
+                        <p class="font-sans text-brand-slate text-sm font-medium leading-relaxed mb-6">"Finally a resource that understands UHS pattern. The integration of pathology with pharmacology saved me countless hours. Highly recommend!"</p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center">
+                                <span class="font-display heading-style italic text-xl text-brand-red">OA</span>
+                            </div>
+                            <div>
+                                <div class="font-sans font-bold text-brand-slate text-sm">Omer Ahmed</div>
+                                <div class="font-sans text-xs text-gray-500 font-bold uppercase">MS-1 • AIMC</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-8 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] hover:-translate-y-2 transition-all duration-300">
+                        <div class="flex items-center gap-1 mb-4">
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <svg class="w-5 h-5 text-brand-red" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        </div>
+                        <p class="font-sans text-brand-slate text-sm font-medium leading-relaxed mb-6">"The quality of illustrations is unmatched. I can recall mechanisms just by visualizing the diagrams. Best investment for my MBBS journey!"</p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center">
+                                <span class="font-display heading-style italic text-xl text-brand-red">FS</span>
+                            </div>
+                            <div>
+                                <div class="font-sans font-bold text-brand-slate text-sm">Fatima Siddiqui</div>
+                                <div class="font-sans text-xs text-gray-500 font-bold uppercase">MS-3 • SIMS</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-12">
+                    <a href="https://www.modmedicalis.online/reviews" target="_blank" class="inline-block bg-white text-brand-red border-2 border-white px-10 py-4 rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate hover:text-white hover:border-brand-slate active:scale-95 transition-all duration-300 shadow-lg">
+                        See All Reviews
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: VIDEO CAROUSEL -->
+        <section class="bg-white py-24 relative z-20 overflow-hidden">
+            <div id="mockup-carousel" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar items-center py-10 gap-6 w-full">
+                <div class="carousel-spacer flex-shrink-0"></div>
+
+                <div class="carousel-item snap-center flex-shrink-0 w-[300px] md:w-[500px] h-[520px] md:h-[780px] transition-all duration-500 ease-out transform scale-75 opacity-50 relative rounded-2xl overflow-hidden shadow-card border border-gray-100 bg-brand-slate group flex items-center justify-center cursor-pointer">
+                    <div class="video-poster absolute inset-0 z-10"></div>
+                    <video data-src="https://modmedicalis.online/24543d02ca2c44e7ae4ad038d12d1965.mp4" loop playsinline preload="none" muted class="absolute inset-0 w-full h-full object-cover z-10 opacity-0 transition-opacity duration-300"></video>
+                    <button class="mute-btn absolute top-4 right-4 z-30 bg-black/40 hover:bg-black/60 text-white p-2.5 rounded-full backdrop-blur-sm transition-all" onclick="toggleMute(this, event)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="carousel-item snap-center flex-shrink-0 w-[300px] md:w-[500px] h-[520px] md:h-[780px] transition-all duration-500 ease-out transform scale-75 opacity-50 relative rounded-2xl overflow-hidden shadow-card border border-gray-100 bg-brand-slate group flex items-center justify-center cursor-pointer">
+                    <div class="video-poster absolute inset-0 z-10"></div>
+                    <video data-src="https://modmedicalis.online/edaa1f6151a24630a1c6b63ebe7f59e9.mov" loop playsinline preload="none" muted class="absolute inset-0 w-full h-full object-cover z-10 opacity-0 transition-opacity duration-300"></video>
+                    <button class="mute-btn absolute top-4 right-4 z-30 bg-black/40 hover:bg-black/60 text-white p-2.5 rounded-full backdrop-blur-sm transition-all" onclick="toggleMute(this, event)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="carousel-item snap-center flex-shrink-0 w-[300px] md:w-[500px] h-[520px] md:h-[780px] transition-all duration-500 ease-out transform scale-75 opacity-50 relative rounded-2xl overflow-hidden shadow-card border border-gray-100 bg-brand-slate group flex items-center justify-center cursor-pointer">
+                    <div class="video-poster absolute inset-0 z-10"></div>
+                    <video data-src="https://modmedicalis.online/24543d02ca2c44e7ae4ad038d12d1965.mp4" loop playsinline preload="none" muted class="absolute inset-0 w-full h-full object-cover z-10 opacity-0 transition-opacity duration-300"></video>
+                    <button class="mute-btn absolute top-4 right-4 z-30 bg-black/40 hover:bg-black/60 text-white p-2.5 rounded-full backdrop-blur-sm transition-all" onclick="toggleMute(this, event)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="carousel-spacer flex-shrink-0"></div>
+            </div>
+            
+            <div class="text-center mt-6">
+                <p class="font-sans text-gray-400 font-bold uppercase tracking-wider text-xs flex justify-center items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="animate-pulse"><path d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    Swipe to explore
+                </p>
+            </div>
+        </section>
+
+        <!-- SECTION 3: COMPARISON TABLE -->
+        <section id="table-section" class="bg-brand-light text-brand-slate py-32 px-6 relative z-10">
+            <div class="max-w-[1200px] mx-auto grid lg:grid-cols-2 gap-20 items-center">
+                <div class="relative">
+                    <div class="font-display heading-style text-[4.5rem] md:text-[7rem] leading-[0.9] mb-8 text-brand-slate">
+                        MORE THAN ORDINARY.<br><span class="text-brand-red italic">SEE THE DIFFERENCE.</span>
+                    </div>
+                    <p class="font-sans text-lg font-bold text-gray-500 mb-12 max-w-md leading-relaxed">
+                        Stop jumping between 5 different books. See how our 5-in-1 mnemonic blocks compare.
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-8 md:p-12 shadow-card border border-gray-100">
+                    <table class="w-full text-left comp-table font-sans">
+                        <thead>
+                            <tr>
+                                <th class="w-1/2 text-xs text-gray-400 font-bold uppercase tracking-wider pb-6">Benefits</th>
+                                <th class="w-1/4 text-center pb-6">
+                                    <div class="inline-block font-sans text-sm font-bold text-brand-red uppercase bg-brand-light px-4 py-1.5 rounded-sm">MODMED</div>
+                                </th>
+                                <th class="w-1/4 text-center text-xs text-gray-400 font-bold uppercase tracking-wider pb-6">Others</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-sm font-extrabold text-brand-slate">Patho to Pharma Arrows</td>
+                                <td class="text-center"><div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-red text-white font-bold">✓</div></td>
+                                <td class="text-center text-gray-300 font-bold text-lg">✕</td>
+                            </tr>
+                            <tr>
+                                <td class="text-sm font-extrabold text-brand-slate">Integrated Behavioral Sciences</td>
+                                <td class="text-center"><div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-red text-white font-bold">✓</div></td>
+                                <td class="text-center text-gray-300 font-bold text-lg">✕</td>
+                            </tr>
+                            <tr>
+                                <td class="text-sm font-extrabold text-brand-slate">High-Yield Visual Mnemonics</td>
+                                <td class="text-center"><div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-red text-white font-bold">✓</div></td>
+                                <td class="text-center text-gray-300 font-bold text-lg">✕</td>
+                            </tr>
+                            <tr>
+                                <td class="text-sm font-extrabold text-brand-slate">Epidemiology & Aging Stats</td>
+                                <td class="text-center"><div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-red text-white font-bold">✓</div></td>
+                                <td class="text-center text-gray-300 font-bold text-lg">✕</td>
+                            </tr>
+                            <tr>
+                                <td class="text-sm font-extrabold text-brand-slate">Clear ROI for Exams</td>
+                                <td class="text-center"><div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-red text-white font-bold">✓</div></td>
+                                <td class="text-center text-gray-300 font-bold text-lg">✕</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: HIGHLIGHTED TEXT & STATS -->
+        <section class="bg-white py-32 px-6 relative overflow-hidden">
+            <div class="max-w-[1200px] mx-auto text-center relative z-10">
+                <h2 class="font-display heading-style text-[4rem] md:text-[6rem] leading-[0.9] text-brand-slate mx-auto max-w-5xl">
+                    MNEMONIC-LED <span class="highlight text-brand-slate italic">CREATIVE DIRECTION</span> TO MAKE SURE YOU <span class="highlight text-brand-slate">CRUSH YOUR EXAMS</span> AS WELL AS GROW YOUR CLINICAL KNOWLEDGE
+                </h2>
+            </div>
+
+            <div class="absolute top-20 left-10 w-52 bg-white rounded-xl shadow-card p-6 border border-gray-100 flex flex-col gap-4 animate-float z-0 hidden md:flex">
+                <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center text-brand-red">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="3" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                </div>
+                <div>
+                    <div class="font-sans text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Time Saved</div>
+                    <div class="font-display heading-style italic text-4xl text-brand-red">7.5X</div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-10 right-10 w-60 bg-white rounded-xl shadow-card p-6 border border-gray-100 flex flex-col gap-4 animate-float-delayed z-0 hidden md:flex">
+                <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center text-brand-red">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="3" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                </div>
+                <div>
+                    <div class="font-sans text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Subjects Merged</div>
+                    <div class="font-display heading-style italic text-5xl text-brand-red">5-IN-1</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STATS ANIMATION SECTION -->
+        <section id="stats-section" class="bg-brand-light py-32 px-6 relative z-20 overflow-hidden border-y border-brand-gray">
+            <div class="max-w-[1200px] mx-auto flex flex-col md:flex-row justify-center items-center gap-20 md:gap-40 text-center">
+                <div class="flex flex-col items-center">
+                    <div class="font-display heading-style italic text-[6rem] md:text-[9rem] leading-none text-brand-slate flex items-center">
+                        <span class="stat-number" data-target="500">0</span>+
+                    </div>
+                    <div class="font-sans font-bold text-xs md:text-sm text-white bg-brand-red px-6 py-2.5 rounded-sm uppercase tracking-widest mt-6 shadow-sm">
+                        Books Sold
+                    </div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="font-display heading-style italic text-[6rem] md:text-[9rem] leading-none text-brand-slate flex items-center">
+                        <span class="stat-number" data-target="15">0</span>+
+                    </div>
+                    <div class="font-sans font-bold text-xs md:text-sm text-white bg-brand-red px-6 py-2.5 rounded-sm uppercase tracking-widest mt-6 shadow-sm">
+                        Medical Colleges
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAMPUS AMBASSADORS SECTION -->
+        <section class="bg-white text-brand-slate py-32 px-6 relative z-20">
+            <div class="max-w-[1200px] mx-auto text-center">
+                <h2 class="font-display heading-style text-[4.5rem] md:text-[7rem] leading-[0.9] text-brand-slate mb-6">CAMPUS <span class="italic text-brand-red">AMBASSADORS</span></h2>
+                <p class="font-sans text-lg font-bold text-gray-500 mb-12 max-w-2xl mx-auto leading-relaxed">Representing ModMedicalis across UHS. Find an ambassador at your medical college to get exclusive insights and promo codes.</p>
+                <a href="https://www.modmedicalis.online/ambassadors" target="_blank" class="inline-block bg-brand-red text-white border-2 border-brand-red px-10 py-4 rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-white hover:text-brand-red active:scale-95 transition-all duration-300 shadow-sm">
+                    Our Campus Ambassadors
+                </a>
+            </div>
+        </section>
+
+        <!-- SECTION: MIND YOUR MINORS - CONVERGING SUBJECTS -->
+        <section class="bg-brand-light py-24 md:py-32 px-6 relative z-20 overflow-hidden" id="converge-section">
+            <div class="max-w-6xl mx-auto relative">
+                <div class="hidden md:block relative w-full aspect-square max-w-[800px] mx-auto">
+                    <div class="absolute inset-0 flex items-center justify-center z-30">
+                        <div class="bg-white/90 backdrop-blur-sm px-10 py-8 rounded-2xl shadow-xl border-2 border-brand-red/30 text-center">
+                            <div class="font-display heading-style text-5xl leading-none text-brand-red italic">MIND YOUR</div>
+                            <div class="font-display heading-style text-7xl leading-none text-brand-slate mt-2">MINORS</div>
+                            <div class="mt-5 font-sans font-bold text-xs text-gray-500 uppercase tracking-[0.2em]">ALL IN ONE BOOK</div>
+                        </div>
+                    </div>
+
+                    <div class="absolute inset-0 border border-brand-red/10 rounded-full animate-[spin_60s_linear_infinite]"></div>
+                    <div class="absolute inset-12 border border-dashed border-brand-red/20 rounded-full animate-[spin_40s_linear_infinite_reverse]"></div>
+
+                    <div class="subject-node absolute top-[15%] left-[50%] -translate-x-1/2">
+                        <div class="arrow-line absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-[180px] bg-gradient-to-b from-brand-red to-transparent origin-top"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">PHARMACOLOGY</span>
+                        </div>
+                    </div>
+
+                    <div class="subject-node absolute top-[35%] left-[10%]">
+                        <div class="arrow-line absolute top-1/2 left-full w-[160px] h-0.5 bg-gradient-to-r from-brand-red to-transparent origin-left"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">PATHOLOGY</span>
+                        </div>
+                    </div>
+
+                    <div class="subject-node absolute top-[35%] right-[10%]">
+                        <div class="arrow-line absolute top-1/2 right-full w-[160px] h-0.5 bg-gradient-to-l from-brand-red to-transparent origin-right"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform text-right">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">COMMUNITY MED</span>
+                        </div>
+                    </div>
+
+                    <div class="subject-node absolute top-[65%] left-[15%]">
+                        <div class="arrow-line absolute top-0 left-full w-[140px] h-0.5 bg-gradient-to-r from-brand-red to-transparent origin-left rotate-12"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">BEHAVIOURAL SCI</span>
+                        </div>
+                    </div>
+
+                    <div class="subject-node absolute top-[65%] right-[15%]">
+                        <div class="arrow-line absolute top-0 right-full w-[140px] h-0.5 bg-gradient-to-l from-brand-red to-transparent origin-right -rotate-12"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform text-right">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">AGING</span>
+                        </div>
+                    </div>
+
+                    <div class="subject-node absolute bottom-[15%] left-[25%]">
+                        <div class="arrow-line absolute bottom-full left-1/2 w-0.5 h-[120px] bg-gradient-to-t from-brand-red to-transparent origin-bottom"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">SURGERY</span>
+                        </div>
+                    </div>
+
+                    <div class="subject-node absolute bottom-[15%] right-[25%]">
+                        <div class="arrow-line absolute bottom-full right-1/2 w-0.5 h-[120px] bg-gradient-to-t from-brand-red to-transparent origin-bottom"></div>
+                        <div class="relative bg-white px-6 py-3 rounded-lg shadow-card border-2 border-brand-red hover:scale-105 transition-transform">
+                            <span class="font-display heading-style text-xl text-brand-slate uppercase">MEDICINE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md:hidden flex flex-col items-center gap-6 relative">
+                    <div class="bg-white/90 backdrop-blur-sm px-8 py-6 rounded-2xl shadow-xl border-2 border-brand-red/30 text-center z-20">
+                        <div class="font-display heading-style text-4xl leading-none text-brand-red italic">MIND YOUR</div>
+                        <div class="font-display heading-style text-6xl leading-none text-brand-slate mt-2">MINORS</div>
+                        <div class="mt-4 font-sans font-bold text-[10px] text-gray-500 uppercase tracking-[0.2em]">ALL IN ONE BOOK</div>
+                    </div>
+
+                    <div class="w-full max-w-md space-y-4 relative z-10">
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">PATHOLOGY</span>
+                        </div>
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">PHARMACOLOGY</span>
+                        </div>
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">COMMUNITY MEDICINE</span>
+                        </div>
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">BEHAVIOURAL SCIENCES</span>
+                        </div>
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">AGING</span>
+                        </div>
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">SURGERY</span>
+                        </div>
+                        <div class="subject-node flex items-center gap-4">
+                            <div class="w-12 h-0.5 bg-gradient-to-r from-transparent to-brand-red flex-shrink-0"></div>
+                            <span class="font-display heading-style text-lg text-brand-slate uppercase">MEDICINE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: TEAM SECTION -->
+        <section class="bg-brand-light text-brand-slate py-32 px-6 relative z-20">
+            <div class="max-w-[1200px] mx-auto">
+                <div class="text-center mb-24">
+                    <h2 class="font-display heading-style text-[4.5rem] md:text-[7rem] leading-none text-brand-slate mb-4">MEET THE <span class="italic text-brand-red">TEAM</span></h2>
+                    <p class="font-sans font-bold text-gray-500 uppercase tracking-widest text-sm md:text-base">Bridging medical accuracy with master class visuals</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    
+                    <div class="text-center border-2 border-brand-red rounded-3xl p-8 bg-white shadow-[0_10px_40px_-10px_rgba(239,68,68,0.15)] hover:-translate-y-2 transition-all duration-300 relative">
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-red text-white font-sans font-bold text-[9px] uppercase px-4 py-1 rounded-full tracking-widest">FOUNDER</div>
+                        <div class="w-36 h-36 rounded-full mx-auto mb-6 overflow-hidden border-4 border-brand-red/20 mt-4">
+                            <img src="https://i.imgur.com/N8sO5NG.jpeg" alt="Muhammad Hasnain" class="w-full h-full object-cover">
+                        </div>
+                        <h3 class="font-display heading-style text-lg text-brand-slate mb-1 uppercase tracking-wide">Muhammad Hasnain</h3>
+                        <p class="font-sans text-[10px] text-brand-red font-bold uppercase tracking-widest mb-1">MS-3 • AIMC</p>
+                        <p class="font-sans text-xs text-gray-600 font-medium leading-relaxed">Visionary behind ModMedicalis, integrating visual mnemonics with UHS curriculum.</p>
+                    </div>
+
+                    <div class="text-center border border-gray-100 rounded-3xl p-8 bg-white shadow-sm hover:shadow-card transition-shadow">
+                        <div class="w-32 h-32 rounded-full bg-brand-light mx-auto mb-6 flex items-center justify-center overflow-hidden border border-gray-100">
+                            <span class="font-display heading-style italic text-4xl text-brand-red">LC</span>
+                        </div>
+                        <h3 class="font-sans text-lg font-extrabold text-brand-slate mb-1">Dr. Lauren Chen</h3>
+                        <p class="font-sans text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">Clinical Director</p>
+                        <p class="font-sans text-xs text-gray-600 font-medium leading-relaxed">Oversees precise alignment with board exam structures and clinical guidelines.</p>
+                    </div>
+
+                    <div class="text-center border border-gray-100 rounded-3xl p-8 bg-white shadow-sm hover:shadow-card transition-shadow">
+                        <div class="w-32 h-32 rounded-full bg-brand-light mx-auto mb-6 flex items-center justify-center overflow-hidden border border-gray-100">
+                            <span class="font-display heading-style italic text-4xl text-brand-red">MK</span>
+                        </div>
+                        <h3 class="font-sans text-lg font-extrabold text-brand-slate mb-1">Milo Kovač</h3>
+                        <p class="font-sans text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">Lead Illustrator</p>
+                        <p class="font-sans text-xs text-gray-600 font-medium leading-relaxed">Drafts, keys, and refines the fanning mnemonics for ultimate spatial recall memory.</p>
+                    </div>
+
+                    <div class="text-center border border-gray-100 rounded-3xl p-8 bg-white shadow-sm hover:shadow-card transition-shadow">
+                        <div class="w-32 h-32 rounded-full bg-brand-light mx-auto mb-6 flex items-center justify-center overflow-hidden border border-gray-100">
+                            <span class="font-display heading-style italic text-4xl text-brand-red">AT</span>
+                        </div>
+                        <h3 class="font-sans text-lg font-extrabold text-brand-slate mb-1">Dr. Aaron Tuan</h3>
+                        <p class="font-sans text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">Pharma Lead</p>
+                        <p class="font-sans text-xs text-gray-600 font-medium leading-relaxed">Coordinates complex pathway linkage loops directly to receptor targets.</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- PROFESSIONAL FOOTER -->
+        <footer class="bg-white text-brand-slate py-20 px-6 border-t-[8px] border-brand-red">
+            <div class="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+                <div class="md:col-span-2">
+                    <div class="relative inline-block mb-6 bg-brand-light p-4 rounded-xl border border-gray-100">
+                        <img src="https://i.imgur.com/wliwntu.png" alt="ModMedicalis Logo" class="h-12 md:h-16 w-auto object-contain filter invert">
+                        <span class="absolute top-2 right-2 font-sans font-bold text-[10px] text-brand-slate">TM</span>
+                    </div>
+                    <p class="font-sans text-gray-500 text-sm leading-relaxed max-w-sm font-medium">
+                        ModMedicalis integrates pathology and pharmacology into hyper-visual mnemonic blocks to help modern medical students crush their exams and save time.
+                    </p>
+                </div>
+                
+                <div>
+                    <h4 class="font-display heading-style text-2xl mb-6 text-brand-slate">Shop</h4>
+                    <ul class="space-y-4 font-sans font-bold text-sm text-gray-500">
+                        <li><a href="#shop-section" onclick="navigateToHome()" class="hover:text-brand-red transition-colors">MS-1 Blocks</a></li>
+                        <li><a href="#shop-section" onclick="navigateToHome()" class="hover:text-brand-red transition-colors">MS-2 Blocks</a></li>
+                        <li><a href="#shop-section" onclick="navigateToHome()" class="hover:text-brand-red transition-colors">Full Bundle</a></li>
+                        <li><a href="#" class="hover:text-brand-red transition-colors">Track Order</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="font-display heading-style text-2xl mb-6 text-brand-slate">Support</h4>
+                    <ul class="space-y-4 font-sans font-bold text-sm text-gray-500">
+                        <li><a href="#" class="hover:text-brand-red transition-colors">FAQ</a></li>
+                        <li><a href="#" class="hover:text-brand-red transition-colors">Contact Us</a></li>
+                        <li><a href="#" class="hover:text-brand-red transition-colors">Terms of Service</a></li>
+                        <li><a href="#" class="hover:text-brand-red transition-colors">Privacy Policy</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="max-w-[1200px] mx-auto border-t border-brand-gray pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                <p class="font-sans font-bold text-gray-400 text-xs uppercase tracking-widest">© 2026 ModMedicalis. All rights reserved.</p>
+                <div class="flex gap-6 font-sans font-bold text-xs uppercase tracking-widest text-gray-500">
+                    <a href="#" class="hover:text-brand-red transition-colors">Instagram</a>
+                    <a href="#" class="hover:text-brand-red transition-colors">TikTok</a>
+                    <a href="#" class="hover:text-brand-red transition-colors">Twitter</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <!-- ==================== END HOME VIEW ==================== -->
+
+    <!-- ==================== PRODUCT DETAIL VIEW ==================== -->
+    <div id="product-view" class="hidden bg-white min-h-screen">
+        <div class="max-w-7xl mx-auto px-6 py-12">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-3 mb-8 text-sm font-sans font-bold uppercase tracking-widest text-gray-400">
+                <a href="#" onclick="navigateToHome(); return false;" class="hover:text-brand-red transition-colors">Home</a>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                <span id="product-breadcrumb" class="text-brand-slate">Block</span>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-12 mb-20 items-start">
+                <!-- Slideshow -->
+                <div class="relative rounded-2xl overflow-hidden bg-brand-light aspect-[4/5] border border-gray-100 shadow-card group">
+                    <div id="product-slides" class="relative w-full h-full">
+                        <!-- Injected dynamically -->
+                    </div>
+                    <button onclick="changeSlide(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-brand-red hover:text-white transition-all z-10 opacity-0 group-hover:opacity-100">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button onclick="changeSlide(1)" class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-brand-red hover:text-white transition-all z-10 opacity-0 group-hover:opacity-100">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                    <div id="slide-dots" class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- Product Info -->
+                <div class="flex flex-col justify-center product-info-content pt-4">
+                    <div id="product-coming-soon-badge" class="hidden self-start bg-brand-red text-white font-sans font-bold text-[10px] uppercase px-4 py-2 rounded-full tracking-widest mb-4">Coming Soon</div>
+                    <h1 id="product-detail-name" class="font-display heading-style text-4xl md:text-6xl text-brand-slate mb-4 leading-tight"></h1>
+                    <div class="flex items-center gap-4 mb-6">
+                        <span id="product-detail-price" class="font-sans font-bold text-3xl md:text-4xl text-brand-red"></span>
+                        <span id="product-detail-original" class="font-sans text-xl text-gray-400 line-through font-medium"></span>
+                    </div>
+                    <p id="product-detail-short" class="font-sans text-gray-600 font-medium leading-relaxed mb-8 text-lg"></p>
+
+                    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                        <button id="btn-product-order" onclick="orderNowCurrent()" class="flex-1 bg-brand-red text-white border-2 border-brand-red px-8 py-4 rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-white hover:text-brand-red active:scale-95 transition-all shadow-sm">
+                            Order Now
+                        </button>
+                        <button onclick="addCurrentProductToCart()" class="flex-1 bg-white text-brand-slate border-2 border-brand-slate px-8 py-4 rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate hover:text-white active:scale-95 transition-all">
+                            Add to Cart
+                        </button>
+                    </div>
+
+                    <button onclick="openPreview()" class="self-start flex items-center gap-3 text-brand-red font-sans font-bold text-sm uppercase tracking-widest hover:underline transition-all mb-8">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        Free Preview
+                    </button>
+
+                    <div class="border-t border-gray-100 pt-6 space-y-3">
+                        <div class="flex items-center gap-3 font-sans text-sm font-bold text-gray-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            UHS Pattern Aligned
+                        </div>
+                        <div class="flex items-center gap-3 font-sans text-sm font-bold text-gray-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            5-in-1 Integrated Subjects
+                        </div>
+                        <div class="flex items-center gap-3 font-sans text-sm font-bold text-gray-500">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            High-Yield Visual Mnemonics
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="max-w-3xl mx-auto text-center mb-24 product-desc-section">
+                <h2 class="font-display heading-style text-3xl md:text-5xl text-brand-slate mb-6">About This Block</h2>
+                <p id="product-detail-description" class="font-sans text-gray-600 font-medium leading-relaxed text-lg"></p>
+            </div>
+
+            <!-- Reviews -->
+            <div class="mb-24 product-reviews-section">
+                <h2 class="font-display heading-style text-3xl md:text-5xl text-brand-slate mb-12 text-center">Student Reviews</h2>
+                <div id="product-detail-reviews" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Injected dynamically -->
+                </div>
+            </div>
+
+            <!-- More Like This -->
+            <div id="more-like-section" class="mb-12 product-more-section">
+                <h2 class="font-display heading-style text-3xl md:text-5xl text-brand-slate mb-12 text-center">More Like This</h2>
+                <div id="more-like-grid" class="flex gap-8 overflow-x-auto pb-12 snap-x snap-mandatory no-scrollbar w-full">
+                    <!-- Injected dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ==================== END PRODUCT VIEW ==================== -->
+
+    <!-- ==================== CHECKOUT VIEW ==================== -->
+    <div id="checkout-view" class="hidden bg-brand-light min-h-screen">
+        <div class="max-w-3xl mx-auto px-6 py-12">
+            <button onclick="navigateToHome()" class="flex items-center gap-2 text-gray-500 hover:text-brand-red font-sans font-bold text-sm uppercase tracking-widest mb-8 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back to Shopping
+            </button>
+
+            <h1 class="font-display heading-style text-4xl md:text-6xl text-brand-slate mb-8">Checkout</h1>
+
+            <!-- Order Summary -->
+            <div class="bg-white rounded-2xl p-8 md:p-12 shadow-card border border-gray-100 mb-8">
+                <h2 class="font-display heading-style text-2xl text-brand-slate mb-6">Order Details</h2>
+                <div id="checkout-items" class="space-y-4 mb-6 border-b border-gray-100 pb-6">
+                    <!-- Items injected -->
+                </div>
+                <div class="space-y-3 font-sans font-medium text-sm">
+                    <div class="flex justify-between text-gray-500">
+                        <span>Subtotal</span>
+                        <span id="checkout-subtotal">Rs. 0</span>
+                    </div>
+                    <div class="flex justify-between text-gray-500">
+                        <span>Delivery Charges</span>
+                        <span id="checkout-delivery">Rs. 0</span>
+                    </div>
+                    <div id="checkout-discount-row" class="hidden flex justify-between text-brand-red">
+                        <span>Discount (Referral)</span>
+                        <span id="checkout-discount">- Rs. 0</span>
+                    </div>
+                    <div class="flex justify-between text-brand-slate font-bold text-lg pt-3 border-t border-gray-100">
+                        <span>Total</span>
+                        <span id="checkout-total">Rs. 0</span>
+                    </div>
+                </div>
+                <div class="mt-4 text-xs text-gray-400 font-medium">
+                    Order #: <span id="checkout-order-number" class="font-mono font-bold text-brand-slate"></span>
+                </div>
+                <p class="mt-2 text-xs text-gray-400 font-medium">Note: Delivery charges are not discounted by referral codes.</p>
+            </div>
+
+            <form id="checkout-form" onsubmit="processCheckout(event)" class="bg-white rounded-2xl p-8 md:p-12 shadow-card border border-gray-100 space-y-6 font-sans">
+                <h2 class="font-display heading-style text-2xl text-brand-slate mb-2">Shipping Information</h2>
+
+                <div>
+                    <label class="checkout-label">Full Name</label>
+                    <input type="text" required class="checkout-input" placeholder="Enter your full name">
+                </div>
+
+                <div>
+                    <label class="checkout-label">City (Punjab)</label>
+                    <select id="checkout-city" required onchange="updateDeliveryCharges()" class="checkout-input">
+                        <option value="">Select City</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="checkout-label">Shipping Address</label>
+                    <input type="text" required class="checkout-input" placeholder="House #, Street, Area">
+                </div>
+
+                <div>
+                    <label class="checkout-label">Alternate Address (Optional)</label>
+                    <input type="text" class="checkout-input" placeholder="Alternative address if any">
+                </div>
+
+                <div>
+                    <label class="checkout-label">Contact Number</label>
+                    <input type="tel" required class="checkout-input" placeholder="03XX-XXXXXXX">
+                </div>
+
+                <div>
+                    <label class="checkout-label">How did you come to know us?</label>
+                    <select required class="checkout-input">
+                        <option value="">Select an option</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="tiktok">TikTok</option>
+                        <option value="twitter">Twitter / X</option>
+                        <option value="facebook">Facebook</option>
+                        <option value="friend">Friend / Classmate</option>
+                        <option value="ambassador">Campus Ambassador</option>
+                        <option value="google">Google Search</option>
+                        <option value="youtube">YouTube</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="border-t border-gray-100 pt-6">
+                    <label class="checkout-label">Referral Code (Ambassador Code)</label>
+                    <div class="flex gap-3">
+                        <input type="text" id="referral-code" class="checkout-input uppercase flex-1" placeholder="Enter code e.g. HASNAIN10">
+                        <button type="button" onclick="applyReferralCode()" class="bg-brand-slate text-white px-6 py-3 rounded-md font-sans font-bold text-xs uppercase tracking-widest hover:bg-brand-red transition-colors whitespace-nowrap">Apply</button>
+                    </div>
+                    <p id="referral-message" class="text-xs font-bold mt-2 h-4"></p>
+                </div>
+
+                <div class="border-t border-gray-100 pt-6">
+                    <label class="checkout-label">Payment Method</label>
+                    <div class="bg-brand-light rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center border border-gray-200">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                            </div>
+                            <div>
+                                <div class="font-sans font-bold text-sm text-brand-slate">Muhammad Hasnain</div>
+                                <div class="font-sans text-xs text-gray-500 font-medium">Easypaisa / Jazzcash</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-200 mb-4">
+                            <span class="font-mono font-bold text-lg text-brand-slate tracking-wider">03096554421</span>
+                            <button type="button" onclick="copyPaymentNumber()" class="flex items-center gap-2 bg-brand-red text-white px-4 py-2 rounded-md font-sans font-bold text-xs uppercase tracking-widest hover:bg-brand-slate transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                <span id="copy-text">Copy</span>
+                            </button>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" onclick="openJazzCash()" class="flex-1 bg-brand-slate text-white py-3 rounded-md font-sans font-bold text-xs uppercase tracking-widest hover:bg-brand-red transition-colors">Open JazzCash</button>
+                            <button type="button" onclick="openEasyPaisa()" class="flex-1 bg-brand-slate text-white py-3 rounded-md font-sans font-bold text-xs uppercase tracking-widest hover:bg-brand-red transition-colors">Open Easypaisa</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="checkout-label">Transaction ID / Reference Number</label>
+                    <input type="text" id="transaction-code" required class="checkout-input uppercase" placeholder="Enter transaction code">
+                </div>
+
+                <div class="bg-brand-red/5 border border-brand-red/20 rounded-xl p-4">
+                    <p class="font-sans text-xs text-brand-red font-bold leading-relaxed">
+                        Note: You will shortly receive a confirmation email from us. Our orders are delivered by Zubair Book Depot so you will receive a message from their rider for your order delivery status.
+                    </p>
+                </div>
+
+                <button type="submit" id="confirm-order-btn" class="w-full py-4 bg-brand-red text-white rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate active:scale-95 transition-all shadow-sm">
+                    Confirm Order
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- ==================== END CHECKOUT VIEW ==================== -->
+
+    <!-- CART SIDEBAR -->
+    <div id="cart-overlay" onclick="toggleCart()" class="fixed inset-0 bg-brand-slate/40 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300"></div>
+    <div id="cart-sidebar" class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white z-[70] flex flex-col slide-panel shadow-2xl text-brand-slate border-l-4 border-brand-red">
+        <div class="px-8 py-6 border-b-2 border-brand-gray flex justify-between items-center bg-white">
+            <h2 class="font-display heading-style italic text-3xl text-brand-slate">CART</h2>
+            <button onclick="toggleCart()" class="w-10 h-10 rounded-sm bg-brand-light border border-gray-200 text-brand-slate flex items-center justify-center hover:bg-brand-red hover:text-white transition-all">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        
+        <div id="cart-items" class="flex-grow p-8 overflow-y-auto flex flex-col gap-4 font-sans bg-brand-light">
+            <div class="h-full flex flex-col items-center justify-center text-gray-400 font-bold uppercase tracking-widest text-center text-xs" id="empty-cart-msg">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mb-4"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                Your cart is empty.
+            </div>
+        </div>
+
+        <div class="p-8 border-t-2 border-brand-gray bg-white">
+            <div class="flex justify-between items-end mb-6">
+                <span class="font-sans font-bold text-xs text-gray-400 uppercase tracking-widest">Total</span>
+                <span id="cart-total" class="font-display heading-style text-4xl text-brand-red">Rs. 0</span>
+            </div>
+            <button onclick="goToCheckoutFromCart()" class="w-full py-4 bg-brand-red text-white rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate active:scale-95 transition-all shadow-sm">
+                Checkout Securely
+            </button>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div id="preview-modal" class="fixed inset-0 z-[90] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-brand-slate/80 backdrop-blur-sm" onclick="closePreview()"></div>
+        <div class="bg-white rounded-2xl w-full max-w-4xl relative z-10 p-4 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <button onclick="closePreview()" class="absolute top-4 right-4 w-10 h-10 bg-brand-light rounded-full flex items-center justify-center hover:bg-brand-red hover:text-white transition-all z-20">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <h2 class="font-display heading-style text-3xl text-brand-slate mb-6">Free Preview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <img src="https://i.imgur.com/zFDh5b3.jpeg" class="rounded-xl border border-gray-100 w-full object-cover">
+                <img src="https://i.imgur.com/pNVLhkC.jpeg" class="rounded-xl border border-gray-100 w-full object-cover">
+            </div>
+            <p class="font-sans text-gray-500 text-sm font-medium mt-6 text-center">Preview pages from the block. Actual product contains 300+ integrated pages with high-yield mnemonics.</p>
+        </div>
+    </div>
+
+    <!-- SUCCESS MODAL -->
+    <div id="success-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-brand-slate/60 backdrop-blur-sm"></div>
+        <div id="success-card" class="bg-white rounded-2xl w-full max-w-md relative z-10 p-8 md:p-12 text-center shadow-2xl border-4 border-brand-red transform scale-95 opacity-0 transition-all duration-300">
+            <div class="w-24 h-24 bg-brand-red/10 rounded-full flex items-center justify-center mx-auto mb-6 success-ring">
+                <svg class="w-12 h-12 text-brand-red" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                    <path class="check-path" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h2 class="font-display heading-style text-3xl text-brand-slate mb-2">Order Confirmed!</h2>
+            <p class="font-sans text-gray-500 text-sm font-medium mb-2">Your order number</p>
+            <p id="success-order-number" class="font-mono font-bold text-2xl text-brand-red mb-6"></p>
+            <p class="font-sans text-xs text-gray-400 font-bold uppercase tracking-widest mb-8">Please take a screenshot of this page</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="navigateToHome()" class="w-full py-4 bg-brand-red text-white rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate transition-all">Continue Shopping</button>
+                <button onclick="navigateToHome()" class="w-full py-4 bg-white text-brand-slate border-2 border-brand-slate rounded-sm font-sans font-bold text-sm uppercase tracking-widest hover:bg-brand-slate hover:text-white transition-all">Go Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GSAP & Interaction Logic -->
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        // ==================== FIREBASE DATA & LIVE SYNC ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
+            authDomain: "modmedicalis-f7ca2.firebaseapp.com",
+            projectId: "modmedicalis-f7ca2",
+            storageBucket: "modmedicalis-f7ca2.firebasestorage.app",
+            messagingSenderId: "786594019384",
+            appId: "1:786594019384:web:8807ca2f622e162badcecd"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let products = [];
+        let referralCodes = {};
+        let currentShopTab = 'ms1';
+        let currentProduct = null;
+        let currentSlideIdx = 0;
+        let appliedDiscount = 0;
+        let checkoutCartSnapshot = [];
+        let currentOrderNumber = '';
+
+        // 1. Live Sync Products
+        db.collection("products").onSnapshot((snapshot) => {
+            products = [];
+            snapshot.forEach((doc) => {
+                let data = doc.data();
+                // Provide fallbacks if missing from DB
+                data.images = data.images || ['https://i.imgur.com/zFDh5b3.jpeg', 'https://i.imgur.com/pNVLhkC.jpeg', 'https://i.imgur.com/aphoRbQ.jpeg'];
+                data.description = data.description || "Integrated block with high yield mnemonics.";
+                products.push(data);
+            });
+            
+            // Sort by ID so B1, B2, B3 are in order
+            products.sort((a, b) => a.id.localeCompare(b.id));
+            
+            renderShopCards();
+            
+            // If viewing a product page, update its live price/details
+            if (currentProduct && document.getElementById('product-view').classList.contains('hidden') === false) {
+                const updatedProduct = products.find(p => p.id === currentProduct.id);
+                if (updatedProduct) {
+                    currentProduct = updatedProduct;
+                    document.getElementById('product-detail-price').textContent = `Rs. ${currentProduct.price.toLocaleString()}`;
+                    const btn = document.getElementById('btn-product-order');
+                    if (currentProduct.comingSoon) {
+                        document.getElementById('product-coming-soon-badge').classList.remove('hidden');
+                        btn.textContent = 'Pre-Order Now';
+                    } else {
+                        document.getElementById('product-coming-soon-badge').classList.add('hidden');
+                        btn.textContent = 'Order Now';
+                    }
+                }
+            }
+        });
+
+        // 2. Live Sync Ambassadors
+        db.collection("ambassadors").onSnapshot((snapshot) => {
+            referralCodes = {};
+            snapshot.forEach((doc) => {
+                referralCodes[doc.id] = doc.data().discount;
+            });
+        });
+
+        // Generate Shop HTML from Firebase Data
+        function renderShopCards() {
+            const container = document.getElementById('shop-container');
+            container.innerHTML = '';
+            products.forEach(p => {
+                const cardHtml = `
+                    <div data-ms="${p.category}" class="flex-shrink-0 w-[280px] snap-start bg-white rounded-3xl overflow-hidden shadow-[0_20px_40px_-10px_rgba(0,0,0,0.2)] hover:-translate-y-2 transition-all duration-300 cursor-pointer" onclick="navigateToProduct('${p.id}')">
+                        <div class="h-[300px] bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-8 relative">
+                            ${p.comingSoon ? '<div class="absolute top-6 right-6 bg-brand-red text-white font-sans font-bold text-[10px] uppercase px-3 py-1.5 rounded-full z-10">COMING SOON</div>' : ''}
+                            <div class="w-[85%] h-[90%] ${p.color} ${p.borderColor || 'border-transparent'} border book-mockup relative flex flex-col items-center justify-center transform transition-transform duration-500 hover:scale-105 hover:rotate-1">
+                                <div class="absolute left-0 top-0 bottom-0 w-3 spiral-bind border-r border-black/10"></div>
+                                <div class="font-display heading-style italic text-6xl ${p.textColor} ml-2">${p.shortName}</div>
+                                <div class="absolute bottom-4 font-display heading-style text-xl ${p.textColor} ml-2 tracking-widest opacity-80">${p.subtitle}</div>
+                            </div>
+                        </div>
+                        <div class="p-6 pt-4 text-left">
+                            <h3 class="font-display font-bold text-2xl text-black leading-tight mb-3">${p.name}</h3>
+                            <div class="flex items-center gap-3">
+                                <span class="font-sans font-bold text-2xl text-brand-red">From Rs. ${p.price.toLocaleString()}</span>
+                                <span class="font-sans text-base text-gray-400 line-through font-medium">Rs. ${p.originalPrice.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+            // Reapply the currently selected tab
+            filterShop(currentShopTab);
+        }
+
+        // ==================== ROUTER ====================
+        window.addEventListener('hashchange', router);
+        window.addEventListener('load', router);
+
+        function router() {
+            const hash = window.location.hash;
+            if (hash.startsWith('#product=')) {
+                const id = hash.split('=')[1];
+                showProductPage(id);
+            } else if (hash === '#checkout') {
+                showCheckoutPage();
+            } else {
+                showHomePage();
+            }
+        }
+
+        function showHomePage() {
+            document.getElementById('home-view').classList.remove('hidden');
+            document.getElementById('product-view').classList.add('hidden');
+            document.getElementById('checkout-view').classList.add('hidden');
+            document.body.style.overflow = '';
+            setTimeout(() => ScrollTrigger.refresh(), 100);
+        }
+
+        function showProductPage(id) {
+            const product = products.find(p => p.id === id);
+            if (!product) return navigateToHome();
+            
+            currentProduct = product;
+            currentSlideIdx = 0;
+            
+            document.getElementById('home-view').classList.add('hidden');
+            document.getElementById('product-view').classList.remove('hidden');
+            document.getElementById('checkout-view').classList.add('hidden');
+            window.scrollTo(0, 0);
+            
+            renderProductPage(product);
+        }
+
+        function showCheckoutPage() {
+            document.getElementById('home-view').classList.add('hidden');
+            document.getElementById('product-view').classList.add('hidden');
+            document.getElementById('checkout-view').classList.remove('hidden');
+            window.scrollTo(0, 0);
+            initCheckout();
+        }
+
+        function navigateToHome() {
+            window.location.hash = '';
+        }
+
+        function navigateToProduct(id) {
+            window.location.hash = `#product=${id}`;
+        }
+
+        // ==================== PRODUCT PAGE ====================
+        function renderProductPage(product) {
+            document.getElementById('product-breadcrumb').textContent = product.name;
+            document.getElementById('product-detail-name').textContent = product.name;
+            document.getElementById('product-detail-price').textContent = `Rs. ${product.price.toLocaleString()}`;
+            document.getElementById('product-detail-original').textContent = `Rs. ${product.originalPrice.toLocaleString()}`;
+            document.getElementById('product-detail-short').textContent = product.description.substring(0, 140) + '...';
+            document.getElementById('product-detail-description').textContent = product.description;
+
+            const comingSoonBadge = document.getElementById('product-coming-soon-badge');
+            const orderBtn = document.getElementById('btn-product-order');
+            if (product.comingSoon) {
+                comingSoonBadge.classList.remove('hidden');
+                orderBtn.textContent = 'Pre-Order Now';
+            } else {
+                comingSoonBadge.classList.add('hidden');
+                orderBtn.textContent = 'Order Now';
+            }
+
+            // Slides
+            const slidesContainer = document.getElementById('product-slides');
+            const dotsContainer = document.getElementById('slide-dots');
+            slidesContainer.innerHTML = '';
+            dotsContainer.innerHTML = '';
+
+            product.images.forEach((img, idx) => {
+                const slide = document.createElement('img');
+                slide.src = img;
+                slide.className = `product-slide ${idx === 0 ? 'active' : ''}`;
+                slidesContainer.appendChild(slide);
+
+                const dot = document.createElement('button');
+                dot.className = `slide-dot ${idx === 0 ? 'active' : ''}`;
+                dot.onclick = () => goToSlide(idx);
+                dotsContainer.appendChild(dot);
+            });
+
+            // Reviews
+            const reviewsContainer = document.getElementById('product-detail-reviews');
+            reviewsContainer.innerHTML = '';
+            const reviews = product.reviews && product.reviews.length ? product.reviews : getGenericReviews();
+            reviews.forEach(review => {
+                reviewsContainer.innerHTML += createReviewCard(review);
+            });
+
+            // More Like This
+            const moreContainer = document.getElementById('more-like-grid');
+            moreContainer.innerHTML = '';
+            const related = products.filter(p => p.category === product.category && p.id !== product.id);
+            if (related.length === 0) {
+                document.getElementById('more-like-section').classList.add('hidden');
+            } else {
+                document.getElementById('more-like-section').classList.remove('hidden');
+                related.forEach(p => {
+                    moreContainer.innerHTML += createMiniProductCard(p);
+                });
+            }
+
+            // Scroll animations
+            gsap.fromTo('.product-info-content > *', 
+                { y: 30, opacity: 0 },
+                { y: 0, opacity: 1, stagger: 0.08, duration: 0.6, ease: 'power2.out' }
+            );
+            gsap.fromTo('.product-desc-section', 
+                { y: 40, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.8, ease: 'power2.out', scrollTrigger: { trigger: '.product-desc-section', start: 'top 85%' } }
+            );
+            gsap.fromTo('.product-reviews-section', 
+                { y: 40, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.8, ease: 'power2.out', scrollTrigger: { trigger: '.product-reviews-section', start: 'top 85%' } }
+            );
+            gsap.fromTo('.product-more-section', 
+                { y: 40, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.8, ease: 'power2.out', scrollTrigger: { trigger: '.product-more-section', start: 'top 85%' } }
+            );
+        }
+
+        function changeSlide(dir) {
+            if (!currentProduct) return;
+            const slides = document.querySelectorAll('#product-slides .product-slide');
+            const dots = document.querySelectorAll('#slide-dots .slide-dot');
+            if (!slides.length) return;
+
+            slides[currentSlideIdx].classList.remove('active');
+            dots[currentSlideIdx].classList.remove('active');
+
+            currentSlideIdx = (currentSlideIdx + dir + slides.length) % slides.length;
+
+            slides[currentSlideIdx].classList.add('active');
+            dots[currentSlideIdx].classList.add('active');
+        }
+
+        function goToSlide(idx) {
+            const dir = idx - currentSlideIdx;
+            changeSlide(dir);
+        }
+
+        function createReviewCard(r) {
+            let stars = '';
+            for (let i = 0; i < 5; i++) {
+                stars += `<svg class="w-5 h-5 ${i < r.rating ? 'text-brand-red' : 'text-gray-300'}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
+            }
+            return `
+                <div class="bg-white rounded-2xl p-8 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] hover:-translate-y-2 transition-all duration-300">
+                    <div class="flex items-center gap-1 mb-4">${stars}</div>
+                    <p class="font-sans text-brand-slate text-sm font-medium leading-relaxed mb-6">"${r.text}"</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-full bg-brand-light flex items-center justify-center">
+                            <span class="font-display heading-style italic text-xl text-brand-red">${r.initials}</span>
+                        </div>
+                        <div>
+                            <div class="font-sans font-bold text-brand-slate text-sm">${r.name}</div>
+                            <div class="font-sans text-xs text-gray-500 font-bold uppercase">${r.year} • ${r.college}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getGenericReviews() {
+            return [
+                { name: 'Ayesha Khan', initials: 'AK', year: 'MS-1', college: 'KEMU', text: 'The visual mnemonics completely changed how I study. These blocks are pure gold!', rating: 5 },
+                { name: 'Omer Ahmed', initials: 'OA', year: 'MS-1', college: 'AIMC', text: 'Finally a resource that understands UHS pattern. Highly recommend!', rating: 5 },
+                { name: 'Fatima Siddiqui', initials: 'FS', year: 'MS-3', college: 'SIMS', text: 'The quality of illustrations is unmatched. Best investment for my MBBS journey!', rating: 5 }
+            ];
+        }
+
+        function createMiniProductCard(p) {
+            return `
+                <div onclick="navigateToProduct('${p.id}')" class="flex-shrink-0 w-[280px] snap-start bg-white rounded-3xl overflow-hidden shadow-[0_20px_40px_-10px_rgba(0,0,0,0.2)] hover:-translate-y-2 transition-all duration-300 cursor-pointer">
+                    <div class="h-[300px] bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-8 relative">
+                        ${p.comingSoon ? '<div class="absolute top-6 right-6 bg-brand-red text-white font-sans font-bold text-[10px] uppercase px-3 py-1.5 rounded-full z-10">COMING SOON</div>' : ''}
+                        <div class="w-[85%] h-[90%] ${p.color} ${p.borderColor || 'border-transparent'} border book-mockup relative flex flex-col items-center justify-center transform transition-transform duration-500 hover:scale-105 hover:rotate-1">
+                            <div class="absolute left-0 top-0 bottom-0 w-3 spiral-bind border-r border-black/10"></div>
+                            <div class="font-display heading-style italic text-6xl ${p.textColor} ml-2">${p.shortName}</div>
+                            <div class="absolute bottom-4 font-display heading-style text-xl ${p.textColor} ml-2 tracking-widest opacity-80">${p.subtitle}</div>
+                        </div>
+                    </div>
+                    <div class="p-6 pt-4 text-left">
+                        <h3 class="font-display font-bold text-2xl text-black leading-tight mb-3">${p.name}</h3>
+                        <div class="flex items-center gap-3">
+                            <span class="font-sans font-bold text-2xl text-brand-red">From Rs. ${p.price.toLocaleString()}</span>
+                            <span class="font-sans text-base text-gray-400 line-through font-medium">Rs. ${p.originalPrice.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addCurrentProductToCart() {
+            if (!currentProduct) return;
+            addToCart(currentProduct.id, currentProduct.name, currentProduct.price);
+        }
+
+        function orderNowCurrent() {
+            if (!currentProduct) return;
+            checkoutCartSnapshot = [{ id: currentProduct.id, name: currentProduct.name, price: currentProduct.price, qty: 1 }];
+            window.location.hash = '#checkout';
+        }
+
+        function openPreview() {
+            document.getElementById('preview-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePreview() {
+            document.getElementById('preview-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // ==================== CHECKOUT ====================
+        function initCheckout() {
+            if (checkoutCartSnapshot.length === 0) {
+                checkoutCartSnapshot = [...cart];
+            }
+            if (checkoutCartSnapshot.length === 0) {
+                navigateToHome();
+                return;
+            }
+
+            appliedDiscount = 0;
+            document.getElementById('referral-code').value = '';
+            document.getElementById('referral-message').textContent = '';
+            document.getElementById('checkout-discount-row').classList.add('hidden');
+
+            currentOrderNumber = 'MM-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            document.getElementById('checkout-order-number').textContent = currentOrderNumber;
+
+            const citySelect = document.getElementById('checkout-city');
+            if (citySelect.options.length <= 1) {
+                const cities = ['Ahmedpur East', 'Arifwala', 'Attock', 'Bahawalnagar', 'Bahawalpur', 'Bhakkar', 'Burewala', 'Chakwal', 'Chiniot', 'Chishtian', 'Daska', 'Dera Ghazi Khan', 'Faisalabad', 'Ferozewala', 'Gojra', 'Gujranwala', 'Gujrat', 'Hafizabad', 'Hasilpur', 'Jaranwala', 'Jatoi', 'Jhang', 'Jhelum', 'Kamalia', 'Kamoke', 'Kasur', 'Khanewal', 'Khanpur', 'Khushab', 'Kot Addu', 'Kot Abdul Malik', 'Lahore', 'Layyah', 'Lodhran', 'Mandi Bahauddin', 'Mian Channu', 'Mianwali', 'Multan', 'Muridke', 'Muzaffargarh', 'Narowal', 'Okara', 'Pakpattan', 'Rahim Yar Khan', 'Rawalpindi', 'Sadiqabad', 'Sahiwal', 'Sargodha', 'Shakargarh', 'Sheikhupura', 'Sialkot', 'Taxila', 'Toba Tek Singh', 'Vehari', 'Wah Cantonment', 'Wazirabad'];
+                cities.forEach(city => {
+                    const opt = document.createElement('option');
+                    opt.value = city;
+                    opt.textContent = city;
+                    citySelect.appendChild(opt);
+                });
+            }
+
+            renderCheckoutItems();
+            updateDeliveryCharges();
+
+            gsap.fromTo('#checkout-view > div > *', 
+                { y: 20, opacity: 0 },
+                { y: 0, opacity: 1, stagger: 0.05, duration: 0.5, ease: 'power2.out' }
+            );
+        }
+
+        function renderCheckoutItems() {
+            const container = document.getElementById('checkout-items');
+            container.innerHTML = '';
+            let subtotal = 0;
+
+            checkoutCartSnapshot.forEach(item => {
+                subtotal += item.price * item.qty;
+                container.innerHTML += `
+                    <div class="flex justify-between items-center p-4 bg-brand-light rounded-xl">
+                        <div>
+                            <h4 class="font-sans font-extrabold text-sm text-brand-slate">${item.name}</h4>
+                            <p class="text-xs text-gray-500 font-bold">Qty: ${item.qty}</p>
+                        </div>
+                        <span class="font-sans font-bold text-brand-red">Rs. ${(item.price * item.qty).toLocaleString()}</span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('checkout-subtotal').textContent = `Rs. ${subtotal.toLocaleString()}`;
+            updateCheckoutTotal();
+        }
+
+        function updateDeliveryCharges() {
+            const city = document.getElementById('checkout-city').value;
+            const delivery = city === 'Lahore' ? 200 : (city ? 300 : 0);
+            document.getElementById('checkout-delivery').textContent = `Rs. ${delivery}`;
+            updateCheckoutTotal();
+        }
+
+        function applyReferralCode() {
+            const code = document.getElementById('referral-code').value.trim().toUpperCase();
+            const msg = document.getElementById('referral-message');
+
+            if (!code) {
+                msg.textContent = 'Please enter a code';
+                msg.className = 'text-xs font-bold mt-2 h-4 text-gray-400';
+                return;
+            }
+
+            if (referralCodes[code]) {
+                appliedDiscount = referralCodes[code];
+                msg.textContent = `${appliedDiscount}% discount applied!`;
+                msg.className = 'text-xs font-bold mt-2 h-4 text-green-600';
+                document.getElementById('checkout-discount-row').classList.remove('hidden');
+                updateCheckoutTotal();
+            } else {
+                appliedDiscount = 0;
+                msg.textContent = 'Invalid referral code';
+                msg.className = 'text-xs font-bold mt-2 h-4 text-brand-red';
+                document.getElementById('checkout-discount-row').classList.add('hidden');
+                updateCheckoutTotal();
+            }
+        }
+
+        function updateCheckoutTotal() {
+            const subtotal = checkoutCartSnapshot.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            const city = document.getElementById('checkout-city').value;
+            const delivery = city === 'Lahore' ? 200 : (city ? 300 : 0);
+            const discountAmount = Math.round(subtotal * (appliedDiscount / 100));
+            const total = subtotal - discountAmount + delivery;
+
+            document.getElementById('checkout-discount').textContent = `- Rs. ${discountAmount.toLocaleString()}`;
+            document.getElementById('checkout-total').textContent = `Rs. ${total.toLocaleString()}`;
+        }
+
+        function copyPaymentNumber() {
+            const number = '03096554421';
+            navigator.clipboard.writeText(number).then(() => {
+                const span = document.getElementById('copy-text');
+                span.textContent = 'Copied!';
+                setTimeout(() => span.textContent = 'Copy', 2000);
+            });
+        }
+
+        function openJazzCash() {
+            window.location.href = 'jazzcash://';
+            setTimeout(() => window.open('https://www.jazzcash.com.pk/', '_blank'), 600);
+        }
+
+        function openEasyPaisa() {
+            window.location.href = 'easypaisa://';
+            setTimeout(() => window.open('https://easypaisa.com.pk/', '_blank'), 600);
+        }
+
+        function processCheckout(e) {
+            e.preventDefault();
+            const btn = document.getElementById('confirm-order-btn');
+            btn.innerHTML = 'Processing...';
+            btn.disabled = true;
+
+            const inputs = document.querySelectorAll('#checkout-form .checkout-input');
+            const fullName = inputs[0].value;
+            const city = inputs[1].value;
+            const address = inputs[2].value;
+            const altAddress = inputs[3].value;
+            const phone = inputs[4].value;
+            const source = inputs[5].value;
+            const refCode = document.getElementById('referral-code').value.toUpperCase();
+            const transactionId = document.getElementById('transaction-code').value;
+            
+            const itemsString = checkoutCartSnapshot.map(item => `${item.qty}x ${item.name}`).join('\n');
+            const subtotalClean = parseInt(document.getElementById('checkout-subtotal').textContent.replace(/\D/g, ''));
+            const totalClean = parseInt(document.getElementById('checkout-total').textContent.replace(/\D/g, ''));
+
+            const orderData = {
+                orderId: currentOrderNumber,
+                name: fullName,
+                phone: phone,
+                city: city,
+                address: address,
+                altAddress: altAddress || "None",
+                transactionId: transactionId,
+                referralCode: refCode || "None",
+                source: source,
+                itemsString: itemsString,
+                subtotal: subtotalClean,
+                total: totalClean,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            // 1. Save order to Firebase Database
+            db.collection("orders").add(orderData).then(() => {
+                
+                // If a referral code was used, increment "uses" counter in dashboard
+                if (refCode && referralCodes[refCode]) {
+                    db.collection("ambassadors").doc(refCode).update({
+                        uses: firebase.firestore.FieldValue.increment(1)
+                    });
+                }
+
+                // 2. Send Email Backup via FormSubmit
+                fetch("https://formsubmit.co/ajax/modmedicalis@GMAIL.COM", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        _subject: `New Order: ${currentOrderNumber} from ${fullName}`,
+                        ...orderData
+                    })
+                }).finally(() => {
+                    
+                    // 3. Clear Cart & Show Success UI
+                    if (cart.length > 0 && checkoutCartSnapshot === cart) {
+                        cart = [];
+                        updateCartUI();
+                    }
+                    checkoutCartSnapshot = [];
+
+                    btn.innerHTML = 'Confirm Order';
+                    btn.disabled = false;
+
+                    document.getElementById('success-order-number').textContent = currentOrderNumber;
+                    const modal = document.getElementById('success-modal');
+                    const card = document.getElementById('success-card');
+                    modal.classList.remove('hidden');
+                    setTimeout(() => card.classList.remove('scale-95', 'opacity-0'), 10);
+                    gsap.from('#success-card .check-path', { strokeDashoffset: 48, duration: 0.6, ease: 'power2.out', delay: 0.2 });
+                });
+
+            }).catch((err) => {
+                console.error("Order failed:", err);
+                alert("Something went wrong. Please check your internet or try again.");
+                btn.innerHTML = 'Confirm Order';
+                btn.disabled = false;
+            });
+        }
+
+        function goToCheckoutFromCart() {
+            if (cart.length === 0) return;
+            checkoutCartSnapshot = [...cart];
+            window.location.hash = '#checkout';
+            toggleCart();
+        }
+
+        // ==================== EXISTING CART LOGIC (PRESERVED) ====================
+        let cart = [];
+        let isCartOpen = false;
+
+        const cartSidebar = document.getElementById('cart-sidebar');
+        const cartOverlay = document.getElementById('cart-overlay');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const emptyMsg = document.getElementById('empty-cart-msg');
+        const cartBadge = document.getElementById('cart-badge');
+        const cartTotal = document.getElementById('cart-total');
+
+        function toggleCart() {
+            isCartOpen = !isCartOpen;
+            if (isCartOpen) {
+                cartSidebar.classList.add('open');
+                cartOverlay.classList.remove('hidden');
+                setTimeout(() => cartOverlay.classList.add('opacity-100'), 10);
+                document.body.style.overflow = 'hidden';
+            } else {
+                cartSidebar.classList.remove('open');
+                cartOverlay.classList.remove('opacity-100');
+                setTimeout(() => cartOverlay.classList.add('hidden'), 300);
+                document.body.style.overflow = '';
+            }
+        }
+
+        function addToCart(id, name, price) {
+            const existing = cart.find(item => item.id === id);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ id, name, price, qty: 1 });
+            }
+            updateCartUI();
+            
+            gsap.fromTo("#cart-badge", {scale: 1.5, backgroundColor: '#111827', color: '#fff'}, {scale: 1, backgroundColor: '#ffffff', color: '#EF4444', duration: 0.3, ease: "back.out(1.7)"});
+            
+            if(!isCartOpen) toggleCart();
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
+            cartBadge.innerText = totalQty;
+
+            const totalValue = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            cartTotal.innerText = `Rs. ${totalValue.toLocaleString()}`;
+
+            cartItemsContainer.innerHTML = '';
+            
+            if (cart.length === 0) {
+                cartItemsContainer.appendChild(emptyMsg);
+                emptyMsg.style.display = 'flex';
+            } else {
+                emptyMsg.style.display = 'none';
+                cart.forEach((item) => {
+                    const el = document.createElement('div');
+                    el.className = 'flex justify-between items-center p-4 bg-white border border-gray-100 rounded-xl mb-3 shadow-sm';
+                    el.innerHTML = `
+                        <div>
+                            <h4 class="font-sans font-extrabold text-sm text-brand-slate">${item.name}</h4>
+                            <p class="text-xs text-gray-500 font-bold mt-1">Qty: ${item.qty} | Rs. ${item.price.toLocaleString()}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="font-sans font-bold text-lg text-brand-red">Rs. ${(item.price * item.qty).toLocaleString()}</span>
+                            <button onclick="removeFromCart('${item.id}')" class="text-gray-300 hover:text-brand-red transition-all">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                    `;
+                    cartItemsContainer.appendChild(el);
+                });
+            }
+        }
+
+        // ==================== EXISTING ANIMATIONS (PRESERVED) ====================
+        const numbers = document.querySelectorAll('.stat-number');
+        ScrollTrigger.create({
+            trigger: "#stats-section",
+            start: "top 80%",
+            onEnter: () => {
+                numbers.forEach(num => {
+                    const target = parseInt(num.getAttribute('data-target'));
+                    gsap.to(num, {
+                        innerHTML: target,
+                        duration: 2.5,
+                        snap: { innerHTML: 1 },
+                        ease: "power3.out"
+                    });
+                });
+            },
+            once: true
+        });
+
+        const sliderHandle = document.getElementById('slider-handle');
+        const beforeSlide = document.getElementById('before-slide');
+        const sliderBar = document.getElementById('slider-bar');
+
+        function updateSlider(value) {
+            beforeSlide.style.width = `${value}%`;
+            sliderBar.style.left = `${value}%`;
+        }
+
+        if (sliderHandle) {
+            sliderHandle.addEventListener('input', (e) => {
+                updateSlider(e.target.value);
+            });
+            
+            sliderHandle.addEventListener('touchmove', (e) => {
+                const rect = sliderHandle.getBoundingClientRect();
+                const x = e.touches[0].clientX - rect.left;
+                const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                updateSlider(percent);
+                e.target.value = percent;
+            }, { passive: true });
+        }
+
+        function filterShop(category) {
+            currentShopTab = category;
+            const tabMs1 = document.getElementById('tab-ms1');
+            const tabMs2 = document.getElementById('tab-ms2');
+            const allCards = document.querySelectorAll('[data-ms]');
+            const container = document.getElementById('shop-container');
+
+            if (category === 'ms1') {
+                tabMs1.className = "font-display heading-style text-2xl md:text-3xl tracking-tight text-white transition-colors drop-shadow-sm uppercase";
+                tabMs2.className = "font-display heading-style text-2xl md:text-3xl tracking-tight text-white/60 transition-colors uppercase";
+            } else {
+                tabMs2.className = "font-display heading-style text-2xl md:text-3xl tracking-tight text-white transition-colors drop-shadow-sm uppercase";
+                tabMs1.className = "font-display heading-style text-2xl md:text-3xl tracking-tight text-white/60 transition-colors uppercase";
+            }
+
+            allCards.forEach(card => {
+                if (card.getAttribute('data-ms') === category) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            container.scrollLeft = 0;
+        }
+
+        function updateMuteIcon(btn, isMuted) {
+            if (!btn) return;
+            if (isMuted) {
+                btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`;
+            } else {
+                btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
+            }
+        }
+
+        function toggleMute(btn, event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const video = btn.closest('.carousel-item').querySelector('video');
+            if (video) {
+                video.muted = !video.muted;
+                updateMuteIcon(btn, video.muted);
+            }
+        }
+
+        const carouselItemsDOM = document.querySelectorAll('.carousel-item');
+        const observerOptions = {
+            root: document.getElementById('mockup-carousel'),
+            threshold: 0.6
+        };
+
+        const carouselObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const video = entry.target.querySelector('video');
+                const poster = entry.target.querySelector('.video-poster');
+                const muteBtn = entry.target.querySelector('.mute-btn');
+
+                if (entry.isIntersecting) {
+                    entry.target.classList.remove('scale-75', 'opacity-50');
+                    entry.target.classList.add('scale-100', 'opacity-100', 'z-20');
+                    
+                    if (video && !video.src && video.dataset.src) {
+                        video.src = video.dataset.src;
+                        video.load();
+                        video.play().then(() => {
+                            if (poster) {
+                                poster.style.opacity = '0';
+                                setTimeout(() => poster.style.display = 'none', 300);
+                                video.classList.remove('opacity-0');
+                            }
+                        }).catch(e => {
+                            if (poster) poster.style.display = 'flex';
+                        });
+                        if (muteBtn && video.muted) updateMuteIcon(muteBtn, true);
+                    } else if (video) {
+                        video.play().catch(e => console.log('Autoplay prevented:', e));
+                        if (poster) {
+                            poster.style.opacity = '0';
+                            setTimeout(() => poster.style.display = 'none', 300);
+                            video.classList.remove('opacity-0');
+                        }
+                        if (muteBtn && video.muted) updateMuteIcon(muteBtn, true);
+                    }
+                } else {
+                    entry.target.classList.add('scale-75', 'opacity-50');
+                    entry.target.classList.remove('scale-100', 'opacity-100', 'z-20');
+                    if (video) {
+                        video.pause();
+                        if (poster) {
+                            poster.style.display = 'flex';
+                            poster.style.opacity = '1';
+                        }
+                        video.classList.add('opacity-0');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        carouselItemsDOM.forEach(item => carouselObserver.observe(item));
+
+        gsap.from(".subject-node", {
+            scrollTrigger: {
+                trigger: "#converge-section",
+                start: "top 70%",
+                toggleActions: "play none none reverse"
+            },
+            y: 40,
+            opacity: 0,
+            duration: 0.8,
+            stagger: 0.1,
+            ease: "power2.out"
+        });
+
+        gsap.from(".arrow-line", {
+            scrollTrigger: {
+                trigger: "#converge-section",
+                start: "top 70%",
+                toggleActions: "play none none reverse"
+            },
+            scaleX: 0,
+            opacity: 0,
+            duration: 1,
+            stagger: 0.12,
+            ease: "power3.inOut",
+            transformOrigin: "center"
+        });
+
+        updateCartUI();
+        
+        window.addEventListener('resize', () => {
+            ScrollTrigger.refresh();
+        });
+    </script>
+</body>
+</html>
+```
