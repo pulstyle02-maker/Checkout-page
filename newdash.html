@@ -211,15 +211,19 @@
 
         <!-- AMBASSADORS TAB -->
         <div id="tab-ambassadors" class="tab-content space-y-6">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 class="font-display text-3xl md:text-4xl uppercase text-brand-slate">Ambassadors</h2>
-                <button onclick="addAmbassador()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Code</button>
+                <div class="flex gap-2">
+                    <a href="https://www.modmedicalis.online/ambassadors" target="_blank" class="bg-gray-200 text-brand-slate px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-gray-300 transition shadow">Open Portal Link</a>
+                    <button onclick="addAmbassador()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Code</button>
+                </div>
             </div>
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full table-wrapper">
-                <table class="w-full text-left font-sans min-w-[900px]">
+                <table class="w-full text-left font-sans min-w-[1000px]">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">ID / Code</th>
+                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Portal Password</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Discount %</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Amb. Comm (Rs)</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">Limit & Uses</th>
@@ -271,7 +275,8 @@
                     <div><label class="label-sm">Production Cost (Physical)</label><input type="number" id="pm-cost" class="input-field"></div>
                     <div><label class="label-sm">Status</label><select id="pm-soon" class="input-field"><option value="false">Active</option><option value="true">Coming Soon</option></select></div>
                     <div class="md:col-span-2"><label class="label-sm">Images (Comma separated URLs. First is Cover)</label><textarea id="pm-images" class="input-field" rows="3"></textarea></div>
-                    <div class="md:col-span-2"><label class="label-sm">Description</label><textarea id="pm-desc" class="input-field" rows="3"></textarea></div>
+<div class="md:col-span-2"><label class="label-sm">Free Preview Images (Comma separated URLs)</label><textarea id="pm-preview" class="input-field" rows="2"></textarea></div>
+<div class="md:col-span-2"><label class="label-sm">Description</label><textarea id="pm-desc" class="input-field" rows="3"></textarea></div>
                 </div>
                 <div class="flex justify-end gap-3 mt-6">
                     <button onclick="document.getElementById('product-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
@@ -352,7 +357,7 @@
         window.onload = () => {
             db.collection("products").onSnapshot(snap => { state.products = {}; snap.forEach(doc => state.products[doc.id] = {id: doc.id, ...doc.data()}); renderProducts(); renderInventory(); calculateDerivedState(); });
             db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => { state.orders = []; snap.forEach(doc => state.orders.push({ docId: doc.id, ...doc.data() })); renderOrders(); calculateDerivedState(); });
-            db.collection("users").orderBy("createdAt", "desc").onSnapshot(snap => { state.users = []; snap.forEach(doc => state.users.push({ id: doc.id, ...doc.data() })); renderUsers(); });
+            db.collection("mod_users").orderBy("createdAt", "desc").onSnapshot(snap => { state.users = []; snap.forEach(doc => state.users.push({ id: doc.id, ...doc.data() })); renderUsers(); });
             db.collection("team").onSnapshot(snap => { state.team = []; snap.forEach(doc => state.team.push({id: doc.id, ...doc.data()})); renderTeam(); });
             db.collection("ambassadors").onSnapshot(snap => { state.ambassadors = {}; snap.forEach(doc => state.ambassadors[doc.id] = doc.data()); renderAmbassadors(); calculateDerivedState(); });
             db.collection("config").doc("treasury").onSnapshot(doc => { if(doc.exists) { state.treasury = doc.data(); document.getElementById('bank-jazz').value = state.treasury.jazzcash||0; document.getElementById('bank-easy').value = state.treasury.easypaisa||0; document.getElementById('bank-cash').value = state.treasury.cash||0; }});
@@ -440,6 +445,7 @@
             document.getElementById('pm-eprice').value = 550;
             document.getElementById('pm-cost').value = 0;
             document.getElementById('pm-images').value = '';
+            document.getElementById('pm-preview').value = '';
             document.getElementById('pm-desc').value = '';
             document.getElementById('product-modal').classList.remove('hidden');
         }
@@ -456,6 +462,7 @@
             document.getElementById('pm-eprice').value = p.eBookPrice || 550;
             document.getElementById('pm-cost').value = p.productionCost || 0;
             document.getElementById('pm-images').value = p.images ? p.images.join(',\n') : (p.image || '');
+            document.getElementById('pm-preview').value = p.previewImages ? p.previewImages.join(',\n') : '';
             document.getElementById('pm-desc').value = p.description || '';
             document.getElementById('pm-soon').value = p.comingSoon ? "true" : "false";
             document.getElementById('product-modal').classList.remove('hidden');
@@ -465,6 +472,9 @@
             const id = document.getElementById('pm-id').value.trim();
             const imagesRaw = document.getElementById('pm-images').value;
             const imagesArr = imagesRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            
+            const previewRaw = document.getElementById('pm-preview').value;
+            const previewArr = previewRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
             
             const data = {
                 name: document.getElementById('pm-name').value,
@@ -476,7 +486,8 @@
                 description: document.getElementById('pm-desc').value,
                 comingSoon: document.getElementById('pm-soon').value === 'true',
                 images: imagesArr,
-                image: imagesArr.length > 0 ? imagesArr[0] : '' // fallback for legacy
+                previewImages: previewArr,
+                image: imagesArr.length > 0 ? imagesArr[0] : '' // fallback
             };
 
             db.collection('products').doc(id).set(data, {merge: true}).then(() => {
@@ -592,11 +603,18 @@
         function deleteOrder(id) { if(confirm("Delete?")) db.collection('orders').doc(id).delete(); }
 
         function renderReviews() {
-            const rCont = document.getElementById('reviews-container'); rCont.innerHTML = '';
-            state.reviews.forEach(r => {
-                rCont.innerHTML += `<div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative"><button onclick="deleteReview('${r.id}')" class="absolute top-2 right-2 text-red-400 hover:text-red-600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg></button><div class="flex items-center gap-2 mb-2"><div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-[10px] font-display italic text-brand-red">${r.initials}</div><div><p class="text-xs font-bold">${r.name}</p><p class="text-[9px] text-gray-400">${r.year} • ${r.college}</p></div></div><p class="text-[10px] text-gray-600 italic">"${r.text}"</p><p class="text-[8px] font-bold text-gray-400 mt-2 uppercase">Link: ${r.productId}</p></div>`;
-            });
-        }
+    const rCont = document.getElementById('reviews-container'); rCont.innerHTML = '';
+    state.reviews.forEach(r => {
+        const prodName = r.productId === 'general' ? 'General Website' : (state.products[r.productId]?.name || 'Unknown Product');
+        rCont.innerHTML += `
+        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
+            <button onclick="deleteReview('${r.id}')" class="absolute top-2 right-2 text-red-400 hover:text-red-600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+            <div class="flex items-center gap-2 mb-2"><div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-[10px] font-display italic text-brand-red">${r.initials}</div><div><p class="text-xs font-bold">${r.name}</p><p class="text-[9px] text-gray-400">${r.year} • ${r.college}</p></div></div>
+            <p class="text-[10px] text-gray-600 italic mb-2">"${r.text}"</p>
+            <div class="inline-block bg-brand-red/10 text-brand-red px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest">${prodName}</div>
+        </div>`;
+    });
+}
         function submitReview() { db.collection('reviews').add({ name: document.getElementById('rev-name').value, initials: document.getElementById('rev-init').value, year: document.getElementById('rev-year').value, college: document.getElementById('rev-coll').value, text: document.getElementById('rev-text').value, productId: document.getElementById('rev-prod').value, rating: 5, timestamp: firebase.firestore.FieldValue.serverTimestamp()}).then(()=>{ showToast("Saved"); document.getElementById('review-modal').classList.add('hidden');});}
         function deleteReview(id) { if(confirm("Delete review?")) db.collection('reviews').doc(id).delete(); }
 
@@ -620,16 +638,40 @@
         }
 
         function renderAmbassadors() {
+            if (document.activeElement.tagName === 'INPUT') return;
             const aTbody = document.getElementById('ambassadors-table-body'); aTbody.innerHTML = '';
             Object.values(state.ambassadors).forEach(a => {
                 let actualUses = 0; state.orders.forEach(o => { if (o.status !== 'disputed' && o.referralCode === a.code) actualUses++; });
                 const earnings = actualUses * (a.commissionRate || 0);
-                aTbody.innerHTML += `<tr><td class="p-3 font-bold text-brand-slate text-xs">${a.code}</td><td class="p-3"><input type="number" id="a-disc-${a.code}" value="${a.discount}" class="w-16 input-field py-1 text-xs"> %</td><td class="p-3"><input type="number" id="a-comm-${a.code}" value="${a.commissionRate}" class="w-16 input-field py-1 text-xs"></td><td class="p-3"><input type="number" id="a-limit-${a.code}" value="${a.salesLimit}" class="w-16 input-field py-1 text-xs"><br><span class="text-[9px] text-gray-400">(${actualUses} used)</span></td><td class="p-3 font-bold text-green-600 text-xs">Rs. ${earnings}</td><td class="p-3 text-right"><button onclick="updateAmbassador('${a.code}')" class="bg-brand-slate text-white px-2 py-1 rounded text-[9px] font-bold uppercase hover:bg-brand-red">Save</button><button onclick="deleteAmbassador('${a.code}')" class="text-red-500 font-bold text-[9px] uppercase hover:underline ml-2">Del</button></td></tr>`;
+                const isCapped = a.salesLimit > 0 && actualUses >= a.salesLimit;
+
+                aTbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 font-bold text-brand-slate text-xs">${a.code} ${isCapped ? '<span class="text-[8px] bg-red-100 text-red-600 px-1 py-0.5 rounded-full block mt-1 w-max">CAPPED</span>' : ''}</td>
+                        <td class="p-3"><input type="text" id="a-pass-${a.code}" value="${a.password || ''}" class="w-24 input-field py-1 px-1 text-center text-xs inline font-mono border-dashed"></td>
+                        <td class="p-3"><input type="number" id="a-disc-${a.code}" value="${a.discount}" class="w-16 input-field py-1 px-1 text-center text-xs inline"> %</td>
+                        <td class="p-3"><input type="number" id="a-comm-${a.code}" value="${a.commissionRate}" class="w-16 input-field py-1 px-1 text-center text-xs inline"></td>
+                        <td class="p-3"><input type="number" id="a-limit-${a.code}" value="${a.salesLimit}" class="w-16 input-field py-1 px-1 text-center text-xs inline"> <br><span class="text-[9px] text-gray-400">(${actualUses} used)</span></td>
+                        <td class="p-3 font-bold text-green-600 text-xs">Rs. ${earnings.toLocaleString()}</td>
+                        <td class="p-3 text-right"><button onclick="updateAmbassador('${a.code}')" class="bg-brand-slate text-white px-2 py-1 rounded text-[9px] font-bold uppercase hover:bg-brand-red mr-1 transition shadow-sm">Save</button><button onclick="deleteAmbassador('${a.code}')" class="text-red-500 font-bold text-[9px] uppercase hover:underline">Del</button></td>
+                    </tr>`;
             });
         }
-        function addAmbassador() { const c = prompt("Code:")?.trim().toUpperCase(); if(c) db.collection('ambassadors').doc(c).set({ code: c, discount: 10, commissionRate: 500, salesLimit: 0, password: 'PASS' }); }
-        function updateAmbassador(c) { db.collection('ambassadors').doc(c).update({ discount: Number(document.getElementById(`a-disc-${c}`).value), commissionRate: Number(document.getElementById(`a-comm-${c}`).value), salesLimit: Number(document.getElementById(`a-limit-${c}`).value) }); }
-        function deleteAmbassador(c) { if(confirm("Delete?")) db.collection('ambassadors').doc(c).delete(); }
+        function addAmbassador() { 
+            const c = prompt("Enter Ambassador Code (e.g. KEMU10):")?.trim().toUpperCase(); 
+            if(!c) return;
+            const password = Math.random().toString(36).slice(-6).toUpperCase(); 
+            db.collection('ambassadors').doc(c).set({ code: c, password: password, discount: 10, commissionRate: 500, salesLimit: 0, uses: 0 }).then(() => showToast(`Ambassador Added`)); 
+        }
+        function updateAmbassador(c) { 
+            db.collection('ambassadors').doc(c).update({ 
+                password: document.getElementById(`a-pass-${c}`).value, 
+                discount: Number(document.getElementById(`a-disc-${c}`).value), 
+                commissionRate: Number(document.getElementById(`a-comm-${c}`).value), 
+                salesLimit: Number(document.getElementById(`a-limit-${c}`).value) 
+            }).then(() => showToast("Ambassador Updated")); 
+        }
+        function deleteAmbassador(c) { if(confirm("Delete code?")) db.collection('ambassadors').doc(c).delete(); }
 
         function updateChart(labels, data) {
             if (chartInstance) chartInstance.destroy();
