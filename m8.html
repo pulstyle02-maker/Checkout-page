@@ -1380,14 +1380,15 @@ const totalClean = parseInt(document.getElementById('checkout-total').textConten
 const orderData = {
 orderId: currentOrderNumber, name: fullName, phone: phone, city: city, address: address, transactionId: transIdInput, itemsString: itemsString,
 subtotal: subtotalClean, total: totalClean, isEbook: isEbookCheckout, userId: auth.currentUser.uid, userEmail: auth.currentUser.email,
-timestamp: firebase.firestore.FieldValue.serverTimestamp(), status: isEbookCheckout ? "pending_verification" : "processing"
+timestamp: firebase.firestore.FieldValue.serverTimestamp(), status: isEbookCheckout ? "active" : "processing"
 };
 
 db.collection("orders").add(orderData).then(() => {
   if (isEbookCheckout && auth.currentUser) {
     checkoutCartSnapshot.forEach(item => {
+      // Set status to "active" to instantly unlock the E-Book for the user
       db.collection("users").doc(auth.currentUser.uid).collection("library").doc(item.id).set({
-        bookId: item.id, name: item.name, orderId: currentOrderNumber, status: "pending_verification", purchasedAt: firebase.firestore.FieldValue.serverTimestamp()
+        bookId: item.id, name: item.name, orderId: currentOrderNumber, status: "active", purchasedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     });
   }
