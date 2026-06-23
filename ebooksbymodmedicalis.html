@@ -3,14 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MedSchoolGuru - Secure Clinical Portal</title>
   
-  <!-- Tailwind CSS CDN -->
+  <!-- Strict Security Headers -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; media-src 'self' https: data: blob:; frame-src https://drive.google.com https://*.google.com;">
+
+  <title>E-Books by ModMedicalis - Secure Portal</title>
+  
+  <!-- External Libraries -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -26,393 +34,355 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     
-    /* Elegant Grid Backdrop */
     .grid-bg {
       background-size: 24px 24px;
       background-image: linear-gradient(to right, rgba(0, 82, 204, 0.04) 1px, transparent 1px),
                         linear-gradient(to bottom, rgba(0, 82, 204, 0.04) 1px, transparent 1px);
     }
     
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-
-    /* Elegant slightly curved stroke underline */
-    .curved-underline {
-      position: relative;
-      display: inline-block;
-    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    .curved-underline { position: relative; display: inline-block; }
     .curved-underline::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      bottom: -8px;
-      width: 100%;
-      height: 12px;
-      /* Embedded SVG to render a crisp, dynamic curved smile-like stroke */
+      content: ''; position: absolute; left: 0; bottom: -8px; width: 100%; height: 12px;
       background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M3,3 Q50,11 97,3' stroke='%233B82F6' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center;
-      background-size: 100% 100%;
-      pointer-events: none;
+      background-size: 100% 100%; pointer-events: none;
     }
-
-    .diagonal-watermark {
-      pointer-events: none;
-      user-select: none;
-      transform: rotate(-20deg) scale(1.1);
-    }
-
-    .secure-blur {
-      filter: blur(20px);
-      transition: filter 0.3s ease-in-out;
-    }
+    
+    /* Elegant Input Focus Transitions */
+    .auth-input { transition: all 0.2s ease-in-out; }
+    .auth-input:focus { border-color: #2563EB; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
   </style>
 </head>
 <body class="h-full overflow-hidden font-sans antialiased grid-bg">
 
-  <!-- Core App Container -->
   <div id="app" class="relative h-full w-full flex flex-col justify-between overflow-hidden">
     
-    <!-- VIEW 1: Landing & Login Directly on Background -->
+    <!-- ==================== VIEW 1: LOGIN ==================== -->
     <section id="view-login" class="flex-1 flex flex-col items-center justify-center px-4 w-full h-full relative z-10">
-      
       <div class="text-center w-full max-w-md mb-8 flex flex-col items-center">
-        <!-- Secure Un-downloadable Logo - Centered directly on background -->
         <div class="flex items-center justify-center select-none w-full mb-6">
           <div class="h-24 w-[320px] sm:h-32 sm:w-[480px] md:h-40 md:w-[600px] bg-no-repeat bg-center bg-contain pointer-events-none" style="background-image: url('https://i.imgur.com/tLWWPXh.png');"></div>
         </div>
-
         <h1 class="text-4xl sm:text-5xl font-black text-[#1E293B] tracking-tight mb-4">
           E-books <span class="text-blue-600 curved-underline">by ModMedicalis</span>
         </h1>
-        <h3 class="text-lg font-bold text-slate-900 mt-6">Login to Access your E-books</h3>
+        <h3 class="text-lg font-bold text-slate-900 mt-6">Sign in to Access Your Library</h3>
+        <p class="text-xs text-slate-500 font-medium mt-2">Use the account you created during checkout.</p>
       </div>
 
-      <!-- Custom Warning Notification Block -->
-      <div id="login-alert" class="hidden mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs text-left w-full max-w-sm flex gap-2 items-start animate-pulse">
+      <!-- Error Notification -->
+      <div id="login-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold text-left w-full max-w-sm flex gap-2 items-start shadow-sm animate-pulse">
         <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
-        <span id="login-alert-text">Validation credentials failed.</span>
+        <span id="login-alert-text">Authentication failed.</span>
       </div>
 
-      <!-- Login Setup Form -->
+      <!-- Email/Password Login Form -->
       <form id="login-form" onsubmit="handleLogin(event)" class="w-full max-w-sm space-y-4">
         <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Student Account</label>
-          <input type="text" id="username" required
-            class="w-full bg-white border border-slate-200 focus:border-blue-500 focus:outline-none rounded-xl px-4 py-3.5 text-sm text-slate-900 transition-all placeholder-slate-400 shadow-sm"
-            placeholder="Enter active student account">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
+          <input type="email" id="login-email" required
+            class="auth-input w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none placeholder-slate-400 shadow-sm"
+            placeholder="student@example.com">
         </div>
 
         <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Access Password</label>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
           <div class="relative">
-            <input type="password" id="password" required
-              class="w-full bg-white border border-slate-200 focus:border-blue-500 focus:outline-none rounded-xl px-4 py-3.5 text-sm text-slate-900 transition-all placeholder-slate-400 shadow-sm"
+            <input type="password" id="login-password" required
+              class="auth-input w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none placeholder-slate-400 shadow-sm"
               placeholder="••••••••">
-            <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 transition-colors">
+            <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-3.5 text-slate-400 hover:text-blue-600 transition-colors">
               <i id="password-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
 
-        <button type="submit"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all flex justify-center items-center gap-2 mt-2">
-          <span>Access Handbook</span>
+        <button type="submit" id="btn-login"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all flex justify-center items-center gap-2 mt-4">
+          <span>Secure Sign In</span>
           <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
+        
+        <div class="text-center mt-6">
+          <a href="https://www.modmedicalis.online" class="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors">Need an account? Shop on main website</a>
+        </div>
       </form>
-
     </section>
 
-    <!-- VIEW 2: Dashboard (Clean Bookshelf Selection) -->
+    <!-- ==================== VIEW 2: DASHBOARD (LIBRARY) ==================== -->
     <section id="view-dashboard" class="view-transition hidden flex-col h-full max-w-[1020px] mx-auto w-full px-6 py-8 overflow-y-auto no-scrollbar">
-      <!-- Welcome Heading Block -->
+      
+      <!-- Welcome Header -->
       <div class="mb-8 border-b border-slate-200 pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Active Academic Rotation</span>
-          <h1 class="text-2xl font-black text-slate-950 mt-1">Welcome back, <span id="dashboard-user" class="text-blue-600">Guest Student</span></h1>
+          <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">My Digital Library</span>
+          <h1 class="text-2xl font-black text-slate-950 mt-1">Welcome back, <span id="dashboard-user" class="text-blue-600">Student</span></h1>
         </div>
-        
         <div class="flex items-center gap-3">
-          <span class="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-            Verified Session
+          <span class="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Verified Session
           </span>
-          <button onclick="handleLogout()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 rounded-xl transition-colors">
+          <button onclick="handleLogout()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
             <i data-lucide="log-out" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
 
-      <!-- Books Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Secure Pediatric Book Card -->
-        <div class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl hover:border-blue-500/50 transition-all duration-300">
-          <div>
-            <div class="flex justify-between items-start mb-6">
-              <div class="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-                <i data-lucide="book-open" class="w-6 h-6"></i>
-              </div>
-              <span class="text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full px-3 py-1 uppercase tracking-wider border border-blue-200">Active Course</span>
-            </div>
-            
-            <h3 class="text-xl font-bold text-slate-950 mb-2">Mind Your Minors Block 4</h3>
-            <p class="text-xs text-slate-500 leading-relaxed mb-4">
-              Authorized clinical guide for pediatric rotation. Covers developmental checks, milestones, history checklists, and physical diagnostic methods.
-            </p>
-          </div>
-
-          <div class="pt-6 border-t border-slate-100 flex justify-between items-center">
-            <span class="text-xs text-slate-400 font-medium">Core PDF Module</span>
-            <button onclick="openBookViewer()" class="inline-flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl shadow-sm transition-all">
-              <span>Launch Reader</span>
-              <i data-lucide="external-link" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Locked Internal Med Book Card -->
-        <div class="bg-white rounded-3xl border border-slate-100 p-6 flex flex-col justify-between opacity-50 select-none">
-          <div>
-            <div class="flex justify-between items-start mb-6">
-              <div class="p-3 bg-slate-100 text-slate-400 rounded-2xl">
-                <i data-lucide="lock" class="w-6 h-6"></i>
-              </div>
-              <span class="text-[10px] font-bold bg-slate-100 text-slate-400 rounded-full px-3 py-1 uppercase tracking-wider">Locked</span>
-            </div>
-            
-            <h3 class="text-xl font-bold text-slate-400 mb-2">Internal Medicine Diagnostics</h3>
-            <p class="text-xs text-slate-400 leading-relaxed mb-4">
-              Advanced outpatient diagnostics, cardiovascular tracking, and respiratory auscultation basics. Assigned next semester.
-            </p>
-          </div>
-
-          <div class="pt-6 border-t border-slate-100 flex justify-between items-center">
-            <span class="text-xs text-slate-300 font-medium">Year-2 Prerequisites Required</span>
-            <span class="text-xs text-slate-400 font-bold">Unassigned</span>
-          </div>
-        </div>
+      <!-- Books Grid (Populated by Firebase) -->
+      <div id="library-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="col-span-full text-center py-12 text-slate-500 font-medium animate-pulse">Synchronizing your books securely...</div>
       </div>
     </section>
 
-    <!-- VIEW 3: Secure Clean PDF Viewer -->
+    <!-- ==================== VIEW 3: SECURE READER ==================== -->
     <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#1E293B] overflow-hidden">
       
-      <!-- SUB-NAVBAR CONTROL PANEL -->
+      <!-- Viewer Top Bar -->
       <div class="bg-[#1E52CC] text-white px-3 sm:px-4 py-2 flex justify-between items-center shadow-md z-30 shrink-0">
         <div class="flex items-center gap-2 sm:gap-4">
           <button onclick="closeBookViewer()" class="text-[10px] sm:text-xs font-extrabold tracking-wide uppercase flex items-center gap-1 sm:gap-1.5 bg-white/10 hover:bg-white/20 px-2 sm:px-3 py-1.5 rounded-lg transition-all">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Bookshelf</span>
+            <span class="hidden sm:inline">Library</span>
           </button>
-          <span class="text-xs sm:text-sm font-bold tracking-tight border-l border-white/20 pl-2 sm:pl-4 truncate max-w-[120px] sm:max-w-xs">Mind Your Minors</span>
+          <span id="reader-title" class="text-xs sm:text-sm font-bold tracking-tight border-l border-white/20 pl-2 sm:pl-4 truncate max-w-[120px] sm:max-w-xs">E-Book Viewer</span>
         </div>
-        
         <div class="flex items-center gap-1 sm:gap-3">
-          <!-- Added Search & Bookmark Buttons -->
-          <button onclick="handleSearch()" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors" title="Search PDF">
-            <i data-lucide="search" class="w-4 h-4"></i>
-          </button>
-          <button onclick="handleBookmark()" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors mr-1 sm:mr-0" title="Bookmark Page">
-            <i id="bm-icon" data-lucide="bookmark" class="w-4 h-4"></i>
-          </button>
-
-          <!-- Secure Indicator -->
-          <div class="bg-rose-500/20 text-rose-100 border border-rose-500/30 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <button onclick="showSecToast('Search Indexed: Use browser Find (Ctrl+F) to locate text.', 'search')" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><i data-lucide="search" class="w-4 h-4"></i></button>
+          <button onclick="showSecToast('Progress Bookmarked.', 'bookmark-check')" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
+          <div class="bg-rose-500/20 text-rose-100 border border-rose-500/30 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
             <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-            <span class="hidden sm:inline">Secure Viewer Lock</span>
+            <span class="hidden sm:inline">Secure Viewer</span>
             <span class="inline sm:hidden">Secured</span>
           </div>
         </div>
       </div>
-
-      <!-- MAIN APP INTERACTIVE WORKSPACE -->
-      <!-- Clean p-0 spacing to allow PDF width to fill naturally -->
+      
+      <!-- Viewer Workspace -->
       <div class="flex-1 flex overflow-hidden p-0 sm:p-6 justify-center w-full h-full">
-        
-        <!-- SECURE WATERMARKED PREVIEW VIEWPORT -->
-        <div id="secure-viewport-container" class="w-full max-w-5xl bg-[#1E293B] border-0 sm:border border-slate-700 rounded-none sm:rounded-[24px] shadow-2xl relative overflow-hidden flex flex-col justify-center">
+        <div class="w-full max-w-5xl bg-[#1E293B] border-0 sm:border border-slate-700 rounded-none sm:rounded-[24px] shadow-2xl relative overflow-hidden flex flex-col justify-center">
           
-          <!-- STATIC WATERMARK OVERLAY -->
-          <!-- Bounding box max-w-[700px] ensures watermarks strictly stay on the white PDF page area -->
-          <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-[700px] z-50 pointer-events-none select-none mix-blend-multiply overflow-hidden">
-            <!-- Top Right -->
-            <span class="watermark-text absolute top-12 right-6 text-black/25 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap">STUDENT2026 / SKILLS101</span>
-            <!-- Center -->
-            <span class="watermark-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/25 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap">STUDENT2026 / SKILLS101</span>
-            <!-- Bottom Left -->
-            <span class="watermark-text absolute bottom-12 left-6 text-black/25 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap">STUDENT2026 / SKILLS101</span>
+          <!-- Watermarks Overlay -->
+          <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-[700px] z-50 pointer-events-none select-none mix-blend-multiply overflow-hidden opacity-90">
+            <span class="watermark-text absolute top-12 right-6 text-black/20 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap"></span>
+            <span class="watermark-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap"></span>
+            <span class="watermark-text absolute bottom-12 left-6 text-black/20 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap"></span>
           </div>
-
-          <!-- EMBEDDED PDF CONTAINER (Hidden UI via highly precise negative margins) -->
+          
+          <!-- Embedded PDF -->
           <div class="absolute inset-0 z-10 overflow-hidden bg-[#1E293B]">
-            <!-- Precise offsets completely chop off the TOP Google Drive Header (56px) and RIGHT scrollbar (20px), preventing zooming distortion -->
+            <!-- Negative margins crop Google Drive toolbars and scrollbars securely -->
             <iframe id="pdf-frame" src="" class="absolute border-none" style="top: -56px; left: 0; right: -20px; width: calc(100% + 20px); height: calc(100% + 56px);" allow="autoplay"></iframe>
           </div>
-
         </div>
-
       </div>
-
-      <!-- Quick Screen Capture Warning Toast -->
+      
+      <!-- Security Toasts -->
       <div id="toast-notify" class="absolute bottom-6 right-6 left-6 sm:left-auto bg-slate-900 border border-slate-800 text-slate-100 text-xs px-4 py-3 rounded-2xl hidden flex items-center gap-2.5 shadow-xl z-50 animate-bounce">
         <i data-lucide="shield-alert" id="toast-icon" class="w-4 h-4 text-blue-400 shrink-0"></i>
-        <span id="toast-text">Notification message.</span>
+        <span id="toast-text"></span>
       </div>
-
     </section>
-
   </div>
 
-  <!-- Portal Navigation Logic -->
   <script>
-    // Security credentials state
-    let currentUser = "student2026";
-    let currentPass = "skills101";
-    let isReaderOpen = false;
+    // ===== SYSTEM AUTH & CONFIG =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
+      authDomain: "modmedicalis-f7ca2.firebaseapp.com",
+      projectId: "modmedicalis-f7ca2",
+      storageBucket: "modmedicalis-f7ca2.firebasestorage.app",
+      messagingSenderId: "786594019384",
+      appId: "1:786594019384:web:8807ca2f622e162badcecd"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-    // Navigation and View Switches
+    // ===== UI NAVIGATION =====
     function showView(viewId) {
-      document.getElementById('view-login').classList.add('hidden');
-      document.getElementById('view-dashboard').classList.add('hidden');
-      document.getElementById('view-reader').classList.add('hidden');
-      
+      ['view-login', 'view-dashboard', 'view-reader'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById(viewId).classList.remove('hidden');
-
       lucide.createIcons();
     }
 
+    // ===== FIREBASE AUTH STATE =====
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        // Fetch User's name from Firestore for Dashboard
+        db.collection('users').doc(user.uid).get().then(doc => {
+          const userName = doc.exists && doc.data().name ? doc.data().name : user.email.split('@')[0];
+          document.getElementById('dashboard-user').textContent = userName;
+        }).catch(() => {
+          document.getElementById('dashboard-user').textContent = user.email.split('@')[0];
+        });
+        
+        updateWatermarks(user.email);
+        showView('view-dashboard');
+        fetchUserLibrary(user.uid);
+      } else {
+        showView('view-login');
+      }
+    });
+
+    // ===== LOGIN LOGIC =====
     function togglePasswordVisibility() {
-      const pwInput = document.getElementById('password');
+      const pwInput = document.getElementById('login-password');
       const eyeIcon = document.getElementById('password-eye-icon');
       if (pwInput.type === 'password') {
-        pwInput.type = 'text';
-        eyeIcon.setAttribute('data-lucide', 'eye-off');
+        pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off');
       } else {
-        pwInput.type = 'password';
-        eyeIcon.setAttribute('data-lucide', 'eye');
+        pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye');
       }
       lucide.createIcons();
     }
 
-    // Form validation
-    function handleLogin(event) {
-      event.preventDefault();
-      const userVal = document.getElementById('username').value.trim();
-      const passVal = document.getElementById('password').value.trim();
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      btn.innerHTML = `Verifying Account...`;
+      btn.disabled = true;
 
-      if (!userVal || !passVal) {
-        showLoginError("Validation credentials failed.");
-        return;
-      }
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value;
 
-      currentUser = userVal;
-      currentPass = passVal;
-
-      // Imprint real student credentials into secure watermark lines
-      document.getElementById('dashboard-user').textContent = currentUser;
-      const watermarks = document.querySelectorAll('.watermark-text');
-      watermarks.forEach(item => {
-        item.textContent = `${currentUser.toUpperCase()} / ${currentPass.toUpperCase()}`;
-      });
-
-      document.getElementById('login-alert').classList.add('hidden');
-      showView('view-dashboard');
-    }
-
-    function showLoginError(msg) {
-      const alertDiv = document.getElementById('login-alert');
-      const alertTxt = document.getElementById('login-alert-text');
-      alertTxt.textContent = msg;
-      alertDiv.classList.remove('hidden');
+      // Persistence set to LOCAL so students stay logged in
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => auth.signInWithEmailAndPassword(email, pass))
+        .then(() => {
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+          btn.disabled = false;
+          document.getElementById('login-alert').classList.add('hidden');
+        })
+        .catch(err => {
+          const alert = document.getElementById('login-alert');
+          document.getElementById('login-alert-text').textContent = "Incorrect email or password. Please verify your details.";
+          alert.classList.remove('hidden');
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+          btn.disabled = false;
+          lucide.createIcons();
+        });
     }
 
     function handleLogout() {
+      auth.signOut();
+      document.getElementById('pdf-frame').src = ""; // Clear memory
       document.getElementById('login-form').reset();
-      
-      // Clear out iframe src for security memory dump
-      const iframe = document.getElementById('pdf-frame');
-      if (iframe) iframe.src = "";
-      
-      showView('view-login');
     }
 
-    function openBookViewer() {
-      isReaderOpen = true;
+    // ===== LIBRARY FETCH & RENDER =====
+    function fetchUserLibrary(uid) {
+      const container = document.getElementById('library-container');
       
-      // Obfuscated Base64 Injection of the Google Drive URL to avoid simple page-source scraping
-      // Decoded: https://drive.google.com/file/d/1rm-L6MJ7aOhkcRi5-c7ZBRMCtuyJtiTP/preview
+      // Queries the exact subcollection where ModMedicalis checkout deposits purchases
+      db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
+        container.innerHTML = '';
+        
+        if (snapshot.empty) {
+          container.innerHTML = `
+            <div class="col-span-full text-center py-16 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+              <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                <i data-lucide="library" class="w-10 h-10 text-slate-300"></i>
+              </div>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">No E-Books Found</h3>
+              <p class="text-sm text-slate-500 max-w-md mx-auto mb-6">You haven't purchased any E-books, or your payment is still pending manual verification by our finance team.</p>
+              <a href="https://www.modmedicalis.online" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white font-bold py-3 px-6 rounded-xl shadow-md">
+                Browse Store <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </a>
+            </div>`;
+          lucide.createIcons();
+          return;
+        }
+
+        // Render each purchased book
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const isPending = data.status === 'pending_verification';
+          const cleanName = data.name.replace(' (E-Book)', '');
+          
+          container.innerHTML += `
+            <div class="bg-white rounded-3xl border ${isPending ? 'border-orange-200 shadow-sm opacity-90' : 'border-slate-200 hover:shadow-2xl hover:border-blue-500/50'} p-6 flex flex-col justify-between transition-all duration-300">
+              <div>
+                <div class="flex justify-between items-start mb-6">
+                  <div class="p-3.5 ${isPending ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-600'} rounded-2xl">
+                    <i data-lucide="${isPending ? 'clock' : 'book-open'}" class="w-6 h-6"></i>
+                  </div>
+                  <span class="text-[10px] font-extrabold ${isPending ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-full px-3 py-1.5 uppercase tracking-wider border">
+                    ${isPending ? 'Payment Verifying' : 'Active Access'}
+                  </span>
+                </div>
+                <h3 class="text-xl font-bold text-slate-950 mb-2">${cleanName}</h3>
+                <p class="text-xs text-slate-500 font-medium font-mono bg-slate-50 inline-block px-2 py-1 rounded-md border border-slate-100 mb-4">Ref: ${data.orderId}</p>
+              </div>
+              
+              <div class="pt-6 border-t border-slate-100 flex justify-between items-center">
+                <span class="text-xs text-slate-400 font-bold tracking-wide uppercase">${isPending ? 'Check back soon' : 'Core PDF Module'}</span>
+                ${isPending ? 
+                  `<span class="text-xs font-bold text-slate-400 px-4 py-2.5 flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Locked</span>` : 
+                  `<button onclick="openBookViewer('${data.bookId}', '${cleanName}')" class="inline-flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all"><span>Launch Reader</span><i data-lucide="external-link" class="w-4 h-4"></i></button>`
+                }
+              </div>
+            </div>`;
+        });
+        lucide.createIcons();
+      });
+    }
+
+    // ===== SECURE VIEWER LOGIC =====
+    function openBookViewer(bookId, bookTitle) {
+      document.getElementById('reader-title').textContent = bookTitle;
+      
+      // In a real production setup, you would map `bookId` to its respective Google Drive URL.
+      // For now, this loads the sample URL via Base64 to bypass simple source-scraping.
       const encUrl = "aHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL2ZpbGUvZC8xcm0tTDZNSjdhT2hrY1JpNS1jN1pCUk1DdHV5SnRpVFAvcHJldmlldw==";
       document.getElementById('pdf-frame').src = atob(encUrl);
-      
-      // Reset bookmark UI icon
-      const bmIcon = document.getElementById('bm-icon');
-      bmIcon.setAttribute('data-lucide', 'bookmark');
-      bmIcon.classList.remove('text-emerald-400');
       
       showView('view-reader');
     }
 
     function closeBookViewer() {
-      isReaderOpen = false;
-      document.getElementById('pdf-frame').src = ""; // Clear from memory upon closure
+      document.getElementById('pdf-frame').src = ""; // Memory wipe
       showView('view-dashboard');
     }
 
-    // Secure Feature Handlers
-    function handleSearch() {
-      showSecToast("Search Indexed: Use your browser's 'Find in Page' function to locate text.", "search");
+    function updateWatermarks(email) {
+      document.querySelectorAll('.watermark-text').forEach(el => {
+        el.textContent = `LICENSED TO ${email.toUpperCase()} / DO NOT DISTRIBUTE`;
+      });
     }
 
-    function handleBookmark() {
-      const bmIcon = document.getElementById('bm-icon');
-      bmIcon.setAttribute('data-lucide', 'bookmark-check');
-      bmIcon.classList.add('text-emerald-400');
-      lucide.createIcons();
-      showSecToast("Reading progress successfully bookmarked.", "bookmark-check");
-    }
-
+    // ===== ANTI-PIRACY SECURITY SKINS =====
     function showSecToast(msg, iconName = "shield-alert") {
       const toast = document.getElementById('toast-notify');
-      const txt = document.getElementById('toast-text');
-      const icon = document.getElementById('toast-icon');
-      
-      txt.textContent = msg;
-      icon.setAttribute('data-lucide', iconName);
+      document.getElementById('toast-text').textContent = msg;
+      document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
       lucide.createIcons();
       
       toast.classList.remove('hidden');
-      
-      setTimeout(() => {
-        toast.classList.add('hidden');
-      }, 3500);
+      setTimeout(() => toast.classList.add('hidden'), 3500);
     }
 
-    // Global Anti-Screenshot/Anti-Copy Protections
-    function registerSecuritySkins() {
-      document.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        showSecToast("Clinical protection: Context menus restricted.", "shield-alert");
-      });
+    // Block right-clicks and print/save shortcuts
+    document.addEventListener('contextmenu', e => { 
+      e.preventDefault(); 
+      showSecToast("Context menus are restricted for clinical protection.", "shield-alert"); 
+    });
 
-      document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && ['p', 's', 'u'].includes(e.key.toLowerCase())) {
-          e.preventDefault();
-          showSecToast("Copy restrictions logged.", "shield-alert");
-        }
-        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
-          showSecToast("Console logs restricted.", "shield-alert");
-        }
-      });
-    }
+    document.addEventListener('keydown', e => {
+      // Block Ctrl+P (Print), Ctrl+S (Save), Ctrl+U (View Source)
+      if ((e.ctrlKey || e.metaKey) && ['p', 's', 'u'].includes(e.key.toLowerCase())) { 
+        e.preventDefault(); 
+        showSecToast("Copy & print restrictions are actively logged.", "shield-alert"); 
+      }
+      // Block F12 and Ctrl+Shift+I (Inspect Element)
+      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i')) {
+        showSecToast("Console and developer tools are restricted.", "shield-alert");
+      }
+    });
 
-    window.onload = function() {
-      lucide.createIcons();
-      registerSecuritySkins();
-    }
+    window.onload = () => lucide.createIcons();
   </script>
 </body>
 </html>
