@@ -54,18 +54,23 @@
 
     .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
     .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
-    .annotation-layer { z-index: 20; }
+    
+    /* Global annotation-layer opacity controls */
+    .annotation-layer {
+      z-index: 20;
+      transition: opacity 0.15s ease-in-out;
+    }
     
     .page-wrapper {
       transition: width 0.1s ease-out, height 0.1s ease-out;
     }
 
-    /* Subtle Small Watermark */
+    /* Subtle Small Forensic Watermark */
     .watermark-text {
       font-size: 8px;
       font-weight: 800;
       letter-spacing: 0.15em;
-      opacity: 0.03;
+      opacity: 0.04;
       color: #000;
     }
 
@@ -158,7 +163,7 @@
       <div class="px-4 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
         <div class="flex items-center justify-between gap-4 min-w-[700px] max-w-7xl mx-auto">
           
-          <!-- Left Elements: Search Bar & Page Menu togglers -->
+          <!-- Search UI -->
           <div class="flex items-center gap-2">
             <button onclick="closeBookViewer()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
               <i data-lucide="arrow-left" class="w-4.5 h-4.5"></i>
@@ -168,14 +173,14 @@
             </button>
             
             <div id="search-bar-wrap" class="relative flex items-center">
-              <button onclick="toggleSearchInputDisplay()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all" title="Search PDF">
-                <i data-lucide="search" class="w-4.5 h-4.5"></i>
+              <button onclick="toggleSearchBarInput()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all">
+                <i data-lucide="search" class="w-4 h-4"></i>
               </button>
               <div id="search-input-container" class="hidden ml-2 flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 w-[180px] md:w-[220px]">
-                <input type="text" id="pdf-search-input" placeholder="Search..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-base md:text-xs outline-none w-full text-slate-700 font-medium">
+                <input type="text" id="pdf-search-input" placeholder="Search word..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-base md:text-xs outline-none w-full text-slate-700 font-medium">
               </div>
-              <!-- Dropdown results context panels with high z-index -->
-              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[320px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[100] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
+              <!-- Dropdown results panel -->
+              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[100] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
             </div>
           </div>
 
@@ -188,7 +193,7 @@
 
           <!-- Tools Panel -->
           <div class="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl">
-            <!-- Dynamic Ink Palette (Visible only when Pen/Highlighter are active) -->
+            <!-- Contextual Ink Palette (Visible only when Pen/Highlighter are active) -->
             <div id="color-palette-container" class="hidden flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
               <button onclick="setInkColor('#2563EB')" class="w-4 h-4 rounded-full bg-blue-600 border border-white focus:scale-110 transition-all"></button>
               <button onclick="setInkColor('#EF4444')" class="w-4 h-4 rounded-full bg-red-500 border border-white focus:scale-110 transition-all"></button>
@@ -366,9 +371,9 @@
       activeBookTitle: "",
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: 2.2, // Increased High-Res scale
+      renderScale: 2.4, // Restored high visual sharpness density scale
       currentColor: '#2563EB',
-      currentOpacity: 0.12, // Lower constant opacity highlighter
+      currentOpacity: 0.15, 
       searchQuery: "",
       textIndex: {} 
     };
@@ -403,13 +408,13 @@
       lucide.createIcons();
     }
 
-    // ===== FIREBASE AUTH STATE OBSERVER (STORE RESTRICTION GATEWAY) =====
+    // ===== FIREBASE AUTH STATE OBSERVER (SECURE WEBSITE PURCHASE CHECK) =====
     auth.onAuthStateChanged((user) => {
       if (user) {
-        // [RESTRICTION FIX]: Check if the user document exists in 'mod_users' store collection
+        // Only allow users who completed checkout registration on the main site (exist in mod_users)
         db.collection('mod_users').doc(user.uid).get().then(doc => {
           if (!doc.exists) {
-            showSecToast("Access restricted: store-purchased accounts only.", "shield-alert");
+            showSecToast("Access restricted: Complete checkout first.", "shield-alert");
             auth.signOut();
             showView('view-login');
             return;
@@ -432,15 +437,15 @@
       }
     });
 
-    // Dynamic Library Card rendering (Syncing progress metrics)
+    // Dynamic Library Card rendering (Syncing progress metrics and firebase book cover imagery)
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
-      db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
+      db.collection("mod_users").doc(uid).collection("library").onSnapshot((snapshot) => {
         container.innerHTML = '';
         _secureState.flush();
         
         if (snapshot.empty) {
-          container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500">No active files found.</div>`;
+          container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500">No active E-Books purchased. Purchase on our store to unlock.</div>`;
           return;
         }
 
@@ -449,8 +454,6 @@
           const bookId = doc.id;
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
           
-          // [PRODUCT PICTURE FIX]: Fallback and load target cover image
-          let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
           let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
           _secureState.save(bookId, targetBookUrl);
 
@@ -462,15 +465,20 @@
           container.innerHTML += `
             <div id="${cardId}" class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300">
               <div>
-                <div class="flex justify-between items-start mb-4">
-                  <img id="${imgCoverId}" src="${coverUrl}" class="w-16 h-16 object-contain border border-slate-100 shadow-sm rounded-lg" alt="Cover">
-                  <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[11px] font-extrabold uppercase rounded-lg tracking-wider">
-                    MCQ Portal
-                  </button>
+                <div class="flex gap-4 mb-4">
+                  <img id="${imgCoverId}" src="https://i.imgur.com/zFDh5b3.jpeg" class="w-16 h-24 object-cover border border-slate-200 shadow-sm" alt="Book Cover" />
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="book-open" class="w-4 h-4"></i></div>
+                      <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[9px] font-extrabold uppercase rounded-lg tracking-wider">
+                        MCQ Portal
+                      </button>
+                    </div>
+                    <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
+                  </div>
                 </div>
-                <h3 class="text-xl font-black text-slate-950 mb-1">${cleanName}</h3>
-                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
                 
+                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
                 <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden">
                   <div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 0%"></div>
                 </div>
@@ -495,14 +503,13 @@
             });
           }).catch(()=>{});
 
-          // Async update progress metrics
-          db.collection('users').doc(uid).collection('progress').doc(bookId).get().then(progDoc => {
+          // Async update progress metrics from aligned database collection
+          db.collection('mod_users').doc(uid).collection('progress').doc(bookId).get().then(progDoc => {
             const pTextEl = document.getElementById(progressId);
             const pBarEl = document.getElementById(progressBarId);
             if (pTextEl && pBarEl) {
               if (progDoc.exists && progDoc.data().lastPage) {
                 const lastPage = progDoc.data().lastPage;
-                // [PAGE JUMP OFFSET INDICATOR MAP]: First page is Book page 12
                 pTextEl.textContent = `Last read on Page ${lastPage + 11}`;
                 const percent = Math.min(Math.round((lastPage / 14) * 100), 100); 
                 pBarEl.style.width = `${percent}%`;
@@ -535,7 +542,7 @@
         preIndexDocumentText(pdf);
 
         const uid = auth.currentUser.uid;
-        const progDoc = await db.collection('users').doc(uid).collection('progress').doc(bookId).get();
+        const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(bookId).get();
         if(progDoc.exists && progDoc.data().lastPage) {
           readerState.currentPage = progDoc.data().lastPage;
         }
@@ -552,7 +559,7 @@
       const jumpList = document.getElementById('jump-pages-list');
       jumpList.innerHTML = "";
       
-      // [PAGE OFFSET]: Set global pages indicators offset to start at page 12
+      // Page numbering indicator offsets matching real textbook pages (Starts on page 12)
       document.getElementById('page-indicator-total').textContent = pdf.numPages + 11;
 
       // Populate navigation page index panel
@@ -612,7 +619,7 @@
           if (entry.isIntersecting) {
             renderPageOnDemand(pdf, pageNum, entry.target, aspectRatio);
             readerState.currentPage = pageNum;
-            // Update Page indicator dynamically with page 12 offset
+            // Page offset tracker output
             document.getElementById('page-indicator-current').textContent = pageNum + 11;
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
@@ -635,7 +642,7 @@
 
     function saveProgressToFirebase(pageNum) {
       if(!auth.currentUser || !readerState.activeBookId) return;
-      db.collection('users').doc(auth.currentUser.uid)
+      db.collection('mod_users').doc(auth.currentUser.uid)
         .collection('progress').doc(readerState.activeBookId)
         .set({ lastPage: pageNum }, { merge: true });
     }
@@ -681,20 +688,18 @@
         drawCanvas.height = highResViewport.height;
         container.appendChild(drawCanvas);
 
-        // [FORENSIC MASKED WATERMARK]: Obfuscate email, transaction ID, and password metrics safely
+        // [FORENSIC WATERMARK]: Obfuscated e-mail metadata with UID stamp
         const email = auth.currentUser.email || 'USER';
         const idx = email.indexOf('@');
         const prefix = email.substring(0, Math.min(3, idx));
         const maskedEmail = prefix + "****" + email.substring(idx);
-        
-        // Pull order transaction ID
         const maskedUID = auth.currentUser.uid.substring(0, 4) + "****";
 
         const watermarkDiv = document.createElement('div');
         watermarkDiv.className = "absolute inset-0 z-15 pointer-events-none select-none flex flex-col justify-around items-center overflow-hidden mix-blend-multiply opacity-[0.03]";
         watermarkDiv.innerHTML = `
-          <span class="watermark-text">LICENSED TO ${maskedEmail.toUpperCase()} / TRANS: ${maskedUID} / DO NOT DISTRIBUTE</span>
-          <span class="watermark-text">LICENSED TO ${maskedEmail.toUpperCase()} / TRANS: ${maskedUID} / DO NOT DISTRIBUTE</span>
+          <span class="watermark-text">LICENSED TO ${maskedEmail.toUpperCase()} / REF: ${maskedUID} / DO NOT DISTRIBUTE</span>
+          <span class="watermark-text">LICENSED TO ${maskedEmail.toUpperCase()} / REF: ${maskedUID} / DO NOT DISTRIBUTE</span>
         `;
         container.appendChild(watermarkDiv);
 
@@ -709,11 +714,11 @@
       container.dataset.rendered = "false";
     }
 
-    // ==== Search Tool Display Toggle ====
-    function toggleSearchInputDisplay() {
+    // ==== Search input toggle ====
+    function toggleSearchBarInput() {
       const container = document.getElementById('search-input-container');
       container.classList.toggle('hidden');
-      if(!container.classList.contains('hidden')) {
+      if (!container.classList.contains('hidden')) {
         document.getElementById('pdf-search-input').focus();
       }
     }
@@ -736,7 +741,7 @@
           matchesFound++;
           dropdown.classList.remove('hidden');
 
-          // Highlight query inside context string with offset indices
+          // Context formatting: 4-5 words before/after matching result
           const fullText = readerState.textIndex[i];
           const index = fullText.indexOf(q);
           const start = Math.max(0, index - 25);
@@ -790,20 +795,6 @@
       };
     }
 
-    // Hex helper mapping light rgba layers
-    function hexToRgbA(hex, alpha) {
-      let c;
-      if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
-        c= hex.substring(1).split('');
-        if(c.length== 3){
-          c= [c[0], c[0], c[1], c[1], c[2], c[2]];
-        }
-        c= '0x' + c.join('');
-        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+alpha+')';
-      }
-      return 'rgba(251, 191, 36, ' + alpha + ')'; 
-    }
-
     function initializeCanvasPenTracker(canvas, pageNum) {
       const ctx = canvas.getContext('2d');
       let isDrawing = false;
@@ -838,10 +829,10 @@
           ctx.lineWidth = 4; 
           ctx.globalCompositeOperation = 'source-over';
         } else if (readerState.tool === 'highlighter') {
-          // [OPACITY BUG RESOLVED]: Constant low opacity layer multiply
-          ctx.strokeStyle = hexToRgbA(readerState.currentColor, 0.10); 
+          // [OPACITY FIX]: Draw opaque solid lines on canvas, HTML CSS controls overall opacity cleanly
+          ctx.strokeStyle = readerState.currentColor; 
           ctx.lineWidth = 26; 
-          ctx.globalCompositeOperation = 'multiply';
+          ctx.globalCompositeOperation = 'source-over';
         } else if (readerState.tool === 'eraser') {
           ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 45; ctx.globalCompositeOperation = 'destination-out';
         }
@@ -985,13 +976,20 @@
         colorBox.classList.add('hidden');
       }
 
+      // [UNIFORM OVERLAP OPACITY FIX]: Controls dynamic canvas element opacity mapping
+      document.querySelectorAll('.annotation-layer').forEach(canvas => {
+        if (toolName === 'highlighter') {
+          canvas.style.opacity = '0.15'; // Soft uniform multiplier layer
+        } else {
+          canvas.style.opacity = '1.0'; // Crisp solid line layer
+        }
+        canvas.style.pointerEvents = (toolName === 'pan' || toolName === 'note') ? 'none' : 'auto';
+        canvas.style.zIndex = (toolName === 'pan' || toolName === 'note') ? '10' : '30';
+      });
+
       document.querySelectorAll('.textLayer').forEach(layer => {
         layer.style.pointerEvents = toolName === 'pan' ? 'auto' : 'none';
         layer.style.zIndex = toolName === 'pan' ? '30' : '10';
-      });
-      document.querySelectorAll('.annotation-layer').forEach(layer => {
-        layer.style.pointerEvents = (toolName === 'pan' || toolName === 'note') ? 'none' : 'auto';
-        layer.style.zIndex = (toolName === 'pan' || toolName === 'note') ? '10' : '30';
       });
     }
 
@@ -1050,15 +1048,9 @@
       document.getElementById('mcq-score').textContent = `${mcqScores.correct}/${mcqScores.total}`;
       
       if(auth.currentUser) {
-        db.collection('users').doc(auth.currentUser.uid).collection('quiz_scores').doc(readerState.activeBookId || 'general')
+        db.collection('mod_users').doc(auth.currentUser.uid).collection('quiz_scores').doc(readerState.activeBookId || 'general')
           .set({ correct: mcqScores.correct, total: mcqScores.total }, { merge: true });
       }
-    }
-
-    function nextMCQ() {
-      const activeDeck = mcqDecks.default;
-      activeMCQIndex = (activeMCQIndex + 1) % activeDeck.mcqs.length;
-      loadMCQQuestion();
     }
 
     // ==== Flashcard flip Deck ====
@@ -1084,6 +1076,12 @@
       loadFlashcard();
     }
 
+    function nextMCQ() {
+      const activeDeck = mcqDecks.default;
+      activeMCQIndex = (activeMCQIndex + 1) % activeDeck.mcqs.length;
+      loadMCQQuestion();
+    }
+
     // ==== Purchase History Tracker Modal ====
     function togglePurchaseHistory(show) {
       const modal = document.getElementById('modal-purchases');
@@ -1095,7 +1093,7 @@
       }
     }
 
-    // [PURCHASE HISTORY SYNC]: Map validated payments ledger directly from firestore orders node
+    // [PURCHASE HISTORY INVOICES SYNC]: Load verified transaction invoices directly from aligned orders DB node
     function loadPurchaseHistoryRecords() {
       const container = document.getElementById('purchases-list-container');
       container.innerHTML = `<div class="text-center py-6 text-slate-400 animate-pulse font-bold text-xs">Syncing verified transaction ledger...</div>`;
@@ -1106,7 +1104,7 @@
         container.innerHTML = "";
         
         if (snapshot.empty) {
-          container.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-xs">No transactions recorded.</div>`;
+          container.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-xs">No store transactions located.</div>`;
           return;
         }
 
@@ -1158,4 +1156,80 @@
         
         const pageNum = canvas.parentElement.dataset.pageNum;
         const saveKey = `annotations_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
-        localStorage.removeI
+        localStorage.removeItem(saveKey);
+      });
+      document.querySelectorAll('.sticky-note-wrapper').forEach(note => note.remove());
+      showSecToast("Cleared workspace drawing layers.", "trash");
+    }
+
+    function toggleBookmark() {
+      saveProgressToFirebase(readerState.currentPage);
+      showSecToast(`Page ${readerState.currentPage + 11} Bookmarked!`, "bookmark");
+      document.getElementById('tool-bookmark').classList.add('text-amber-500');
+    }
+
+    function undoAnnotation() { showSecToast("Undo is restricted to drawing strokes.", "info"); }
+
+    function closeBookViewer() {
+      document.getElementById('pdf-pages-viewport').innerHTML = "";
+      document.getElementById('left-jump-menu').classList.add('hidden');
+      readerState.activePdf = null;
+      readerState.activeBookId = null;
+      showView('view-dashboard');
+    }
+
+    // ==== USER LOGINS ====
+    function togglePasswordVisibility() {
+      const pwInput = document.getElementById('login-password');
+      const eyeIcon = document.getElementById('password-eye-icon');
+      if (pwInput.type === 'password') { pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off'); }
+      else { pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye'); }
+      lucide.createIcons();
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      btn.innerHTML = `Verifying...`; btn.disabled = true;
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value;
+
+      auth.signInWithEmailAndPassword(email, pass).then(() => {
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+        btn.disabled = false; document.getElementById('login-alert').classList.add('hidden');
+      }).catch(err => {
+        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+        document.getElementById('login-alert').classList.remove('hidden');
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        lucide.createIcons();
+      });
+    }
+
+    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
+
+    function updateWatermarks(email) {
+      if(!email) return;
+      const idx = email.indexOf('@');
+      const prefix = email.substring(0, Math.min(3, idx));
+      const maskedEmail = prefix + "****" + email.substring(idx);
+      
+      const watermarkString = `LICENSED TO ${maskedEmail.toUpperCase()} / DO NOT DISTRIBUTE`;
+      document.querySelectorAll('.watermark-text').forEach(el => {
+        el.textContent = watermarkString;
+      });
+    }
+
+    function showSecToast(msg, iconName = "shield-alert") {
+      const toast = document.getElementById('toast-notify');
+      document.getElementById('toast-text').textContent = msg;
+      document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
+      lucide.createIcons();
+      toast.classList.remove('hidden'); toast.classList.add('flex');
+      setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
+    }
+
+    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
+    window.onload = () => lucide.createIcons();
+  </script>
+</body>
+</html>
