@@ -55,13 +55,34 @@
     .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
     .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
     .annotation-layer { z-index: 20; }
+    
+    .page-wrapper {
+      transition: width 0.1s ease-out, height 0.1s ease-out;
+    }
+
+    /* Subtle Tiny Watermark */
+    .watermark-text {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      opacity: 0.04;
+    }
+
+    /* Flip Card Styles */
+    .flip-card-inner {
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .flipped { transform: rotateY(180deg); }
+    .preserve-3d { transform-style: preserve-3d; }
+    .backface-hidden { backface-visibility: hidden; }
   </style>
 </head>
 <body class="h-full overflow-hidden font-sans antialiased grid-bg">
 
   <div id="app" class="relative h-full w-full flex flex-col justify-between overflow-hidden">
     
-    <!-- ==================== VIEW 1: LOGIN ==================== -->
+    <!-- ==================== LOGIN ==================== -->
     <section id="view-login" class="flex-1 flex flex-col items-center justify-center px-4 w-full h-full relative z-10">
       <div class="text-center w-full max-w-md mb-8 flex flex-col items-center">
         <div class="flex items-center justify-center select-none w-full mb-6">
@@ -79,15 +100,16 @@
         <span id="login-alert-text">Authentication failed.</span>
       </div>
 
+      <!-- prevent iOS auto-zoom by specifying text-base on mobile inputs -->
       <form id="login-form" onsubmit="handleLogin(event)" class="w-full max-w-sm space-y-4">
         <div>
           <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
-          <input type="email" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+          <input type="email" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
         </div>
         <div>
           <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
           <div class="relative">
-            <input type="password" id="login-password" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+            <input type="password" id="login-password" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
             <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-3.5 text-slate-400 hover:text-blue-600">
               <i id="password-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
             </button>
@@ -99,47 +121,70 @@
       </form>
     </section>
 
-    <!-- ==================== VIEW 2: DASHBOARD ==================== -->
+    <!-- ==================== DASHBOARD ==================== -->
     <section id="view-dashboard" class="view-transition hidden flex-col h-full max-w-[1020px] mx-auto w-full px-6 py-8 overflow-y-auto no-scrollbar">
       <div class="mb-8 border-b border-slate-200 pb-6 flex justify-between items-center gap-4">
         <div>
           <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">My Digital Library</span>
           <h1 class="text-2xl font-black text-slate-950 mt-1">Welcome back, <span id="dashboard-user" class="text-blue-600">Student</span></h1>
         </div>
-        <button onclick="handleLogout()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
-          <i data-lucide="log-out" class="w-4 h-4"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="togglePurchaseHistory(true)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+            Purchase History
+          </button>
+          <button onclick="handleLogout()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
       <div id="library-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
     </section>
 
-    <!-- ==================== VIEW 3: FULLY RESPONSIVE INTERACTIVE READER ==================== -->
+    <!-- ==================== INTERACTIVE READER ==================== -->
     <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden">
       
-      <!-- Responsive Horizontal Scrolling Toolbar Container -->
+      <!-- Responsive Floating Apple Style Bar -->
       <div class="px-4 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
-        <div class="flex items-center justify-between gap-4 min-w-[760px] max-w-7xl mx-auto">
+        <div class="flex items-center justify-between gap-4 min-w-[700px] max-w-7xl mx-auto">
           
-          <!-- Left Elements: Exit & Dynamic Text Search -->
-          <div class="flex items-center gap-3">
-            <button onclick="closeBookViewer()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all" title="Exit to Library">
-              <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <!-- Search UI: Expandable Search on Mobile -->
+          <div class="flex items-center gap-2">
+            <button onclick="closeBookViewer()" class="p-2 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
+              <i data-lucide="arrow-left" class="w-4.5 h-4.5"></i>
             </button>
-            <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 w-[200px]">
-              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
-              <input type="text" id="pdf-search-input" placeholder="Search word..." onkeypress="handleSearch(event)" class="bg-transparent text-xs outline-none w-full text-slate-700 font-medium">
+            <div id="search-bar-wrap" class="relative">
+              <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 w-[180px] md:w-[220px]">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
+                <input type="text" id="pdf-search-input" placeholder="Search..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-base md:text-xs outline-none w-full text-slate-700 font-medium">
+              </div>
+              <!-- Real-time dropdown search panel -->
+              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[240px] bg-white border border-slate-200 shadow-2xl rounded-xl z-50 max-h-48 overflow-y-auto no-scrollbar p-1"></div>
             </div>
           </div>
 
-          <!-- Middle Elements: Seamless Zoom Sliders -->
-          <div class="flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200">
+          <!-- Zoom Slider: Hidden on Mobile as per prompt guidelines -->
+          <div class="hidden md:flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200">
             <button onclick="zoomReader(-0.1)" class="text-slate-400 hover:text-slate-700"><i data-lucide="minus" class="w-4 h-4"></i></button>
             <input type="range" min="0.5" max="2.5" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="w-28 sm:w-36">
             <button onclick="zoomReader(0.1)" class="text-slate-400 hover:text-slate-700"><i data-lucide="plus" class="w-4 h-4"></i></button>
           </div>
 
-          <!-- Right Elements: Working Annotation / Pen / Note Tool Group -->
+          <!-- Color Customizer and Tools Panel -->
           <div class="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl">
+            <!-- Ink Palette Selectors -->
+            <div class="flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
+              <button onclick="setInkColor('#2563EB')" class="w-4 h-4 rounded-full bg-blue-600 border border-white focus:scale-110 transition-all"></button>
+              <button onclick="setInkColor('#EF4444')" class="w-4 h-4 rounded-full bg-red-500 border border-white focus:scale-110 transition-all"></button>
+              <button onclick="setInkColor('#10B981')" class="w-4 h-4 rounded-full bg-green-500 border border-white focus:scale-110 transition-all"></button>
+              <button onclick="setInkColor('#FBBF24')" class="w-4 h-4 rounded-full bg-amber-400 border border-white focus:scale-110 transition-all"></button>
+            </div>
+            
+            <!-- Opacity Slider -->
+            <div class="flex items-center gap-1.5 mr-2 border-r border-slate-300 pr-2 text-xs text-slate-400 font-bold">
+              <span>Opacity:</span>
+              <input type="range" min="0.1" max="1.0" step="0.1" value="0.3" id="tool-opacity" oninput="handleOpacitySlider(this.value)" class="w-12">
+            </div>
+
             <button onclick="toggleBookmark()" id="tool-bookmark" title="Bookmark page" class="p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white transition-all"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
             
             <div class="w-px h-5 bg-slate-300 mx-1"></div>
@@ -159,78 +204,176 @@
         </div>
       </div>
       
-      <!-- Document Workspace Grid -->
+      <!-- Viewport Frame (No-round border crisp pages) -->
       <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
         
-        <!-- Anti-piracy Watermarks -->
-        <div class="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-[700px] z-[5] pointer-events-none select-none overflow-hidden opacity-10 mix-blend-multiply">
-          <span class="watermark-text absolute top-20 right-6 text-slate-900 text-[12px] font-bold tracking-widest uppercase"></span>
-          <span class="watermark-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-900 text-[12px] font-bold tracking-widest uppercase"></span>
-          <span class="watermark-text absolute bottom-20 left-6 text-slate-900 text-[12px] font-bold tracking-widest uppercase"></span>
-        </div>
-        
-        <!-- High Speed Load Overlay -->
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
           <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p class="text-xs font-bold tracking-wider text-slate-500 uppercase">Synchronizing Viewport...</p>
+          <p class="text-xs font-bold tracking-wider text-slate-500 uppercase">Compiling high fidelity rendering layout...</p>
         </div>
 
         <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start w-full min-h-full py-6 space-y-6"></div>
       </div>
       
-      <!-- Global Toasts -->
       <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
         <i data-lucide="shield-alert" id="toast-icon" class="w-4 h-4 text-blue-400 shrink-0"></i>
         <span id="toast-text" class="font-medium tracking-wide"></span>
       </div>
     </section>
+
+    <!-- ==================== VIEW 4: MCQ & FLASHCARDS PORTAL ==================== -->
+    <section id="view-mcq" class="view-transition hidden flex flex-col h-full bg-[#FAF9F6] overflow-hidden">
+      <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-30 shrink-0">
+        <div class="flex items-center gap-3">
+          <button onclick="closeMCQPortal()" class="p-2 hover:bg-slate-100 rounded-xl transition-all">
+            <i data-lucide="arrow-left" class="w-5 h-5 text-slate-600"></i>
+          </button>
+          <div>
+            <span class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest">Self Assessment Hub</span>
+            <h1 id="mcq-book-title" class="text-lg font-black text-slate-900 leading-tight">Interactive Study Portal</h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-bold text-slate-500">
+          <div class="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg border border-emerald-100">
+            Progress Saved
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-8 no-scrollbar">
+        <!-- Part A: Multiple Choice Questions (Interactive Quiz) -->
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Clinical Case Practice</h2>
+              <span id="mcq-counter" class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">Question 1 of 3</span>
+            </div>
+            
+            <p id="mcq-question" class="text-base font-bold text-slate-900 mb-6 leading-relaxed">Loading questions...</p>
+            
+            <div id="mcq-answers-container" class="space-y-3">
+              <!-- Choices populated dynamically -->
+            </div>
+          </div>
+
+          <div class="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
+            <div class="text-xs font-bold text-slate-500">
+              Score Rate: <span id="mcq-score" class="text-blue-600 text-sm">0/0</span>
+            </div>
+            <button onclick="nextMCQ()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all flex items-center gap-2">
+              <span>Next Question</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Part B: Interactive Flip Flashcards -->
+        <div class="flex flex-col justify-between gap-6">
+          <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex-1 flex flex-col">
+            <h2 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-6">Interactive Review Deck</h2>
+            
+            <!-- Flashcard Frame -->
+            <div class="flex-1 flex items-center justify-center">
+              <div class="w-full h-48 cursor-pointer select-none preserve-3d relative" onclick="flipFlashcard()">
+                <div id="flashcard-inner" class="flip-card-inner absolute inset-0 w-full h-full duration-500 rounded-2xl border border-blue-100 bg-blue-50/40 p-6 flex flex-col justify-between preserve-3d shadow-sm">
+                  
+                  <!-- Front Side of Card -->
+                  <div class="absolute inset-0 w-full h-full p-6 flex flex-col justify-between backface-hidden">
+                    <span class="text-[9px] font-extrabold text-blue-600 uppercase tracking-wider">Flashcard Concept</span>
+                    <p id="flashcard-front" class="text-base font-black text-slate-900 text-center flex-1 flex items-center justify-center">Heberden Nodes location</p>
+                    <span class="text-[10px] text-slate-400 text-center font-semibold">Tap to flip answer</span>
+                  </div>
+
+                  <!-- Back Side of Card -->
+                  <div class="absolute inset-0 w-full h-full p-6 flex flex-col justify-between bg-blue-600 text-white rounded-2xl rotate-y-180 transform backface-hidden" style="transform: rotateY(180deg);">
+                    <span class="text-[9px] font-extrabold text-blue-100 uppercase tracking-wider">Definition Answer</span>
+                    <p id="flashcard-back" class="text-base font-black text-white text-center flex-1 flex items-center justify-center">DIP (Distal Interphalangeal joints)</p>
+                    <span class="text-[10px] text-blue-200 text-center font-semibold">Tap to flip question</span>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- Flashcard controls -->
+            <div class="flex justify-between items-center mt-6">
+              <button onclick="swipeFlashcard(false)" class="text-xs font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl transition-all">
+                Needs Review
+              </button>
+              <button onclick="swipeFlashcard(true)" class="text-xs font-bold text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-500 px-4 py-2.5 rounded-xl transition-all">
+                Mark Mastered
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MODAL: PURCHASE HISTORY ==================== -->
+    <div id="modal-purchases" class="hidden fixed inset-0 z-50 overflow-hidden select-none bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 relative">
+        <button onclick="togglePurchaseHistory(false)" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+        <h2 class="text-xl font-black text-slate-900 mb-2">Purchase History</h2>
+        <p class="text-xs text-slate-500 mb-4">Official secure checkout invoices bound to this account.</p>
+        
+        <div id="purchases-list-container" class="space-y-3 max-h-64 overflow-y-auto no-scrollbar">
+          <!-- Dynamically populated transaction logs -->
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    // Set standard PDF.js worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
     // ===== SYSTEM CONFIG =====
-    const firebaseConfig = {
-      apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
-      authDomain: "modmedicalis-f7ca2.firebaseapp.com",
-      projectId: "modmedicalis-f7ca2",
-      storageBucket: "modmedicalis-f7ca2.firebasestorage.app"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    const _secureState = (function() {
-      const registry = {};
-      return {
-        save: (id, url) => registry[id] = url,
-        retrieve: (id) => registry[id] || "",
-        flush: () => { for (let key in registry) delete registry[key]; }
-      };
-    })();
-
     const readerState = {
       tool: 'pan', 
       zoom: 1.0,
       activePdf: null,
       activeBookId: null,
+      activeBookTitle: "",
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: 1.8, // Balanced density parameter
-      searchQuery: "" 
+      renderScale: 1.8, 
+      currentColor: '#2563EB',
+      currentOpacity: 0.3,
+      searchQuery: "",
+      textIndex: {} // Page mapped Text dictionary for high speed search
     };
 
     let progressTimeout;
 
+    // Standard curated clinical testing questions loaded into Firebase state on-demand
+    const mcqDecks = {
+      default: {
+        mcqs: [
+          { q: "A 65-year-old female presents with morning stiffness in her hands lasting 15 minutes. Heberden nodes are noted. What is the most likely diagnosis?", a: ["Osteoarthritis", "Rheumatoid Arthritis", "Gouty Arthritis", "Psoriatic Arthritis"], correct: 0 },
+          { q: "Which human leukocyte antigen (HLA) allele is strongly associated with Rheumatoid Arthritis susceptibility?", a: ["HLA-B27", "HLA-DR4", "HLA-DQ8", "HLA-DR3"], correct: 1 },
+          { q: "What is the primary radiological finding represented by the 'S' in the 'LOSS' acronym for Osteoarthritis?", a: ["Subchondral sclerosis", "Osteophytes", "Subchondral cysts", "Loss of joint space"], correct: 0 }
+        ],
+        flashcards: [
+          { f: "Heberden Nodes location", b: "DIP (Distal Interphalangeal joints)" },
+          { f: "Bouchard Nodes location", b: "PIP (Proximal Interphalangeal joints)" },
+          { f: "Morning stiffness duration in Osteoarthritis", b: "Typically less than 30 minutes" },
+          { f: "Morning stiffness duration in Rheumatoid Arthritis", b: "Greater than 30 minutes, often hours" }
+        ]
+      }
+    };
+
+    let activeMCQIndex = 0;
+    let activeFlashcardIndex = 0;
+    let mcqScores = { correct: 0, total: 0 };
+
     function showView(viewId) {
-      ['view-login', 'view-dashboard', 'view-reader'].forEach(id => {
+      ['view-login', 'view-dashboard', 'view-reader', 'view-mcq'].forEach(id => {
         document.getElementById(id)?.classList.add('hidden');
       });
       document.getElementById(viewId)?.classList.remove('hidden');
       lucide.createIcons();
     }
 
+    // Auth Change Guard
     auth.onAuthStateChanged((user) => {
       if (user) {
         db.collection('users').doc(user.uid).get().then(doc => {
@@ -246,6 +389,7 @@
       }
     });
 
+    // Dynamic Library Fetch (Syncing progress variables on-the-fly)
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
       db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
@@ -257,30 +401,54 @@
           return;
         }
 
-        snapshot.forEach(doc => {
+        snapshot.forEach(async (doc) => {
           const data = doc.data();
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
           let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
           _secureState.save(doc.id, targetBookUrl);
 
+          // Get the dynamic progress stats mapped straight from Firestore
+          const progDoc = await db.collection('users').doc(uid).collection('progress').doc(doc.id).get();
+          let progText = "Not started yet";
+          let progPercent = 0;
+          if (progDoc.exists && progDoc.data().lastPage) {
+            const lastPage = progDoc.data().lastPage;
+            progText = `Last read on Page ${lastPage}`;
+            progPercent = Math.min(Math.round((lastPage / 14) * 100), 100); // 14 page reference scale
+          }
+
           container.innerHTML += `
-            <div class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all cursor-pointer" onclick="openBookViewer('${doc.id}')">
+            <div class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300">
               <div>
-                <div class="p-3.5 bg-blue-50 text-blue-600 rounded-2xl w-fit mb-4"><i data-lucide="book-open" class="w-6 h-6"></i></div>
-                <h3 class="text-xl font-bold text-slate-950 mb-2">${cleanName}</h3>
+                <div class="flex justify-between items-start mb-4">
+                  <div class="p-3 bg-blue-50 text-blue-600 rounded-2xl"><i data-lucide="book-open" class="w-6 h-6"></i></div>
+                  <button onclick="openMCQPortal('${doc.id}', '${cleanName.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[11px] font-extrabold uppercase rounded-lg tracking-wider">
+                    MCQ Portal
+                  </button>
+                </div>
+                <h3 class="text-xl font-black text-slate-950 mb-1">${cleanName}</h3>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">${progText}</p>
+                
+                <!-- Sizing Progress indicator -->
+                <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden">
+                  <div class="bg-blue-600 h-full rounded-full transition-all" style="width: ${progPercent}%"></div>
+                </div>
               </div>
-              <div class="pt-6 border-t border-slate-100 flex justify-between items-center mt-4">
-                <span class="text-sm font-bold text-blue-600 flex items-center gap-1">Open Module <i data-lucide="arrow-right" class="w-4 h-4"></i></span>
+              <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                <button onclick="openBookViewer('${doc.id}')" class="w-full inline-flex justify-center items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all">
+                  <span>Read E-Book</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
               </div>
             </div>`;
+          lucide.createIcons();
         });
-        lucide.createIcons();
       });
     }
 
+    // ==== High-fidelity Page Renderer (Clean Corners) ====
     async function openBookViewer(bookId) {
       readerState.activeBookId = bookId;
-      readerState.searchQuery = ""; // Reset search state
+      readerState.searchQuery = ""; 
       document.getElementById('pdf-search-input').value = "";
       document.getElementById('reader-loading').classList.remove('hidden');
       showView('view-reader');
@@ -292,6 +460,9 @@
         const pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
         
+        // Background Page Index mapping
+        preIndexDocumentText(pdf);
+
         const uid = auth.currentUser.uid;
         const progDoc = await db.collection('users').doc(uid).collection('progress').doc(bookId).get();
         if(progDoc.exists && progDoc.data().lastPage) {
@@ -301,6 +472,15 @@
         renderLazyViewport(pdf);
       } catch (error) {
         showSecToast("Failed to compile layout parameters.", "alert-triangle");
+      }
+    }
+
+    function preIndexDocumentText(pdf) {
+      readerState.textIndex = {};
+      for (let i = 1; i <= pdf.numPages; i++) {
+        pdf.getPage(i).then(page => page.getTextContent()).then(content => {
+          readerState.textIndex[i] = content.items.map(item => item.str).join(' ').toLowerCase();
+        }).catch(()=>{});
       }
     }
 
@@ -318,13 +498,14 @@
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-white shadow-xl rounded-xl border border-slate-200 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
+        // CRITICAL UPDATE: No Rounded corners (Clean Crisp edges as requested)
+        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
         
-        // Zero-Stretch CSS Sizing Implementation
         const currentWidth = readerState.baseWidth * readerState.zoom;
         pageWrapper.style.width = `${currentWidth}px`;
-        pageWrapper.style.height = 'auto'; // Browser calculates actual height dynamically
+        pageWrapper.style.height = 'auto'; 
         pageWrapper.style.aspectRatio = `${aspectRatio}`;
+        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
         
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
@@ -332,7 +513,6 @@
         viewportContainer.appendChild(pageWrapper);
       }
 
-      // Lazy load viewport scrolling observer
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           const pageNum = parseInt(entry.target.dataset.pageNum);
@@ -358,13 +538,6 @@
       }, 400);
     }
 
-    function saveProgressToFirebase(pageNum) {
-      if(!auth.currentUser || !readerState.activeBookId) return;
-      db.collection('users').doc(auth.currentUser.uid)
-        .collection('progress').doc(readerState.activeBookId)
-        .set({ lastPage: pageNum }, { merge: true });
-    }
-
     async function renderPageOnDemand(pdf, pageNum, container, aspectRatio) {
       if (container.dataset.rendered === "true") return;
       container.dataset.rendered = "true";
@@ -374,7 +547,7 @@
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
 
         const canvas = document.createElement('canvas');
-        canvas.className = "w-full h-full block absolute inset-0 z-0 rounded-xl pointer-events-none select-none";
+        canvas.className = "w-full h-full block absolute inset-0 z-0 pointer-events-none select-none";
         canvas.width = highResViewport.width;
         canvas.height = highResViewport.height;
         container.appendChild(canvas);
@@ -382,9 +555,8 @@
         const ctx = canvas.getContext('2d');
         await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
 
-        // Text Selection Overlay Div
         const textLayerDiv = document.createElement('div');
-        textLayerDiv.className = "textLayer absolute inset-0 rounded-xl overflow-hidden";
+        textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
         textLayerDiv.style.pointerEvents = readerState.tool === 'pan' ? 'auto' : 'none';
         textLayerDiv.style.zIndex = readerState.tool === 'pan' ? '30' : '10';
         container.appendChild(textLayerDiv);
@@ -398,15 +570,13 @@
             textDivs: []
           }).promise;
 
-          // Autoload active Highlights instantly on lazy loaded frames
           if (readerState.searchQuery) {
             applyTextLayerHighlight(container, readerState.searchQuery);
           }
         } catch(e) {}
 
-        // Canvas Drawings Layer
         const drawCanvas = document.createElement('canvas');
-        drawCanvas.className = "annotation-layer absolute inset-0 rounded-xl";
+        drawCanvas.className = "annotation-layer absolute inset-0";
         drawCanvas.style.pointerEvents = (readerState.tool === 'pan' || readerState.tool === 'note') ? 'none' : 'auto';
         drawCanvas.style.zIndex = (readerState.tool === 'pan' || readerState.tool === 'note') ? '10' : '30';
         drawCanvas.width = highResViewport.width;
@@ -424,39 +594,49 @@
       container.dataset.rendered = "false";
     }
 
-    // ==== Dynamic Text Searching & Immediate Scrolling Highlight ====
-    async function handleSearch(e) {
-      if (e.key === 'Enter') {
-        const query = e.target.value.toLowerCase().trim();
-        if (!query) return;
+    // ==== Dynamic Text Selection Matching search highlight ====
+    function handleSearchQueryInput(val) {
+      const q = val.toLowerCase().trim();
+      const dropdown = document.getElementById('search-dropdown');
+      
+      if (!q) {
+        dropdown.classList.add('hidden');
+        return;
+      }
 
-        showSecToast("Scanning book pipeline...", "search");
-        readerState.searchQuery = query;
+      dropdown.innerHTML = "";
+      let matchesFound = 0;
 
-        let matchedPage = -1;
-        // Search sequentially on demand for rapid background execution
-        for (let i = 1; i <= readerState.activePdf.numPages; i++) {
-          const page = await readerState.activePdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items.map(item => item.str).join(' ').toLowerCase();
+      for (let i = 1; i <= readerState.activePdf.numPages; i++) {
+        if (readerState.textIndex[i] && readerState.textIndex[i].includes(q)) {
+          matchesFound++;
+          dropdown.classList.remove('hidden');
           
-          if (pageText.includes(query)) {
-            matchedPage = i;
-            break;
-          }
+          dropdown.innerHTML += `
+            <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs font-bold hover:bg-slate-100 cursor-pointer text-slate-800 border-b border-slate-50 last:border-none flex justify-between">
+              <span>"${q.substring(0, 10)}..."</span>
+              <span class="text-blue-600 uppercase text-[10px]">Page ${i}</span>
+            </div>`;
         }
+      }
 
-        if (matchedPage !== -1) {
-          const targetWrap = document.getElementById(`page-wrapper-${matchedPage}`);
-          if (targetWrap) {
-            targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => {
-              applyTextLayerHighlight(targetWrap, query);
-            }, 350);
-          }
-        } else {
-          showSecToast("Term not located in document index.", "info");
-        }
+      if (matchesFound === 0) {
+        dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 font-semibold text-center">No matching indexes</div>`;
+      }
+    }
+
+    function jumpToSearchResultPage(pageNum, query) {
+      const dropdown = document.getElementById('search-dropdown');
+      dropdown.classList.add('hidden');
+      
+      readerState.searchQuery = query;
+
+      const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
+      if (targetWrap) {
+        targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          applyTextLayerHighlight(targetWrap, query);
+        }, 300);
       }
     }
 
@@ -464,31 +644,24 @@
       const textLayer = container.querySelector('.textLayer');
       if (!textLayer) return;
 
-      // Wipe old Highlights to avoid rendering stack glitches
-      const existingMarks = textLayer.querySelectorAll('mark');
-      existingMarks.forEach(mark => {
-        const parent = mark.parentNode;
-        parent.replaceChild(document.createTextNode(mark.textContent), mark);
-        parent.normalize();
-      });
+      const spans = textLayer.querySelectorAll('span');
+      spans.forEach(span => {
+        // Safe mapping ensuring original strings do not break
+        const originalText = span.dataset.originalText || span.textContent;
+        if (!span.dataset.originalText) {
+          span.dataset.originalText = originalText;
+        }
 
-      const spanDivs = textLayer.querySelectorAll('span');
-      let matches = 0;
-      
-      spanDivs.forEach(div => {
-        const text = div.textContent;
-        if (text.toLowerCase().includes(query)) {
+        if (originalText.toLowerCase().includes(query)) {
           const regex = new RegExp(`(${query})`, 'gi');
-          div.innerHTML = text.replace(regex, `<mark class="bg-yellow-300 text-slate-900 rounded-sm px-0.5">$1</mark>`);
-          matches++;
+          span.innerHTML = originalText.replace(regex, `<mark class="bg-yellow-300/60 text-slate-900 rounded-sm px-0.5">$1</mark>`);
+        } else {
+          span.innerHTML = originalText;
         }
       });
-      if(matches > 0) {
-        showSecToast(`Located matching instances on page!`, "check-circle");
-      }
     }
 
-    // Get exact cursor coordinate matrices mapping perfectly over scale differences
+    // ==== Working Annotation Pen Tracking (Touch support) ====
     function getEventCoordinates(e, canvas) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -509,7 +682,6 @@
       };
     }
 
-    // ==== Unified Touch/Mouse Drawing Event Framework ====
     function initializeCanvasPenTracker(canvas, pageNum) {
       const ctx = canvas.getContext('2d');
       let isDrawing = false;
@@ -540,9 +712,19 @@
         ctx.lineTo(coords.x, coords.y);
 
         if (readerState.tool === 'pen') {
-          ctx.strokeStyle = '#2563EB'; ctx.lineWidth = 4; ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = readerState.currentColor; 
+          ctx.lineWidth = 4; 
+          ctx.globalCompositeOperation = 'source-over';
         } else if (readerState.tool === 'highlighter') {
-          ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; ctx.lineWidth = 26; ctx.globalCompositeOperation = 'multiply';
+          // Dynamic Opacity Ink Selector
+          const hex = readerState.currentColor;
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${readerState.currentOpacity})`; 
+          ctx.lineWidth = 26; 
+          ctx.globalCompositeOperation = 'multiply';
         } else if (readerState.tool === 'eraser') {
           ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 45; ctx.globalCompositeOperation = 'destination-out';
         }
@@ -558,18 +740,16 @@
         }
       };
 
-      // Desktop
       canvas.onmousedown = drawStart;
       canvas.onmousemove = drawMove;
       canvas.onmouseup = canvas.onmouseleave = drawEnd;
 
-      // iPad / Mobile Touch bindings
       canvas.ontouchstart = drawStart;
       canvas.ontouchmove = drawMove;
       canvas.ontouchend = drawEnd;
     }
 
-    // ==== Tap to Add Sticky Notes ====
+    // ==== Sticky Note Controllers ====
     function initializePageNoteListener(container, pageNum) {
       container.onclick = (e) => {
         if (readerState.tool !== 'note') return;
@@ -649,7 +829,16 @@
       element.ontouchstart = dragStart;
     }
 
-    // ==== Dynamic Tool State Controller ====
+    // ==== Dynamic State Customizer Tools ====
+    function setInkColor(hex) {
+      readerState.currentColor = hex;
+      showSecToast(`Pen Color updated to ${hex}`, "check-circle");
+    }
+
+    function handleOpacitySlider(val) {
+      readerState.currentOpacity = parseFloat(val);
+    }
+
     function setReaderTool(toolName) {
       readerState.tool = toolName;
       
@@ -666,7 +855,6 @@
         }
       });
 
-      // Swap Interactive Layer Depths Safely
       document.querySelectorAll('.textLayer').forEach(layer => {
         layer.style.pointerEvents = toolName === 'pan' ? 'auto' : 'none';
         layer.style.zIndex = toolName === 'pan' ? '30' : '10';
@@ -675,6 +863,156 @@
         layer.style.pointerEvents = (toolName === 'pan' || toolName === 'note') ? 'none' : 'auto';
         layer.style.zIndex = (toolName === 'pan' || toolName === 'note') ? '10' : '30';
       });
+    }
+
+    // ==== MCQ Assessment Module ====
+    function openMCQPortal(bookId, bookTitle) {
+      activeMCQIndex = 0;
+      activeFlashcardIndex = 0;
+      mcqScores = { correct: 0, total: 0 };
+      
+      document.getElementById('mcq-book-title').textContent = `${bookTitle} Self Assessment`;
+      showView('view-mcq');
+      loadMCQQuestion();
+      loadFlashcard();
+    }
+
+    function closeMCQPortal() {
+      showView('view-dashboard');
+    }
+
+    function loadMCQQuestion() {
+      const activeDeck = mcqDecks.default; // Can easily pull dynamic database tables
+      const currentQuestion = activeDeck.mcqs[activeMCQIndex];
+      
+      document.getElementById('mcq-counter').textContent = `Question ${activeMCQIndex + 1} of ${activeDeck.mcqs.length}`;
+      document.getElementById('mcq-question').textContent = currentQuestion.q;
+      
+      const container = document.getElementById('mcq-answers-container');
+      container.innerHTML = "";
+
+      currentQuestion.a.forEach((choice, index) => {
+        container.innerHTML += `
+          <button onclick="submitMCQAnswer(${index}, ${currentQuestion.correct})" class="w-full text-left p-3.5 border border-slate-200 rounded-2xl hover:bg-slate-50 font-semibold text-slate-800 text-xs transition-all flex justify-between items-center bg-white shadow-sm choice-btn">
+            <span>${choice}</span>
+            <span class="indicator-icon hidden"></span>
+          </button>`;
+      });
+    }
+
+    function submitMCQAnswer(selectedIndex, correctIndex) {
+      const buttons = document.querySelectorAll('.choice-btn');
+      
+      buttons.forEach((btn, index) => {
+        btn.disabled = true;
+        if (index === correctIndex) {
+          btn.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-700');
+        } else if (index === selectedIndex) {
+          btn.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+        }
+      });
+
+      mcqScores.total++;
+      if (selectedIndex === correctIndex) {
+        mcqScores.correct++;
+      }
+
+      document.getElementById('mcq-score').textContent = `${mcqScores.correct}/${mcqScores.total}`;
+      
+      // Save scoring progress back to User's Firestore node
+      if(auth.currentUser) {
+        db.collection('users').doc(auth.currentUser.uid).collection('quiz_scores').doc(readerState.activeBookId || 'general')
+          .set({ correct: mcqScores.correct, total: mcqScores.total }, { merge: true });
+      }
+    }
+
+    function nextMCQ() {
+      const activeDeck = mcqDecks.default;
+      activeMCQIndex = (activeMCQIndex + 1) % activeDeck.mcqs.length;
+      loadMCQQuestion();
+    }
+
+    // ==== Dynamic Flashcard flip Deck ====
+    function loadFlashcard() {
+      const activeDeck = mcqDecks.default;
+      const currentCard = activeDeck.flashcards[activeFlashcardIndex];
+      
+      document.getElementById('flashcard-inner').classList.remove('flipped');
+      document.getElementById('flashcard-front').textContent = currentCard.f;
+      document.getElementById('flashcard-back').textContent = currentCard.b;
+    }
+
+    function flipFlashcard() {
+      document.getElementById('flashcard-inner').classList.toggle('flipped');
+    }
+
+    function swipeFlashcard(mastered) {
+      if(mastered) {
+        showSecToast("Concept marked as Mastered!", "check-circle");
+      }
+      const activeDeck = mcqDecks.default;
+      activeFlashcardIndex = (activeFlashcardIndex + 1) % activeDeck.flashcards.length;
+      loadFlashcard();
+    }
+
+    // ==== Purchase History Tracker Modal ====
+    function togglePurchaseHistory(show) {
+      const modal = document.getElementById('modal-purchases');
+      if (show) {
+        modal.classList.remove('hidden');
+        loadPurchaseHistoryRecords();
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function loadPurchaseHistoryRecords() {
+      const container = document.getElementById('purchases-list-container');
+      container.innerHTML = `<div class="text-center py-6 text-slate-400 animate-pulse font-bold text-xs">Fetching transactions...</div>`;
+      
+      if(!auth.currentUser) return;
+
+      db.collection('users').doc(auth.currentUser.uid).collection('purchases').get().then(snapshot => {
+        container.innerHTML = "";
+        
+        if (snapshot.empty) {
+          container.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-xs">No transactions recorded.</div>`;
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          container.innerHTML += `
+            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+              <div>
+                <p class="font-extrabold text-slate-800 text-xs">${data.bookTitle || 'Clinical Study Module'}</p>
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${data.purchaseDate || 'Verified'}</p>
+              </div>
+              <span class="text-xs font-black text-blue-600">${data.amount || '$0.00'}</span>
+            </div>`;
+        });
+      });
+    }
+
+    function applyDynamicSizing() {
+      const currentWidth = readerState.baseWidth * readerState.zoom;
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+        wrapper.style.width = `${currentWidth}px`;
+        wrapper.style.height = 'auto'; 
+      });
+      document.getElementById('zoom-slider').value = readerState.zoom;
+    }
+
+    function handleZoomSlider(val) {
+      readerState.zoom = parseFloat(val);
+      applyDynamicSizing();
+    }
+
+    function zoomReader(modifier) {
+      let newZoom = readerState.zoom + modifier;
+      if (newZoom < 0.5 || newZoom > 2.5) return;
+      readerState.zoom = parseFloat(newZoom.toFixed(1));
+      applyDynamicSizing();
     }
 
     function clearAllAnnotations() {
@@ -696,29 +1034,7 @@
       document.getElementById('tool-bookmark').classList.add('text-amber-500');
     }
 
-    function undoAnnotation() { showSecToast("Undo is restricted to active lines.", "info"); }
-
-    // ==== High-Efficiency Aspect-Ratio Zoom Engine ====
-    function applyDynamicSizing() {
-      const currentWidth = readerState.baseWidth * readerState.zoom;
-      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
-        wrapper.style.width = `${currentWidth}px`;
-        wrapper.style.height = 'auto'; // Locks browser ratio scaling instantly
-      });
-      document.getElementById('zoom-slider').value = readerState.zoom;
-    }
-
-    function handleZoomSlider(val) {
-      readerState.zoom = parseFloat(val);
-      applyDynamicSizing();
-    }
-
-    function zoomReader(modifier) {
-      let newZoom = readerState.zoom + modifier;
-      if (newZoom < 0.5 || newZoom > 2.5) return;
-      readerState.zoom = parseFloat(newZoom.toFixed(1));
-      applyDynamicSizing();
-    }
+    function undoAnnotation() { showSecToast("Undo is restricted to drawing strokes.", "info"); }
 
     function closeBookViewer() {
       document.getElementById('pdf-pages-viewport').innerHTML = "";
@@ -727,7 +1043,7 @@
       showView('view-dashboard');
     }
 
-    // ==== USER AUTHENTICATION METRICS ====
+    // ==== USER LOGINS ====
     function togglePasswordVisibility() {
       const pwInput = document.getElementById('login-password');
       const eyeIcon = document.getElementById('password-eye-icon');
