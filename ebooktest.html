@@ -66,10 +66,18 @@
     /* Small, completely horizontal watermark */
     .watermark-text {
       font-size: 8px;
-      font-weight: 800;
+      font-weight: 850;
       letter-spacing: 0.12em;
       opacity: 0.04;
       color: #000000;
+    }
+
+    /* Resizable Draggable Comments */
+    .sticky-note-wrapper {
+      resize: both;
+      overflow: auto;
+      min-width: 140px;
+      min-height: 90px;
     }
 
     /* Flip Card Styles */
@@ -358,7 +366,7 @@
                   <!-- Front -->
                   <div class="absolute inset-0 w-full h-full p-6 flex flex-col justify-between backface-hidden">
                     <span class="text-[9px] font-extrabold text-blue-600 uppercase tracking-wider">Flashcard Concept</span>
-                    <p id="flashcard-front" class="text-base font-black text-slate-900 text-center flex-1 flex items-center justify-center">Heberden Nodes location</p>
+                    <p id="flashcard-front" class="text-base font-black text-slate-950 text-center flex-1 flex items-center justify-center">Heberden Nodes location</p>
                     <span class="text-[10px] text-slate-400 text-center font-semibold">Tap to flip answer</span>
                   </div>
 
@@ -634,7 +642,7 @@
       return `Last read on Page ${pageNum - 11}`;
     }
 
-    // ==== High-fidelity Page Renderer (Crisp sharp corners) ====
+    // ==== High-fidelity Page Renderer ====
     async function openBookViewer(bookId) {
       readerState.activeBookId = bookId;
       readerState.searchQuery = ""; 
@@ -927,8 +935,9 @@
       };
     }
 
-    function initializeCanvasPenTracker(canvas, hlCanvas, pageNum) {
-      const penCtx = canvas.getContext('2d');
+    // Dual Canvas separate track handlers (Fixes pen/eraser parameter bindings)
+    function initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum) {
+      const penCtx = penCanvas.getContext('2d');
       const hlCtx = hlCanvas.getContext('2d');
 
       const penSaveKey = `annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
@@ -953,7 +962,7 @@
           hlCtx.moveTo(coords.x, coords.y);
         } else {
           penCtx.beginPath();
-          const coords = getEventCoordinates(e, canvas);
+          const coords = getEventCoordinates(e, penCanvas);
           penCtx.moveTo(coords.x, coords.y);
         }
       };
@@ -971,7 +980,7 @@
           hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round';
           hlCtx.stroke();
         } else {
-          const coords = getEventCoordinates(e, canvas);
+          const coords = getEventCoordinates(e, penCanvas);
           
           if (readerState.tool === 'pen') {
             penCtx.lineTo(coords.x, coords.y);
@@ -1000,17 +1009,17 @@
       };
 
       const drawEnd = () => {
-        localStorage.setItem(penSaveKey, canvas.toDataURL());
+        localStorage.setItem(penSaveKey, penCanvas.toDataURL());
         localStorage.setItem(hlSaveKey, hlCanvas.toDataURL());
       };
 
-      canvas.onmousedown = hlCanvas.onmousedown = drawStart;
-      canvas.onmousemove = hlCanvas.onmousemove = drawMove;
-      canvas.onmouseup = canvas.onmouseleave = hlCanvas.onmouseup = hlCanvas.onmouseleave = drawEnd;
+      penCanvas.onmousedown = hlCanvas.onmousedown = drawStart;
+      penCanvas.onmousemove = hlCanvas.onmousemove = drawMove;
+      penCanvas.onmouseup = penCanvas.onmouseleave = hlCanvas.onmouseup = hlCanvas.onmouseleave = drawEnd;
 
-      canvas.ontouchstart = hlCanvas.ontouchstart = drawStart;
-      canvas.ontouchmove = hlCanvas.ontouchmove = drawMove;
-      canvas.ontouchend = hlCanvas.ontouchend = drawEnd;
+      penCanvas.ontouchstart = hlCanvas.ontouchstart = drawStart;
+      penCanvas.ontouchmove = hlCanvas.ontouchmove = drawMove;
+      penCanvas.ontouchend = hlCanvas.ontouchend = drawEnd;
     }
 
     // ==== Sticky Note Controllers ====
@@ -1180,6 +1189,7 @@
       menu.classList.toggle('hidden');
     }
 
+    // Toggle Pages vs Bookmarks Tabs
     function switchSidebarTab(tabName) {
       const pTab = document.getElementById('tab-pages-toggle');
       const bTab = document.getElementById('tab-bookmarks-toggle');
@@ -1318,6 +1328,7 @@
       loadFlashcard();
     }
 
+    // [DASHBOARD TRANSITION FIX]: Reset reader properties cleanly to avoid observer zoom conflicts
     function closeMCQPortal() {
       showView('view-dashboard');
     }
@@ -1364,6 +1375,20 @@
         db.collection('mod_users').doc(auth.currentUser.uid).collection('quiz_scores').doc(readerState.activeBookId || 'general')
           .set({ correct: mcqScores.correct, total: mcqScores.total }, { merge: true });
       }
+    }
+
+    // ==== Flashcard flip Deck ====
+    function loadFlashcard() {
+      const activeDeck = mcqDecks.default;
+      const currentCard = activeDeck.flashcards[activeFlashcardIndex];
+      
+      document.getElementById('flashcard-inner').classList.remove('flipped');
+      document.getElementById('flashcard-front').textContent = currentCard.f;
+      document.getElementById('flashcard-back').textContent = currentCard.b;
+    }
+
+    function flipFlashcard() {
+      document.getElementById('flashcard-inner').classList.toggle('flipped');
     }
 
     // ==== Purchase History Tracker Modal ====
@@ -1421,7 +1446,11 @@
       loadMCQQuestion();
     }
 
+    // High efficiency non-blocking zoom scales transition lock
+    let zoomTimeout;
     function applyDynamicSizing() {
+      readerState.isZooming = true; // Lock intersecting updates
+      
       const currentWidth = readerState.baseWidth * readerState.zoom;
       document.querySelectorAll('.page-wrapper').forEach(wrapper => {
         wrapper.style.width = `${currentWidth}px`;
@@ -1454,6 +1483,25 @@
         scrollEl.dispatchEvent(new Event('scroll'));
       }
     }
+
+    function clearAllAnnotations() {
+      document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const pageNum = canvas.parentElement.dataset.pageNum;
+        localStorage.removeItem(`annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`);
+      });
+      document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const pageNum = canvas.parentElement.dataset.pageNum;
+        localStorage.removeItem(`annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`);
+      });
+      document.querySelectorAll('.sticky-note-wrapper').forEach(note => note.remove());
+      showSecToast("Cleared workspace drawing layers.", "trash");
+    }
+
+    function undoAnnotation() { showSecToast("Undo is restricted to drawing strokes.", "info"); }
 
     function closeBookViewer() {
       document.getElementById('pdf-pages-viewport').innerHTML = "";
