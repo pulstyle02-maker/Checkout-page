@@ -2,17 +2,18 @@
 <html lang="en" class="h-full bg-[#FAF9F6] text-slate-800">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <!-- Strict Security Headers -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; media-src 'self' https: data: blob:; frame-src https://drive.google.com https://*.google.com;">
-
+  
   <title>E-Books by ModMedicalis - Secure Portal</title>
   
-  <!-- External Libraries -->
+  <!-- Tailwind & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Mozilla PDF.js Engine & Styling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf_viewer.min.css">
   
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -21,13 +22,7 @@
 
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-          }
-        }
-      }
+      theme: { extend: { fontFamily: { sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'], } } }
     }
   </script>
   
@@ -49,10 +44,39 @@
       background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M3,3 Q50,11 97,3' stroke='%233B82F6' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center;
       background-size: 100% 100%; pointer-events: none;
     }
+
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+      background: #3B82F6; cursor: pointer; margin-top: -5px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #E2E8F0; border-radius: 2px; }
+
+    .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
+    .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
     
-    /* Elegant Input Focus Transitions */
-    .auth-input { transition: all 0.2s ease-in-out; }
-    .auth-input:focus { border-color: #2563EB; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+    /* Dual Canvas Stacking contexts */
+    .annotation-layer-pen { z-index: 25; }
+    .annotation-layer-highlighter { z-index: 20; transition: opacity 0.1s ease; }
+    
+    .page-wrapper {
+      transition: width 0.1s ease-out, height 0.1s ease-out;
+    }
+
+    /* Horizontal, highly visible watermark with reduced font size */
+    .watermark-text {
+      font-size: 5.5px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      opacity: 0.20 !important;
+      color: #000000 !important;
+      user-select: none;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 50 !important;
+    }
+    @media (min-width: 768px) { .watermark-text { font-size: 7px; } }
+
   </style>
 </head>
 <body class="h-full overflow-hidden font-sans antialiased grid-bg">
@@ -63,7 +87,7 @@
     <section id="view-login" class="flex-1 flex flex-col items-center justify-center px-4 w-full h-full relative z-10">
       <div class="text-center w-full max-w-md mb-8 flex flex-col items-center">
         <div class="flex items-center justify-center select-none w-full mb-6">
-          <div class="h-24 w-[320px] sm:h-32 sm:w-[480px] md:h-40 md:w-[600px] bg-no-repeat bg-center bg-contain pointer-events-none" style="background-image: url('https://i.imgur.com/tLWWPXh.png');"></div>
+          <div class="h-24 w-[320px] bg-no-repeat bg-center bg-contain pointer-events-none" style="background-image: url('https://i.imgur.com/tLWWPXh.png');"></div>
         </div>
         <h1 class="text-4xl sm:text-5xl font-black text-[#1E293B] tracking-tight mb-4">
           E-books <span class="text-blue-600 curved-underline">by ModMedicalis</span>
@@ -72,122 +96,228 @@
         <p class="text-xs text-slate-500 font-medium mt-2">Use the account you created during checkout.</p>
       </div>
 
-      <!-- Error Notification -->
       <div id="login-alert" class="hidden mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold text-left w-full max-w-sm flex gap-2 items-start shadow-sm animate-pulse">
         <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
         <span id="login-alert-text">Authentication failed.</span>
       </div>
 
-      <!-- Email/Password Login Form -->
-      <form id="login-form" onsubmit="handleLogin(event)" class="w-full max-w-sm space-y-4">
-        <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
-          <input type="email" id="login-email" required
-            class="auth-input w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none placeholder-slate-400 shadow-sm"
-            placeholder="student@example.com">
-        </div>
+      <!-- Main Login Container -->
+      <div id="login-container" class="w-full max-w-sm">
+        <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
+            <input type="email" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
+            <div class="relative">
+              <input type="password" id="login-password" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+              <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-3.5 text-slate-400 hover:text-blue-600">
+                <i id="password-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          <div class="text-right">
+            <button type="button" onclick="toggleForgotView(true)" class="text-[10px] font-bold text-blue-600 hover:underline">Forgot Password?</button>
+          </div>
+          <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all flex justify-center items-center gap-2 mt-2">
+            <span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </form>
+      </div>
 
-        <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
-          <div class="relative">
-            <input type="password" id="login-password" required
-              class="auth-input w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-sm text-slate-900 outline-none placeholder-slate-400 shadow-sm"
-              placeholder="••••••••">
-            <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-3.5 text-slate-400 hover:text-blue-600 transition-colors">
-              <i id="password-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+      <!-- Forgot Password Container -->
+      <div id="forgot-container" class="w-full max-w-sm hidden">
+        <p class="text-xs text-slate-500 font-medium text-center mb-6">Enter your registered email to receive a password reset link.</p>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
+            <input type="email" id="forgot-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+          </div>
+          <button type="button" id="btn-forgot" onclick="handleForgotPassword()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all mt-4">
+            Send Reset Link
+          </button>
+          <div class="text-center mt-6">
+            <button type="button" onclick="toggleForgotView(false)" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 hover:underline"><i data-lucide="arrow-left" class="w-3 h-3 inline -mt-0.5"></i> Back to Login</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: DASHBOARD ==================== -->
+    <section id="view-dashboard" class="view-transition hidden flex-col h-full max-w-[1020px] mx-auto w-full px-6 py-8 justify-between overflow-y-auto no-scrollbar">
+      <div>
+        <div class="mb-8 border-b border-slate-200 pb-6 flex justify-between items-center gap-4">
+          <div class="flex items-center gap-4">
+            <img src="https://i.imgur.com/wliwntu.png" alt="Logo" class="h-10 w-auto object-contain">
+            <div>
+              <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest block">My Digital Library</span>
+              <h1 class="text-xl font-black text-slate-950 mt-0.5">Welcome back, <span id="dashboard-user" class="text-blue-600">Student</span></h1>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="togglePurchaseHistory(true)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+              Purchase History
+            </button>
+            <button onclick="handleLogout()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
-
-        <button type="submit" id="btn-login"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-all flex justify-center items-center gap-2 mt-4">
-          <span>Secure Sign In</span>
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
-        </button>
-        
-        <div class="text-center mt-6">
-          <a href="https://www.modmedicalis.online" class="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors">Need an account? Shop on main website</a>
-        </div>
-      </form>
+        <div id="library-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+      </div>
+      
+      <footer class="mt-12 py-6 border-t border-slate-200 text-center select-none text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">
+        Copyright ©️ 2026 modmedicalis-modebooks
+      </footer>
     </section>
 
-    <!-- ==================== VIEW 2: DASHBOARD (LIBRARY) ==================== -->
-    <section id="view-dashboard" class="view-transition hidden flex-col h-full max-w-[1020px] mx-auto w-full px-6 py-8 overflow-y-auto no-scrollbar">
+    <!-- ==================== VIEW 3: INTERACTIVE READER ==================== -->
+    <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden relative">
       
-      <!-- Welcome Header -->
-      <div class="mb-8 border-b border-slate-200 pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">My Digital Library</span>
-          <h1 class="text-2xl font-black text-slate-950 mt-1">Welcome back, <span id="dashboard-user" class="text-blue-600">Student</span></h1>
+      <!-- Collapsible Page Jump & Bookmarks Sidebar Menu -->
+      <div id="left-jump-menu" class="hidden fixed left-0 top-16 bottom-0 w-52 bg-white border-r border-slate-200 z-40 overflow-y-auto no-scrollbar p-3 shadow-lg flex flex-col">
+        <div class="flex border-b border-slate-100 mb-3 text-[10px] font-black uppercase tracking-widest text-center">
+          <button id="tab-pages-toggle" onclick="switchSidebarTab('pages')" class="flex-1 pb-2 border-b-2 border-blue-600 text-slate-800 transition-colors">Pages</button>
+          <button id="tab-bookmarks-toggle" onclick="switchSidebarTab('bookmarks')" class="flex-1 pb-2 border-b-2 border-transparent text-slate-400 transition-colors">Bookmarks</button>
         </div>
-        <div class="flex items-center gap-3">
-          <span class="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Verified Session
-          </span>
-          <button onclick="handleLogout()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
-            <i data-lucide="log-out" class="w-4 h-4"></i>
-          </button>
+        <div id="sidebar-pages-container" class="space-y-1 flex-1 overflow-y-auto no-scrollbar">
+          <div id="jump-pages-list" class="space-y-1"></div>
+        </div>
+        <div id="sidebar-bookmarks-container" class="hidden space-y-1 flex-1 overflow-y-auto no-scrollbar">
+          <div id="jump-bookmarks-list" class="space-y-1 flex flex-col gap-1">
+            <div class="text-center py-6 text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">No saved bookmarks.</div>
+          </div>
         </div>
       </div>
 
-      <!-- Books Grid (Populated by Firebase) -->
-      <div id="library-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="col-span-full text-center py-12 text-slate-500 font-medium animate-pulse">Synchronizing your books securely...</div>
+      <!-- Floating Frame Page Counter (Dynamic Page 12 Offset Map) -->
+      <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg">
+        Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
       </div>
-    </section>
 
-    <!-- ==================== VIEW 3: SECURE READER ==================== -->
-    <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#1E293B] overflow-hidden">
-      
-      <!-- Viewer Top Bar -->
-      <div class="bg-[#1E52CC] text-white px-3 sm:px-4 py-2 flex justify-between items-center shadow-md z-30 shrink-0">
-        <div class="flex items-center gap-2 sm:gap-4">
-          <button onclick="closeBookViewer()" class="text-[10px] sm:text-xs font-extrabold tracking-wide uppercase flex items-center gap-1 sm:gap-1.5 bg-white/10 hover:bg-white/20 px-2 sm:px-3 py-1.5 rounded-lg transition-all">
-            <i data-lucide="chevron-left" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Library</span>
-          </button>
-          <span id="reader-title" class="text-xs sm:text-sm font-bold tracking-tight border-l border-white/20 pl-2 sm:pl-4 truncate max-w-[120px] sm:max-w-xs">E-Book Viewer</span>
+      <!-- Dialogue: Named Bookmark Input -->
+      <div id="bookmark-dialog" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 select-none">
+        <div class="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-xs border border-slate-100">
+          <h4 class="text-xs font-extrabold uppercase text-slate-400 tracking-wider mb-2">Tag your Bookmark</h4>
+          <input type="text" id="bookmark-name-input" placeholder="e.g. LOSS Acronym, Treatment" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs outline-none text-slate-800 font-bold mb-4 focus:border-blue-500">
+          <div class="flex justify-end gap-2 text-[10px] font-extrabold uppercase tracking-widest">
+            <button onclick="closeBookmarkDialog(false)" class="px-3 py-2 text-slate-400 hover:text-slate-600">Cancel</button>
+            <button onclick="closeBookmarkDialog(true)" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Save</button>
+          </div>
         </div>
-        <div class="flex items-center gap-1 sm:gap-3">
-          <button onclick="showSecToast('Search Indexed: Use browser Find (Ctrl+F) to locate text.', 'search')" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><i data-lucide="search" class="w-4 h-4"></i></button>
-          <button onclick="showSecToast('Progress Bookmarked.', 'bookmark-check')" class="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
-          <div class="bg-rose-500/20 text-rose-100 border border-rose-500/30 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-            <span class="hidden sm:inline">Secure Viewer</span>
-            <span class="inline sm:hidden">Secured</span>
+      </div>
+
+      <!-- Responsive Toolbar (Tightly packed, minimal gaps) -->
+      <div class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
+        <div class="flex items-center justify-between gap-2 max-w-7xl mx-auto">
+          
+          <!-- Left Elements: Exit, Menu, Search -->
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="closeBookViewer()" class="p-2 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleLeftJumpMenu()" class="p-2 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all">
+              <i data-lucide="book-open" class="w-4 h-4"></i>
+            </button>
+            
+            <div id="search-bar-wrap" class="relative flex items-center">
+              <button onclick="toggleSearchBarInput()" class="p-2 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all">
+                <i data-lucide="search" class="w-4 h-4"></i>
+              </button>
+              <div id="search-input-container" class="hidden ml-1 flex items-center bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 w-[140px] sm:w-[180px] md:w-[220px]">
+                <input type="text" id="pdf-search-input" placeholder="Search..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-sm md:text-xs outline-none w-full text-slate-700 font-medium">
+              </div>
+            </div>
+          </div>
+
+          <!-- Zoom Controls (Buttons always visible on mobile, slider visible on desktop) -->
+          <div class="flex items-center gap-1.5 bg-slate-50 px-2 sm:px-3 py-1.5 rounded-full border border-slate-200 shrink-0">
+            <button onclick="zoomReader(-0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="minus" class="w-4 h-4"></i></button>
+            <input type="range" min="0.5" max="2.5" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="hidden md:block w-28 sm:w-36 mx-1">
+            <button onclick="zoomReader(0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="plus" class="w-4 h-4"></i></button>
+          </div>
+
+          <!-- Tools Panel -->
+          <div class="flex items-center gap-1 bg-slate-50 p-1 rounded-xl shrink-0">
+            <div id="color-palette-container" class="hidden flex items-center gap-1 mr-1 border-r border-slate-300 pr-1">
+              <button onclick="setInkColor('#2563EB')" class="w-4 h-4 rounded-full bg-blue-600 border border-white focus:scale-110"></button>
+              <button onclick="setInkColor('#EF4444')" class="w-4 h-4 rounded-full bg-red-500 border border-white focus:scale-110"></button>
+              <button onclick="setInkColor('#10B981')" class="w-4 h-4 rounded-full bg-green-500 border border-white focus:scale-110"></button>
+              <button onclick="setInkColor('#FBBF24')" class="w-4 h-4 rounded-full bg-amber-400 border border-white focus:scale-110"></button>
+            </div>
+
+            <button onclick="toggleBookmark()" id="tool-bookmark" title="Bookmark page" class="p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
+            <div class="w-px h-5 bg-slate-300 mx-0.5"></div>
+            <!-- Toggle-based tools (Pan/Pointer removed) -->
+            <button onclick="setReaderTool('pen')" id="tool-pen" title="Drawing Pen" class="p-2 rounded-lg text-slate-400 hover:bg-white"><i data-lucide="pen-tool" class="w-4 h-4"></i></button>
+            <button onclick="setReaderTool('highlighter')" id="tool-highlighter" title="Highlight Tool" class="p-2 rounded-lg text-slate-400 hover:bg-white"><i data-lucide="highlighter" class="w-4 h-4"></i></button>
+            <button onclick="setReaderTool('eraser')" id="tool-eraser" title="Eraser" class="p-2 rounded-lg text-slate-400 hover:bg-white"><i data-lucide="eraser" class="w-4 h-4"></i></button>
+            <div class="w-px h-5 bg-slate-300 mx-0.5"></div>
+            <button onclick="clearAllAnnotations()" title="Wipe annotations" class="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
           </div>
         </div>
       </div>
       
-      <!-- Viewer Workspace -->
-      <div class="flex-1 flex overflow-hidden p-0 sm:p-6 justify-center w-full h-full">
-        <div class="w-full max-w-5xl bg-[#1E293B] border-0 sm:border border-slate-700 rounded-none sm:rounded-[24px] shadow-2xl relative overflow-hidden flex flex-col justify-center">
-          
-          <!-- Watermarks Overlay -->
-          <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-[700px] z-50 pointer-events-none select-none mix-blend-multiply overflow-hidden opacity-90">
-            <span class="watermark-text absolute top-12 right-6 text-black/20 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap"></span>
-            <span class="watermark-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap"></span>
-            <span class="watermark-text absolute bottom-12 left-6 text-black/20 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase whitespace-nowrap"></span>
-          </div>
-          
-          <!-- Embedded PDF -->
-          <div class="absolute inset-0 z-10 overflow-hidden bg-[#1E293B]">
-            <!-- Negative margins crop Google Drive toolbars and scrollbars securely -->
-            <iframe id="pdf-frame" src="" class="absolute border-none" style="top: -56px; left: 0; right: -20px; width: calc(100% + 20px); height: calc(100% + 56px);" allow="autoplay"></iframe>
-          </div>
+      <!-- Detached High Z-Index Search Dropdown -->
+      <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[250] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
+
+      <!-- Viewport -->
+      <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
+        <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
+          <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p class="text-xs font-bold tracking-wider text-slate-500 uppercase">Compiling rendering layout...</p>
         </div>
+        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start w-full min-h-full py-6 space-y-6"></div>
       </div>
       
-      <!-- Security Toasts -->
-      <div id="toast-notify" class="absolute bottom-6 right-6 left-6 sm:left-auto bg-slate-900 border border-slate-800 text-slate-100 text-xs px-4 py-3 rounded-2xl hidden flex items-center gap-2.5 shadow-xl z-50 animate-bounce">
+      <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
         <i data-lucide="shield-alert" id="toast-icon" class="w-4 h-4 text-blue-400 shrink-0"></i>
-        <span id="toast-text"></span>
+        <span id="toast-text" class="font-medium tracking-wide"></span>
       </div>
     </section>
+
+    <!-- ==================== VIEW 4: EMBEDDED MCQ PORTAL ==================== -->
+    <section id="view-mcq" class="view-transition hidden flex-col h-full bg-[#FAF9F6] overflow-hidden">
+      <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-30 shrink-0">
+        <div class="flex items-center gap-3">
+          <button onclick="closeMCQPortal()" class="p-2 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
+            <i data-lucide="arrow-left" class="w-4.5 h-4.5"></i>
+          </button>
+          <div>
+            <span class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest">Self Assessment Hub</span>
+            <h1 id="mcq-book-title" class="text-lg font-black text-slate-900 leading-tight">Interactive Study Portal</h1>
+          </div>
+        </div>
+      </div>
+      <div class="flex-1 w-full h-full relative">
+        <div id="mcq-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
+           <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+           <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Loading Portal...</p>
+        </div>
+        <iframe id="mcq-iframe" src="" class="w-full h-full border-none relative z-20" onload="document.getElementById('mcq-loading').classList.add('hidden')"></iframe>
+      </div>
+    </section>
+
+    <!-- ==================== MODAL: PURCHASE HISTORY ==================== -->
+    <div id="modal-purchases" class="hidden fixed inset-0 z-50 overflow-hidden select-none bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 relative">
+        <button onclick="togglePurchaseHistory(false)" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+        <h2 class="text-xl font-black text-slate-900 mb-2">Purchase History</h2>
+        <p class="text-xs text-slate-500 mb-4">Official secure checkout invoices bound to this account.</p>
+        <div id="purchases-list-container" class="space-y-3 max-h-64 overflow-y-auto no-scrollbar"></div>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    // ===== SYSTEM AUTH & CONFIG =====
+    // Set standard PDF.js worker path
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    // ===== SYSTEM CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
       authDomain: "modmedicalis-f7ca2.firebaseapp.com",
@@ -201,187 +331,645 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // ===== UI NAVIGATION =====
+    const _secureState = (function() {
+      const registry = {};
+      return {
+        save: (id, url) => { registry[id] = url; },
+        retrieve: (id) => registry[id] || "",
+        flush: () => { for (let key in registry) delete registry[key]; }
+      };
+    })();
+
+    const readerState = {
+      tool: null, // Null defaults to pan
+      zoom: 1.0,
+      activePdf: null,
+      activeBookId: null,
+      currentPage: 1,
+      baseWidth: 760, 
+      renderScale: window.innerWidth < 768 ? 1.6 : 2.2, // Improved crispness, no crash
+      currentColor: '#2563EB',
+      searchQuery: "",
+      textIndex: {},
+      isZooming: false, 
+      userTransactionId: "VERIFIED",
+      userPasswordMask: "PASS****"
+    };
+
+    let progressTimeout;
+
     function showView(viewId) {
-      ['view-login', 'view-dashboard', 'view-reader'].forEach(id => document.getElementById(id).classList.add('hidden'));
-      document.getElementById(viewId).classList.remove('hidden');
+      ['view-login', 'view-dashboard', 'view-reader', 'view-mcq'].forEach(id => {
+        document.getElementById(id)?.classList.add('hidden');
+      });
+      document.getElementById(viewId)?.classList.remove('hidden');
       lucide.createIcons();
     }
 
-    // ===== FIREBASE AUTH STATE =====
+    // ===== AUTH GATEWAY =====
     auth.onAuthStateChanged((user) => {
       if (user) {
-        // Fetch User's name from Firestore for Dashboard
-        db.collection('users').doc(user.uid).get().then(doc => {
-          const userName = doc.exists && doc.data().name ? doc.data().name : user.email.split('@')[0];
-          document.getElementById('dashboard-user').textContent = userName;
-        }).catch(() => {
-          document.getElementById('dashboard-user').textContent = user.email.split('@')[0];
-        });
-        
-        updateWatermarks(user.email);
-        showView('view-dashboard');
-        fetchUserLibrary(user.uid);
+        db.collection('mod_users').doc(user.uid).get().then(doc => {
+          if (!doc.exists) {
+            showSecToast("Access restricted: store-purchased accounts only.", "shield-alert");
+            auth.signOut(); showView('view-login'); return;
+          }
+          document.getElementById('dashboard-user').textContent = doc.data().name || user.email.split('@')[0];
+          db.collection('orders').where('userId', '==', user.uid).limit(1).get().then(snap => {
+            if(!snap.empty) readerState.userTransactionId = snap.docs[0].data().transactionId || 'VERIFIED';
+          }).catch(()=>{});
+          showView('view-dashboard');
+          fetchUserLibrary(user.uid);
+        }).catch(() => { auth.signOut(); showView('view-login'); });
       } else {
-        showView('view-login');
+        _secureState.flush(); showView('view-login');
       }
     });
 
-    // ===== LOGIN LOGIC =====
-    function togglePasswordVisibility() {
-      const pwInput = document.getElementById('login-password');
-      const eyeIcon = document.getElementById('password-eye-icon');
-      if (pwInput.type === 'password') {
-        pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off');
-      } else {
-        pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye');
-      }
-      lucide.createIcons();
-    }
-
-    function handleLogin(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btn-login');
-      btn.innerHTML = `Verifying Account...`;
-      btn.disabled = true;
-
-      const email = document.getElementById('login-email').value.trim();
-      const pass = document.getElementById('login-password').value;
-
-      // Persistence set to LOCAL so students stay logged in
-      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-        .then(() => auth.signInWithEmailAndPassword(email, pass))
-        .then(() => {
-          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-          btn.disabled = false;
-          document.getElementById('login-alert').classList.add('hidden');
-        })
-        .catch(err => {
-          const alert = document.getElementById('login-alert');
-          document.getElementById('login-alert-text').textContent = "Incorrect email or password. Please verify your details.";
-          alert.classList.remove('hidden');
-          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-          btn.disabled = false;
-          lucide.createIcons();
-        });
-    }
-
-    function handleLogout() {
-      auth.signOut();
-      document.getElementById('pdf-frame').src = ""; // Clear memory
-      document.getElementById('login-form').reset();
-    }
-
-    // ===== LIBRARY FETCH & RENDER =====
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
-      
-      // Queries the exact subcollection where ModMedicalis checkout deposits purchases
-      db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
-        container.innerHTML = '';
-        
+      db.collection("mod_users").doc(uid).collection("library").onSnapshot((snapshot) => {
+        container.innerHTML = ''; _secureState.flush();
         if (snapshot.empty) {
-          container.innerHTML = `
-            <div class="col-span-full text-center py-16 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-              <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                <i data-lucide="library" class="w-10 h-10 text-slate-300"></i>
-              </div>
-              <h3 class="text-xl font-bold text-slate-900 mb-2">No E-Books Found</h3>
-              <p class="text-sm text-slate-500 max-w-md mx-auto mb-6">You haven't purchased any E-books, or your payment is still pending manual verification by our finance team.</p>
-              <a href="https://www.modmedicalis.online" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white font-bold py-3 px-6 rounded-xl shadow-md">
-                Browse Store <i data-lucide="arrow-right" class="w-4 h-4"></i>
-              </a>
-            </div>`;
-          lucide.createIcons();
+          container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">No active E-Books purchased. Purchase on our store to unlock.</div>`;
           return;
         }
 
-        // Render each purchased book
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const isPending = data.status === 'pending_verification';
-          const cleanName = data.name.replace(' (E-Book)', '');
-          
+        snapshot.forEach((doc) => {
+          const data = doc.data(); const bookId = doc.id;
+          const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
+          let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
+          let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
+          _secureState.save(bookId, targetBookUrl);
+
+          const cardId = `book-card-${bookId}`; const progressId = `progress-text-${bookId}`;
+          const progressBarId = `progress-bar-${bookId}`; const imgCoverId = `img-cover-${bookId}`;
+
           container.innerHTML += `
-            <div class="bg-white rounded-3xl border ${isPending ? 'border-orange-200 shadow-sm opacity-90' : 'border-slate-200 hover:shadow-2xl hover:border-blue-500/50'} p-6 flex flex-col justify-between transition-all duration-300">
+            <div id="${cardId}" class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300 rounded-3xl">
               <div>
-                <div class="flex justify-between items-start mb-6">
-                  <div class="p-3.5 ${isPending ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-600'} rounded-2xl">
-                    <i data-lucide="${isPending ? 'clock' : 'book-open'}" class="w-6 h-6"></i>
+                <div class="flex gap-4 mb-4">
+                  <img id="${imgCoverId}" src="${coverUrl}" class="w-16 h-24 object-cover border border-slate-200 shadow-sm rounded-lg" alt="Book Cover" />
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="book-open" class="w-4 h-4"></i></div>
+                      <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[9px] font-extrabold uppercase rounded-lg tracking-wider">MCQ Portal</button>
+                    </div>
+                    <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
                   </div>
-                  <span class="text-[10px] font-extrabold ${isPending ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-full px-3 py-1.5 uppercase tracking-wider border">
-                    ${isPending ? 'Payment Verifying' : 'Active Access'}
-                  </span>
                 </div>
-                <h3 class="text-xl font-bold text-slate-950 mb-2">${cleanName}</h3>
-                <p class="text-xs text-slate-500 font-medium font-mono bg-slate-50 inline-block px-2 py-1 rounded-md border border-slate-100 mb-4">Ref: ${data.orderId}</p>
+                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
+                <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden"><div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 0%"></div></div>
               </div>
-              
-              <div class="pt-6 border-t border-slate-100 flex justify-between items-center">
-                <span class="text-xs text-slate-400 font-bold tracking-wide uppercase">${isPending ? 'Check back soon' : 'Core PDF Module'}</span>
-                ${isPending ? 
-                  `<span class="text-xs font-bold text-slate-400 px-4 py-2.5 flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Locked</span>` : 
-                  `<button onclick="openBookViewer('${data.bookId}', '${cleanName}')" class="inline-flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all"><span>Launch Reader</span><i data-lucide="external-link" class="w-4 h-4"></i></button>`
-                }
+              <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                <button onclick="openBookViewer('${bookId}')" class="w-full inline-flex justify-center items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all"><span>Read E-Book</span><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
               </div>
             </div>`;
+
+          db.collection('products').get().then(pSnap => {
+            pSnap.forEach(pDoc => {
+              const pData = pDoc.data();
+              if(pData.name && pData.name.includes(cleanName)) {
+                const picEl = document.getElementById(imgCoverId);
+                if (picEl && pData.images && pData.images.length > 0) picEl.src = pData.images[0];
+              }
+            });
+          }).catch(()=>{});
+
+          db.collection('mod_users').doc(uid).collection('progress').doc(bookId).get().then(progDoc => {
+            const pTextEl = document.getElementById(progressId); const pBarEl = document.getElementById(progressBarId);
+            if (pTextEl && pBarEl) {
+              if (progDoc.exists && progDoc.data().lastPage) {
+                const lastPage = progDoc.data().lastPage;
+                pTextEl.textContent = getPageLabelText(lastPage);
+                const percent = Math.min(Math.round((lastPage / 14) * 100), 100); 
+                pBarEl.style.width = `${percent}%`;
+              } else { pTextEl.textContent = "Not started yet"; pBarEl.style.width = "0%"; }
+            }
+          }).catch(()=>{});
         });
         lucide.createIcons();
       });
     }
 
-    // ===== SECURE VIEWER LOGIC =====
-    function openBookViewer(bookId, bookTitle) {
-      document.getElementById('reader-title').textContent = bookTitle;
-      
-      // In a real production setup, you would map `bookId` to its respective Google Drive URL.
-      // For now, this loads the sample URL via Base64 to bypass simple source-scraping.
-      const encUrl = "aHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL2ZpbGUvZC8xcm0tTDZNSjdhT2hrY1JpNS1jN1pCUk1DdHV5SnRpVFAvcHJldmlldw==";
-      document.getElementById('pdf-frame').src = atob(encUrl);
-      
+    function getPageLabelText(pageNum) {
+      if (pageNum < 12) return `Reading Intro ${pageNum}`;
+      return `Last read on Page ${pageNum - 11}`;
+    }
+
+    async function openBookViewer(bookId) {
+      readerState.activeBookId = bookId;
+      document.getElementById('pdf-search-input').value = "";
+      document.getElementById('search-dropdown').classList.add('hidden');
+      document.getElementById('reader-loading').classList.remove('hidden');
       showView('view-reader');
+      setReaderTool(null); 
+      
+      let targetUrl = _secureState.retrieve(bookId);
+      try {
+        const loadingTask = pdfjsLib.getDocument({ url: targetUrl, withCredentials: false });
+        const pdf = await loadingTask.promise;
+        readerState.activePdf = pdf;
+        loadSidebarBookmarks();
+
+        const uid = auth.currentUser.uid;
+        const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(bookId).get();
+        if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+
+        renderLazyViewport(pdf);
+      } catch (error) {
+        showSecToast("Failed to compile layout parameters.", "alert-triangle");
+      }
     }
 
-    function closeBookViewer() {
-      document.getElementById('pdf-frame').src = ""; // Memory wipe
-      showView('view-dashboard');
+    // Delayed Background Indexer (No Lag)
+    function preIndexDocumentText(pdf) {
+      readerState.textIndex = {};
+      const jumpList = document.getElementById('jump-pages-list');
+      jumpList.innerHTML = "";
+      document.getElementById('page-indicator-total').textContent = pdf.numPages - 11;
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        let label = i < 12 ? `Intro ${i}` : `Page ${i - 11}`;
+        jumpList.innerHTML += `
+          <button onclick="jumpToSearchResultPage(${i}, '')" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-lg transition-all flex justify-between">
+            <span>${label}</span><i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-50"></i>
+          </button>`;
+      }
+      lucide.createIcons();
+
+      // Start fetching text quietly after PDF is visually loaded
+      setTimeout(async () => {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          if (readerState.activePdf !== pdf) break; 
+          try {
+            const page = await pdf.getPage(i); const content = await page.getTextContent();
+            readerState.textIndex[i] = content.items.map(item => item.str).join(' ').toLowerCase();
+            await new Promise(resolve => setTimeout(resolve, 50)); 
+          } catch(e) {}
+        }
+      }, 4000); 
     }
 
-    function updateWatermarks(email) {
-      document.querySelectorAll('.watermark-text').forEach(el => {
-        el.textContent = `LICENSED TO ${email.toUpperCase()} / DO NOT DISTRIBUTE`;
+    async function renderLazyViewport(pdf) {
+      const viewportContainer = document.getElementById('pdf-pages-viewport');
+      viewportContainer.innerHTML = '';
+      const firstPage = await pdf.getPage(1);
+      const originalViewport = firstPage.getViewport({ scale: 1.0 });
+      const aspectRatio = originalViewport.width / originalViewport.height;
+      const containerW = document.getElementById('pdf-scroll-container').clientWidth;
+      readerState.baseWidth = containerW > 850 ? 760 : containerW * 0.92;
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const pageWrapper = document.createElement('div');
+        pageWrapper.id = `page-wrapper-${pageNum}`;
+        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
+        const currentWidth = readerState.baseWidth * readerState.zoom;
+        pageWrapper.style.width = `${currentWidth}px`;
+        pageWrapper.style.height = 'auto'; 
+        pageWrapper.style.aspectRatio = `${aspectRatio}`;
+        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
+        pageWrapper.dataset.pageNum = pageNum;
+        pageWrapper.dataset.rendered = "false";
+        viewportContainer.appendChild(pageWrapper);
+      }
+
+      preIndexDocumentText(pdf);
+
+      const observer = new IntersectionObserver((entries) => {
+        if (readerState.isZooming) return; 
+        entries.forEach(entry => {
+          const pageNum = parseInt(entry.target.dataset.pageNum);
+          if (entry.isIntersecting) {
+            renderPageOnDemand(pdf, pageNum, entry.target);
+            readerState.currentPage = pageNum;
+            document.getElementById('page-indicator-current').textContent = pageNum < 12 ? `Intro ${pageNum}` : pageNum - 11;
+            clearTimeout(progressTimeout);
+            progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
+          } else {
+            clearPageFromMemory(entry.target);
+          }
+        });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.35, rootMargin: '0px' });
+
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
+
+      setTimeout(() => {
+        document.getElementById('reader-loading').classList.add('hidden');
+        if(readerState.currentPage > 1) {
+          const target = document.getElementById(`page-wrapper-${readerState.currentPage}`);
+          if(target) target.scrollIntoView({ block: 'start' });
+        }
+      }, 400);
+    }
+
+    function saveProgressToFirebase(pageNum) {
+      if(!auth.currentUser || !readerState.activeBookId) return;
+      db.collection('mod_users').doc(auth.currentUser.uid).collection('progress').doc(readerState.activeBookId).set({ lastPage: pageNum }, { merge: true });
+    }
+
+    function triggerViewportObserverEvaluation() {
+      const scrollEl = document.getElementById('pdf-scroll-container');
+      if (scrollEl) scrollEl.dispatchEvent(new Event('scroll'));
+    }
+
+    async function renderPageOnDemand(pdf, pageNum, container) {
+      if (container.dataset.rendered === "true") return;
+      container.dataset.rendered = "true";
+
+      try {
+        const page = await pdf.getPage(pageNum);
+        const highResViewport = page.getViewport({ scale: readerState.renderScale });
+
+        const canvas = document.createElement('canvas');
+        canvas.className = "w-full h-full block absolute inset-0 z-0 pointer-events-none select-none";
+        canvas.width = highResViewport.width; canvas.height = highResViewport.height;
+        container.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
+
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
+        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; // Null means pan
+        textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
+        container.appendChild(textLayerDiv);
+
+        try {
+          const textContent = await page.getTextContent();
+          await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
+        } catch(e) {}
+
+        // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
+        const hlCanvas = document.createElement('canvas');
+        hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
+        hlCanvas.style.opacity = '0.15'; 
+        hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
+        hlCanvas.width = highResViewport.width; hlCanvas.height = highResViewport.height;
+        container.appendChild(hlCanvas);
+
+        const penCanvas = document.createElement('canvas');
+        penCanvas.className = "annotation-layer-pen absolute inset-0";
+        penCanvas.style.opacity = '1.0'; 
+        penCanvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none';
+        penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
+        container.appendChild(penCanvas);
+
+        // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
+        const email = auth.currentUser.email || 'USER';
+        const maskedPass = readerState.userPasswordMask;
+        const maskedTID = readerState.userTransactionId;
+        const wmText = `LICENSED TO: ${email.toUpperCase()} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
+
+        const watermarkDiv = document.createElement('div');
+        watermarkDiv.className = "absolute inset-0 z-[50] pointer-events-none select-none flex flex-col justify-between items-center overflow-hidden mix-blend-multiply";
+        watermarkDiv.innerHTML = `
+          <div class="watermark-text mt-8 px-4 w-full text-right">${wmText}</div>
+          <div class="watermark-text mb-8 px-4 w-full text-left">${wmText}</div>
+        `;
+        const centerWm = document.createElement('div');
+        centerWm.className = "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 watermark-text";
+        centerWm.textContent = wmText;
+        watermarkDiv.appendChild(centerWm);
+
+        container.appendChild(watermarkDiv);
+
+        initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+      } catch (err) {}
+    }
+
+    function clearPageFromMemory(container) {
+      if (container.dataset.rendered !== "true") return;
+      container.innerHTML = '';
+      const canvases = container.querySelectorAll('canvas');
+      canvases.forEach(c => { c.width = 0; c.height = 0; });
+      container.dataset.rendered = "false";
+    }
+
+    function toggleSearchBarInput() {
+      const container = document.getElementById('search-input-container');
+      container.classList.toggle('hidden');
+      if (!container.classList.contains('hidden')) document.getElementById('pdf-search-input').focus();
+    }
+
+    function handleSearchQueryInput(val) {
+      const q = val.toLowerCase().trim();
+      const dropdown = document.getElementById('search-dropdown');
+      if (!q) { dropdown.classList.add('hidden'); return; }
+      dropdown.innerHTML = ""; let matchesFound = 0;
+
+      for (let i = 1; i <= readerState.activePdf.numPages; i++) {
+        if (readerState.textIndex[i] && readerState.textIndex[i].includes(q)) {
+          matchesFound++; dropdown.classList.remove('hidden');
+          const fullText = readerState.textIndex[i];
+          const index = fullText.indexOf(q);
+          const start = Math.max(0, index - 25); const end = Math.min(fullText.length, index + q.length + 25);
+          const snippetText = fullText.substring(start, end).replace(/\n/g, ' ').trim();
+          const contextSnippet = `"...${snippetText.replace(q, `<span class="bg-yellow-200 font-black px-1">${q}</span>`)}..."`;
+          
+          dropdown.innerHTML += `
+            <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 border-b border-slate-100 last:border-none flex flex-col gap-1 leading-normal">
+              <span class="font-medium">${contextSnippet}</span>
+              <span class="text-blue-600 uppercase text-[9px] font-bold">Page ${i < 12 ? `Intro ${i}` : i - 11} &rarr;</span>
+            </div>`;
+        }
+      }
+      if (matchesFound === 0) { dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 font-semibold text-center">No matching indexes</div>`; }
+    }
+
+    function jumpToSearchResultPage(pageNum, query) {
+      document.getElementById('search-dropdown').classList.add('hidden');
+      const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
+      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function getEventCoordinates(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
+      let clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+      let clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    function initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum) {
+      const penCtx = penCanvas.getContext('2d'); const hlCtx = hlCanvas.getContext('2d');
+      const penSaveKey = `annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
+      const hlSaveKey = `annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
+
+      const savedPen = localStorage.getItem(penSaveKey);
+      if (savedPen) { const img = new Image(); img.onload = () => penCtx.drawImage(img, 0, 0); img.src = savedPen; }
+      const savedHl = localStorage.getItem(hlSaveKey);
+      if (savedHl) { const img = new Image(); img.onload = () => hlCtx.drawImage(img, 0, 0); img.src = savedHl; }
+
+      const drawStart = (e) => {
+        if (!readerState.tool) return;
+        if (e.cancelable) e.preventDefault();
+        
+        if (readerState.tool === 'highlighter') {
+          hlCtx.beginPath(); const coords = getEventCoordinates(e, hlCanvas); hlCtx.moveTo(coords.x, coords.y);
+        } else {
+          penCtx.beginPath(); const coords = getEventCoordinates(e, penCanvas); penCtx.moveTo(coords.x, coords.y);
+        }
+      };
+
+      const drawMove = (e) => {
+        if (!readerState.tool) return;
+        if (e.cancelable) e.preventDefault();
+        
+        if (readerState.tool === 'highlighter') {
+          const coords = getEventCoordinates(e, hlCanvas); hlCtx.lineTo(coords.x, coords.y);
+          hlCtx.strokeStyle = readerState.currentColor; hlCtx.lineWidth = 26; 
+          hlCtx.globalCompositeOperation = 'source-over'; hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round'; hlCtx.stroke();
+        } else {
+          const coords = getEventCoordinates(e, penCanvas);
+          if (readerState.tool === 'pen') {
+            penCtx.lineTo(coords.x, coords.y); penCtx.strokeStyle = readerState.currentColor; 
+            penCtx.lineWidth = 4; penCtx.globalCompositeOperation = 'source-over';
+            penCtx.lineCap = 'round'; penCtx.lineJoin = 'round'; penCtx.stroke();
+          } else if (readerState.tool === 'eraser') {
+            penCtx.lineTo(coords.x, coords.y); penCtx.strokeStyle = '#ffffff'; penCtx.lineWidth = 45; 
+            penCtx.globalCompositeOperation = 'destination-out'; penCtx.lineCap = 'round'; penCtx.lineJoin = 'round'; penCtx.stroke();
+            hlCtx.lineTo(coords.x, coords.y); hlCtx.strokeStyle = '#ffffff'; hlCtx.lineWidth = 45; 
+            hlCtx.globalCompositeOperation = 'destination-out'; hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round'; hlCtx.stroke();
+          }
+        }
+      };
+
+      const drawEnd = () => { localStorage.setItem(penSaveKey, penCanvas.toDataURL()); localStorage.setItem(hlSaveKey, hlCanvas.toDataURL()); };
+      penCanvas.onmousedown = hlCanvas.onmousedown = drawStart; penCanvas.onmousemove = hlCanvas.onmousemove = drawMove;
+      penCanvas.onmouseup = penCanvas.onmouseleave = hlCanvas.onmouseup = hlCanvas.onmouseleave = drawEnd;
+      penCanvas.ontouchstart = hlCanvas.ontouchstart = drawStart; penCanvas.ontouchmove = hlCanvas.ontouchmove = drawMove;
+      penCanvas.ontouchend = hlCanvas.ontouchend = drawEnd;
+    }
+
+    function toggleLeftJumpMenu() { document.getElementById('left-jump-menu').classList.toggle('hidden'); }
+    function switchSidebarTab(tabName) {
+      const pTab = document.getElementById('tab-pages-toggle'); const bTab = document.getElementById('tab-bookmarks-toggle');
+      const pCont = document.getElementById('sidebar-pages-container'); const bCont = document.getElementById('sidebar-bookmarks-container');
+
+      if (tabName === 'pages') {
+        pTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800"; bTab.className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400";
+        pCont.classList.remove('hidden'); bCont.classList.add('hidden');
+      } else {
+        bTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800"; pTab.className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400";
+        pCont.classList.add('hidden'); bCont.classList.remove('hidden'); loadSidebarBookmarks();
+      }
+    }
+
+    function loadSidebarBookmarks() {
+      const container = document.getElementById('jump-bookmarks-list');
+      if (!container) return;
+      container.innerHTML = `<div class="text-center py-6 text-[10px] text-slate-400 font-extrabold uppercase tracking-widest animate-pulse">Syncing...</div>`;
+      if(!auth.currentUser || !readerState.activeBookId) return;
+
+      db.collection('mod_users').doc(auth.currentUser.uid).collection('bookmarks').doc(readerState.activeBookId).get().then(doc => {
+        container.innerHTML = "";
+        if (!doc.exists || !doc.data().pages || doc.data().pages.length === 0) {
+          container.innerHTML = `<div class="text-center py-6 text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">No saved bookmarks.</div>`; return;
+        }
+        doc.data().pages.forEach(item => {
+          let label = item.label || (item.pageNum < 12 ? `Intro ${item.pageNum}` : `Page ${item.pageNum - 11}`);
+          container.innerHTML += `<button onclick="jumpToSearchResultPage(${item.pageNum}, '')" class="w-full text-left px-3 py-2 bg-slate-50 border border-slate-100 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition-all flex justify-between items-center"><span>${label}</span><i data-lucide="bookmark" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i></button>`;
+        });
+        lucide.createIcons();
       });
     }
 
-    // ===== ANTI-PIRACY SECURITY SKINS =====
+    function toggleBookmark() {
+      document.getElementById('bookmark-name-input').value = ""; document.getElementById('bookmark-dialog').classList.remove('hidden');
+    }
+    function closeBookmarkDialog(save) {
+      document.getElementById('bookmark-dialog').classList.add('hidden');
+      if (!save || !auth.currentUser || !readerState.activeBookId) return;
+      const activeBookmarkPage = readerState.currentPage;
+      const docRef = db.collection('mod_users').doc(auth.currentUser.uid).collection('bookmarks').doc(readerState.activeBookId);
+      const customName = document.getElementById('bookmark-name-input').value.trim();
+      let labelString = customName || (activeBookmarkPage < 12 ? `Intro ${activeBookmarkPage}` : `Page ${activeBookmarkPage - 11}`);
+
+      docRef.get().then(doc => {
+        let pages = doc.exists && doc.data().pages ? doc.data().pages : [];
+        pages = pages.filter(p => p.pageNum !== activeBookmarkPage);
+        pages.push({ pageNum: activeBookmarkPage, label: labelString });
+        docRef.set({ pages: pages }, { merge: true }).then(() => { showSecToast(`Bookmarked: "${labelString}"`, "bookmark"); loadSidebarBookmarks(); });
+      });
+    }
+
+    function setInkColor(hex) { readerState.currentColor = hex; }
+    
+    // Toggle Mode
+    function setReaderTool(toolName) {
+      if (readerState.tool === toolName) readerState.tool = null; // Toggle OFF
+      else readerState.tool = toolName;
+      
+      ['pen', 'highlighter', 'eraser'].forEach(t => {
+        const btn = document.getElementById(`tool-${t}`);
+        if (btn) {
+          if (t === readerState.tool) { btn.classList.add('bg-slate-200', 'text-slate-900'); btn.classList.remove('text-slate-400', 'hover:bg-slate-100'); } 
+          else { btn.classList.remove('bg-slate-200', 'text-slate-900'); btn.classList.add('text-slate-400', 'hover:bg-slate-100'); }
+        }
+      });
+
+      const colorBox = document.getElementById('color-palette-container');
+      if (readerState.tool === 'pen' || readerState.tool === 'highlighter') colorBox.classList.remove('hidden');
+      else colorBox.classList.add('hidden');
+
+      document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => canvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none');
+      document.querySelectorAll('.annotation-layer-pen').forEach(canvas => canvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none');
+      document.querySelectorAll('.textLayer').forEach(layer => { layer.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; layer.style.zIndex = (!readerState.tool) ? '30' : '10'; });
+    }
+
+    // Embed MCQ Iframe directly
+    function openMCQPortal(bookId, bookTitle) {
+      document.getElementById('mcq-book-title').textContent = `${bookTitle} Self Assessment`;
+      document.getElementById('mcq-iframe').src = "https://www.modmedicalis.online/mindyourminorsblock4";
+      document.getElementById('mcq-loading').classList.remove('hidden');
+      showView('view-mcq');
+    }
+    function closeMCQPortal() { 
+      document.getElementById('mcq-iframe').src = "";
+      showView('view-dashboard'); 
+    }
+
+    function togglePurchaseHistory(show) {
+      const modal = document.getElementById('modal-purchases');
+      if (show) { modal.classList.remove('hidden'); loadPurchaseHistoryRecords(); } else { modal.classList.add('hidden'); }
+    }
+    function loadPurchaseHistoryRecords() {
+      const container = document.getElementById('purchases-list-container');
+      container.innerHTML = `<div class="text-center py-6 text-slate-400 animate-pulse font-bold text-xs">Syncing ledger...</div>`;
+      if(!auth.currentUser) return;
+      db.collection('orders').where('userId', '==', auth.currentUser.uid).get().then(snapshot => {
+        container.innerHTML = "";
+        if (snapshot.empty) { container.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-xs">No transactions recorded.</div>`; return; }
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString('en-GB') : 'Verified';
+          container.innerHTML += `
+            <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl mb-2 flex justify-between items-center shadow-sm">
+              <div>
+                <p class="font-extrabold text-slate-800 text-xs">${data.itemsString ? data.itemsString.split('\n')[0] : 'Study Module'}</p>
+                <p class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-1">ID: #${data.orderId || doc.id} • ${date}</p>
+              </div>
+              <span class="text-xs font-black text-blue-600">Rs. ${data.total}</span>
+            </div>`;
+        });
+      });
+    }
+
+    function applyDynamicSizing() {
+      readerState.isZooming = true; // Lock intersecting updates to prevent mobile crashes
+      const currentWidth = readerState.baseWidth * readerState.zoom;
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+        wrapper.style.width = `${currentWidth}px`;
+        wrapper.style.height = 'auto'; 
+      });
+      document.getElementById('zoom-slider').value = readerState.zoom;
+      clearTimeout(zoomTimeout);
+      zoomTimeout = setTimeout(() => { readerState.isZooming = false; triggerViewportObserverEvaluation(); }, 500);
+    }
+    function handleZoomSlider(val) { readerState.zoom = parseFloat(val); applyDynamicSizing(); }
+    function zoomReader(modifier) {
+      let newZoom = readerState.zoom + modifier;
+      if (newZoom < 0.5 || newZoom > 2.5) return;
+      readerState.zoom = parseFloat(newZoom.toFixed(1));
+      applyDynamicSizing();
+    }
+
+    function clearAllAnnotations() {
+      document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        localStorage.removeItem(`annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${canvas.parentElement.dataset.pageNum}`);
+      });
+      document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => {
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        localStorage.removeItem(`annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${canvas.parentElement.dataset.pageNum}`);
+      });
+      showSecToast("Cleared workspace drawing layers.", "trash");
+    }
+
+    function closeBookViewer() {
+      document.getElementById('pdf-pages-viewport').innerHTML = "";
+      document.getElementById('left-jump-menu').classList.add('hidden');
+      readerState.activePdf = null; readerState.activeBookId = null;
+      showView('view-dashboard');
+    }
+
+    // ==== USER LOGINS ====
+    function toggleForgotView(show) {
+      if (show) {
+        document.getElementById('login-container').classList.add('hidden');
+        document.getElementById('forgot-container').classList.remove('hidden');
+      } else {
+        document.getElementById('login-container').classList.remove('hidden');
+        document.getElementById('forgot-container').classList.add('hidden');
+      }
+    }
+
+    function handleForgotPassword() {
+      const email = document.getElementById('forgot-email').value.trim();
+      if (!email) return showSecToast("Please enter your email.", "alert-circle");
+      
+      const btn = document.getElementById('btn-forgot');
+      btn.textContent = "Sending..."; btn.disabled = true;
+
+      auth.sendPasswordResetEmail(email).then(() => {
+        showSecToast("Reset link sent to your email.", "check-circle");
+        toggleForgotView(false);
+      }).catch(err => {
+        showSecToast(err.message, "alert-triangle");
+      }).finally(() => {
+        btn.textContent = "Send Reset Link"; btn.disabled = false;
+      });
+    }
+
+    function togglePasswordVisibility() {
+      const pwInput = document.getElementById('login-password');
+      const eyeIcon = document.getElementById('password-eye-icon');
+      if (pwInput.type === 'password') { pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off'); }
+      else { pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye'); }
+      lucide.createIcons();
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login'); btn.innerHTML = `Verifying...`; btn.disabled = true;
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value;
+
+      auth.signInWithEmailAndPassword(email, pass).then(() => {
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+      }).catch(err => {
+        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+        document.getElementById('login-alert').classList.remove('hidden');
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        lucide.createIcons();
+      });
+    }
+
+    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
+
+    function updateWatermarks(email) {
+      if(!email) return;
+      const idx = email.indexOf('@');
+      const prefix = email.substring(0, Math.min(3, idx));
+      const maskedEmail = prefix + "****" + email.substring(idx);
+      
+      const watermarkString = `LICENSED TO ${maskedEmail.toUpperCase()} / DO NOT DISTRIBUTE`;
+      document.querySelectorAll('.watermark-text').forEach(el => {
+        el.textContent = watermarkString;
+      });
+    }
+
     function showSecToast(msg, iconName = "shield-alert") {
       const toast = document.getElementById('toast-notify');
       document.getElementById('toast-text').textContent = msg;
       document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
       lucide.createIcons();
-      
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 3500);
+      toast.classList.remove('hidden'); toast.classList.add('flex');
+      setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
     }
 
-    // Block right-clicks and print/save shortcuts
-    document.addEventListener('contextmenu', e => { 
-      e.preventDefault(); 
-      showSecToast("Context menus are restricted for clinical protection.", "shield-alert"); 
-    });
-
-    document.addEventListener('keydown', e => {
-      // Block Ctrl+P (Print), Ctrl+S (Save), Ctrl+U (View Source)
-      if ((e.ctrlKey || e.metaKey) && ['p', 's', 'u'].includes(e.key.toLowerCase())) { 
-        e.preventDefault(); 
-        showSecToast("Copy & print restrictions are actively logged.", "shield-alert"); 
-      }
-      // Block F12 and Ctrl+Shift+I (Inspect Element)
-      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i')) {
-        showSecToast("Console and developer tools are restricted.", "shield-alert");
-      }
-    });
-
+    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
     window.onload = () => lucide.createIcons();
   </script>
 </body>
