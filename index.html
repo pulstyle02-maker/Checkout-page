@@ -156,6 +156,8 @@ background-color: #FFFFFF; color: #111827; scroll-behavior: smooth;
 /* ===== MOBILE ===== */
 @media (max-width: 767px) {
 html { font-size: 13px; }
+/* Prevents forced browser zoom on input focus */
+input, select, textarea { font-size: 16px !important; }
 .heading-style { font-size: 0.95em; }
 .text-huge { font-size: clamp(2.2rem, 9vw, 5rem); line-height: 0.92; }
 section { padding-top: 2rem !important; padding-bottom: 2rem !important; }
@@ -851,7 +853,7 @@ MNEMONIC-LED <span class="highlight text-brand-slate italic">CREATIVE DIRECTION<
 </div>
 
 <div><label class="checkout-label">Full Name</label><input type="text" id="checkout-fullname" required class="checkout-input" placeholder="Enter your full name"></div>
-<div><label class="checkout-label">Contact Number</label><input type="tel" id="checkout-phone" required class="checkout-input" placeholder="03XX-XXXXXXX" pattern="^03[0-9]{2}-[0-9]{7}$" title="Format: 03XX-XXXXXXX"></div>
+<div><label class="checkout-label">Contact Number</label><input type="tel" id="checkout-phone" required class="checkout-input" placeholder="03XXXXXXXXX" pattern="^03[0-9]{9}$" title="Format: 11-digit mobile number starting with 03"></div>
 
 <div id="shipping-fields-container" class="space-y-6 mt-6 transition-all">
 <div><label class="checkout-label">City (Punjab)</label><select id="checkout-city" onchange="updateDeliveryCharges()" class="checkout-input"><option value="">Select City</option></select></div>
@@ -913,7 +915,7 @@ MNEMONIC-LED <span class="highlight text-brand-slate italic">CREATIVE DIRECTION<
         <h2 class="font-display heading-style text-2xl text-brand-slate mb-6">Personal Information</h2>
         <form onsubmit="updateStandardProfile(event)" class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div><label class="checkout-label">Full Name</label><input type="text" id="prof-name" class="checkout-input" required></div>
-          <div><label class="checkout-label">Phone Number (03XX-XXXXXXX)</label><input type="tel" id="prof-phone" class="checkout-input" required pattern="^03[0-9]{2}-[0-9]{7}$"></div>
+          <div><label class="checkout-label">Phone Number (03XXXXXXXXX)</label><input type="tel" id="prof-phone" class="checkout-input" required placeholder="03XXXXXXXXX" pattern="^03[0-9]{9}$" title="Format: 11-digit mobile number starting with 03"></div>
           <div><label class="checkout-label">City</label><select id="prof-city" class="checkout-input" required><option value="">Select City</option></select></div>
           <div><label class="checkout-label">Shipping Address</label><input type="text" id="prof-address" class="checkout-input" required></div>
           <div class="md:col-span-2 flex justify-end mt-2">
@@ -1018,7 +1020,7 @@ MNEMONIC-LED <span class="highlight text-brand-slate italic">CREATIVE DIRECTION<
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="checkout-label">Phone Number</label>
-            <input type="tel" id="reg-phone" required class="checkout-input !bg-white border-gray-300 py-3" placeholder="03XX-XXXXXXX" pattern="^03[0-9]{2}-[0-9]{7}$">
+            <input type="tel" id="reg-phone" required class="checkout-input !bg-white border-gray-300 py-3" placeholder="03XXXXXXXXX" pattern="^03[0-9]{9}$" title="Format: 11-digit mobile number starting with 03">
           </div>
           <div>
             <label class="checkout-label">City</label>
@@ -1612,26 +1614,67 @@ function proceedToCheckout() {
 let currentDiscount = 0;
 let appliedReferral = '';
 
-function applyReferral() {
+async function applyReferral() {
   const code = document.getElementById('checkout-referral').value.trim().toUpperCase();
   const msg = document.getElementById('referral-msg');
   
-  if(code.length > 2) { // Allow valid string length to simulate check
-     currentDiscount = 0.10; // 10% off
-     appliedReferral = code;
-     msg.textContent = `Referral '${code}' applied! 10% off.`;
-     msg.className = "text-xs font-bold mb-4 text-emerald-600";
-     msg.classList.remove('hidden');
-     document.getElementById('discount-row').classList.remove('hidden');
-     updateCheckoutTotal();
-  } else {
-     currentDiscount = 0;
-     appliedReferral = '';
-     msg.textContent = `Invalid referral code.`;
-     msg.className = "text-xs font-bold mb-4 text-brand-red";
-     msg.classList.remove('hidden');
-     document.getElementById('discount-row').classList.add('hidden');
-     updateCheckoutTotal();
+  if (!code) {
+    msg.textContent = "Please enter a referral code.";
+    msg.className = "text-xs font-bold mb-4 text-brand-red";
+    msg.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const doc = await db.collection('ambassadors').doc(code).get();
+    if (doc.exists) {
+      const data = doc.data();
+      const discountPct = Number(data.discount || 0);
+
+      // Verify the code hasn't reached its use limit
+      if (data.salesLimit > 0) {
+        const ordersSnap = await db.collection('orders')
+          .where('referralCode', '==', code)
+          .get();
+        
+        let activeUses = 0;
+        ordersSnap.forEach(oDoc => {
+          if (oDoc.data().status !== 'disputed') activeUses++;
+        });
+
+        if (activeUses >= data.salesLimit) {
+          currentDiscount = 0;
+          appliedReferral = '';
+          msg.textContent = `This referral code has reached its usage limit.`;
+          msg.className = "text-xs font-bold mb-4 text-brand-red";
+          msg.classList.remove('hidden');
+          document.getElementById('discount-row').classList.add('hidden');
+          updateCheckoutTotal();
+          return;
+        }
+      }
+
+      currentDiscount = discountPct / 100;
+      appliedReferral = code;
+      msg.textContent = `Referral '${code}' applied! ${discountPct}% off.`;
+      msg.className = "text-xs font-bold mb-4 text-emerald-600";
+      msg.classList.remove('hidden');
+      document.getElementById('discount-row').classList.remove('hidden');
+      updateCheckoutTotal();
+    } else {
+      currentDiscount = 0;
+      appliedReferral = '';
+      msg.textContent = `Invalid referral code.`;
+      msg.className = "text-xs font-bold mb-4 text-brand-red";
+      msg.classList.remove('hidden');
+      document.getElementById('discount-row').classList.add('hidden');
+      updateCheckoutTotal();
+    }
+  } catch (err) {
+    console.error("Error checking referral code:", err);
+    msg.textContent = "Error checking referral. Please try again.";
+    msg.className = "text-xs font-bold mb-4 text-brand-red";
+    msg.classList.remove('hidden');
   }
 }
 
@@ -2115,24 +2158,48 @@ function loadProfileData() {
   loadOrderHistory(); // Fetch orders
 }
 
+let activeOrdersListener = null;
+
 function loadOrderHistory() {
   const container = document.getElementById('prof-order-history');
   if(!container) return;
   container.innerHTML = '<div class="text-center py-6 text-gray-400 font-bold animate-pulse">Loading purchase history...</div>';
   
-  db.collection('orders').where('userId', '==', auth.currentUser.uid).get()
-    .then(snapshot => {
-      if(snapshot.empty) {
+  if (activeOrdersListener) {
+    activeOrdersListener(); // Unsubscribe the previous listener instance
+  }
+
+  activeOrdersListener = db.collection('orders')
+    .where('userId', '==', auth.currentUser.uid)
+    .onSnapshot(snapshot => {
+      if (snapshot.empty) {
         container.innerHTML = '<div class="text-center py-8 text-gray-400 font-bold bg-gray-50 rounded-xl border border-gray-100">No past purchases found.</div>';
+        syncUserLibrary([]);
         return;
       }
-      let orders = [];
-      snapshot.forEach(doc => { let data = doc.data(); data.id = doc.id; orders.push(data); });
-      orders.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
       
+      let orders = [];
+      snapshot.forEach(doc => { 
+        let data = doc.data(); 
+        data.id = doc.id; 
+        orders.push(data); 
+      });
+      
+      // Sort orders by timestamp descending
+      orders.sort((a, b) => {
+        const timeA = a.timestamp && typeof a.timestamp.toMillis === 'function' ? a.timestamp.toMillis() : 0;
+        const timeB = b.timestamp && typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : 0;
+        return timeB - timeA;
+      });
+
+      // Synchronize digital access in real-time
+      syncUserLibrary(orders);
+
       container.innerHTML = '';
       orders.forEach(order => {
-        const dateStr = order.timestamp ? new Date(order.timestamp.toDate()).toLocaleDateString('en-GB') : 'Just now';
+        const dateStr = order.timestamp && typeof order.timestamp.toDate === 'function' 
+          ? new Date(order.timestamp.toDate()).toLocaleDateString('en-GB') 
+          : 'Just now';
         const statusClass = order.status === 'processing' ? 'bg-amber-100 text-amber-700' : (order.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600');
         
         container.innerHTML += `
@@ -2153,10 +2220,37 @@ function loadOrderHistory() {
             </div>
           </div>`;
       });
-    })
-    .catch(err => {
+    }, err => {
+      console.error("Live order listen failed:", err);
       container.innerHTML = '<div class="text-center py-6 text-brand-red font-bold text-sm">Failed to load orders.</div>';
     });
+}
+
+function syncUserLibrary(validOrders) {
+  if (!auth.currentUser) return;
+
+  const authorizedEbooks = [];
+  validOrders.forEach(order => {
+    if (order.status !== 'disputed') {
+      products.forEach(prod => {
+        if (order.itemsString && order.itemsString.includes(prod.name) && order.itemsString.includes('(E-Book)')) {
+          authorizedEbooks.push(prod.id);
+        }
+      });
+    }
+  });
+
+  db.collection("mod_users").doc(auth.currentUser.uid).collection("library").get()
+    .then(librarySnapshot => {
+      librarySnapshot.forEach(doc => {
+        if (!authorizedEbooks.includes(doc.id)) {
+          db.collection("mod_users").doc(auth.currentUser.uid).collection("library").doc(doc.id).delete()
+            .then(() => console.log(`Access revoked for deleted ebook: ${doc.id}`))
+            .catch(err => console.error("Library sync delete error:", err));
+        }
+      });
+    })
+    .catch(err => console.error("Error reading library for audit:", err));
 }
 
 function updateStandardProfile(e) {
