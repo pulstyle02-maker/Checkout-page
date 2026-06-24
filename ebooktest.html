@@ -55,17 +55,14 @@
     .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
     .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
     .annotation-layer { z-index: 20; }
-    
-    .page-wrapper {
-      transition: width 0.1s ease-out, height 0.1s ease-out;
-    }
 
-    /* Subtle Small Watermark */
+    /* Subtle Tiny Watermark Overlay */
     .watermark-text {
-      font-size: 9px;
+      font-size: 8px;
       font-weight: 800;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.12em;
       opacity: 0.04;
+      color: #000;
     }
 
     /* Flip Card Styles */
@@ -140,24 +137,38 @@
     </section>
 
     <!-- ==================== VIEW 3: INTERACTIVE READER ==================== -->
-    <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden">
+    <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden relative">
       
+      <!-- Collapsible Page Jump Menu -->
+      <div id="left-jump-menu" class="hidden fixed left-0 top-16 bottom-0 w-44 bg-white border-r border-slate-200 z-40 overflow-y-auto no-scrollbar p-3 shadow-lg">
+        <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-3">Jump to Page</h4>
+        <div id="jump-pages-list" class="space-y-1"></div>
+      </div>
+
+      <!-- Floating Frame Page Counter (Separate outside of PDF) -->
+      <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none">
+        Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
+      </div>
+
       <!-- Responsive Floating Apple Style Bar -->
       <div class="px-4 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
         <div class="flex items-center justify-between gap-4 min-w-[700px] max-w-7xl mx-auto">
           
-          <!-- Search UI -->
+          <!-- Left Elements: Pages Menu, Exit, Search -->
           <div class="flex items-center gap-2">
             <button onclick="closeBookViewer()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
               <i data-lucide="arrow-left" class="w-4.5 h-4.5"></i>
+            </button>
+            <button onclick="toggleLeftJumpMenu()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all" title="Page Jump Menu">
+              <i data-lucide="book-open" class="w-4.5 h-4.5"></i>
             </button>
             <div id="search-bar-wrap" class="relative">
               <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 w-[180px] md:w-[220px]">
                 <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
                 <input type="text" id="pdf-search-input" placeholder="Search..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-base md:text-xs outline-none w-full text-slate-700 font-medium">
               </div>
-              <!-- Dropdown results panel -->
-              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[240px] bg-white border border-slate-200 shadow-2xl rounded-xl z-50 max-h-48 overflow-y-auto no-scrollbar p-1"></div>
+              <!-- Dropdown results context panels -->
+              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[320px] bg-white border border-slate-200 shadow-2xl rounded-xl z-50 max-h-48 overflow-y-auto no-scrollbar p-1"></div>
             </div>
           </div>
 
@@ -170,18 +181,12 @@
 
           <!-- Tools Panel -->
           <div class="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl">
-            <!-- Ink Palette Selectors -->
-            <div class="flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
+            <!-- Contextual Ink Palette (Visible only when Pen/Highlighter are chosen) -->
+            <div id="color-palette-container" class="hidden flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
               <button onclick="setInkColor('#2563EB')" class="w-4 h-4 rounded-full bg-blue-600 border border-white focus:scale-110 transition-all"></button>
               <button onclick="setInkColor('#EF4444')" class="w-4 h-4 rounded-full bg-red-500 border border-white focus:scale-110 transition-all"></button>
               <button onclick="setInkColor('#10B981')" class="w-4 h-4 rounded-full bg-green-500 border border-white focus:scale-110 transition-all"></button>
               <button onclick="setInkColor('#FBBF24')" class="w-4 h-4 rounded-full bg-amber-400 border border-white focus:scale-110 transition-all"></button>
-            </div>
-            
-            <!-- Opacity Slider -->
-            <div class="flex items-center gap-1.5 mr-2 border-r border-slate-300 pr-2 text-xs text-slate-400 font-bold">
-              <span>Opacity:</span>
-              <input type="range" min="0.1" max="1.0" step="0.1" value="0.3" id="tool-opacity" oninput="handleOpacitySlider(this.value)" class="w-12">
             </div>
 
             <button onclick="toggleBookmark()" id="tool-bookmark" title="Bookmark page" class="p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white transition-all"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
@@ -203,7 +208,7 @@
         </div>
       </div>
       
-      <!-- Viewport (Sharp corners) -->
+      <!-- Viewport -->
       <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
         
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
@@ -356,7 +361,7 @@
       baseWidth: 760, 
       renderScale: 1.8, 
       currentColor: '#2563EB',
-      currentOpacity: 0.3,
+      currentOpacity: 0.15, // Constant low opacity highlighter (non-destructive)
       searchQuery: "",
       textIndex: {} 
     };
@@ -410,7 +415,7 @@
       }
     });
 
-    // Dynamic Library Card rendering (Syncing progress metrics)
+    // Dynamic Library Card rendering (Syncing progress metrics and firebase book cover imagery)
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
       db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
@@ -429,6 +434,9 @@
           let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
           _secureState.save(bookId, targetBookUrl);
 
+          // Get image from Firebase or fallback to placeholder book cover
+          const coverImgUrl = data.imageUrl || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=300&auto=format&fit=crop";
+
           const cardId = `book-card-${bookId}`;
           const progressId = `progress-text-${bookId}`;
           const progressBarId = `progress-bar-${bookId}`;
@@ -436,15 +444,20 @@
           container.innerHTML += `
             <div id="${cardId}" class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300">
               <div>
-                <div class="flex justify-between items-start mb-4">
-                  <div class="p-3 bg-blue-50 text-blue-600 rounded-2xl"><i data-lucide="book-open" class="w-6 h-6"></i></div>
-                  <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[11px] font-extrabold uppercase rounded-lg tracking-wider">
-                    MCQ Portal
-                  </button>
+                <div class="flex gap-4 mb-4">
+                  <img src="${coverImgUrl}" class="w-16 h-24 object-cover border border-slate-200 shadow-sm shrink-0" alt="Book Cover" />
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="book-open" class="w-4 h-4"></i></div>
+                      <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[9px] font-extrabold uppercase rounded-lg tracking-wider">
+                        MCQ Portal
+                      </button>
+                    </div>
+                    <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
+                  </div>
                 </div>
-                <h3 class="text-xl font-black text-slate-950 mb-1">${cleanName}</h3>
-                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
                 
+                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
                 <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden">
                   <div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 0%"></div>
                 </div>
@@ -509,9 +522,23 @@
     // SPEED OPTIMIZATION: Non-blocking Sequenced Background Indexer
     async function preIndexDocumentText(pdf) {
       readerState.textIndex = {};
+      const jumpList = document.getElementById('jump-pages-list');
+      jumpList.innerHTML = "";
+      document.getElementById('page-indicator-total').textContent = pdf.numPages;
+
+      // Populate navigation page index panel
+      for (let i = 1; i <= pdf.numPages; i++) {
+        jumpList.innerHTML += `
+          <button onclick="jumpToSearchResultPage(${i}, '')" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-lg transition-all flex justify-between">
+            <span>Page ${i}</span>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-50"></i>
+          </button>`;
+      }
+      lucide.createIcons();
+
       // Index sequentially with yield pauses to guarantee 100% rendering priority
       for (let i = 1; i <= pdf.numPages; i++) {
-        if (readerState.activePdf !== pdf) break; // Terminate if user exits
+        if (readerState.activePdf !== pdf) break; 
         try {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
@@ -556,6 +583,7 @@
           if (entry.isIntersecting) {
             renderPageOnDemand(pdf, pageNum, entry.target, aspectRatio);
             readerState.currentPage = pageNum;
+            document.getElementById('page-indicator-current').textContent = pageNum;
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
@@ -613,10 +641,6 @@
             viewport: highResViewport,
             textDivs: []
           }).promise;
-
-          if (readerState.searchQuery) {
-            applyTextLayerHighlight(container, readerState.searchQuery);
-          }
         } catch(e) {}
 
         const drawCanvas = document.createElement('canvas');
@@ -626,6 +650,15 @@
         drawCanvas.width = highResViewport.width;
         drawCanvas.height = highResViewport.height;
         container.appendChild(drawCanvas);
+
+        // Watermarks Overlay - Elegant, highly transparent, non-obtrusive, scales with layout zoom
+        const watermarkDiv = document.createElement('div');
+        watermarkDiv.className = "absolute inset-0 z-15 pointer-events-none select-none flex flex-col justify-around items-center overflow-hidden mix-blend-multiply opacity-[0.03]";
+        watermarkDiv.innerHTML = `
+          <span class="watermark-text">LICENSED TO ${auth.currentUser ? auth.currentUser.email.toUpperCase() : 'USER'} / DO NOT DISTRIBUTE</span>
+          <span class="watermark-text">LICENSED TO ${auth.currentUser ? auth.currentUser.email.toUpperCase() : 'USER'} / DO NOT DISTRIBUTE</span>
+        `;
+        container.appendChild(watermarkDiv);
 
         initializeCanvasPenTracker(drawCanvas, pageNum);
         initializePageNoteListener(container, pageNum);
@@ -655,11 +688,19 @@
         if (readerState.textIndex[i] && readerState.textIndex[i].includes(q)) {
           matchesFound++;
           dropdown.classList.remove('hidden');
+
+          // Highlight query inside context string
+          const fullText = readerState.textIndex[i];
+          const index = fullText.indexOf(q);
+          const start = Math.max(0, index - 25);
+          const end = Math.min(fullText.length, index + q.length + 25);
+          const snippetText = fullText.substring(start, end).replace(/\n/g, ' ').trim();
+          const contextSnippet = `"...${snippetText.replace(q, `<span class="bg-yellow-200 font-black px-1">${q}</span>`)}..."`;
           
           dropdown.innerHTML += `
-            <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs font-bold hover:bg-slate-100 cursor-pointer text-slate-800 border-b border-slate-50 last:border-none flex justify-between">
-              <span>"${q.substring(0, 10)}..."</span>
-              <span class="text-blue-600 uppercase text-[10px]">Page ${i}</span>
+            <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 border-b border-slate-100 last:border-none flex flex-col gap-1 leading-normal">
+              <span class="font-medium">${contextSnippet}</span>
+              <span class="text-blue-600 uppercase text-[9px] font-bold">Page ${i} &rarr;</span>
             </div>`;
         }
       }
@@ -678,30 +719,7 @@
       const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
       if (targetWrap) {
         targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => {
-          applyTextLayerHighlight(targetWrap, query);
-        }, 300);
       }
-    }
-
-    function applyTextLayerHighlight(container, query) {
-      const textLayer = container.querySelector('.textLayer');
-      if (!textLayer) return;
-
-      const spans = textLayer.querySelectorAll('span');
-      spans.forEach(span => {
-        const originalText = span.dataset.originalText || span.textContent;
-        if (!span.dataset.originalText) {
-          span.dataset.originalText = originalText;
-        }
-
-        if (originalText.toLowerCase().includes(query)) {
-          const regex = new RegExp(`(${query})`, 'gi');
-          span.innerHTML = originalText.replace(regex, `<mark class="bg-yellow-300/60 text-slate-900 rounded-sm px-0.5">$1</mark>`);
-        } else {
-          span.innerHTML = originalText;
-        }
-      });
     }
 
     // ==== Working Annotation Pen Tracking (Touch support) ====
@@ -723,6 +741,20 @@
         x: (clientX - rect.left) * scaleX,
         y: (clientY - rect.top) * scaleY
       };
+    }
+
+    // Hex helper mapping light rgba layers
+    function hexToRgbA(hex, alpha) {
+      let c;
+      if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+        c= hex.substring(1).split('');
+        if(c.length== 3){
+          c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+        }
+        c= '0x' + c.join('');
+        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+alpha+')';
+      }
+      return 'rgba(251, 191, 36, ' + alpha + ')'; 
     }
 
     function initializeCanvasPenTracker(canvas, pageNum) {
@@ -759,12 +791,8 @@
           ctx.lineWidth = 4; 
           ctx.globalCompositeOperation = 'source-over';
         } else if (readerState.tool === 'highlighter') {
-          const hex = readerState.currentColor;
-          const r = parseInt(hex.slice(1, 3), 16);
-          const g = parseInt(hex.slice(3, 5), 16);
-          const b = parseInt(hex.slice(5, 7), 16);
-          
-          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${readerState.currentOpacity})`; 
+          // Dynamic low-opacity multiply highlighter
+          ctx.strokeStyle = hexToRgbA(readerState.currentColor, 0.15); 
           ctx.lineWidth = 26; 
           ctx.globalCompositeOperation = 'multiply';
         } else if (readerState.tool === 'eraser') {
@@ -881,6 +909,11 @@
       readerState.currentOpacity = parseFloat(val);
     }
 
+    function toggleLeftJumpMenu() {
+      const menu = document.getElementById('left-jump-menu');
+      menu.classList.toggle('hidden');
+    }
+
     function setReaderTool(toolName) {
       readerState.tool = toolName;
       
@@ -896,6 +929,14 @@
           }
         }
       });
+
+      // Contextual Palette Toggle visibility
+      const colorBox = document.getElementById('color-palette-container');
+      if (toolName === 'pen' || toolName === 'highlighter') {
+        colorBox.classList.remove('hidden');
+      } else {
+        colorBox.classList.add('hidden');
+      }
 
       document.querySelectorAll('.textLayer').forEach(layer => {
         layer.style.pointerEvents = toolName === 'pan' ? 'auto' : 'none';
@@ -1079,6 +1120,7 @@
 
     function closeBookViewer() {
       document.getElementById('pdf-pages-viewport').innerHTML = "";
+      document.getElementById('left-jump-menu').classList.add('hidden');
       readerState.activePdf = null;
       readerState.activeBookId = null;
       showView('view-dashboard');
