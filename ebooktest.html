@@ -22,13 +22,7 @@
 
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-          }
-        }
-      }
+      theme: { extend: { fontFamily: { sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'], } } }
     }
   </script>
   
@@ -51,48 +45,23 @@
       background-size: 100% 100%; pointer-events: none;
     }
 
-    /* Custom Apple-style Range Slider */
-    input[type=range] {
-      -webkit-appearance: none;
-      width: 100%;
-      background: transparent;
-    }
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
     input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      height: 16px;
-      width: 16px;
-      border-radius: 50%;
-      background: #3B82F6;
-      cursor: pointer;
-      margin-top: -6px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+      background: #3B82F6; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%;
-      height: 4px;
-      cursor: pointer;
-      background: #E2E8F0;
-      border-radius: 2px;
-    }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #E2E8F0; border-radius: 2px; }
 
-    .textLayer {
-      mix-blend-mode: multiply;
-      opacity: 1.0 !important;
-    }
-    .textLayer ::selection {
-      background: rgba(59, 130, 246, 0.3) !important;
-    }
-    
-    .page-wrapper canvas:first-child {
-      border-radius: 12px;
-    }
+    .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
+    .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
+    .annotation-layer { z-index: 20; }
   </style>
 </head>
 <body class="h-full overflow-hidden font-sans antialiased grid-bg">
 
   <div id="app" class="relative h-full w-full flex flex-col justify-between overflow-hidden">
     
-    <!-- ==================== VIEW 1: LOGIN ==================== -->
+    <!-- ==================== LOGIN ==================== -->
     <section id="view-login" class="flex-1 flex flex-col items-center justify-center px-4 w-full h-full relative z-10">
       <div class="text-center w-full max-w-md mb-8 flex flex-col items-center">
         <div class="flex items-center justify-center select-none w-full mb-6">
@@ -130,7 +99,7 @@
       </form>
     </section>
 
-    <!-- ==================== VIEW 2: DASHBOARD ==================== -->
+    <!-- ==================== DASHBOARD ==================== -->
     <section id="view-dashboard" class="view-transition hidden flex-col h-full max-w-[1020px] mx-auto w-full px-6 py-8 overflow-y-auto no-scrollbar">
       <div class="mb-8 border-b border-slate-200 pb-6 flex justify-between items-center gap-4">
         <div>
@@ -144,24 +113,24 @@
       <div id="library-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
     </section>
 
-    <!-- ==================== VIEW 3: UI-MATCHED READER ==================== -->
+    <!-- ==================== INTERACTIVE READER ==================== -->
     <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden">
       
-      <!-- Target Image Toolbar matching exactly -->
+      <!-- Top Toolbar (Apple Light Theme) -->
       <div class="px-4 py-3 flex items-center justify-between shrink-0 z-30 select-none w-full max-w-7xl mx-auto gap-4">
         
-        <!-- Left: Search Box & Exit -->
+        <!-- Left: Search & Exit -->
         <div class="flex items-center gap-3">
           <button onclick="closeBookViewer()" class="p-2.5 bg-white text-slate-500 hover:text-red-500 rounded-xl shadow-sm border border-slate-200 transition-all" title="Exit to Library">
             <i data-lucide="arrow-left" class="w-4 h-4"></i>
           </button>
           <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm w-[220px]">
             <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
-            <input type="text" placeholder="Search in document..." class="bg-transparent text-xs outline-none w-full text-slate-700 placeholder-slate-400 font-medium">
+            <input type="text" id="pdf-search-input" placeholder="Search and press Enter..." onkeypress="handleSearch(event)" class="bg-transparent text-xs outline-none w-full text-slate-700 placeholder-slate-400 font-medium">
           </div>
         </div>
 
-        <!-- Center: Zoom Controls Pill -->
+        <!-- Center: Dynamic Zoom Controls -->
         <div class="flex items-center gap-4 bg-white px-5 py-2 rounded-full border border-slate-200 shadow-sm">
           <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
           <button onclick="zoomReader(-0.1)" class="text-slate-400 hover:text-slate-700 transition-colors"><i data-lucide="minus" class="w-4 h-4"></i></button>
@@ -169,46 +138,41 @@
           <button onclick="zoomReader(0.1)" class="text-slate-400 hover:text-slate-700 transition-colors"><i data-lucide="plus" class="w-4 h-4"></i></button>
         </div>
 
-        <!-- Right: Drawing Tools Pill -->
+        <!-- Right: Drawing & Bookmark Tools -->
         <div class="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1.5 rounded-xl shadow-sm">
-          <button onclick="setReaderTool('pan')" id="tool-pan" title="Select / Pan" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="mouse-pointer-2" class="w-4 h-4"></i></button>
+          <button onclick="toggleBookmark()" id="tool-bookmark" title="Bookmark this page" class="p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-slate-100 transition-all"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
+          <div class="w-px h-5 bg-slate-200 mx-1"></div>
+
+          <button onclick="setReaderTool('pan')" id="tool-pan" title="Select Text" class="p-2 rounded-lg bg-blue-50 text-blue-600 transition-all"><i data-lucide="mouse-pointer-2" class="w-4 h-4"></i></button>
           <button onclick="setReaderTool('pen')" id="tool-pen" title="Pen" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="pen" class="w-4 h-4"></i></button>
           <button onclick="setReaderTool('highlighter')" id="tool-highlighter" title="Highlighter" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="highlighter" class="w-4 h-4"></i></button>
           <button onclick="setReaderTool('eraser')" id="tool-eraser" title="Eraser" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="eraser" class="w-4 h-4"></i></button>
           
           <div class="w-px h-5 bg-slate-200 mx-1"></div>
           
-          <button title="Page/Document" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="file" class="w-4 h-4"></i></button>
-          <button title="Text Tool" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="type" class="w-4 h-4"></i></button>
-          
-          <div class="w-px h-5 bg-slate-200 mx-1"></div>
-          
           <button onclick="undoAnnotation()" title="Undo" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-all"><i data-lucide="undo-2" class="w-4 h-4"></i></button>
-          <button onclick="clearAllAnnotations()" title="Clear All" class="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          <button onclick="clearAllAnnotations()" title="Clear Annotations" class="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
         </div>
       </div>
       
-      <!-- Centered Document View Container -->
+      <!-- Document Scroll Area -->
       <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
         
-        <!-- Watermarks -->
-        <div class="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-[700px] z-20 pointer-events-none select-none overflow-hidden opacity-10 mix-blend-multiply">
+        <div class="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-[700px] z-[5] pointer-events-none select-none overflow-hidden opacity-10 mix-blend-multiply">
           <span class="watermark-text absolute top-20 right-6 text-slate-900 text-[12px] font-bold tracking-widest uppercase"></span>
           <span class="watermark-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-900 text-[12px] font-bold tracking-widest uppercase"></span>
           <span class="watermark-text absolute bottom-20 left-6 text-slate-900 text-[12px] font-bold tracking-widest uppercase"></span>
         </div>
         
-        <!-- Loading Overlay -->
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
           <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p class="text-sm font-semibold tracking-wide text-slate-500">Loading High-Res Document...</p>
         </div>
 
-        <!-- DYNAMIC PAGE CONTAINER (Centered, auto-scaling) -->
         <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start w-full min-h-full py-6 space-y-6"></div>
       </div>
       
-      <!-- Security Toasts -->
+      <!-- Toasts -->
       <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
         <i data-lucide="shield-alert" id="toast-icon" class="w-4 h-4 text-blue-400 shrink-0"></i>
         <span id="toast-text" class="font-medium tracking-wide"></span>
@@ -219,53 +183,54 @@
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    // ===== SYSTEM CONFIG =====
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
       authDomain: "modmedicalis-f7ca2.firebaseapp.com",
       projectId: "modmedicalis-f7ca2",
-      storageBucket: "modmedicalis-f7ca2.firebasestorage.app",
-      messagingSenderId: "786594019384",
-      appId: "1:786594019384:web:8807ca2f622e162badcecd"
+      storageBucket: "modmedicalis-f7ca2.firebasestorage.app"
     };
-    
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
     const _secureState = (function() {
-      const secureRegistry = {};
+      const registry = {};
       return {
-        save: function(id, rawUrl) { secureRegistry[id] = rawUrl; },
-        retrieve: function(id) { return secureRegistry[id] || ""; },
-        flush: function() { for (let key in secureRegistry) delete secureRegistry[key]; }
+        save: (id, url) => registry[id] = url,
+        retrieve: (id) => registry[id] || "",
+        flush: () => { for (let key in registry) delete registry[key]; }
       };
     })();
 
+    // State Management
     const readerState = {
       tool: 'pan', 
       zoom: 1.0,
-      activePdf: null
+      activePdf: null,
+      activeBookId: null,
+      currentPage: 1,
+      baseWidth: 800, // Standard screen rendering width
+      renderScale: 2.5 // High Resolution Canvas Multiplier
     };
 
+    let progressTimeout;
+
+    // View Switching
     function showView(viewId) {
       ['view-login', 'view-dashboard', 'view-reader'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
+        document.getElementById(id)?.classList.add('hidden');
       });
-      const targetEl = document.getElementById(viewId);
-      if (targetEl) targetEl.classList.remove('hidden');
+      document.getElementById(viewId)?.classList.remove('hidden');
       lucide.createIcons();
     }
 
+    // Authentication
     auth.onAuthStateChanged((user) => {
       if (user) {
         db.collection('users').doc(user.uid).get().then(doc => {
-          const userName = doc.exists && doc.data().name ? doc.data().name : user.email.split('@')[0];
-          document.getElementById('dashboard-user').textContent = userName;
-        }).catch(() => {
-          document.getElementById('dashboard-user').textContent = user.email.split('@')[0];
-        });
+          document.getElementById('dashboard-user').textContent = doc.exists && doc.data().name ? doc.data().name : user.email.split('@')[0];
+        }).catch(() => { document.getElementById('dashboard-user').textContent = user.email.split('@')[0]; });
         
         updateWatermarks(user.email);
         showView('view-dashboard');
@@ -276,37 +241,28 @@
       }
     });
 
+    // Fetch Library
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
-      
       db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
         container.innerHTML = '';
         _secureState.flush();
         
         if (snapshot.empty) {
-          container.innerHTML = `
-            <div class="col-span-full text-center py-16 px-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-              <h3 class="text-xl font-bold text-slate-900 mb-2">No Active Purchases</h3>
-              <p class="text-sm text-slate-500 max-w-md mx-auto">Your verification is processing or no files have been assigned.</p>
-            </div>`;
-          lucide.createIcons();
+          container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500">No active files found.</div>`;
           return;
         }
 
         snapshot.forEach(doc => {
           const data = doc.data();
-          const bookId = doc.id;
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
-          
           let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
-          _secureState.save(bookId, targetBookUrl);
+          _secureState.save(doc.id, targetBookUrl);
 
           container.innerHTML += `
-            <div class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all cursor-pointer" onclick="openBookViewer('${bookId}')">
+            <div class="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all cursor-pointer" onclick="openBookViewer('${doc.id}')">
               <div>
-                <div class="p-3.5 bg-blue-50 text-blue-600 rounded-2xl w-fit mb-4">
-                  <i data-lucide="book-open" class="w-6 h-6"></i>
-                </div>
+                <div class="p-3.5 bg-blue-50 text-blue-600 rounded-2xl w-fit mb-4"><i data-lucide="book-open" class="w-6 h-6"></i></div>
                 <h3 class="text-xl font-bold text-slate-950 mb-2">${cleanName}</h3>
               </div>
               <div class="pt-6 border-t border-slate-100 flex justify-between items-center mt-4">
@@ -318,46 +274,54 @@
       });
     }
 
+    // Load PDF Document
     async function openBookViewer(bookId) {
-      const loadingOverlay = document.getElementById('reader-loading');
-      if (loadingOverlay) loadingOverlay.classList.remove('hidden');
-      
+      readerState.activeBookId = bookId;
+      document.getElementById('reader-loading').classList.remove('hidden');
       showView('view-reader');
-      setReaderTool('pan'); // Reset to pan tool
+      setReaderTool('pan'); 
       
       let targetUrl = _secureState.retrieve(bookId);
-
       try {
         const loadingTask = pdfjsLib.getDocument({ url: targetUrl, withCredentials: false });
         const pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
         
+        // Fetch saved progress before rendering
+        const uid = auth.currentUser.uid;
+        const progDoc = await db.collection('users').doc(uid).collection('progress').doc(bookId).get();
+        if(progDoc.exists && progDoc.data().lastPage) {
+          readerState.currentPage = progDoc.data().lastPage;
+        }
+
         renderLazyViewport(pdf);
       } catch (error) {
-        alert("Failed to load document via secure pipeline.");
+        showSecToast("Failed to load document.", "alert-triangle");
       }
     }
 
+    // High-Res Rendering Engine
     async function renderLazyViewport(pdf) {
       const viewportContainer = document.getElementById('pdf-pages-viewport');
       viewportContainer.innerHTML = '';
 
-      const numPages = pdf.numPages;
       const firstPage = await pdf.getPage(1);
-      
-      // Determine base scale based on window width for a perfectly centered fit
-      const containerWidth = document.getElementById('pdf-scroll-container').clientWidth;
-      const baseScale = (containerWidth * 0.90) / firstPage.getViewport({ scale: 1.0 }).width;
-      
-      const standardViewport = firstPage.getViewport({ scale: baseScale });
+      const viewportRef = firstPage.getViewport({ scale: 1.0 });
+      const aspectRatio = viewportRef.width / viewportRef.height;
 
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      // Adjust Base Width based on device screen
+      const containerW = document.getElementById('pdf-scroll-container').clientWidth;
+      readerState.baseWidth = containerW > 900 ? 800 : containerW * 0.9;
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-white shadow-xl rounded-xl border border-slate-200 transition-all duration-300 flex-shrink-0";
-        // Enforce the size exactly
-        pageWrapper.style.width = `${standardViewport.width * readerState.zoom}px`;
-        pageWrapper.style.height = `${standardViewport.height * readerState.zoom}px`;
+        pageWrapper.className = "page-wrapper relative bg-white shadow-xl rounded-xl border border-slate-200 transition-all flex-shrink-0";
+        
+        // Set CSS scale (What the user visually sees)
+        const currentWidth = readerState.baseWidth * readerState.zoom;
+        pageWrapper.style.width = `${currentWidth}px`;
+        pageWrapper.style.height = `${currentWidth / aspectRatio}px`;
         
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
@@ -365,78 +329,91 @@
         viewportContainer.appendChild(pageWrapper);
       }
 
+      // Intersection Observer for Lazy Loading & Progress Saving
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           const pageNum = parseInt(entry.target.dataset.pageNum);
           if (entry.isIntersecting) {
-            renderPageOnDemand(pdf, pageNum, entry.target, baseScale);
+            renderPageOnDemand(pdf, pageNum, entry.target, aspectRatio);
+            
+            // Sync Progress to Firebase
+            readerState.currentPage = pageNum;
+            clearTimeout(progressTimeout);
+            progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1000);
           } else {
             clearPageFromMemory(entry.target);
           }
         });
-      }, {
-        root: document.getElementById('pdf-scroll-container'),
-        threshold: 0.1,
-        rootMargin: '400px'
-      });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.1, rootMargin: '400px' });
 
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
 
       setTimeout(() => {
-        const loadingOverlay = document.getElementById('reader-loading');
-        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        document.getElementById('reader-loading').classList.add('hidden');
+        // Jump to saved page
+        if(readerState.currentPage > 1) {
+          const target = document.getElementById(`page-wrapper-${readerState.currentPage}`);
+          if(target) target.scrollIntoView();
+          showSecToast(`Resumed from page ${readerState.currentPage}`, "bookmark");
+        }
       }, 500);
     }
 
-    async function renderPageOnDemand(pdf, pageNum, container, baseScale) {
+    // Save Progress
+    function saveProgressToFirebase(pageNum) {
+      if(!auth.currentUser || !readerState.activeBookId) return;
+      db.collection('users').doc(auth.currentUser.uid)
+        .collection('progress').doc(readerState.activeBookId)
+        .set({ lastPage: pageNum }, { merge: true });
+    }
+
+    // High-Resolution Page Draw
+    async function renderPageOnDemand(pdf, pageNum, container, aspectRatio) {
       if (container.dataset.rendered === "true") return;
       container.dataset.rendered = "true";
 
       try {
         const page = await pdf.getPage(pageNum);
-        const finalScale = baseScale * readerState.zoom;
-        const viewport = page.getViewport({ scale: finalScale });
+        // Render canvas at 2.5x density for crystal clear text
+        const highResViewport = page.getViewport({ scale: readerState.renderScale });
 
         const canvas = document.createElement('canvas');
-        canvas.className = "w-full h-full block absolute inset-0 z-0 select-none pointer-events-none rounded-xl";
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        canvas.className = "w-full h-full block absolute inset-0 z-0 rounded-xl";
+        canvas.width = highResViewport.width;
+        canvas.height = highResViewport.height;
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
 
-        // Text Layer for selection mapping
+        // Text Selection Layer
         const textLayerDiv = document.createElement('div');
-        textLayerDiv.className = "textLayer absolute inset-0 z-10 select-text";
-        // Enable or disable pointer events based on tool
+        textLayerDiv.className = "textLayer absolute inset-0 rounded-xl overflow-hidden";
         textLayerDiv.style.pointerEvents = readerState.tool === 'pan' ? 'auto' : 'none';
+        textLayerDiv.style.zIndex = readerState.tool === 'pan' ? '30' : '10'; // Switch depth
         container.appendChild(textLayerDiv);
 
         try {
           const textContent = await page.getTextContent();
-          if(textContent) {
-            await pdfjsLib.renderTextLayer({
-              textContent: textContent,
-              container: textLayerDiv,
-              viewport: viewport,
-              textDivs: []
-            }).promise;
-          }
+          await pdfjsLib.renderTextLayer({
+            textContent: textContent,
+            container: textLayerDiv,
+            viewport: highResViewport, // Match high res
+            textDivs: []
+          }).promise;
         } catch(e) {}
 
-        // Annotation Drawing Layer
+        // Interactive Drawing Layer
         const drawCanvas = document.createElement('canvas');
-        drawCanvas.className = "annotation-layer absolute inset-0 z-20 select-none rounded-xl";
+        drawCanvas.className = "annotation-layer absolute inset-0 rounded-xl";
         drawCanvas.style.pointerEvents = readerState.tool === 'pan' ? 'none' : 'auto';
-        drawCanvas.width = viewport.width;
-        drawCanvas.height = viewport.height;
+        drawCanvas.style.zIndex = readerState.tool === 'pan' ? '10' : '30'; // Switch depth
+        drawCanvas.width = highResViewport.width;
+        drawCanvas.height = highResViewport.height;
         container.appendChild(drawCanvas);
 
-        initializeCanvasPenTracker(drawCanvas);
-      } catch (err) {
-        console.error("Failed page load:", pageNum, err);
-      }
+        initializeCanvasPenTracker(drawCanvas, pageNum);
+      } catch (err) {}
     }
 
     function clearPageFromMemory(container) {
@@ -445,70 +422,93 @@
       container.dataset.rendered = "false";
     }
 
-    // ==== DRAWING INTERACTION LOGIC ====
-    function initializeCanvasPenTracker(canvas) {
+    // ==== Search Functionality ====
+    async function handleSearch(e) {
+      if (e.key === 'Enter') {
+        const query = e.target.value.toLowerCase().trim();
+        if (!query) return;
+        
+        showSecToast("Searching document...", "search");
+        
+        for(let i = 1; i <= readerState.activePdf.numPages; i++) {
+          const page = await readerState.activePdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ').toLowerCase();
+          
+          if(pageText.includes(query)) {
+            const targetWrap = document.getElementById(`page-wrapper-${i}`);
+            if(targetWrap) {
+              targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              showSecToast(`Match found on page ${i}`, "check-circle");
+            }
+            return;
+          }
+        }
+        showSecToast("No matches found.", "info");
+      }
+    }
+
+    // ==== Annotation Mapping & Saving ====
+    function initializeCanvasPenTracker(canvas, pageNum) {
       const ctx = canvas.getContext('2d');
       let isDrawing = false;
-      const pageId = canvas.parentElement.id;
+      const saveKey = `annotations_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
 
-      if (window.annotationHistory && window.annotationHistory[pageId]) {
+      // Load Saved Annotations from LocalStorage
+      const savedDrawing = localStorage.getItem(saveKey);
+      if (savedDrawing) {
         const img = new Image();
         img.onload = () => ctx.drawImage(img, 0, 0);
-        img.src = window.annotationHistory[pageId];
+        img.src = savedDrawing;
       }
 
       canvas.onmousedown = (e) => {
         if (readerState.tool === 'pan') return;
         isDrawing = true;
-        
         ctx.beginPath();
+        
         const rect = canvas.getBoundingClientRect();
-        const scalarX = canvas.width / rect.width;
-        const scalarY = canvas.height / rect.height;
-        ctx.moveTo((e.clientX - rect.left) * scalarX, (e.clientY - rect.top) * scalarY);
+        // Scale mouse coords accurately based on dynamic CSS Width vs Canvas Internal Width
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        ctx.moveTo((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
       };
 
       canvas.onmousemove = (e) => {
         if (!isDrawing || readerState.tool === 'pan') return;
-
         const rect = canvas.getBoundingClientRect();
-        const scalarX = canvas.width / rect.width;
-        const scalarY = canvas.height / rect.height;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
 
-        ctx.lineTo((e.clientX - rect.left) * scalarX, (e.clientY - rect.top) * scalarY);
+        ctx.lineTo((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
 
         if (readerState.tool === 'pen') {
-          ctx.strokeStyle = '#2563EB'; // Blue Pen
-          ctx.lineWidth = 3;
-          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = '#2563EB'; ctx.lineWidth = 4; ctx.globalCompositeOperation = 'source-over';
         } else if (readerState.tool === 'highlighter') {
-          ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; // Yellow highlight
-          ctx.lineWidth = 16;
-          ctx.globalCompositeOperation = 'multiply';
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; ctx.lineWidth = 24; ctx.globalCompositeOperation = 'multiply';
         } else if (readerState.tool === 'eraser') {
-          ctx.strokeStyle = '#ffffff'; // White out
-          ctx.lineWidth = 24;
-          ctx.globalCompositeOperation = 'destination-out';
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 40; ctx.globalCompositeOperation = 'destination-out';
         }
 
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.stroke();
       };
 
       canvas.onmouseup = canvas.onmouseleave = () => {
         if (isDrawing) {
           isDrawing = false;
-          if (!window.annotationHistory) window.annotationHistory = {};
-          window.annotationHistory[pageId] = canvas.toDataURL();
+          // Save to persistent browser memory
+          localStorage.setItem(saveKey, canvas.toDataURL());
         }
       };
     }
 
+    // ==== Dynamic UI Logic ====
     function setReaderTool(toolName) {
       readerState.tool = toolName;
       
-      // Update UI active states (Light Theme style)
+      // Update Button Graphics
       ['pan', 'pen', 'highlighter', 'eraser'].forEach(t => {
         const btn = document.getElementById(`tool-${t}`);
         if (btn) {
@@ -522,96 +522,98 @@
         }
       });
 
-      // Toggle Interaction layers
+      // Switch Layer depths dynamically
       document.querySelectorAll('.textLayer').forEach(layer => {
         layer.style.pointerEvents = toolName === 'pan' ? 'auto' : 'none';
+        layer.style.zIndex = toolName === 'pan' ? '30' : '10';
       });
       document.querySelectorAll('.annotation-layer').forEach(layer => {
         layer.style.pointerEvents = toolName === 'pan' ? 'none' : 'auto';
+        layer.style.zIndex = toolName === 'pan' ? '10' : '30';
       });
     }
 
     function clearAllAnnotations() {
-      window.annotationHistory = {};
       document.querySelectorAll('.annotation-layer').forEach(canvas => {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const pageNum = canvas.parentElement.dataset.pageNum;
+        const saveKey = `annotations_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
+        localStorage.removeItem(saveKey);
       });
       showSecToast("Annotations cleared.", "trash");
     }
 
-    function undoAnnotation() {
-      showSecToast("Undo requires active stroke history.", "info");
+    function toggleBookmark() {
+      saveProgressToFirebase(readerState.currentPage);
+      showSecToast(`Page ${readerState.currentPage} Bookmarked!`, "bookmark");
+      document.getElementById('tool-bookmark').classList.add('text-amber-500');
+    }
+
+    function undoAnnotation() { showSecToast("Undo requires active stroke history.", "info"); }
+
+    // ==== Fast CSS Zooming Engine ====
+    function applyZoomToDOM() {
+      const currentWidth = readerState.baseWidth * readerState.zoom;
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+        wrapper.style.width = `${currentWidth}px`;
+        const aspectRatio = parseFloat(wrapper.style.height) / parseFloat(wrapper.style.width || 1); // Keep ratio
+        wrapper.style.height = `${currentWidth * aspectRatio}px`;
+      });
+      document.getElementById('zoom-slider').value = readerState.zoom;
     }
 
     function handleZoomSlider(val) {
       readerState.zoom = parseFloat(val);
-      if (readerState.activePdf) renderLazyViewport(readerState.activePdf);
+      applyZoomToDOM();
     }
 
     function zoomReader(modifier) {
       let newZoom = readerState.zoom + modifier;
       if (newZoom < 0.5 || newZoom > 2.5) return;
-      
       readerState.zoom = parseFloat(newZoom.toFixed(1));
-      document.getElementById('zoom-slider').value = readerState.zoom;
-      
-      if (readerState.activePdf) {
-        renderLazyViewport(readerState.activePdf);
-      }
+      applyZoomToDOM();
     }
 
     function closeBookViewer() {
       document.getElementById('pdf-pages-viewport').innerHTML = "";
       readerState.activePdf = null;
+      readerState.activeBookId = null;
       showView('view-dashboard');
     }
 
-    // ==== AUTH & UTILS ====
+    // ==== Auth & Toast Utils ====
     function togglePasswordVisibility() {
       const pwInput = document.getElementById('login-password');
       const eyeIcon = document.getElementById('password-eye-icon');
-      if (pwInput.type === 'password') {
-        pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off');
-      } else {
-        pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye');
-      }
+      if (pwInput.type === 'password') { pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off'); }
+      else { pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye'); }
       lucide.createIcons();
     }
 
     function handleLogin(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-login');
-      btn.innerHTML = `Verifying...`;
-      btn.disabled = true;
-
+      btn.innerHTML = `Verifying...`; btn.disabled = true;
       const email = document.getElementById('login-email').value.trim();
       const pass = document.getElementById('login-password').value;
 
-      auth.signInWithEmailAndPassword(email, pass)
-        .then(() => {
-          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-          btn.disabled = false;
-          document.getElementById('login-alert').classList.add('hidden');
-        })
-        .catch(err => {
-          document.getElementById('login-alert-text').textContent = "Incorrect details.";
-          document.getElementById('login-alert').classList.remove('hidden');
-          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-          btn.disabled = false;
-          lucide.createIcons();
-        });
+      auth.signInWithEmailAndPassword(email, pass).then(() => {
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+        btn.disabled = false; document.getElementById('login-alert').classList.add('hidden');
+      }).catch(err => {
+        document.getElementById('login-alert-text').textContent = "Incorrect details.";
+        document.getElementById('login-alert').classList.remove('hidden');
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        lucide.createIcons();
+      });
     }
 
-    function handleLogout() {
-      auth.signOut();
-      document.getElementById('login-form').reset();
-    }
+    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
 
     function updateWatermarks(email) {
-      document.querySelectorAll('.watermark-text').forEach(el => {
-        el.textContent = `LICENSED TO ${email.toUpperCase()} / DO NOT DISTRIBUTE`;
-      });
+      document.querySelectorAll('.watermark-text').forEach(el => el.textContent = `LICENSED TO ${email.toUpperCase()} / DO NOT DISTRIBUTE`);
     }
 
     function showSecToast(msg, iconName = "shield-alert") {
@@ -619,34 +621,12 @@
       document.getElementById('toast-text').textContent = msg;
       document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
       lucide.createIcons();
-      
-      toast.classList.remove('hidden');
-      toast.classList.add('flex');
-      setTimeout(() => {
-        toast.classList.add('hidden');
-        toast.classList.remove('flex');
-      }, 3000);
+      toast.classList.remove('hidden'); toast.classList.add('flex');
+      setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
     }
 
-    document.addEventListener('contextmenu', e => { 
-      e.preventDefault(); 
-      showSecToast("Context menus are restricted for clinical protection.", "shield-alert"); 
-    });
-
-    document.addEventListener('keydown', e => {
-      if ((e.ctrlKey || e.metaKey) && ['p', 's', 'u'].includes(e.key.toLowerCase())) { 
-        e.preventDefault(); 
-        showSecToast("Copy & print restrictions are actively logged.", "shield-alert"); 
-      }
-    });
-
+    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
     window.onload = () => lucide.createIcons();
-    window.addEventListener('resize', () => {
-      if(readerState.activePdf && document.getElementById('view-reader').classList.contains('hidden') === false) {
-          // Re-render viewport if window size changes dramatically to maintain center ratio
-          renderLazyViewport(readerState.activePdf);
-      }
-    });
   </script>
 </body>
 </html>
