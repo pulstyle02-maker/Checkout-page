@@ -1333,4 +1333,188 @@
       container.innerHTML = "";
 
       currentQuestion.a.forEach((choice, index) => {
-        container.innerHTML +=
+        container.innerHTML += `
+          <button onclick="submitMCQAnswer(${index}, ${currentQuestion.correct})" class="w-full text-left p-3.5 border border-slate-200 rounded-2xl hover:bg-slate-50 font-semibold text-slate-800 text-xs transition-all flex justify-between items-center bg-white shadow-sm choice-btn">
+            <span>${choice}</span>
+            <span class="indicator-icon hidden"></span>
+          </button>`;
+      });
+    }
+
+    function submitMCQAnswer(selectedIndex, correctIndex) {
+      const buttons = document.querySelectorAll('.choice-btn');
+      
+      buttons.forEach((btn, index) => {
+        btn.disabled = true;
+        if (index === correctIndex) {
+          btn.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-700');
+        } else if (index === selectedIndex) {
+          btn.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+        }
+      });
+
+      mcqScores.total++;
+      if (selectedIndex === correctIndex) {
+        mcqScores.correct++;
+      }
+
+      document.getElementById('mcq-score').textContent = `${mcqScores.correct}/${mcqScores.total}`;
+      
+      if(auth.currentUser) {
+        db.collection('mod_users').doc(auth.currentUser.uid).collection('quiz_scores').doc(readerState.activeBookId || 'general')
+          .set({ correct: mcqScores.correct, total: mcqScores.total }, { merge: true });
+      }
+    }
+
+    // ==== Purchase History Tracker Modal ====
+    function togglePurchaseHistory(show) {
+      const modal = document.getElementById('modal-purchases');
+      if (show) {
+        modal.classList.remove('hidden');
+        loadPurchaseHistoryRecords();
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function loadPurchaseHistoryRecords() {
+      const container = document.getElementById('purchases-list-container');
+      container.innerHTML = `<div class="text-center py-6 text-slate-400 animate-pulse font-bold text-xs">Fetching transactions...</div>`;
+      
+      if(!auth.currentUser) return;
+
+      db.collection('orders').where('userId', '==', auth.currentUser.uid).get().then(snapshot => {
+        container.innerHTML = "";
+        
+        if (snapshot.empty) {
+          container.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-xs">No transactions recorded.</div>`;
+          return;
+        }
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString('en-GB') : 'Verified';
+          container.innerHTML += `
+            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+              <div>
+                <p class="font-extrabold text-slate-800 text-xs">${data.itemsString ? data.itemsString.split('\n')[0] : 'Clinical Study Module'}</p>
+                <p class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-1">ID: #${data.orderId || doc.id} • ${date}</p>
+              </div>
+              <span class="text-xs font-black text-blue-600">Rs. ${data.total}</span>
+            </div>`;
+        });
+      });
+    }
+
+    function swipeFlashcard(mastered) {
+      if(mastered) {
+        showSecToast("Concept marked as Mastered!", "check-circle");
+      }
+      const activeDeck = mcqDecks.default;
+      activeFlashcardIndex = (activeFlashcardIndex + 1) % activeDeck.flashcards.length;
+      loadFlashcard();
+    }
+
+    function nextMCQ() {
+      const activeDeck = mcqDecks.default;
+      activeMCQIndex = (activeMCQIndex + 1) % activeDeck.mcqs.length;
+      loadMCQQuestion();
+    }
+
+    function applyDynamicSizing() {
+      const currentWidth = readerState.baseWidth * readerState.zoom;
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+        wrapper.style.width = `${currentWidth}px`;
+        wrapper.style.height = 'auto'; 
+      });
+      document.getElementById('zoom-slider').value = readerState.zoom;
+
+      clearTimeout(zoomTimeout);
+      zoomTimeout = setTimeout(() => {
+        readerState.isZooming = false; // Unlock
+        triggerViewportObserverEvaluation();
+      }, 500);
+    }
+
+    function handleZoomSlider(val) {
+      readerState.zoom = parseFloat(val);
+      applyDynamicSizing();
+    }
+
+    function zoomReader(modifier) {
+      let newZoom = readerState.zoom + modifier;
+      if (newZoom < 0.5 || newZoom > 2.5) return;
+      readerState.zoom = parseFloat(newZoom.toFixed(1));
+      applyDynamicSizing();
+    }
+
+    function triggerViewportObserverEvaluation() {
+      const scrollEl = document.getElementById('pdf-scroll-container');
+      if (scrollEl) {
+        scrollEl.dispatchEvent(new Event('scroll'));
+      }
+    }
+
+    function closeBookViewer() {
+      document.getElementById('pdf-pages-viewport').innerHTML = "";
+      document.getElementById('left-jump-menu').classList.add('hidden');
+      readerState.activePdf = null;
+      readerState.activeBookId = null;
+      showView('view-dashboard');
+    }
+
+    // ==== USER LOGINS ====
+    function togglePasswordVisibility() {
+      const pwInput = document.getElementById('login-password');
+      const eyeIcon = document.getElementById('password-eye-icon');
+      if (pwInput.type === 'password') { pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off'); }
+      else { pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye'); }
+      lucide.createIcons();
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login');
+      btn.innerHTML = `Verifying...`; btn.disabled = true;
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value;
+
+      auth.signInWithEmailAndPassword(email, pass).then(() => {
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+        btn.disabled = false; document.getElementById('login-alert').classList.add('hidden');
+      }).catch(err => {
+        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+        document.getElementById('login-alert').classList.remove('hidden');
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        lucide.createIcons();
+      });
+    }
+
+    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
+
+    function updateWatermarks(email) {
+      if(!email) return;
+      const idx = email.indexOf('@');
+      const prefix = email.substring(0, Math.min(3, idx));
+      const maskedEmail = prefix + "****" + email.substring(idx);
+      
+      const watermarkString = `LICENSED TO ${maskedEmail.toUpperCase()} / DO NOT DISTRIBUTE`;
+      document.querySelectorAll('.watermark-text').forEach(el => {
+        el.textContent = watermarkString;
+      });
+    }
+
+    function showSecToast(msg, iconName = "shield-alert") {
+      const toast = document.getElementById('toast-notify');
+      document.getElementById('toast-text').textContent = msg;
+      document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
+      lucide.createIcons();
+      toast.classList.remove('hidden'); toast.classList.add('flex');
+      setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
+    }
+
+    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
+    window.onload = () => lucide.createIcons();
+  </script>
+</body>
+</html>
