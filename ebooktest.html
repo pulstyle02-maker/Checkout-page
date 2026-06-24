@@ -185,10 +185,10 @@
 
       <!-- Floating Frame Page Counter (Dynamic Page 12 Offset Map) -->
       <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg">
-        Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
+        Page <span id="page-indicator-current">12</span> of <span id="page-indicator-total">--</span>
       </div>
 
-      <!-- Neon Futuristic AI Teacher Portal -->
+      <!-- Neon Futuristic AI Teacher Portal (Explain, Chat, Audio) -->
       <div id="ai-portal-wrap" class="fixed bottom-4 left-4 z-40">
         <!-- Collapsed Glowing Orb -->
         <button id="ai-orb-btn" onclick="toggleAIPortal(true)" class="w-12 h-12 rounded-full bg-slate-950 border border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.5)] flex items-center justify-center text-cyan-400 hover:scale-110 active:scale-95 transition-all animate-pulse">
@@ -207,7 +207,12 @@
           <div id="ai-response-box" class="flex-1 overflow-y-auto no-scrollbar text-xs font-medium text-cyan-100 leading-relaxed bg-slate-900/50 p-3 rounded-lg min-h-[100px] max-h-[220px] border border-cyan-500/10">
             Ask me to explain the current page, or ask a specific medical question!
           </div>
-          <!-- Inputs / controls -->
+          <!-- TTS Play Lecture Buttons (Shown dynamically after generation) -->
+          <div id="ai-tts-controls" class="hidden flex gap-2 border-t border-cyan-500/10 pt-2 pb-1">
+             <button onclick="playLecture()" class="flex-1 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border border-emerald-500/20 flex items-center justify-center gap-1"><i data-lucide="volume-2" class="w-3 h-3"></i> Play Lecture</button>
+             <button onclick="stopLecture()" class="py-1.5 px-3 bg-red-950 hover:bg-red-900 text-red-400 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border border-red-500/20"><i data-lucide="square" class="w-3 h-3"></i></button>
+          </div>
+          <!-- Dynamic Button -->
           <button id="ai-explain-btn" onclick="queryAiTeacher('explain')" class="w-full py-2.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-400 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-cyan-500/20">
             Explain Current Page
           </button>
@@ -442,19 +447,25 @@
     };
 
     let progressTimeout;
+    let OPENROUTER_API_KEY = null;
+    let currentLectureText = ""; // Global reference for TTS script
 
-    // Secure OpenRouter API Key Fetch logic
+    // Secure, Non-blocking API Key Assembly (Called immediately)
     async function getOpenRouterKey() {
+      if (OPENROUTER_API_KEY) return OPENROUTER_API_KEY;
       try {
         const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/k.json");
         if(res.ok) {
            const data = await res.json();
-           if(data.fragment_alpha) return data.fragment_alpha + data.fragment_beta + data.fragment_gamma;
+           if(data.fragment_alpha) {
+             OPENROUTER_API_KEY = data.fragment_alpha + data.fragment_beta + data.fragment_gamma;
+             return OPENROUTER_API_KEY;
+           }
         }
       } catch(e) {}
-      // Fallback zero-latency assembly
-      return "sk-or-v1-6f4beaf88a131f98" + "dbed32a20b5ee13c33b8f63a" + "e65dc68975a2fb3a291ce916";
+      return null;
     }
+    getOpenRouterKey();
 
     const mcqDecks = {
       default: {
@@ -661,7 +672,7 @@
             await new Promise(resolve => setTimeout(resolve, 50)); // Yield thread
           } catch(e) {}
         }
-      }, 2000);
+      }, 3000); // 3 seconds defer to guarantee page load
     }
 
     async function renderLazyViewport(pdf) {
@@ -773,7 +784,7 @@
         // DUAL CANVAS FOR SAFE OPACITY BLENDING
         const hlCanvas = document.createElement('canvas');
         hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
-        hlCanvas.style.opacity = '0.15'; // Force low opacity
+        hlCanvas.style.opacity = '0.15'; // Force low opacity uniformly
         hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
         hlCanvas.width = highResViewport.width;
         hlCanvas.height = highResViewport.height;
@@ -934,6 +945,7 @@
           hlCtx.stroke();
         } else {
           const coords = getEventCoordinates(e, penCanvas);
+          
           if (readerState.tool === 'pen') {
             penCtx.lineTo(coords.x, coords.y);
             penCtx.strokeStyle = readerState.currentColor; 
@@ -942,6 +954,7 @@
             penCtx.lineCap = 'round'; penCtx.lineJoin = 'round';
             penCtx.stroke();
           } else if (readerState.tool === 'eraser') {
+            // Clear both contexts simultaneously
             penCtx.lineTo(coords.x, coords.y);
             penCtx.strokeStyle = '#ffffff'; 
             penCtx.lineWidth = 45; 
@@ -1046,6 +1059,24 @@
       btn.textContent = `Explain ${label}`;
     }
 
+    function playLecture() {
+      if(!window.currentLectureText) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(window.currentLectureText);
+      
+      const voices = window.speechSynthesis.getVoices();
+      // Pick best natural sounding English voice
+      const bestVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium')) || voices[0];
+      if(bestVoice) utterance.voice = bestVoice;
+      
+      utterance.rate = 0.95; // Smooth academic pace
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function stopLecture() {
+      window.speechSynthesis.cancel();
+    }
+
     async function queryAiTeacher(mode) {
       const currentLabel = readerState.currentPage < 12 ? `Intro ${readerState.currentPage}` : `Page ${readerState.currentPage - 11}`;
       
@@ -1061,10 +1092,11 @@
 
       const box = document.getElementById('ai-response-box');
       box.innerHTML = `<span class="animate-pulse">AI Professor is analyzing ${currentLabel}...</span>`;
+      document.getElementById('ai-tts-controls').classList.add('hidden');
       
       const activeKey = await getOpenRouterKey();
       if(!activeKey) {
-        box.textContent = "Security validation failed. Please check connection.";
+        box.innerHTML = `<span class="text-red-400 font-bold">Security validation failed. Cannot retrieve API Key.</span>`;
         return;
       }
 
@@ -1086,23 +1118,30 @@
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            "model": "google/gemma-4-26b-a4b-it:free",
+            "model": "openai/gpt-oss-120b:free",
             "messages": [
-              { role: "system", content: "You are an expert clinical medical professor teaching medical students. Keep explanations clear, high-yield, engaging." },
-              { role: "user", content: `Context from ${currentLabel}:\n\n${pageText}\n\nUser Question: ${queryPrompt}` }
-            ]
+              { "role": "system", "content": "You are an expert clinical medical professor teaching medical students. Keep explanations clear, high-yield, engaging. DO NOT use any markdown formatting, asterisks, or special symbols. Provide clean, conversational plain text suitable for Text-to-Speech." },
+              { "role": "user", "content": `Context from ${currentLabel}:\n\n${pageText}\n\nUser Prompt: ${queryPrompt}` }
+            ],
+            "reasoning": {"enabled": true}
           })
         });
         
         const ans = await res.json();
-        
         if (ans.error) {
            box.innerHTML = `<span class="text-red-400 font-bold">API Error: ${ans.error.message || 'Check model usage limits.'}</span>`;
            return;
         }
 
         let outputText = ans.choices[0].message.content;
+        
+        // Strip any residual markdown manually just in case
+        outputText = outputText.replace(/\*/g, '').replace(/#/g, '');
+        window.currentLectureText = outputText; // Cache text for TTS
+
         box.innerHTML = outputText.replace(/\n/g, '<br>');
+        document.getElementById('ai-tts-controls').classList.remove('hidden');
+
       } catch(err) {
         box.innerHTML = `<span class="text-red-400 font-bold">Professor failed to connect. Check internet state.</span>`;
         console.error(err);
@@ -1301,6 +1340,7 @@
     function undoAnnotation() { showSecToast("Undo is restricted to drawing strokes.", "info"); }
 
     function closeBookViewer() {
+      window.speechSynthesis.cancel();
       document.getElementById('pdf-pages-viewport').innerHTML = "";
       document.getElementById('left-jump-menu').classList.add('hidden');
       readerState.activePdf = null; readerState.activeBookId = null;
