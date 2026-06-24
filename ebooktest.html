@@ -410,7 +410,7 @@
       }
     });
 
-    // Dynamic Library Card rendering (Syncing read metrics)
+    // Dynamic Library Card rendering (Syncing progress metrics)
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
       db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
@@ -506,12 +506,19 @@
       }
     }
 
-    function preIndexDocumentText(pdf) {
+    // SPEED OPTIMIZATION: Non-blocking Sequenced Background Indexer
+    async function preIndexDocumentText(pdf) {
       readerState.textIndex = {};
+      // Index sequentially with yield pauses to guarantee 100% rendering priority
       for (let i = 1; i <= pdf.numPages; i++) {
-        pdf.getPage(i).then(page => page.getTextContent()).then(content => {
+        if (readerState.activePdf !== pdf) break; // Terminate if user exits
+        try {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
           readerState.textIndex[i] = content.items.map(item => item.str).join(' ').toLowerCase();
-        }).catch(()=>{});
+          // Yield execution thread back to browser rendering loop
+          await new Promise(resolve => setTimeout(resolve, 35));
+        } catch(e) {}
       }
     }
 
