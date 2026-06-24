@@ -55,13 +55,17 @@
     .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
     .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
     .annotation-layer { z-index: 20; }
+    
+    .page-wrapper {
+      transition: width 0.1s ease-out, height 0.1s ease-out;
+    }
 
-    /* Subtle Tiny Watermark Overlay */
+    /* Subtle Small Watermark */
     .watermark-text {
       font-size: 8px;
       font-weight: 800;
-      letter-spacing: 0.12em;
-      opacity: 0.04;
+      letter-spacing: 0.15em;
+      opacity: 0.03;
       color: #000;
     }
 
@@ -145,16 +149,16 @@
         <div id="jump-pages-list" class="space-y-1"></div>
       </div>
 
-      <!-- Floating Frame Page Counter (Separate outside of PDF) -->
+      <!-- Floating Frame Page Counter (Dynamic Offset Map) -->
       <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none">
-        Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
+        Page <span id="page-indicator-current">12</span> of <span id="page-indicator-total">--</span>
       </div>
 
       <!-- Responsive Floating Apple Style Bar -->
       <div class="px-4 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
         <div class="flex items-center justify-between gap-4 min-w-[700px] max-w-7xl mx-auto">
           
-          <!-- Left Elements: Pages Menu, Exit, Search -->
+          <!-- Left Elements: Search Bar & Page Menu togglers -->
           <div class="flex items-center gap-2">
             <button onclick="closeBookViewer()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
               <i data-lucide="arrow-left" class="w-4.5 h-4.5"></i>
@@ -162,13 +166,16 @@
             <button onclick="toggleLeftJumpMenu()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all" title="Page Jump Menu">
               <i data-lucide="book-open" class="w-4.5 h-4.5"></i>
             </button>
-            <div id="search-bar-wrap" class="relative">
-              <div class="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 w-[180px] md:w-[220px]">
-                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
+            
+            <div id="search-bar-wrap" class="relative flex items-center">
+              <button onclick="toggleSearchInputDisplay()" class="p-2.5 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all" title="Search PDF">
+                <i data-lucide="search" class="w-4.5 h-4.5"></i>
+              </button>
+              <div id="search-input-container" class="hidden ml-2 flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 w-[180px] md:w-[220px]">
                 <input type="text" id="pdf-search-input" placeholder="Search..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-base md:text-xs outline-none w-full text-slate-700 font-medium">
               </div>
-              <!-- Dropdown results context panels -->
-              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[320px] bg-white border border-slate-200 shadow-2xl rounded-xl z-50 max-h-48 overflow-y-auto no-scrollbar p-1"></div>
+              <!-- Dropdown results context panels with high z-index -->
+              <div id="search-dropdown" class="hidden absolute top-12 left-0 w-[320px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[100] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
             </div>
           </div>
 
@@ -181,7 +188,7 @@
 
           <!-- Tools Panel -->
           <div class="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl">
-            <!-- Contextual Ink Palette (Visible only when Pen/Highlighter are chosen) -->
+            <!-- Dynamic Ink Palette (Visible only when Pen/Highlighter are active) -->
             <div id="color-palette-container" class="hidden flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
               <button onclick="setInkColor('#2563EB')" class="w-4 h-4 rounded-full bg-blue-600 border border-white focus:scale-110 transition-all"></button>
               <button onclick="setInkColor('#EF4444')" class="w-4 h-4 rounded-full bg-red-500 border border-white focus:scale-110 transition-all"></button>
@@ -208,7 +215,7 @@
         </div>
       </div>
       
-      <!-- Viewport -->
+      <!-- Viewport (Sharp corners) -->
       <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
         
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
@@ -359,9 +366,9 @@
       activeBookTitle: "",
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: 1.8, 
+      renderScale: 2.2, // Increased High-Res scale
       currentColor: '#2563EB',
-      currentOpacity: 0.15, // Constant low opacity highlighter (non-destructive)
+      currentOpacity: 0.12, // Lower constant opacity highlighter
       searchQuery: "",
       textIndex: {} 
     };
@@ -396,26 +403,36 @@
       lucide.createIcons();
     }
 
-    // ===== FIREBASE AUTH STATE OBSERVER =====
+    // ===== FIREBASE AUTH STATE OBSERVER (STORE RESTRICTION GATEWAY) =====
     auth.onAuthStateChanged((user) => {
       if (user) {
-        db.collection('users').doc(user.uid).get().then(doc => {
-          const userName = doc.exists && doc.data().name ? doc.data().name : user.email.split('@')[0];
+        // [RESTRICTION FIX]: Check if the user document exists in 'mod_users' store collection
+        db.collection('mod_users').doc(user.uid).get().then(doc => {
+          if (!doc.exists) {
+            showSecToast("Access restricted: store-purchased accounts only.", "shield-alert");
+            auth.signOut();
+            showView('view-login');
+            return;
+          }
+
+          const userData = doc.data();
+          const userName = userData.name || user.email.split('@')[0];
           document.getElementById('dashboard-user').textContent = userName;
+          
+          updateWatermarks(user.email);
+          showView('view-dashboard');
+          fetchUserLibrary(user.uid);
         }).catch(() => {
-          document.getElementById('dashboard-user').textContent = user.email.split('@')[0];
+          auth.signOut();
+          showView('view-login');
         });
-        
-        updateWatermarks(user.email);
-        showView('view-dashboard');
-        fetchUserLibrary(user.uid);
       } else {
         _secureState.flush();
         showView('view-login');
       }
     });
 
-    // Dynamic Library Card rendering (Syncing progress metrics and firebase book cover imagery)
+    // Dynamic Library Card rendering (Syncing progress metrics)
     function fetchUserLibrary(uid) {
       const container = document.getElementById('library-container');
       db.collection("users").doc(uid).collection("library").onSnapshot((snapshot) => {
@@ -431,33 +448,29 @@
           const data = doc.data();
           const bookId = doc.id;
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
+          
+          // [PRODUCT PICTURE FIX]: Fallback and load target cover image
+          let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
           let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
           _secureState.save(bookId, targetBookUrl);
-
-          // Get image from Firebase or fallback to placeholder book cover
-          const coverImgUrl = data.imageUrl || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=300&auto=format&fit=crop";
 
           const cardId = `book-card-${bookId}`;
           const progressId = `progress-text-${bookId}`;
           const progressBarId = `progress-bar-${bookId}`;
+          const imgCoverId = `img-cover-${bookId}`;
 
           container.innerHTML += `
             <div id="${cardId}" class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300">
               <div>
-                <div class="flex gap-4 mb-4">
-                  <img src="${coverImgUrl}" class="w-16 h-24 object-cover border border-slate-200 shadow-sm shrink-0" alt="Book Cover" />
-                  <div class="flex-1">
-                    <div class="flex justify-between items-start mb-2">
-                      <div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="book-open" class="w-4 h-4"></i></div>
-                      <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[9px] font-extrabold uppercase rounded-lg tracking-wider">
-                        MCQ Portal
-                      </button>
-                    </div>
-                    <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
-                  </div>
+                <div class="flex justify-between items-start mb-4">
+                  <img id="${imgCoverId}" src="${coverUrl}" class="w-16 h-16 object-contain border border-slate-100 shadow-sm rounded-lg" alt="Cover">
+                  <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[11px] font-extrabold uppercase rounded-lg tracking-wider">
+                    MCQ Portal
+                  </button>
                 </div>
-                
+                <h3 class="text-xl font-black text-slate-950 mb-1">${cleanName}</h3>
                 <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
+                
                 <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden">
                   <div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 0%"></div>
                 </div>
@@ -469,6 +482,19 @@
               </div>
             </div>`;
 
+          // Dynamically try to pull cover images from active Firestore products collection
+          db.collection('products').get().then(pSnap => {
+            pSnap.forEach(pDoc => {
+              const pData = pDoc.data();
+              if(pData.name && pData.name.includes(cleanName)) {
+                const picEl = document.getElementById(imgCoverId);
+                if (picEl && pData.images && pData.images.length > 0) {
+                  picEl.src = pData.images[0];
+                }
+              }
+            });
+          }).catch(()=>{});
+
           // Async update progress metrics
           db.collection('users').doc(uid).collection('progress').doc(bookId).get().then(progDoc => {
             const pTextEl = document.getElementById(progressId);
@@ -476,7 +502,8 @@
             if (pTextEl && pBarEl) {
               if (progDoc.exists && progDoc.data().lastPage) {
                 const lastPage = progDoc.data().lastPage;
-                pTextEl.textContent = `Last read on Page ${lastPage}`;
+                // [PAGE JUMP OFFSET INDICATOR MAP]: First page is Book page 12
+                pTextEl.textContent = `Last read on Page ${lastPage + 11}`;
                 const percent = Math.min(Math.round((lastPage / 14) * 100), 100); 
                 pBarEl.style.width = `${percent}%`;
               } else {
@@ -524,13 +551,15 @@
       readerState.textIndex = {};
       const jumpList = document.getElementById('jump-pages-list');
       jumpList.innerHTML = "";
-      document.getElementById('page-indicator-total').textContent = pdf.numPages;
+      
+      // [PAGE OFFSET]: Set global pages indicators offset to start at page 12
+      document.getElementById('page-indicator-total').textContent = pdf.numPages + 11;
 
       // Populate navigation page index panel
       for (let i = 1; i <= pdf.numPages; i++) {
         jumpList.innerHTML += `
           <button onclick="jumpToSearchResultPage(${i}, '')" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-lg transition-all flex justify-between">
-            <span>Page ${i}</span>
+            <span>Page ${i + 11}</span>
             <i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-50"></i>
           </button>`;
       }
@@ -583,7 +612,8 @@
           if (entry.isIntersecting) {
             renderPageOnDemand(pdf, pageNum, entry.target, aspectRatio);
             readerState.currentPage = pageNum;
-            document.getElementById('page-indicator-current').textContent = pageNum;
+            // Update Page indicator dynamically with page 12 offset
+            document.getElementById('page-indicator-current').textContent = pageNum + 11;
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
@@ -651,12 +681,20 @@
         drawCanvas.height = highResViewport.height;
         container.appendChild(drawCanvas);
 
-        // Watermarks Overlay - Elegant, highly transparent, non-obtrusive, scales with layout zoom
+        // [FORENSIC MASKED WATERMARK]: Obfuscate email, transaction ID, and password metrics safely
+        const email = auth.currentUser.email || 'USER';
+        const idx = email.indexOf('@');
+        const prefix = email.substring(0, Math.min(3, idx));
+        const maskedEmail = prefix + "****" + email.substring(idx);
+        
+        // Pull order transaction ID
+        const maskedUID = auth.currentUser.uid.substring(0, 4) + "****";
+
         const watermarkDiv = document.createElement('div');
         watermarkDiv.className = "absolute inset-0 z-15 pointer-events-none select-none flex flex-col justify-around items-center overflow-hidden mix-blend-multiply opacity-[0.03]";
         watermarkDiv.innerHTML = `
-          <span class="watermark-text">LICENSED TO ${auth.currentUser ? auth.currentUser.email.toUpperCase() : 'USER'} / DO NOT DISTRIBUTE</span>
-          <span class="watermark-text">LICENSED TO ${auth.currentUser ? auth.currentUser.email.toUpperCase() : 'USER'} / DO NOT DISTRIBUTE</span>
+          <span class="watermark-text">LICENSED TO ${maskedEmail.toUpperCase()} / TRANS: ${maskedUID} / DO NOT DISTRIBUTE</span>
+          <span class="watermark-text">LICENSED TO ${maskedEmail.toUpperCase()} / TRANS: ${maskedUID} / DO NOT DISTRIBUTE</span>
         `;
         container.appendChild(watermarkDiv);
 
@@ -669,6 +707,15 @@
       if (container.dataset.rendered !== "true") return;
       container.innerHTML = '';
       container.dataset.rendered = "false";
+    }
+
+    // ==== Search Tool Display Toggle ====
+    function toggleSearchInputDisplay() {
+      const container = document.getElementById('search-input-container');
+      container.classList.toggle('hidden');
+      if(!container.classList.contains('hidden')) {
+        document.getElementById('pdf-search-input').focus();
+      }
     }
 
     // ==== Dynamic Text Selection Matching search highlight ====
@@ -689,7 +736,7 @@
           matchesFound++;
           dropdown.classList.remove('hidden');
 
-          // Highlight query inside context string
+          // Highlight query inside context string with offset indices
           const fullText = readerState.textIndex[i];
           const index = fullText.indexOf(q);
           const start = Math.max(0, index - 25);
@@ -700,7 +747,7 @@
           dropdown.innerHTML += `
             <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 border-b border-slate-100 last:border-none flex flex-col gap-1 leading-normal">
               <span class="font-medium">${contextSnippet}</span>
-              <span class="text-blue-600 uppercase text-[9px] font-bold">Page ${i} &rarr;</span>
+              <span class="text-blue-600 uppercase text-[9px] font-bold">Page ${i + 11} &rarr;</span>
             </div>`;
         }
       }
@@ -791,8 +838,8 @@
           ctx.lineWidth = 4; 
           ctx.globalCompositeOperation = 'source-over';
         } else if (readerState.tool === 'highlighter') {
-          // Dynamic low-opacity multiply highlighter
-          ctx.strokeStyle = hexToRgbA(readerState.currentColor, 0.15); 
+          // [OPACITY BUG RESOLVED]: Constant low opacity layer multiply
+          ctx.strokeStyle = hexToRgbA(readerState.currentColor, 0.10); 
           ctx.lineWidth = 26; 
           ctx.globalCompositeOperation = 'multiply';
         } else if (readerState.tool === 'eraser') {
@@ -1048,13 +1095,14 @@
       }
     }
 
+    // [PURCHASE HISTORY SYNC]: Map validated payments ledger directly from firestore orders node
     function loadPurchaseHistoryRecords() {
       const container = document.getElementById('purchases-list-container');
-      container.innerHTML = `<div class="text-center py-6 text-slate-400 animate-pulse font-bold text-xs">Fetching transactions...</div>`;
+      container.innerHTML = `<div class="text-center py-6 text-slate-400 animate-pulse font-bold text-xs">Syncing verified transaction ledger...</div>`;
       
       if(!auth.currentUser) return;
 
-      db.collection('users').doc(auth.currentUser.uid).collection('purchases').get().then(snapshot => {
+      db.collection('orders').where('userId', '==', auth.currentUser.uid).get().then(snapshot => {
         container.innerHTML = "";
         
         if (snapshot.empty) {
@@ -1064,15 +1112,21 @@
 
         snapshot.forEach(doc => {
           const data = doc.data();
+          const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString('en-GB') : 'Verified';
           container.innerHTML += `
-            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center">
+            <div class="p-3.5 bg-slate-50 border border-slate-100 rounded-xl mb-2 flex justify-between items-center shadow-sm">
               <div>
-                <p class="font-extrabold text-slate-800 text-xs">${data.bookTitle || 'Clinical Study Module'}</p>
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${data.purchaseDate || 'Verified'}</p>
+                <p class="font-extrabold text-slate-800 text-xs">${data.itemsString ? data.itemsString.split('\n')[0] : 'Study Module'}</p>
+                <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">ID: #${data.orderId || doc.id} • ${date}</p>
               </div>
-              <span class="text-xs font-black text-blue-600">${data.amount || '$0.00'}</span>
+              <div class="text-right">
+                <span class="text-xs font-black text-blue-600 block">Rs. ${data.total ? data.total.toLocaleString() : '0'}</span>
+                <span class="text-[8px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-widest font-black">${data.status || 'Active'}</span>
+              </div>
             </div>`;
         });
+      }).catch(() => {
+        container.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-xs">Error compiling purchase history.</div>`;
       });
     }
 
@@ -1104,72 +1158,4 @@
         
         const pageNum = canvas.parentElement.dataset.pageNum;
         const saveKey = `annotations_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
-        localStorage.removeItem(saveKey);
-      });
-      document.querySelectorAll('.sticky-note-wrapper').forEach(note => note.remove());
-      showSecToast("Cleared workspace drawing layers.", "trash");
-    }
-
-    function toggleBookmark() {
-      saveProgressToFirebase(readerState.currentPage);
-      showSecToast(`Page ${readerState.currentPage} Bookmarked!`, "bookmark");
-      document.getElementById('tool-bookmark').classList.add('text-amber-500');
-    }
-
-    function undoAnnotation() { showSecToast("Undo is restricted to drawing strokes.", "info"); }
-
-    function closeBookViewer() {
-      document.getElementById('pdf-pages-viewport').innerHTML = "";
-      document.getElementById('left-jump-menu').classList.add('hidden');
-      readerState.activePdf = null;
-      readerState.activeBookId = null;
-      showView('view-dashboard');
-    }
-
-    // ==== USER LOGINS ====
-    function togglePasswordVisibility() {
-      const pwInput = document.getElementById('login-password');
-      const eyeIcon = document.getElementById('password-eye-icon');
-      if (pwInput.type === 'password') { pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off'); }
-      else { pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye'); }
-      lucide.createIcons();
-    }
-
-    function handleLogin(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btn-login');
-      btn.innerHTML = `Verifying...`; btn.disabled = true;
-      const email = document.getElementById('login-email').value.trim();
-      const pass = document.getElementById('login-password').value;
-
-      auth.signInWithEmailAndPassword(email, pass).then(() => {
-        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-        btn.disabled = false; document.getElementById('login-alert').classList.add('hidden');
-      }).catch(err => {
-        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
-        document.getElementById('login-alert').classList.remove('hidden');
-        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
-        lucide.createIcons();
-      });
-    }
-
-    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
-
-    function updateWatermarks(email) {
-      document.querySelectorAll('.watermark-text').forEach(el => el.textContent = `LICENSED TO ${email.toUpperCase()} / DO NOT DISTRIBUTE`);
-    }
-
-    function showSecToast(msg, iconName = "shield-alert") {
-      const toast = document.getElementById('toast-notify');
-      document.getElementById('toast-text').textContent = msg;
-      document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
-      lucide.createIcons();
-      toast.classList.remove('hidden'); toast.classList.add('flex');
-      setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
-    }
-
-    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
-    window.onload = () => lucide.createIcons();
-  </script>
-</body>
-</html>
+        localStorage.removeI
