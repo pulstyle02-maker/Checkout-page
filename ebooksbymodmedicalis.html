@@ -29,6 +29,11 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     
+    html, body {
+      overscroll-behavior: none;
+      touch-action: pan-x pan-y; /* Disables native browser pinch zoom to protect top menu */
+    }
+
     .grid-bg {
       background-size: 24px 24px;
       background-image: linear-gradient(to right, rgba(0, 82, 204, 0.04) 1px, transparent 1px),
@@ -55,15 +60,21 @@
     .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
     .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
     
-    /* Dual Canvas Stacking contexts */
     .annotation-layer-pen { z-index: 25; }
     .annotation-layer-highlighter { z-index: 20; transition: opacity 0.1s ease; }
     
+    /* CSS Variables based Zooming for Hardware Acceleration */
+    #pdf-pages-viewport {
+      --zoom: 1;
+      --base-width: 760px;
+    }
+    
     .page-wrapper {
-      transition: width 0.1s ease-out, height 0.1s ease-out;
+      /* Scales via GPU/CSS engine avoiding Main-Thread Javascript Reflows */
+      width: calc(var(--base-width) * var(--zoom));
+      will-change: width;
     }
 
-    /* Horizontal, highly visible watermark with reduced font size */
     .watermark-text {
       font-size: 5.5px;
       font-weight: 900;
@@ -199,7 +210,7 @@
       </div>
 
       <!-- Floating Page Counter Indicator -->
-      <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg">
+      <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg pointer-events-none">
         Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
       </div>
 
@@ -216,7 +227,7 @@
       </div>
 
       <!-- Responsive Toolbar -->
-      <div class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
+      <div id="reader-toolbar" class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar relative">
         <div class="flex items-center justify-between gap-2 max-w-7xl mx-auto">
           
           <!-- Left Elements: Exit, Menu, Search -->
@@ -241,7 +252,7 @@
           <!-- Zoom Controls -->
           <div class="flex items-center gap-1.5 bg-slate-50 px-2 sm:px-3 py-1.5 rounded-full border border-slate-200 shrink-0">
             <button onclick="zoomReader(-0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="minus" class="w-4 h-4"></i></button>
-            <input type="range" min="0.5" max="2.5" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="hidden md:block w-28 sm:w-36 mx-1">
+            <input type="range" min="0.5" max="3.0" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="hidden md:block w-28 sm:w-36 mx-1">
             <button onclick="zoomReader(0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="plus" class="w-4 h-4"></i></button>
           </div>
 
@@ -268,13 +279,17 @@
       <!-- Detached High Z-Index Search Dropdown -->
       <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[250] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
 
-      <!-- Viewport (PDF.js Canvas page wrapper stack) -->
-      <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
+      <!-- Viewport (Horizontally Streams Pages as they are scrolled into view) -->
+      <div class="flex-1 w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
+        <!-- Skeleton Loading Bar Overlay -->
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
-          <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting to secure R2 storage...</p>
+          <div class="w-64 h-2 bg-slate-200 rounded-full overflow-hidden mb-4 shadow-inner">
+             <div id="pdf-download-progress" class="h-full bg-blue-600 transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting securely...</p>
         </div>
-        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start w-full min-h-full py-6 space-y-6"></div>
+        <!-- Horizontal Scroll Viewport -->
+        <div id="pdf-pages-viewport" class="flex flex-row items-center justify-start h-full min-w-max py-6 px-6 space-x-6"></div>
       </div>
       
       <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
@@ -320,9 +335,6 @@
   </div>
 
   <script>
-    // Set standard PDF.js worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
     // ===== SYSTEM CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
@@ -354,7 +366,8 @@
       activeSectionIndex: 0,
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: window.innerWidth < 768 ? 1.6 : 2.2,
+      // Optimized scale to save huge amounts of Canvas RAM while keeping text sharp
+      renderScale: window.innerWidth < 768 ? 1.3 : 1.8, 
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
@@ -364,8 +377,9 @@
     };
 
     let progressTimeout;
+    let zoomTimeout;
 
-    // Securely Chunked Cloudflare R2 Section Files (Invisible to Inspect Element scraper queries)
+    // Securely Chunked Cloudflare R2 Section Files
     const PDF_SECTIONS = [
       { title: "COVER & INTRO", file: ["In", "tro%20", "%26%20", "cover.pdf"].join("") },
       { title: "GIT & NUTRITION", file: ["GIT%", "20%26", "%20NU", "TRITI", "ON.pdf"].join("") },
@@ -499,42 +513,7 @@
       loadSpecificSection(0);
     }
 
-    // Direct Binary Blob fetch pipeline from R2 (Zero data corruption, no proxies required)
-    async function fetchPdfBuffer(fileName, statusEl) {
-      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
-      const targetUrl = R2_BASE + fileName;
-
-      try {
-        statusEl.textContent = "Connecting to Cloudflare R2 storage...";
-        let res = await fetch(targetUrl);
-        if (res.ok) {
-          let blob = await res.blob();
-          let buffer = await blob.arrayBuffer();
-          let magicBytes = new Uint8Array(buffer.slice(0, 5));
-          let header = String.fromCharCode(...magicBytes);
-          if (header === "%PDF-") return buffer;
-        }
-      } catch(e) {
-        console.warn("Direct R2 fetch failed. Using fallback proxy...", e);
-      }
-
-      // Fallback proxy (AllOrigins) in case of rare browser-side CORS configuration overlaps
-      try {
-        statusEl.textContent = "Negotiating secure proxy channel...";
-        let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        let res = await fetch(proxyUrl);
-        if (res.ok) {
-          let blob = await res.blob();
-          let buffer = await blob.arrayBuffer();
-          let magicBytes = new Uint8Array(buffer.slice(0, 5));
-          let header = String.fromCharCode(...magicBytes);
-          if (header === "%PDF-") return buffer;
-        }
-      } catch(e) {}
-
-      return null; 
-    }
-
+    // Secure memory-safe caching loader
     async function loadSpecificSection(index) {
       if(readerState.activePdf && readerState.activeSectionIndex === index && document.getElementById('pdf-pages-viewport').innerHTML !== "") {
         switchSidebarTab('pages'); 
@@ -549,25 +528,56 @@
       const loadingScreen = document.getElementById('reader-loading');
       loadingScreen.classList.remove('hidden');
       const statusText = document.getElementById('loading-status-text');
+      const progressBar = document.getElementById('pdf-download-progress');
+      progressBar.style.width = '0%';
       
       document.getElementById('pdf-pages-viewport').innerHTML = ''; 
       renderSectionsList();
 
-      let targetFileName = PDF_SECTIONS[index].file;
+      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
+      const targetFileName = PDF_SECTIONS[index].file;
+      const targetUrl = R2_BASE + targetFileName;
       
       try {
-        let validPdfBuffer = await fetchPdfBuffer(targetFileName, statusText);
-
-        if (!validPdfBuffer) {
-            showSecToast("Failed to compile layout parameters.", "alert-triangle");
-            loadingScreen.classList.add('hidden');
-            return;
+        statusText.textContent = "Checking local memory...";
+        let loadingTask;
+        
+        try {
+            const cache = await caches.open('modmedicalis-pdf-cache-v2');
+            const cachedRes = await cache.match(targetUrl);
+            
+            if (cachedRes) {
+                statusText.textContent = "Loading from local memory...";
+                progressBar.style.width = '100%';
+                const buffer = await cachedRes.arrayBuffer();
+                loadingTask = pdfjsLib.getDocument({ data: buffer });
+            } else {
+                loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+                loadingTask.onProgress = (p) => {
+                    if (p.total) {
+                        const percent = Math.min(100, Math.round((p.loaded / p.total) * 100));
+                        progressBar.style.width = `${percent}%`;
+                        statusText.textContent = `Downloading securely... ${percent}%`;
+                    }
+                };
+            }
+        } catch (cacheErr) {
+            loadingTask = pdfjsLib.getDocument({ url: targetUrl });
         }
-
-        statusText.textContent = "Compiling layout parameters...";
-        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(validPdfBuffer) });
+        
         let pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
+        
+        try {
+            caches.open('modmedicalis-pdf-cache-v2').then(async (cache) => {
+                const isCached = await cache.match(targetUrl);
+                if (!isCached) {
+                    const data = await pdf.getData();
+                    const res = new Response(data, { headers: { 'Content-Type': 'application/pdf' } });
+                    cache.put(targetUrl, res);
+                }
+            });
+        } catch(e) {}
         
         loadSidebarBookmarks();
 
@@ -579,12 +589,22 @@
 
         renderLazyViewport(pdf);
       } catch (error) {
-        showSecToast("Failed to compile layout parameters.", "alert-triangle");
-        loadingScreen.classList.add('hidden');
+        statusText.textContent = "CORS redirect fallback active...";
+        try {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+          const loadingTask = pdfjsLib.getDocument({ url: proxyUrl, disableRange: true });
+          let pdf = await loadingTask.promise;
+          readerState.activePdf = pdf;
+          loadSidebarBookmarks();
+          renderLazyViewport(pdf);
+        } catch (fallbackError) {
+          showSecToast("Failed to compile layout parameters.", "alert-triangle");
+          loadingScreen.classList.add('hidden');
+        }
       }
     }
 
-    // Delayed Background Indexer (No Lag)
+    // Delayed Background Indexer
     function preIndexDocumentText(pdf) {
       readerState.textIndex = {};
       const jumpList = document.getElementById('jump-pages-list');
@@ -602,7 +622,6 @@
       }
       lucide.createIcons();
 
-      // Start fetching text quietly after PDF is visually loaded
       setTimeout(async () => {
         for (let i = 1; i <= pdf.numPages; i++) {
           if (readerState.activePdf !== pdf) break; 
@@ -618,21 +637,32 @@
     async function renderLazyViewport(pdf) {
       const viewportContainer = document.getElementById('pdf-pages-viewport');
       viewportContainer.innerHTML = '';
+      
+      // Inject CSS Variable for scaling
+      viewportContainer.style.setProperty('--zoom', readerState.zoom);
+
       const firstPage = await pdf.getPage(1);
       const originalViewport = firstPage.getViewport({ scale: 1.0 });
       const aspectRatio = originalViewport.width / originalViewport.height;
+      
+      const containerH = document.getElementById('pdf-scroll-container').clientHeight;
       const containerW = document.getElementById('pdf-scroll-container').clientWidth;
-      readerState.baseWidth = containerW > 850 ? 760 : containerW * 0.92;
+      
+      if (window.innerWidth < 768) {
+          readerState.baseWidth = containerW * 0.88;
+      } else {
+          readerState.baseWidth = (containerH - 48) * aspectRatio;
+      }
+      
+      viewportContainer.style.setProperty('--base-width', `${readerState.baseWidth}px`);
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
-        const currentWidth = readerState.baseWidth * readerState.zoom;
-        pageWrapper.style.width = `${currentWidth}px`;
+        pageWrapper.className = "page-wrapper relative bg-slate-100 shadow-xl border border-slate-300 transition-none flex-shrink-0 flex items-center justify-center overflow-hidden animate-pulse";
+        
         pageWrapper.style.height = 'auto'; 
         pageWrapper.style.aspectRatio = `${aspectRatio}`;
-        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
         viewportContainer.appendChild(pageWrapper);
@@ -640,6 +670,7 @@
 
       preIndexDocumentText(pdf);
 
+      // Safe Memory Management - Keeps pages alive within 2000px, but safely clears far away ones to prevent RAM Crashing
       const observer = new IntersectionObserver((entries) => {
         if (readerState.isZooming) return; 
         entries.forEach(entry => {
@@ -651,10 +682,11 @@
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
-            clearPageFromMemory(entry.target);
+             // Freeing memory of far-away pages. Because of the 2000px margin, users wont see this happening
+             clearPageFromMemory(entry.target);
           }
         });
-      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.35, rootMargin: '0px' });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.05, rootMargin: '0px 2000px 0px 2000px' });
 
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
 
@@ -662,9 +694,18 @@
         document.getElementById('reader-loading').classList.add('hidden');
         if(readerState.currentPage > 1) {
           const target = document.getElementById(`page-wrapper-${readerState.currentPage}`);
-          if(target) target.scrollIntoView({ block: 'start' });
+          if(target) target.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'start' });
         }
       }, 400);
+    }
+    
+    function clearPageFromMemory(container) {
+      if (container.dataset.rendered !== "true") return;
+      // We empty the contents (Canvases) to save RAM, but keep the container exactly the same size.
+      container.innerHTML = '';
+      container.dataset.rendered = "false";
+      container.classList.add('animate-pulse', 'bg-slate-100');
+      container.classList.remove('bg-white');
     }
 
     function saveProgressToFirebase(pageNum) {
@@ -697,7 +738,7 @@
 
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
-        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; // Null means pan
+        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; 
         textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
         container.appendChild(textLayerDiv);
 
@@ -706,7 +747,6 @@
           await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
         } catch(e) {}
 
-        // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
         const hlCanvas = document.createElement('canvas');
         hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
         hlCanvas.style.opacity = '0.15'; 
@@ -721,7 +761,6 @@
         penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
         container.appendChild(penCanvas);
 
-        // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
         const email = auth.currentUser ? auth.currentUser.email : 'USER';
         const maskedPass = readerState.userPasswordMask;
         const maskedTID = readerState.userTransactionId;
@@ -740,16 +779,11 @@
 
         container.appendChild(watermarkDiv);
 
+        container.classList.remove('animate-pulse', 'bg-slate-100');
+        container.classList.add('bg-white');
+
         initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
       } catch (err) {}
-    }
-
-    function clearPageFromMemory(container) {
-      if (container.dataset.rendered !== "true") return;
-      container.innerHTML = '';
-      const canvases = container.querySelectorAll('canvas');
-      canvases.forEach(c => { c.width = 0; c.height = 0; });
-      container.dataset.rendered = "false";
     }
 
     function toggleSearchBarInput() {
@@ -786,7 +820,7 @@
     function jumpToSearchResultPage(pageNum, query) {
       document.getElementById('search-dropdown').classList.add('hidden');
       const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
-      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
 
     function getEventCoordinates(e, canvas) {
@@ -919,9 +953,8 @@
 
     function setInkColor(hex) { readerState.currentColor = hex; }
     
-    // Toggle Mode
     function setReaderTool(toolName) {
-      if (readerState.tool === toolName) readerState.tool = null; // Toggle OFF
+      if (readerState.tool === toolName) readerState.tool = null;
       else readerState.tool = toolName;
       
       ['pen', 'highlighter', 'eraser'].forEach(t => {
@@ -941,7 +974,6 @@
       document.querySelectorAll('.textLayer').forEach(layer => { layer.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; layer.style.zIndex = (!readerState.tool) ? '30' : '10'; });
     }
 
-    // Embed MCQ Iframe directly
     function openMCQPortal(bookId, bookTitle) {
       document.getElementById('mcq-book-title').textContent = `${bookTitle} Self Assessment`;
       document.getElementById('mcq-iframe').src = "https://www.modmedicalis.online/mindyourminorsblock4";
@@ -979,24 +1011,77 @@
       });
     }
 
+    // High Performance Hardware-Accelerated CSS Variable Zooming
     function applyDynamicSizing() {
-      readerState.isZooming = true; // Lock intersecting updates to prevent mobile crashes
-      const currentWidth = readerState.baseWidth * readerState.zoom;
-      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
-        wrapper.style.width = `${currentWidth}px`;
-        wrapper.style.height = 'auto'; 
-      });
-      document.getElementById('zoom-slider').value = readerState.zoom;
+      readerState.isZooming = true;
+      const viewport = document.getElementById('pdf-pages-viewport');
+      if (viewport) {
+         viewport.style.setProperty('--zoom', readerState.zoom);
+      }
+      
+      const slider = document.getElementById('zoom-slider');
+      if(slider) slider.value = readerState.zoom;
+
       clearTimeout(zoomTimeout);
-      zoomTimeout = setTimeout(() => { readerState.isZooming = false; triggerViewportObserverEvaluation(); }, 500);
+      zoomTimeout = setTimeout(() => { 
+          readerState.isZooming = false; 
+          triggerViewportObserverEvaluation(); 
+      }, 250);
     }
-    function handleZoomSlider(val) { readerState.zoom = parseFloat(val); applyDynamicSizing(); }
+    
+    function handleZoomSlider(val) { 
+        readerState.zoom = parseFloat(val); 
+        applyDynamicSizing(); 
+    }
+    
     function zoomReader(modifier) {
       let newZoom = readerState.zoom + modifier;
-      if (newZoom < 0.5 || newZoom > 2.5) return;
+      if (newZoom < 0.5 || newZoom > 3.0) return;
       readerState.zoom = parseFloat(newZoom.toFixed(1));
       applyDynamicSizing();
     }
+
+    // Highly optimized Pinch-To-Zoom Touch Event override powered by requestAnimationFrame
+    let pinchInitialDist = 0;
+    let pinchInitialZoom = 1;
+    let isPinching = false;
+    let pinchTicking = false;
+    const scrollContainerEl = document.getElementById('pdf-scroll-container');
+    
+    scrollContainerEl.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            isPinching = true;
+            pinchInitialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            pinchInitialZoom = readerState.zoom;
+        }
+    }, { passive: false });
+
+    scrollContainerEl.addEventListener('touchmove', (e) => {
+        if (isPinching && e.touches.length === 2) {
+            e.preventDefault(); 
+            if (!pinchTicking) {
+                window.requestAnimationFrame(() => {
+                    const currentDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                    const scale = currentDist / pinchInitialDist;
+                    let newZ = pinchInitialZoom * scale;
+                    if (newZ < 0.5) newZ = 0.5;
+                    if (newZ > 3.0) newZ = 3.0;
+                    
+                    if (Math.abs(newZ - readerState.zoom) > 0.02) {
+                        readerState.zoom = parseFloat(newZ.toFixed(2));
+                        applyDynamicSizing();
+                    }
+                    pinchTicking = false;
+                });
+                pinchTicking = true;
+            }
+        }
+    }, { passive: false });
+
+    scrollContainerEl.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) { isPinching = false; }
+    });
 
     function clearAllAnnotations() {
       document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
