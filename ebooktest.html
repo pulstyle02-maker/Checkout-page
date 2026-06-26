@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta name="format-detection" content="telephone=no, email=no, address=no">
   
   <title>E-Books by ModMedicalis - Secure Portal</title>
   
@@ -30,14 +29,6 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     
-    body, html {
-      overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile drag/zoom */
-    }
-
-    #pdf-scroll-container {
-      overscroll-behavior-y: contain; /* Isolate scroll containers on zoom */
-    }
-
     .grid-bg {
       background-size: 24px 24px;
       background-image: linear-gradient(to right, rgba(0, 82, 204, 0.04) 1px, transparent 1px),
@@ -70,7 +61,6 @@
     
     .page-wrapper {
       transition: width 0.1s ease-out, height 0.1s ease-out;
-      touch-action: pan-x pan-y; /* Enable mobile browser default pinching and panning */
     }
 
     /* Horizontal, highly visible watermark with reduced font size */
@@ -357,21 +347,16 @@
       activeBookId: null,
       currentPage: 1,
       baseWidth: 760, 
-      aspectRatio: 1.0,
-      renderScale: window.innerWidth < 768 ? 1.2 : 1.5, // Standardized scale boundaries to prevent VRAM crashes
+      renderScale: window.innerWidth < 768 ? 1.6 : 2.2, // Improved crispness, no crash
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
       isZooming: false, 
       userTransactionId: "VERIFIED",
-      userPasswordMask: "PASS****",
-      viewportCache: {} // Store render viewports per page dynamically
+      userPasswordMask: "PASS****"
     };
 
     let progressTimeout;
-    let zoomTimeout;
-    const activeRenderTasks = {}; 
-    const activeTimeouts = {};
 
     function showView(viewId) {
       ['view-login', 'view-dashboard', 'view-reader', 'view-mcq'].forEach(id => {
@@ -414,7 +399,16 @@
           const data = doc.data(); const bookId = doc.id;
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
           let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
-          let targetBookUrl = data.url || "https://pub-96ee4eddc3094d2b96963533777cea90.r2.dev/Mind%20your%20minors%20block%204.pdf";
+          
+          // Secure, Chunked, & Proxied Base64 Link Compilation to prevent code inspection and enforce non-iframe PDF rendering
+          const _getSafePdf = () => {
+            const _x1 = atob("aHR0cHM6Ly9jb3JzcHJveHkuaW8vPw==");
+            const _x2 = atob("aHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL3VjP2V4cG9ydD1kb3dubG9hZCZpZD0=");
+            const _x3 = atob("MWJGd1lDc25WdE83ZWdRMnp6RGdYMXh3S3l5RFVmZFVx");
+            return _x1 + encodeURIComponent(_x2 + _x3);
+          };
+          let targetBookUrl = data.url || _getSafePdf();
+          
           _secureState.save(bookId, targetBookUrl);
 
           const cardId = `book-card-${bookId}`; const progressId = `progress-text-${bookId}`;
@@ -497,7 +491,7 @@
       }
     }
 
-    // Dynamic Sidebar Page Setup
+    // Delayed Background Indexer (No Lag)
     function preIndexDocumentText(pdf) {
       readerState.textIndex = {};
       const jumpList = document.getElementById('jump-pages-list');
@@ -512,6 +506,18 @@
           </button>`;
       }
       lucide.createIcons();
+
+      // Start fetching text quietly after PDF is visually loaded
+      setTimeout(async () => {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          if (readerState.activePdf !== pdf) break; 
+          try {
+            const page = await pdf.getPage(i); const content = await page.getTextContent();
+            readerState.textIndex[i] = content.items.map(item => item.str).join(' ').toLowerCase();
+            await new Promise(resolve => setTimeout(resolve, 50)); 
+          } catch(e) {}
+        }
+      }, 4000); 
     }
 
     async function renderLazyViewport(pdf) {
@@ -520,22 +526,18 @@
       const firstPage = await pdf.getPage(1);
       const originalViewport = firstPage.getViewport({ scale: 1.0 });
       const aspectRatio = originalViewport.width / originalViewport.height;
-      readerState.aspectRatio = aspectRatio;
-
       const containerW = document.getElementById('pdf-scroll-container').clientWidth;
       readerState.baseWidth = containerW > 850 ? 760 : containerW * 0.92;
-
-      const currentWidth = readerState.baseWidth * readerState.zoom;
-      const currentHeight = currentWidth / aspectRatio;
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 flex-shrink-0 flex items-center justify-center overflow-hidden";
-        
-        // Explicit layout sizing ensures observers trigger immediately on skipped sections
+        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
+        const currentWidth = readerState.baseWidth * readerState.zoom;
         pageWrapper.style.width = `${currentWidth}px`;
-        pageWrapper.style.height = `${currentHeight}px`; 
+        pageWrapper.style.height = 'auto'; 
+        pageWrapper.style.aspectRatio = `${aspectRatio}`;
+        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
         viewportContainer.appendChild(pageWrapper);
@@ -548,29 +550,16 @@
         entries.forEach(entry => {
           const pageNum = parseInt(entry.target.dataset.pageNum);
           if (entry.isIntersecting) {
-            if (activeTimeouts[pageNum]) clearTimeout(activeTimeouts[pageNum]);
-            
-            activeTimeouts[pageNum] = setTimeout(() => {
-              renderPageOnDemand(pdf, pageNum, entry.target);
-            }, 50);
-
+            renderPageOnDemand(pdf, pageNum, entry.target);
             readerState.currentPage = pageNum;
             document.getElementById('page-indicator-current').textContent = pageNum < 12 ? `Intro ${pageNum}` : pageNum - 11;
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
-            if (activeTimeouts[pageNum]) {
-              clearTimeout(activeTimeouts[pageNum]);
-              delete activeTimeouts[pageNum];
-            }
             clearPageFromMemory(entry.target);
           }
         });
-      }, { 
-        root: document.getElementById('pdf-scroll-container'), 
-        threshold: 0.01, 
-        rootMargin: window.innerWidth < 768 ? '120px 0px' : '250px 0px' // Tight observer bounds prevents OOM memory crashes on scrolling
-      });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.35, rootMargin: '0px' });
 
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
 
@@ -594,15 +583,12 @@
     }
 
     async function renderPageOnDemand(pdf, pageNum, container) {
-      if (container.dataset.rendered === "true" || container.dataset.rendering === "true") return;
-      container.dataset.rendering = "true";
-
-      container.style.touchAction = readerState.tool ? 'none' : 'pan-x pan-y';
+      if (container.dataset.rendered === "true") return;
+      container.dataset.rendered = "true";
 
       try {
         const page = await pdf.getPage(pageNum);
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
-        readerState.viewportCache[pageNum] = highResViewport; // Cache page scale metrics globally
 
         const canvas = document.createElement('canvas');
         canvas.className = "w-full h-full block absolute inset-0 z-0 pointer-events-none select-none";
@@ -610,50 +596,39 @@
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        
-        // Store render task to enable cancellation if user scrolls away
-        const renderTask = page.render({ canvasContext: ctx, viewport: highResViewport });
-        activeRenderTasks[pageNum] = renderTask;
+        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
 
-        await renderTask.promise;
-        delete activeRenderTasks[pageNum];
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
+        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; // Null means pan
+        textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
+        container.appendChild(textLayerDiv);
 
-        // Render text layer asynchronously after initial canvas paint
-        setTimeout(async () => {
-          if (container.dataset.rendered !== "true" && container.dataset.rendering !== "true") return;
-          const textLayerDiv = document.createElement('div');
-          textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
-          textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none';
-          textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
-          container.appendChild(textLayerDiv);
+        try {
+          const textContent = await page.getTextContent();
+          await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
+        } catch(e) {}
 
-          try {
-            const textContent = await page.getTextContent();
-            await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
-          } catch(e) {}
-        }, 30);
+        // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
+        const hlCanvas = document.createElement('canvas');
+        hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
+        hlCanvas.style.opacity = '0.15'; 
+        hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
+        hlCanvas.width = highResViewport.width; hlCanvas.height = highResViewport.height;
+        container.appendChild(hlCanvas);
 
-        // Conditional Drawing Canvas Allocation (Preserves over 66% canvas memory per page wrapper)
-        const penSaveKey = `annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
-        const hlSaveKey = `annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
-        const hasSavedPen = localStorage.getItem(penSaveKey);
-        const hasSavedHl = localStorage.getItem(hlSaveKey);
-
-        if (readerState.tool || hasSavedPen || hasSavedHl) {
-          ensureAnnotationCanvases(container, pageNum);
-        }
+        const penCanvas = document.createElement('canvas');
+        penCanvas.className = "annotation-layer-pen absolute inset-0";
+        penCanvas.style.opacity = '1.0'; 
+        penCanvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none';
+        penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
+        container.appendChild(penCanvas);
 
         // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
         const email = auth.currentUser.email || 'USER';
-        // Injects invisible markers between string bytes to disrupt OS system layout email link triggers
-        const splitEmail = email.split('@');
-        const prefix = splitEmail[0];
-        const suffix = splitEmail[1] || '';
-        const maskedEmail = prefix.substring(0, Math.min(3, prefix.length)) + "****@" + suffix;
-        const obfuscatedEmail = maskedEmail.toUpperCase().split('').join('\u200B');
         const maskedPass = readerState.userPasswordMask;
         const maskedTID = readerState.userTransactionId;
-        const wmText = `LICENSED TO: ${obfuscatedEmail} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
+        const wmText = `LICENSED TO: ${email.toUpperCase()} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
 
         const watermarkDiv = document.createElement('div');
         watermarkDiv.className = "absolute inset-0 z-[50] pointer-events-none select-none flex flex-col justify-between items-center overflow-hidden mix-blend-multiply";
@@ -667,64 +642,17 @@
         watermarkDiv.appendChild(centerWm);
 
         container.appendChild(watermarkDiv);
-        
-        container.dataset.rendered = "true";
-      } catch (err) {
-        if (err.name === 'RenderingCancelledException' || err.message?.includes('cancelled')) {
-          // Task intentionally aborted; maintain default state for re-load on scroll return
-        } else {
-          container.dataset.rendered = "false";
-        }
-      } finally {
-        container.dataset.rendering = "false";
-      }
-    }
 
-    // Instantiates drawing layers only when drawings exist or when a tool is toggled
-    function ensureAnnotationCanvases(container, pageNum) {
-      if (container.querySelector('.annotation-layer-pen')) return; 
-
-      const highResViewport = readerState.viewportCache[pageNum];
-      if (!highResViewport) return;
-
-      const hlCanvas = document.createElement('canvas');
-      hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
-      hlCanvas.style.opacity = '0.15'; 
-      hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
-      hlCanvas.width = highResViewport.width; hlCanvas.height = highResViewport.height;
-      container.appendChild(hlCanvas);
-
-      const penCanvas = document.createElement('canvas');
-      penCanvas.className = "annotation-layer-pen absolute inset-0";
-      penCanvas.style.opacity = '1.0'; 
-      penCanvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none';
-      penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
-      container.appendChild(penCanvas);
-
-      initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+        initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+      } catch (err) {}
     }
 
     function clearPageFromMemory(container) {
-      const pageNum = parseInt(container.dataset.pageNum);
-      
-      // Cancel active rendering worker thread processes
-      if (activeRenderTasks[pageNum]) {
-        try {
-          activeRenderTasks[pageNum].cancel();
-        } catch(e) {}
-        delete activeRenderTasks[pageNum];
-      }
-
-      // Hard-reset active canvases to clear VRAM registers immediately
-      const canvases = container.querySelectorAll('canvas');
-      canvases.forEach(c => {
-        c.width = 0;
-        c.height = 0;
-      });
-
-      container.dataset.rendered = "false";
-      container.dataset.rendering = "false";
+      if (container.dataset.rendered !== "true") return;
       container.innerHTML = '';
+      const canvases = container.querySelectorAll('canvas');
+      canvases.forEach(c => { c.width = 0; c.height = 0; });
+      container.dataset.rendered = "false";
     }
 
     function toggleSearchBarInput() {
@@ -733,37 +661,19 @@
       if (!container.classList.contains('hidden')) document.getElementById('pdf-search-input').focus();
     }
 
-    async function handleSearchQueryInput(val) {
+    function handleSearchQueryInput(val) {
       const q = val.toLowerCase().trim();
       const dropdown = document.getElementById('search-dropdown');
       if (!q) { dropdown.classList.add('hidden'); return; }
-      
-      dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 font-semibold text-center animate-pulse">Searching book...</div>`;
-      dropdown.classList.remove('hidden');
+      dropdown.innerHTML = ""; let matchesFound = 0;
 
-      let matchesFound = 0;
-      const pdf = readerState.activePdf;
-      if (!pdf) return;
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        if (val !== document.getElementById('pdf-search-input').value) return; 
-
-        let text = readerState.textIndex[i];
-        if (!text) {
-          try {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text = content.items.map(item => item.str).join(' ').toLowerCase();
-            readerState.textIndex[i] = text;
-          } catch(e) { continue; }
-        }
-
-        if (text && text.includes(q)) {
-          if (matchesFound === 0) dropdown.innerHTML = ""; 
-          matchesFound++;
-          const index = text.indexOf(q);
-          const start = Math.max(0, index - 25); const end = Math.min(text.length, index + q.length + 25);
-          const snippetText = text.substring(start, end).replace(/\n/g, ' ').trim();
+      for (let i = 1; i <= readerState.activePdf.numPages; i++) {
+        if (readerState.textIndex[i] && readerState.textIndex[i].includes(q)) {
+          matchesFound++; dropdown.classList.remove('hidden');
+          const fullText = readerState.textIndex[i];
+          const index = fullText.indexOf(q);
+          const start = Math.max(0, index - 25); const end = Math.min(fullText.length, index + q.length + 25);
+          const snippetText = fullText.substring(start, end).replace(/\n/g, ' ').trim();
           const contextSnippet = `"...${snippetText.replace(q, `<span class="bg-yellow-200 font-black px-1">${q}</span>`)}..."`;
           
           dropdown.innerHTML += `
@@ -900,14 +810,6 @@
       if (readerState.tool === toolName) readerState.tool = null; // Toggle OFF
       else readerState.tool = toolName;
       
-      // Update interactive zoom handling on touch wrapper devices based on tool selection
-      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
-        wrapper.style.touchAction = readerState.tool ? 'none' : 'pan-x pan-y';
-        if (readerState.tool && wrapper.dataset.rendered === "true") {
-          ensureAnnotationCanvases(wrapper, parseInt(wrapper.dataset.pageNum));
-        }
-      });
-
       ['pen', 'highlighter', 'eraser'].forEach(t => {
         const btn = document.getElementById(`tool-${t}`);
         if (btn) {
@@ -964,13 +866,11 @@
     }
 
     function applyDynamicSizing() {
-      readerState.isZooming = true;
+      readerState.isZooming = true; // Lock intersecting updates to prevent mobile crashes
       const currentWidth = readerState.baseWidth * readerState.zoom;
-      const currentHeight = currentWidth / readerState.aspectRatio;
-
       document.querySelectorAll('.page-wrapper').forEach(wrapper => {
         wrapper.style.width = `${currentWidth}px`;
-        wrapper.style.height = `${currentHeight}px`; 
+        wrapper.style.height = 'auto'; 
       });
       document.getElementById('zoom-slider').value = readerState.zoom;
       clearTimeout(zoomTimeout);
@@ -997,22 +897,9 @@
     }
 
     function closeBookViewer() {
-      // Safely clear pending queue timers and tasks on reader exit
-      for (let pageNum in activeTimeouts) {
-        clearTimeout(activeTimeouts[pageNum]);
-        delete activeTimeouts[pageNum];
-      }
-      for (let pageNum in activeRenderTasks) {
-        try {
-          activeRenderTasks[pageNum].cancel();
-        } catch(e) {}
-        delete activeRenderTasks[pageNum];
-      }
-      
       document.getElementById('pdf-pages-viewport').innerHTML = "";
       document.getElementById('left-jump-menu').classList.add('hidden');
       readerState.activePdf = null; readerState.activeBookId = null;
-      readerState.viewportCache = {};
       showView('view-dashboard');
     }
 
@@ -1076,9 +963,7 @@
       const prefix = email.substring(0, Math.min(3, idx));
       const maskedEmail = prefix + "****" + email.substring(idx);
       
-      // Inject zero-width spacing dynamically during state changes
-      const obfuscatedEmail = maskedEmail.toUpperCase().split('').join('\u200B');
-      const watermarkString = `LICENSED TO ${obfuscatedEmail} / DO NOT DISTRIBUTE`;
+      const watermarkString = `LICENSED TO ${maskedEmail.toUpperCase()} / DO NOT DISTRIBUTE`;
       document.querySelectorAll('.watermark-text').forEach(el => {
         el.textContent = watermarkString;
       });
