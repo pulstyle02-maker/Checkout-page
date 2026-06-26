@@ -268,7 +268,7 @@
       <!-- Detached High Z-Index Search Dropdown -->
       <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[250] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
 
-      <!-- Viewport (PDF.js Canvas page wrapper stack) -->
+      <!-- Viewport (Instantly Streams Pages as they are scrolled into view) -->
       <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
           <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -320,9 +320,6 @@
   </div>
 
   <script>
-    // Set standard PDF.js worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
     // ===== SYSTEM CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
@@ -499,42 +496,7 @@
       loadSpecificSection(0);
     }
 
-    // Direct Binary Blob fetch pipeline from R2 (Zero data corruption, no proxies required)
-    async function fetchPdfBuffer(fileName, statusEl) {
-      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
-      const targetUrl = R2_BASE + fileName;
-
-      try {
-        statusEl.textContent = "Connecting to Cloudflare R2 storage...";
-        let res = await fetch(targetUrl);
-        if (res.ok) {
-          let blob = await res.blob();
-          let buffer = await blob.arrayBuffer();
-          let magicBytes = new Uint8Array(buffer.slice(0, 5));
-          let header = String.fromCharCode(...magicBytes);
-          if (header === "%PDF-") return buffer;
-        }
-      } catch(e) {
-        console.warn("Direct R2 fetch failed. Using fallback proxy...", e);
-      }
-
-      // Fallback proxy (AllOrigins) in case of rare browser-side CORS configuration overlaps
-      try {
-        statusEl.textContent = "Negotiating secure proxy channel...";
-        let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        let res = await fetch(proxyUrl);
-        if (res.ok) {
-          let blob = await res.blob();
-          let buffer = await blob.arrayBuffer();
-          let magicBytes = new Uint8Array(buffer.slice(0, 5));
-          let header = String.fromCharCode(...magicBytes);
-          if (header === "%PDF-") return buffer;
-        }
-      } catch(e) {}
-
-      return null; 
-    }
-
+    // Advanced range-request direct loader utilizing Cloudflare's edge-streaming
     async function loadSpecificSection(index) {
       if(readerState.activePdf && readerState.activeSectionIndex === index && document.getElementById('pdf-pages-viewport').innerHTML !== "") {
         switchSidebarTab('pages'); 
@@ -553,19 +515,22 @@
       document.getElementById('pdf-pages-viewport').innerHTML = ''; 
       renderSectionsList();
 
-      let targetFileName = PDF_SECTIONS[index].file;
+      // De-obfuscate domain and filenames safely at runtime
+      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
+      const targetFileName = PDF_SECTIONS[index].file;
+      const targetUrl = R2_BASE + targetFileName;
       
       try {
-        let validPdfBuffer = await fetchPdfBuffer(targetFileName, statusText);
-
-        if (!validPdfBuffer) {
-            showSecToast("Failed to compile layout parameters.", "alert-triangle");
-            loadingScreen.classList.add('hidden');
-            return;
-        }
-
-        statusText.textContent = "Compiling layout parameters...";
-        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(validPdfBuffer) });
+        statusText.textContent = "Loading secure document stream...";
+        
+        // PDF.js native stream compilation with chunked loading parameters (HTTP Range Requests active)
+        const loadingTask = pdfjsLib.getDocument({
+          url: targetUrl,
+          withCredentials: false,
+          disableRange: false, // Enable partial downloading of scrolling views
+          disableAutoFetch: true // Only download active visible pages to guarantee immediate load
+        });
+        
         let pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
         
@@ -579,8 +544,31 @@
 
         renderLazyViewport(pdf);
       } catch (error) {
-        showSecToast("Failed to compile layout parameters.", "alert-triangle");
-        loadingScreen.classList.add('hidden');
+        // Safe proxy fallback block
+        statusText.textContent = "CORS redirect fallback active...";
+        try {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+          const loadingTask = pdfjsLib.getDocument({
+            url: proxyUrl,
+            withCredentials: false,
+            disableRange: true 
+          });
+          let pdf = await loadingTask.promise;
+          readerState.activePdf = pdf;
+          
+          loadSidebarBookmarks();
+
+          const uid = auth.currentUser ? auth.currentUser.uid : 'DEMO';
+          if (auth.currentUser) {
+              const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(readerState.activeBookId + "_sec" + index).get();
+              if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+          }
+
+          renderLazyViewport(pdf);
+        } catch (fallbackError) {
+          showSecToast("Failed to compile layout parameters.", "alert-triangle");
+          loadingScreen.classList.add('hidden');
+        }
       }
     }
 
@@ -789,6 +777,7 @@
       if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    // Safe Canvas rendering mouse tracker
     function getEventCoordinates(e, canvas) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
