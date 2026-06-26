@@ -358,13 +358,14 @@
       currentPage: 1,
       baseWidth: 760, 
       aspectRatio: 1.0,
-      renderScale: Math.max(window.devicePixelRatio || 1, 1.8), // Pristine high DPI scaling
+      renderScale: window.innerWidth < 768 ? 1.2 : 1.5, // Standardized scale boundaries to prevent VRAM crashes
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
       isZooming: false, 
       userTransactionId: "VERIFIED",
-      userPasswordMask: "PASS****"
+      userPasswordMask: "PASS****",
+      viewportCache: {} // Store render viewports per page dynamically
     };
 
     let progressTimeout;
@@ -568,7 +569,7 @@
       }, { 
         root: document.getElementById('pdf-scroll-container'), 
         threshold: 0.01, 
-        rootMargin: '600px 0px' 
+        rootMargin: window.innerWidth < 768 ? '120px 0px' : '250px 0px' // Tight observer bounds prevents OOM memory crashes on scrolling
       });
 
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
@@ -596,12 +597,12 @@
       if (container.dataset.rendered === "true" || container.dataset.rendering === "true") return;
       container.dataset.rendering = "true";
 
-      // Apply dynamic interactive zooming behavior to the specific viewport wrapper
       container.style.touchAction = readerState.tool ? 'none' : 'pan-x pan-y';
 
       try {
         const page = await pdf.getPage(pageNum);
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
+        readerState.viewportCache[pageNum] = highResViewport; // Cache page scale metrics globally
 
         const canvas = document.createElement('canvas');
         canvas.className = "w-full h-full block absolute inset-0 z-0 pointer-events-none select-none";
@@ -632,25 +633,24 @@
           } catch(e) {}
         }, 30);
 
-        // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
-        const hlCanvas = document.createElement('canvas');
-        hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
-        hlCanvas.style.opacity = '0.15'; 
-        hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
-        hlCanvas.width = highResViewport.width; hlCanvas.height = highResViewport.height;
-        container.appendChild(hlCanvas);
+        // Conditional Drawing Canvas Allocation (Preserves over 66% canvas memory per page wrapper)
+        const penSaveKey = `annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
+        const hlSaveKey = `annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
+        const hasSavedPen = localStorage.getItem(penSaveKey);
+        const hasSavedHl = localStorage.getItem(hlSaveKey);
 
-        const penCanvas = document.createElement('canvas');
-        penCanvas.className = "annotation-layer-pen absolute inset-0";
-        penCanvas.style.opacity = '1.0'; 
-        penCanvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none';
-        penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
-        container.appendChild(penCanvas);
+        if (readerState.tool || hasSavedPen || hasSavedHl) {
+          ensureAnnotationCanvases(container, pageNum);
+        }
 
         // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
         const email = auth.currentUser.email || 'USER';
         // Injects invisible markers between string bytes to disrupt OS system layout email link triggers
-        const obfuscatedEmail = email.toUpperCase().split('').join('\u200B');
+        const splitEmail = email.split('@');
+        const prefix = splitEmail[0];
+        const suffix = splitEmail[1] || '';
+        const maskedEmail = prefix.substring(0, Math.min(3, prefix.length)) + "****@" + suffix;
+        const obfuscatedEmail = maskedEmail.toUpperCase().split('').join('\u200B');
         const maskedPass = readerState.userPasswordMask;
         const maskedTID = readerState.userTransactionId;
         const wmText = `LICENSED TO: ${obfuscatedEmail} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
@@ -667,8 +667,6 @@
         watermarkDiv.appendChild(centerWm);
 
         container.appendChild(watermarkDiv);
-
-        initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
         
         container.dataset.rendered = "true";
       } catch (err) {
@@ -682,6 +680,30 @@
       }
     }
 
+    // Instantiates drawing layers only when drawings exist or when a tool is toggled
+    function ensureAnnotationCanvases(container, pageNum) {
+      if (container.querySelector('.annotation-layer-pen')) return; 
+
+      const highResViewport = readerState.viewportCache[pageNum];
+      if (!highResViewport) return;
+
+      const hlCanvas = document.createElement('canvas');
+      hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
+      hlCanvas.style.opacity = '0.15'; 
+      hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
+      hlCanvas.width = highResViewport.width; hlCanvas.height = highResViewport.height;
+      container.appendChild(hlCanvas);
+
+      const penCanvas = document.createElement('canvas');
+      penCanvas.className = "annotation-layer-pen absolute inset-0";
+      penCanvas.style.opacity = '1.0'; 
+      penCanvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none';
+      penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
+      container.appendChild(penCanvas);
+
+      initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+    }
+
     function clearPageFromMemory(container) {
       const pageNum = parseInt(container.dataset.pageNum);
       
@@ -692,6 +714,13 @@
         } catch(e) {}
         delete activeRenderTasks[pageNum];
       }
+
+      // Hard-reset active canvases to clear VRAM registers immediately
+      const canvases = container.querySelectorAll('canvas');
+      canvases.forEach(c => {
+        c.width = 0;
+        c.height = 0;
+      });
 
       container.dataset.rendered = "false";
       container.dataset.rendering = "false";
@@ -874,6 +903,9 @@
       // Update interactive zoom handling on touch wrapper devices based on tool selection
       document.querySelectorAll('.page-wrapper').forEach(wrapper => {
         wrapper.style.touchAction = readerState.tool ? 'none' : 'pan-x pan-y';
+        if (readerState.tool && wrapper.dataset.rendered === "true") {
+          ensureAnnotationCanvases(wrapper, parseInt(wrapper.dataset.pageNum));
+        }
       });
 
       ['pen', 'highlighter', 'eraser'].forEach(t => {
@@ -980,6 +1012,7 @@
       document.getElementById('pdf-pages-viewport').innerHTML = "";
       document.getElementById('left-jump-menu').classList.add('hidden');
       readerState.activePdf = null; readerState.activeBookId = null;
+      readerState.viewportCache = {};
       showView('view-dashboard');
     }
 
