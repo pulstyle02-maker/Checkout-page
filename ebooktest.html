@@ -347,7 +347,8 @@
       activeBookId: null,
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: window.innerWidth < 768 ? 1.2 : 1.5, // Optimized rendering scale
+      aspectRatio: 1.0,
+      renderScale: window.innerWidth < 768 ? 1.0 : 1.3, // Standard viewport ratio scale to prevent OOM
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
@@ -358,6 +359,8 @@
 
     let progressTimeout;
     let zoomTimeout;
+    const activeRenderTasks = {}; 
+    const activeTimeouts = {};
 
     function showView(viewId) {
       ['view-login', 'view-dashboard', 'view-reader', 'view-mcq'].forEach(id => {
@@ -506,18 +509,22 @@
       const firstPage = await pdf.getPage(1);
       const originalViewport = firstPage.getViewport({ scale: 1.0 });
       const aspectRatio = originalViewport.width / originalViewport.height;
+      readerState.aspectRatio = aspectRatio;
+
       const containerW = document.getElementById('pdf-scroll-container').clientWidth;
       readerState.baseWidth = containerW > 850 ? 760 : containerW * 0.92;
+
+      const currentWidth = readerState.baseWidth * readerState.zoom;
+      const currentHeight = currentWidth / aspectRatio;
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
-        const currentWidth = readerState.baseWidth * readerState.zoom;
+        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 flex-shrink-0 flex items-center justify-center overflow-hidden";
+        
+        // Explicit layout sizing ensures observers trigger immediately on skipped sections
         pageWrapper.style.width = `${currentWidth}px`;
-        pageWrapper.style.height = 'auto'; 
-        pageWrapper.style.aspectRatio = `${aspectRatio}`;
-        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
+        pageWrapper.style.height = `${currentHeight}px`; 
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
         viewportContainer.appendChild(pageWrapper);
@@ -525,20 +532,16 @@
 
       preIndexDocumentText(pdf);
 
-      const activeTimeouts = {};
-
       const observer = new IntersectionObserver((entries) => {
         if (readerState.isZooming) return; 
         entries.forEach(entry => {
           const pageNum = parseInt(entry.target.dataset.pageNum);
           if (entry.isIntersecting) {
-            // Cancel pending timeout if any
             if (activeTimeouts[pageNum]) clearTimeout(activeTimeouts[pageNum]);
             
-            // Fast scrolling ignores transient pages
             activeTimeouts[pageNum] = setTimeout(() => {
               renderPageOnDemand(pdf, pageNum, entry.target);
-            }, 80);
+            }, 50);
 
             readerState.currentPage = pageNum;
             document.getElementById('page-indicator-current').textContent = pageNum < 12 ? `Intro ${pageNum}` : pageNum - 11;
@@ -555,7 +558,7 @@
       }, { 
         root: document.getElementById('pdf-scroll-container'), 
         threshold: 0.01, 
-        rootMargin: '400px 0px' 
+        rootMargin: '600px 0px' 
       });
 
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
@@ -593,7 +596,13 @@
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
+        
+        // Store render task to enable cancellation if user scrolls away
+        const renderTask = page.render({ canvasContext: ctx, viewport: highResViewport });
+        activeRenderTasks[pageNum] = renderTask;
+
+        await renderTask.promise;
+        delete activeRenderTasks[pageNum];
 
         // Render text layer asynchronously after initial canvas paint
         setTimeout(async () => {
@@ -608,7 +617,7 @@
             const textContent = await page.getTextContent();
             await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
           } catch(e) {}
-        }, 50);
+        }, 30);
 
         // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
         const hlCanvas = document.createElement('canvas');
@@ -648,13 +657,27 @@
         
         container.dataset.rendered = "true";
       } catch (err) {
-        container.dataset.rendered = "false";
+        if (err.name === 'RenderingCancelledException' || err.message?.includes('cancelled')) {
+          // Task intentionally aborted; maintain default state for re-load on scroll return
+        } else {
+          container.dataset.rendered = "false";
+        }
       } finally {
         container.dataset.rendering = "false";
       }
     }
 
     function clearPageFromMemory(container) {
+      const pageNum = parseInt(container.dataset.pageNum);
+      
+      // Cancel active rendering worker thread processes
+      if (activeRenderTasks[pageNum]) {
+        try {
+          activeRenderTasks[pageNum].cancel();
+        } catch(e) {}
+        delete activeRenderTasks[pageNum];
+      }
+
       container.dataset.rendered = "false";
       container.dataset.rendering = "false";
       container.innerHTML = '';
@@ -889,11 +912,13 @@
     }
 
     function applyDynamicSizing() {
-      readerState.isZooming = true; // Lock intersecting updates to prevent mobile crashes
+      readerState.isZooming = true;
       const currentWidth = readerState.baseWidth * readerState.zoom;
+      const currentHeight = currentWidth / readerState.aspectRatio;
+
       document.querySelectorAll('.page-wrapper').forEach(wrapper => {
         wrapper.style.width = `${currentWidth}px`;
-        wrapper.style.height = 'auto'; 
+        wrapper.style.height = `${currentHeight}px`; 
       });
       document.getElementById('zoom-slider').value = readerState.zoom;
       clearTimeout(zoomTimeout);
@@ -920,6 +945,18 @@
     }
 
     function closeBookViewer() {
+      // Safely clear pending queue timers and tasks on reader exit
+      for (let pageNum in activeTimeouts) {
+        clearTimeout(activeTimeouts[pageNum]);
+        delete activeTimeouts[pageNum];
+      }
+      for (let pageNum in activeRenderTasks) {
+        try {
+          activeRenderTasks[pageNum].cancel();
+        } catch(e) {}
+        delete activeRenderTasks[pageNum];
+      }
+      
       document.getElementById('pdf-pages-viewport').innerHTML = "";
       document.getElementById('left-jump-menu').classList.add('hidden');
       readerState.activePdf = null; readerState.activeBookId = null;
