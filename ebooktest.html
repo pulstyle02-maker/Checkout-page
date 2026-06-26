@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="format-detection" content="telephone=no, email=no, address=no">
   
   <title>E-Books by ModMedicalis - Secure Portal</title>
   
@@ -29,6 +30,14 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     
+    body, html {
+      overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile drag/zoom */
+    }
+
+    #pdf-scroll-container {
+      overscroll-behavior-y: contain; /* Isolate scroll containers on zoom */
+    }
+
     .grid-bg {
       background-size: 24px 24px;
       background-image: linear-gradient(to right, rgba(0, 82, 204, 0.04) 1px, transparent 1px),
@@ -61,6 +70,7 @@
     
     .page-wrapper {
       transition: width 0.1s ease-out, height 0.1s ease-out;
+      touch-action: pan-x pan-y; /* Enable mobile browser default pinching and panning */
     }
 
     /* Horizontal, highly visible watermark with reduced font size */
@@ -348,7 +358,7 @@
       currentPage: 1,
       baseWidth: 760, 
       aspectRatio: 1.0,
-      renderScale: window.innerWidth < 768 ? 1.0 : 1.3, // Standard viewport ratio scale to prevent OOM
+      renderScale: Math.max(window.devicePixelRatio || 1, 1.8), // Pristine high DPI scaling
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
@@ -586,6 +596,9 @@
       if (container.dataset.rendered === "true" || container.dataset.rendering === "true") return;
       container.dataset.rendering = "true";
 
+      // Apply dynamic interactive zooming behavior to the specific viewport wrapper
+      container.style.touchAction = readerState.tool ? 'none' : 'pan-x pan-y';
+
       try {
         const page = await pdf.getPage(pageNum);
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
@@ -636,9 +649,11 @@
 
         // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
         const email = auth.currentUser.email || 'USER';
+        // Injects invisible markers between string bytes to disrupt OS system layout email link triggers
+        const obfuscatedEmail = email.toUpperCase().split('').join('\u200B');
         const maskedPass = readerState.userPasswordMask;
         const maskedTID = readerState.userTransactionId;
-        const wmText = `LICENSED TO: ${email.toUpperCase()} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
+        const wmText = `LICENSED TO: ${obfuscatedEmail} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
 
         const watermarkDiv = document.createElement('div');
         watermarkDiv.className = "absolute inset-0 z-[50] pointer-events-none select-none flex flex-col justify-between items-center overflow-hidden mix-blend-multiply";
@@ -856,6 +871,11 @@
       if (readerState.tool === toolName) readerState.tool = null; // Toggle OFF
       else readerState.tool = toolName;
       
+      // Update interactive zoom handling on touch wrapper devices based on tool selection
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+        wrapper.style.touchAction = readerState.tool ? 'none' : 'pan-x pan-y';
+      });
+
       ['pen', 'highlighter', 'eraser'].forEach(t => {
         const btn = document.getElementById(`tool-${t}`);
         if (btn) {
@@ -1023,7 +1043,9 @@
       const prefix = email.substring(0, Math.min(3, idx));
       const maskedEmail = prefix + "****" + email.substring(idx);
       
-      const watermarkString = `LICENSED TO ${maskedEmail.toUpperCase()} / DO NOT DISTRIBUTE`;
+      // Inject zero-width spacing dynamically during state changes
+      const obfuscatedEmail = maskedEmail.toUpperCase().split('').join('\u200B');
+      const watermarkString = `LICENSED TO ${obfuscatedEmail} / DO NOT DISTRIBUTE`;
       document.querySelectorAll('.watermark-text').forEach(el => {
         el.textContent = watermarkString;
       });
