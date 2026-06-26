@@ -1032,4 +1032,143 @@
     }
     
     function handleZoomSlider(val) { 
-        readerState.zoom = parseFloat(val);
+        readerState.zoom = parseFloat(val); 
+        applyDynamicSizing(); 
+    }
+    
+    function zoomReader(modifier) {
+      let newZoom = readerState.zoom + modifier;
+      if (newZoom < 0.5 || newZoom > 3.0) return;
+      readerState.zoom = parseFloat(newZoom.toFixed(1));
+      applyDynamicSizing();
+    }
+
+    // Highly optimized Pinch-To-Zoom Touch Event override powered by requestAnimationFrame
+    let pinchInitialDist = 0;
+    let pinchInitialZoom = 1;
+    let isPinching = false;
+    let pinchTicking = false;
+    const scrollContainerEl = document.getElementById('pdf-scroll-container');
+    
+    scrollContainerEl.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            isPinching = true;
+            pinchInitialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            pinchInitialZoom = readerState.zoom;
+        }
+    }, { passive: false });
+
+    scrollContainerEl.addEventListener('touchmove', (e) => {
+        if (isPinching && e.touches.length === 2) {
+            e.preventDefault(); 
+            if (!pinchTicking) {
+                window.requestAnimationFrame(() => {
+                    const currentDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                    const scale = currentDist / pinchInitialDist;
+                    let newZ = pinchInitialZoom * scale;
+                    if (newZ < 0.5) newZ = 0.5;
+                    if (newZ > 3.0) newZ = 3.0;
+                    
+                    if (Math.abs(newZ - readerState.zoom) > 0.02) {
+                        readerState.zoom = parseFloat(newZ.toFixed(2));
+                        applyDynamicSizing();
+                    }
+                    pinchTicking = false;
+                });
+                pinchTicking = true;
+            }
+        }
+    }, { passive: false });
+
+    scrollContainerEl.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) { isPinching = false; }
+    });
+
+    function clearAllAnnotations() {
+      document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        localStorage.removeItem(`annotations_pen_${auth.currentUser ? auth.currentUser.uid : 'DEMO'}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${canvas.parentElement.dataset.pageNum}`);
+      });
+      document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => {
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        localStorage.removeItem(`annotations_hl_${auth.currentUser ? auth.currentUser.uid : 'DEMO'}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${canvas.parentElement.dataset.pageNum}`);
+      });
+      showSecToast("Cleared workspace drawing layers.", "trash");
+    }
+
+    function closeBookViewer() {
+      document.getElementById('pdf-pages-viewport').innerHTML = "";
+      document.getElementById('left-jump-menu').classList.add('hidden');
+      readerState.activePdf = null; readerState.activeBookId = null;
+      showView('view-dashboard');
+    }
+
+    // ==== USER LOGINS ====
+    function toggleForgotView(show) {
+      if (show) {
+        document.getElementById('login-container').classList.add('hidden');
+        document.getElementById('forgot-container').classList.remove('hidden');
+      } else {
+        document.getElementById('login-container').classList.remove('hidden');
+        document.getElementById('forgot-container').classList.add('hidden');
+      }
+    }
+
+    function handleForgotPassword() {
+      const email = document.getElementById('forgot-email').value.trim();
+      if (!email) return showSecToast("Please enter your email.", "alert-circle");
+      
+      const btn = document.getElementById('btn-forgot');
+      btn.textContent = "Sending..."; btn.disabled = true;
+
+      auth.sendPasswordResetEmail(email).then(() => {
+        showSecToast("Reset link sent to your email.", "check-circle");
+        toggleForgotView(false);
+      }).catch(err => {
+        showSecToast(err.message, "alert-triangle");
+      }).finally(() => {
+        btn.textContent = "Send Reset Link"; btn.disabled = false;
+      });
+    }
+
+    function togglePasswordVisibility() {
+      const pwInput = document.getElementById('login-password');
+      const eyeIcon = document.getElementById('password-eye-icon');
+      if (pwInput.type === 'password') { pwInput.type = 'text'; eyeIcon.setAttribute('data-lucide', 'eye-off'); }
+      else { pwInput.type = 'password'; eyeIcon.setAttribute('data-lucide', 'eye'); }
+      lucide.createIcons();
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-login'); btn.innerHTML = `Verifying...`; btn.disabled = true;
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value;
+
+      auth.signInWithEmailAndPassword(email, pass).then(() => {
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+      }).catch(err => {
+        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+        document.getElementById('login-alert').classList.remove('hidden');
+        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        lucide.createIcons();
+      });
+    }
+
+    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
+
+    function showSecToast(msg, iconName = "shield-alert") {
+      const toast = document.getElementById('toast-notify');
+      document.getElementById('toast-text').textContent = msg;
+      document.getElementById('toast-icon').setAttribute('data-lucide', iconName);
+      lucide.createIcons();
+      toast.classList.remove('hidden'); toast.classList.add('flex');
+      setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
+    }
+
+    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
+    window.onload = () => lucide.createIcons();
+  </script>
+</body>
+</html>
