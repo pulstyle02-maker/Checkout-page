@@ -1,3 +1,5 @@
+--- START OF FILE Paste June 27, 2026 - 12:20AM ---
+
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-[#FAF9F6] text-slate-800">
 <head>
@@ -280,7 +282,7 @@
           <div class="w-64 h-2 bg-slate-200 rounded-full overflow-hidden mb-4 shadow-inner">
              <div id="pdf-download-progress" class="h-full bg-blue-600 transition-all duration-300" style="width: 0%"></div>
           </div>
-          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Downloading to local memory...</p>
+          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting securely...</p>
         </div>
         <!-- Horizontal Scroll Viewport -->
         <div id="pdf-pages-viewport" class="flex flex-row items-center justify-start h-full min-w-max py-6 px-6 space-x-6"></div>
@@ -506,54 +508,7 @@
       loadSpecificSection(0);
     }
 
-    // Helper: Saves downloaded PDF to local Browser Cache API Forever
-    async function fetchPdfWithCacheAndProgress(url, progressCallback) {
-        try {
-            const cache = await caches.open('modmedicalis-pdf-cache-v1');
-            const cachedRes = await cache.match(url);
-            if (cachedRes) {
-                progressCallback(100);
-                const blob = await cachedRes.blob();
-                return URL.createObjectURL(blob);
-            }
-
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Network error");
-            
-            const contentLength = response.headers.get('content-length');
-            const total = parseInt(contentLength, 10);
-            let loaded = 0;
-
-            const reader = response.body.getReader();
-            const stream = new ReadableStream({
-                async start(controller) {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        loaded += value.byteLength;
-                        if (total) {
-                            progressCallback(Math.round((loaded / total) * 100));
-                        } else {
-                            progressCallback(Math.min(100, Math.round((loaded / 5000000) * 100)));
-                        }
-                        controller.enqueue(value);
-                    }
-                    controller.close();
-                }
-            });
-
-            const newResponse = new Response(stream, { headers: response.headers });
-            const clonedRes = newResponse.clone();
-            await cache.put(url, clonedRes);
-            const blob = await newResponse.blob();
-            progressCallback(100);
-            return URL.createObjectURL(blob);
-        } catch (error) {
-            console.error("Cache fallback", error);
-            return url;
-        }
-    }
-
+    // Advanced range-request memory-safe cached loader
     async function loadSpecificSection(index) {
       if(readerState.activePdf && readerState.activeSectionIndex === index && document.getElementById('pdf-pages-viewport').innerHTML !== "") {
         switchSidebarTab('pages'); 
@@ -580,21 +535,47 @@
       
       try {
         statusText.textContent = "Checking local memory...";
+        let loadingTask;
         
-        const localCachedUrl = await fetchPdfWithCacheAndProgress(targetUrl, (percent) => {
-            progressBar.style.width = `${percent}%`;
-            if (percent < 100) statusText.textContent = `Downloading securely... ${percent}%`;
-            else statusText.textContent = "Processing PDF Engine...";
-        });
-        
-        const loadingTask = pdfjsLib.getDocument({
-          url: localCachedUrl,
-          withCredentials: false,
-          disableAutoFetch: true 
-        });
+        try {
+            const cache = await caches.open('modmedicalis-pdf-cache-v2');
+            const cachedRes = await cache.match(targetUrl);
+            
+            if (cachedRes) {
+                statusText.textContent = "Loading from local memory...";
+                progressBar.style.width = '100%';
+                const buffer = await cachedRes.arrayBuffer();
+                // Safe buffer load - No dual stream fetching required
+                loadingTask = pdfjsLib.getDocument({ data: buffer });
+            } else {
+                // Let native pdfjs fetch safely, to prevent blob conversion crashes
+                loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+                loadingTask.onProgress = (p) => {
+                    if (p.total) {
+                        const percent = Math.min(100, Math.round((p.loaded / p.total) * 100));
+                        progressBar.style.width = `${percent}%`;
+                        statusText.textContent = `Downloading securely... ${percent}%`;
+                    }
+                };
+            }
+        } catch (cacheErr) {
+            loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+        }
         
         let pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
+        
+        // Cache the file natively in the background AFTER successful processing to completely prevent load crashes
+        try {
+            caches.open('modmedicalis-pdf-cache-v2').then(async (cache) => {
+                const isCached = await cache.match(targetUrl);
+                if (!isCached) {
+                    const data = await pdf.getData();
+                    const res = new Response(data, { headers: { 'Content-Type': 'application/pdf' } });
+                    cache.put(targetUrl, res);
+                }
+            });
+        } catch(e) {}
         
         loadSidebarBookmarks();
 
@@ -609,11 +590,7 @@
         statusText.textContent = "CORS redirect fallback active...";
         try {
           const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-          const loadingTask = pdfjsLib.getDocument({
-            url: proxyUrl,
-            withCredentials: false,
-            disableRange: true 
-          });
+          const loadingTask = pdfjsLib.getDocument({ url: proxyUrl, disableRange: true });
           let pdf = await loadingTask.promise;
           readerState.activePdf = pdf;
           loadSidebarBookmarks();
@@ -689,7 +666,7 @@
 
       preIndexDocumentText(pdf);
 
-      // Extended rootMargin for horizontal preloading without removing pages
+      // Extended rootMargin for horizontal preloading without removing pages to stop blanks permanently
       const observer = new IntersectionObserver((entries) => {
         if (readerState.isZooming) return; 
         entries.forEach(entry => {
@@ -701,7 +678,6 @@
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           }
-          // Note: NO clearing pages from memory to fix the blank page issue permanently!
         });
       }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.1, rootMargin: '0px 800px 0px 800px' });
 
