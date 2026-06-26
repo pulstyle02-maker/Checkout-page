@@ -347,17 +347,17 @@
       activeBookId: null,
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: window.innerWidth < 768 ? 1.6 : 2.2, // Improved crispness, no crash
+      renderScale: window.innerWidth < 768 ? 1.2 : 1.5, // Optimized rendering scale
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
       isZooming: false, 
       userTransactionId: "VERIFIED",
-      userPasswordMask: "PASS****",
-      activeRenders: 0
+      userPasswordMask: "PASS****"
     };
 
     let progressTimeout;
+    let zoomTimeout;
 
     function showView(viewId) {
       ['view-login', 'view-dashboard', 'view-reader', 'view-mcq'].forEach(id => {
@@ -468,14 +468,7 @@
       
       let targetUrl = _secureState.retrieve(bookId);
       try {
-        const loadingTask = pdfjsLib.getDocument({ 
-          url: targetUrl, 
-          withCredentials: false,
-          disableAutoFetch: true, 
-          disableStream: false,
-          cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/cmaps/',
-          cMapPacked: true
-        });
+        const loadingTask = pdfjsLib.getDocument({ url: targetUrl, withCredentials: false });
         const pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
         loadSidebarBookmarks();
@@ -490,7 +483,7 @@
       }
     }
 
-    // Delayed Background Indexer (No Lag)
+    // Dynamic Sidebar Page Setup
     function preIndexDocumentText(pdf) {
       readerState.textIndex = {};
       const jumpList = document.getElementById('jump-pages-list');
@@ -505,22 +498,6 @@
           </button>`;
       }
       lucide.createIcons();
-
-      // Start fetching text quietly after PDF is visually loaded
-      setTimeout(async () => {
-        for (let i = 1; i <= pdf.numPages; i++) {
-          if (readerState.activePdf !== pdf) break; 
-          while (readerState.activeRenders > 0) {
-            await new Promise(r => setTimeout(r, 150));
-          }
-          try {
-            const page = await pdf.getPage(i); const content = await page.getTextContent();
-            readerState.textIndex[i] = content.items.map(item => item.str).join(' ').toLowerCase();
-            page.cleanup();
-            await new Promise(resolve => setTimeout(resolve, 50)); 
-          } catch(e) {}
-        }
-      }, 4000); 
     }
 
     async function renderLazyViewport(pdf) {
@@ -548,21 +525,38 @@
 
       preIndexDocumentText(pdf);
 
+      const activeTimeouts = {};
+
       const observer = new IntersectionObserver((entries) => {
         if (readerState.isZooming) return; 
         entries.forEach(entry => {
           const pageNum = parseInt(entry.target.dataset.pageNum);
           if (entry.isIntersecting) {
-            renderPageOnDemand(pdf, pageNum, entry.target);
+            // Cancel pending timeout if any
+            if (activeTimeouts[pageNum]) clearTimeout(activeTimeouts[pageNum]);
+            
+            // Fast scrolling ignores transient pages
+            activeTimeouts[pageNum] = setTimeout(() => {
+              renderPageOnDemand(pdf, pageNum, entry.target);
+            }, 80);
+
             readerState.currentPage = pageNum;
             document.getElementById('page-indicator-current').textContent = pageNum < 12 ? `Intro ${pageNum}` : pageNum - 11;
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
+            if (activeTimeouts[pageNum]) {
+              clearTimeout(activeTimeouts[pageNum]);
+              delete activeTimeouts[pageNum];
+            }
             clearPageFromMemory(entry.target);
           }
         });
-      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.35, rootMargin: '0px' });
+      }, { 
+        root: document.getElementById('pdf-scroll-container'), 
+        threshold: 0.01, 
+        rootMargin: '400px 0px' 
+      });
 
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
 
@@ -588,12 +582,9 @@
     async function renderPageOnDemand(pdf, pageNum, container) {
       if (container.dataset.rendered === "true" || container.dataset.rendering === "true") return;
       container.dataset.rendering = "true";
-      readerState.activeRenders++;
 
       try {
         const page = await pdf.getPage(pageNum);
-        if (container.dataset.rendering !== "true") return;
-
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
 
         const canvas = document.createElement('canvas');
@@ -604,18 +595,20 @@
         const ctx = canvas.getContext('2d');
         await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
 
-        if (container.dataset.rendering !== "true") return;
+        // Render text layer asynchronously after initial canvas paint
+        setTimeout(async () => {
+          if (container.dataset.rendered !== "true" && container.dataset.rendering !== "true") return;
+          const textLayerDiv = document.createElement('div');
+          textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
+          textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none';
+          textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
+          container.appendChild(textLayerDiv);
 
-        const textLayerDiv = document.createElement('div');
-        textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
-        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; // Null means pan
-        textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
-        container.appendChild(textLayerDiv);
-
-        try {
-          const textContent = await page.getTextContent();
-          await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
-        } catch(e) {}
+          try {
+            const textContent = await page.getTextContent();
+            await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
+          } catch(e) {}
+        }, 50);
 
         // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
         const hlCanvas = document.createElement('canvas');
@@ -652,20 +645,19 @@
         container.appendChild(watermarkDiv);
 
         initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+        
         container.dataset.rendered = "true";
-      } catch (err) {} finally {
+      } catch (err) {
+        container.dataset.rendered = "false";
+      } finally {
         container.dataset.rendering = "false";
-        readerState.activeRenders--;
       }
     }
 
     function clearPageFromMemory(container) {
-      container.dataset.rendering = "false";
-      if (container.dataset.rendered !== "true") return;
-      container.innerHTML = '';
-      const canvases = container.querySelectorAll('canvas');
-      canvases.forEach(c => { c.width = 0; c.height = 0; });
       container.dataset.rendered = "false";
+      container.dataset.rendering = "false";
+      container.innerHTML = '';
     }
 
     function toggleSearchBarInput() {
@@ -674,19 +666,37 @@
       if (!container.classList.contains('hidden')) document.getElementById('pdf-search-input').focus();
     }
 
-    function handleSearchQueryInput(val) {
+    async function handleSearchQueryInput(val) {
       const q = val.toLowerCase().trim();
       const dropdown = document.getElementById('search-dropdown');
       if (!q) { dropdown.classList.add('hidden'); return; }
-      dropdown.innerHTML = ""; let matchesFound = 0;
+      
+      dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 font-semibold text-center animate-pulse">Searching book...</div>`;
+      dropdown.classList.remove('hidden');
 
-      for (let i = 1; i <= readerState.activePdf.numPages; i++) {
-        if (readerState.textIndex[i] && readerState.textIndex[i].includes(q)) {
-          matchesFound++; dropdown.classList.remove('hidden');
-          const fullText = readerState.textIndex[i];
-          const index = fullText.indexOf(q);
-          const start = Math.max(0, index - 25); const end = Math.min(fullText.length, index + q.length + 25);
-          const snippetText = fullText.substring(start, end).replace(/\n/g, ' ').trim();
+      let matchesFound = 0;
+      const pdf = readerState.activePdf;
+      if (!pdf) return;
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        if (val !== document.getElementById('pdf-search-input').value) return; 
+
+        let text = readerState.textIndex[i];
+        if (!text) {
+          try {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text = content.items.map(item => item.str).join(' ').toLowerCase();
+            readerState.textIndex[i] = text;
+          } catch(e) { continue; }
+        }
+
+        if (text && text.includes(q)) {
+          if (matchesFound === 0) dropdown.innerHTML = ""; 
+          matchesFound++;
+          const index = text.indexOf(q);
+          const start = Math.max(0, index - 25); const end = Math.min(text.length, index + q.length + 25);
+          const snippetText = text.substring(start, end).replace(/\n/g, ' ').trim();
           const contextSnippet = `"...${snippetText.replace(q, `<span class="bg-yellow-200 font-black px-1">${q}</span>`)}..."`;
           
           dropdown.innerHTML += `
