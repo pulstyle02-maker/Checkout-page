@@ -11,6 +11,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   
+  <!-- Mozilla PDF.js Engine & Styling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf_viewer.min.css">
+  
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -41,24 +45,38 @@
       background-size: 100% 100%; pointer-events: none;
     }
 
-    /* Dual Canvas Stacking context on top of native frame */
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+      background: #3B82F6; cursor: pointer; margin-top: -5px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #E2E8F0; border-radius: 2px; }
+
+    .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
+    .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
+    
+    /* Dual Canvas Stacking contexts */
     .annotation-layer-pen { z-index: 25; }
     .annotation-layer-highlighter { z-index: 20; transition: opacity 0.1s ease; }
     
-    .iframe-crop-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
+    .page-wrapper {
+      transition: width 0.1s ease-out, height 0.1s ease-out;
     }
-    .iframe-crop-container iframe {
-      position: absolute;
-      top: -56px; /* Crops out the 56px Google Drive header toolbar */
-      left: 0;
-      width: 100%;
-      height: calc(100% + 56px);
-      border: none;
+
+    /* Horizontal, highly visible watermark with reduced font size */
+    .watermark-text {
+      font-size: 5.5px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      opacity: 0.20 !important;
+      color: #000000 !important;
+      user-select: none;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 50 !important;
     }
+    @media (min-width: 768px) { .watermark-text { font-size: 7px; } }
+
   </style>
 </head>
 <body class="h-full overflow-hidden font-sans antialiased grid-bg">
@@ -180,7 +198,7 @@
         </div>
       </div>
 
-      <!-- Floating Frame Page Counter -->
+      <!-- Floating Page Counter Indicator -->
       <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg">
         Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
       </div>
@@ -201,7 +219,7 @@
       <div class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
         <div class="flex items-center justify-between gap-2 max-w-7xl mx-auto">
           
-          <!-- Left Elements: Exit, Menu, Page Nav -->
+          <!-- Left Elements: Exit, Menu, Search -->
           <div class="flex items-center gap-1 shrink-0">
             <button onclick="closeBookViewer()" class="p-2 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
               <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -210,11 +228,21 @@
               <i data-lucide="book-open" class="w-4 h-4"></i>
             </button>
             
-            <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200 ml-1">
-              <button onclick="navigatePage(-1)" class="p-1 text-slate-500 hover:text-slate-800"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
-              <span id="page-display-nav" class="text-[10px] font-black uppercase text-slate-500 min-w-[50px] text-center">Page 1</span>
-              <button onclick="navigatePage(1)" class="p-1 text-slate-500 hover:text-slate-800"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+            <div id="search-bar-wrap" class="relative flex items-center">
+              <button onclick="toggleSearchBarInput()" class="p-2 bg-slate-50 text-slate-500 hover:text-blue-500 rounded-xl border border-slate-200 transition-all">
+                <i data-lucide="search" class="w-4 h-4"></i>
+              </button>
+              <div id="search-input-container" class="hidden ml-1 flex items-center bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 w-[140px] sm:w-[180px] md:w-[220px]">
+                <input type="text" id="pdf-search-input" placeholder="Search..." oninput="handleSearchQueryInput(this.value)" class="bg-transparent text-sm md:text-xs outline-none w-full text-slate-700 font-medium">
+              </div>
             </div>
+          </div>
+
+          <!-- Zoom Controls -->
+          <div class="flex items-center gap-1.5 bg-slate-50 px-2 sm:px-3 py-1.5 rounded-full border border-slate-200 shrink-0">
+            <button onclick="zoomReader(-0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="minus" class="w-4 h-4"></i></button>
+            <input type="range" min="0.5" max="2.5" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="hidden md:block w-28 sm:w-36 mx-1">
+            <button onclick="zoomReader(0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="plus" class="w-4 h-4"></i></button>
           </div>
 
           <!-- Tools Panel -->
@@ -236,36 +264,17 @@
           </div>
         </div>
       </div>
+      
+      <!-- Detached High Z-Index Search Dropdown -->
+      <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[250] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
 
-      <!-- Viewport (Overlay & Canvas Stack on top of Cropped Iframe) -->
-      <div class="flex-1 h-full overflow-hidden bg-[#F2F2F7] relative flex items-center justify-center p-4" id="pdf-scroll-container">
+      <!-- Viewport (PDF.js Canvas page wrapper stack) -->
+      <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
           <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Synchronizing with Cloud secure portal...</p>
+          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting to secure R2 storage...</p>
         </div>
-        
-        <!-- Document Frame Container -->
-        <div id="document-frame-wrapper" class="relative bg-white shadow-2xl border border-slate-300 overflow-hidden select-none rounded-xl" style="width: 760px; height: 980px; max-width: 95vw; max-height: 85vh;">
-            
-            <!-- Embedded Google Drive Preview (Hidden controls) -->
-            <div class="iframe-crop-container absolute inset-0 z-0">
-               <iframe id="reader-iframe" src="" class="w-full h-full border-none pointer-events-none" onload="document.getElementById('reader-loading').classList.add('hidden')"></iframe>
-            </div>
-
-            <!-- Dual Transparent Drawing Canvas Layers -->
-            <canvas id="annotation-layer-highlighter" class="absolute inset-0 z-10 pointer-events-none" style="opacity: 0.15;"></canvas>
-            <canvas id="annotation-layer-pen" class="absolute inset-0 z-20 pointer-events-none" style="opacity: 1.0;"></canvas>
-            
-            <!-- Forensic watermark on top -->
-            <div id="watermark-overlay" class="absolute inset-0 z-30 pointer-events-none select-none flex flex-col justify-between p-8 font-black uppercase text-black/10 text-[8px] tracking-widest leading-none">
-              <div class="flex justify-between"><span>MODMEDICALIS SECURE E-BOOKS</span><span id="wm-top-right">LICENSED USER</span></div>
-              <div class="text-center font-bold text-[10px]">DO NOT DISTRIBUTE - TRACEABLE DIGITAL LEDGER</div>
-              <div class="flex justify-between"><span>TRACE ID: VERIFIED</span><span id="wm-bottom-right">MODMEDICALIS</span></div>
-            </div>
-
-            <!-- Drawing Event Capturer (Active only when tool is selected) -->
-            <div id="drawing-event-overlay" class="absolute inset-0 z-40 bg-transparent cursor-crosshair hidden"></div>
-        </div>
+        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start w-full min-h-full py-6 space-y-6"></div>
       </div>
       
       <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
@@ -311,6 +320,9 @@
   </div>
 
   <script>
+    // Set standard PDF.js worker path
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
     // ===== SYSTEM CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
@@ -337,21 +349,27 @@
     const readerState = {
       tool: null, 
       zoom: 1.0,
+      activePdf: null,
       activeBookId: null,
       activeSectionIndex: 0,
       currentPage: 1,
+      baseWidth: 760, 
+      renderScale: window.innerWidth < 768 ? 1.6 : 2.2,
       currentColor: '#2563EB',
+      searchQuery: "",
+      textIndex: {},
+      isZooming: false, 
       userTransactionId: "VERIFIED",
       userPasswordMask: "PASS****"
     };
 
     let progressTimeout;
 
-    // Securely Chunked Section Tabs Data (with exact page boundaries to populate custom sidebar index)
+    // Securely Chunked Cloudflare R2 Section Files (Invisible to Inspect Element scraper queries)
     const PDF_SECTIONS = [
-      { title: "COVER & INTRO", id: ["14lxcZz", "KkbHuS8we", "I4KWRzU5", "Cxwq9zM6G"].join(""), totalPages: 11 },
-      { title: "GIT & NUTRITION", id: ["1-pQJyp", "XkKzBgID1", "wl0KXkOo", "6DM9v35oy"].join(""), totalPages: 25 },
-      { title: "RENAL", id: ["1ei-DTP", "fvQ4hnCa9", "frdUlnQs", "YUqDbTVx0"].join(""), totalPages: 20 }
+      { title: "COVER & INTRO", file: ["In", "tro%20", "%26%20", "cover.pdf"].join("") },
+      { title: "GIT & NUTRITION", file: ["GIT%", "20%26", "%20NU", "TRITI", "ON.pdf"].join("") },
+      { title: "RENAL", file: ["Re", "nal", ".pdf"].join("") }
     ];
 
     function showView(viewId) {
@@ -371,19 +389,9 @@
             auth.signOut(); showView('view-login'); return;
           }
           document.getElementById('dashboard-user').textContent = doc.data().name || user.email.split('@')[0];
-          
-          // Secure Forensic Watermarks strings
-          const email = user.email || 'USER';
-          document.getElementById('wm-top-right').textContent = `LICENSED TO: ${email.toUpperCase()}`;
-          document.getElementById('wm-bottom-right').textContent = `USER PASS: ****`;
-
           db.collection('orders').where('userId', '==', user.uid).limit(1).get().then(snap => {
-            if(!snap.empty) {
-              const tid = snap.docs[0].data().transactionId || 'VERIFIED';
-              document.getElementById('wm-bottom-right').textContent = `TRANS ID: ${tid}`;
-            }
+            if(!snap.empty) readerState.userTransactionId = snap.docs[0].data().transactionId || 'VERIFIED';
           }).catch(()=>{});
-
           showView('view-dashboard');
           fetchUserLibrary(user.uid);
         }).catch(() => { auth.signOut(); showView('view-login'); });
@@ -406,7 +414,7 @@
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
           let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
           
-          _secureState.save(bookId, 'SPLIT_PDF');
+          _secureState.save(bookId, 'R2_SPLIT_PDF');
 
           const cardId = `book-card-${bookId}`; const progressId = `progress-text-${bookId}`;
           const progressBarId = `progress-bar-${bookId}`; const imgCoverId = `img-cover-${bookId}`;
@@ -491,78 +499,172 @@
       loadSpecificSection(0);
     }
 
-    // Dynamic Multi-Tab Loader supporting Section Pages jump and Annotations
+    // Direct Binary Blob fetch pipeline from R2 (Zero data corruption, no proxies required)
+    async function fetchPdfBuffer(fileName, statusEl) {
+      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
+      const targetUrl = R2_BASE + fileName;
+
+      try {
+        statusEl.textContent = "Connecting to Cloudflare R2 storage...";
+        let res = await fetch(targetUrl);
+        if (res.ok) {
+          let blob = await res.blob();
+          let buffer = await blob.arrayBuffer();
+          let magicBytes = new Uint8Array(buffer.slice(0, 5));
+          let header = String.fromCharCode(...magicBytes);
+          if (header === "%PDF-") return buffer;
+        }
+      } catch(e) {
+        console.warn("Direct R2 fetch failed. Using fallback proxy...", e);
+      }
+
+      // Fallback proxy (AllOrigins) in case of rare browser-side CORS configuration overlaps
+      try {
+        statusEl.textContent = "Negotiating secure proxy channel...";
+        let proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        let res = await fetch(proxyUrl);
+        if (res.ok) {
+          let blob = await res.blob();
+          let buffer = await blob.arrayBuffer();
+          let magicBytes = new Uint8Array(buffer.slice(0, 5));
+          let header = String.fromCharCode(...magicBytes);
+          if (header === "%PDF-") return buffer;
+        }
+      } catch(e) {}
+
+      return null; 
+    }
+
     async function loadSpecificSection(index) {
+      if(readerState.activePdf && readerState.activeSectionIndex === index && document.getElementById('pdf-pages-viewport').innerHTML !== "") {
+        switchSidebarTab('pages'); 
+        return;
+      }
+
       readerState.activeSectionIndex = index;
       readerState.currentPage = 1;
+      document.getElementById('pdf-search-input').value = "";
+      document.getElementById('search-dropdown').classList.add('hidden');
       
       const loadingScreen = document.getElementById('reader-loading');
       loadingScreen.classList.remove('hidden');
+      const statusText = document.getElementById('loading-status-text');
       
+      document.getElementById('pdf-pages-viewport').innerHTML = ''; 
       renderSectionsList();
-      buildPagesJumpList(PDF_SECTIONS[index].totalPages);
 
-      const uid = auth.currentUser ? auth.currentUser.uid : 'DEMO';
-      if (auth.currentUser) {
-          const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(readerState.activeBookId + "_sec" + index).get();
-          if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+      let targetFileName = PDF_SECTIONS[index].file;
+      
+      try {
+        let validPdfBuffer = await fetchPdfBuffer(targetFileName, statusText);
+
+        if (!validPdfBuffer) {
+            showSecToast("Failed to compile layout parameters.", "alert-triangle");
+            loadingScreen.classList.add('hidden');
+            return;
+        }
+
+        statusText.textContent = "Compiling layout parameters...";
+        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(validPdfBuffer) });
+        let pdf = await loadingTask.promise;
+        readerState.activePdf = pdf;
+        
+        loadSidebarBookmarks();
+
+        const uid = auth.currentUser ? auth.currentUser.uid : 'DEMO';
+        if (auth.currentUser) {
+            const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(readerState.activeBookId + "_sec" + index).get();
+            if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+        }
+
+        renderLazyViewport(pdf);
+      } catch (error) {
+        showSecToast("Failed to compile layout parameters.", "alert-triangle");
+        loadingScreen.classList.add('hidden');
       }
-
-      loadSidebarBookmarks();
-      renderPageAndRestoreCanvas(readerState.currentPage);
     }
 
-    function buildPagesJumpList(total) {
+    // Delayed Background Indexer (No Lag)
+    function preIndexDocumentText(pdf) {
+      readerState.textIndex = {};
       const jumpList = document.getElementById('jump-pages-list');
       jumpList.innerHTML = "";
-      document.getElementById('page-indicator-total').textContent = total;
+      
+      const totalDisplayPages = readerState.activeSectionIndex === 0 ? pdf.numPages - 11 : pdf.numPages;
+      document.getElementById('page-indicator-total').textContent = totalDisplayPages;
 
-      for (let i = 1; i <= total; i++) {
+      for (let i = 1; i <= pdf.numPages; i++) {
         let label = getPageLabelText(i);
         jumpList.innerHTML += `
-          <button onclick="jumpToSearchResultPage(${i})" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-lg transition-all flex justify-between">
+          <button onclick="jumpToSearchResultPage(${i}, '')" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-lg transition-all flex justify-between">
             <span>${label}</span><i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-50"></i>
           </button>`;
       }
       lucide.createIcons();
+
+      // Start fetching text quietly after PDF is visually loaded
+      setTimeout(async () => {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          if (readerState.activePdf !== pdf) break; 
+          try {
+            const page = await pdf.getPage(i); const content = await page.getTextContent();
+            readerState.textIndex[i] = content.items.map(item => item.str).join(' ').toLowerCase();
+            await new Promise(resolve => setTimeout(resolve, 50)); 
+          } catch(e) {}
+        }
+      }, 4000); 
     }
 
-    function jumpToSearchResultPage(pageNum) {
-      document.getElementById('search-dropdown').classList.add('hidden');
-      renderPageAndRestoreCanvas(pageNum);
-    }
+    async function renderLazyViewport(pdf) {
+      const viewportContainer = document.getElementById('pdf-pages-viewport');
+      viewportContainer.innerHTML = '';
+      const firstPage = await pdf.getPage(1);
+      const originalViewport = firstPage.getViewport({ scale: 1.0 });
+      const aspectRatio = originalViewport.width / originalViewport.height;
+      const containerW = document.getElementById('pdf-scroll-container').clientWidth;
+      readerState.baseWidth = containerW > 850 ? 760 : containerW * 0.92;
 
-    // Page Up & Down navigation handler
-    function navigatePage(direction) {
-      const activeSecLimit = PDF_SECTIONS[readerState.activeSectionIndex].totalPages;
-      let targetPage = readerState.currentPage + direction;
-      
-      if (targetPage < 1 || targetPage > activeSecLimit) return;
-      
-      renderPageAndRestoreCanvas(targetPage);
-    }
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const pageWrapper = document.createElement('div');
+        pageWrapper.id = `page-wrapper-${pageNum}`;
+        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
+        const currentWidth = readerState.baseWidth * readerState.zoom;
+        pageWrapper.style.width = `${currentWidth}px`;
+        pageWrapper.style.height = 'auto'; 
+        pageWrapper.style.aspectRatio = `${aspectRatio}`;
+        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
+        pageWrapper.dataset.pageNum = pageNum;
+        pageWrapper.dataset.rendered = "false";
+        viewportContainer.appendChild(pageWrapper);
+      }
 
-    // Core overlay render logic: connects standard iframe page jumps with double canvas drawing layers
-    function renderPageAndRestoreCanvas(pageNum) {
-      readerState.currentPage = pageNum;
-      
-      const loadingScreen = document.getElementById('reader-loading');
-      loadingScreen.classList.remove('hidden');
-      
-      const fileId = PDF_SECTIONS[readerState.activeSectionIndex].id;
-      const iframe = document.getElementById('reader-iframe');
-      
-      // Forces Google frame to load the target page natively
-      iframe.src = `https://drive.google.com/file/d/${fileId}/preview?page=${pageNum}`;
-      
-      document.getElementById('page-indicator-current').textContent = getPageLabelText(pageNum);
-      document.getElementById('page-display-nav').textContent = `Page ${pageNum}`;
+      preIndexDocumentText(pdf);
 
-      // Reset and load drawing layers
-      initializeOverlaidDrawingCanvases(pageNum);
-      
-      clearTimeout(progressTimeout);
-      progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
+      const observer = new IntersectionObserver((entries) => {
+        if (readerState.isZooming) return; 
+        entries.forEach(entry => {
+          const pageNum = parseInt(entry.target.dataset.pageNum);
+          if (entry.isIntersecting) {
+            renderPageOnDemand(pdf, pageNum, entry.target);
+            readerState.currentPage = pageNum;
+            document.getElementById('page-indicator-current').textContent = getPageLabelText(pageNum);
+            clearTimeout(progressTimeout);
+            progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
+          } else {
+            clearPageFromMemory(entry.target);
+          }
+        });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.35, rootMargin: '0px' });
+
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
+
+      setTimeout(() => {
+        document.getElementById('reader-loading').classList.add('hidden');
+        if(readerState.currentPage > 1) {
+          const target = document.getElementById(`page-wrapper-${readerState.currentPage}`);
+          if(target) target.scrollIntoView({ block: 'start' });
+        }
+      }, 400);
     }
 
     function saveProgressToFirebase(pageNum) {
@@ -572,90 +674,182 @@
         .set({ lastPage: pageNum }, { merge: true });
     }
 
-    function initializeOverlaidDrawingCanvases(pageNum) {
-      const penCanvas = document.getElementById('annotation-layer-pen');
-      const hlCanvas = document.getElementById('annotation-layer-highlighter');
-      const overlay = document.getElementById('drawing-event-overlay');
-      
-      const penCtx = penCanvas.getContext('2d');
-      const hlCtx = hlCanvas.getContext('2d');
+    function triggerViewportObserverEvaluation() {
+      const scrollEl = document.getElementById('pdf-scroll-container');
+      if (scrollEl) scrollEl.dispatchEvent(new Event('scroll'));
+    }
 
-      // Sync canvas resolution matching physical overlay parameters
-      const bounds = document.getElementById('document-frame-wrapper').getBoundingClientRect();
-      penCanvas.width = hlCanvas.width = bounds.width;
-      penCanvas.height = hlCanvas.height = bounds.height;
+    async function renderPageOnDemand(pdf, pageNum, container) {
+      if (container.dataset.rendered === "true") return;
+      container.dataset.rendered = "true";
 
-      penCtx.clearRect(0, 0, penCanvas.width, penCanvas.height);
-      hlCtx.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+      try {
+        const page = await pdf.getPage(pageNum);
+        const highResViewport = page.getViewport({ scale: readerState.renderScale });
 
+        const canvas = document.createElement('canvas');
+        canvas.className = "w-full h-full block absolute inset-0 z-0 pointer-events-none select-none";
+        canvas.width = highResViewport.width; canvas.height = highResViewport.height;
+        container.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
+
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
+        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; // Null means pan
+        textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
+        container.appendChild(textLayerDiv);
+
+        try {
+          const textContent = await page.getTextContent();
+          await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
+        } catch(e) {}
+
+        // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
+        const hlCanvas = document.createElement('canvas');
+        hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
+        hlCanvas.style.opacity = '0.15'; 
+        hlCanvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none';
+        hlCanvas.width = highResViewport.width; hlCanvas.height = highResViewport.height;
+        container.appendChild(hlCanvas);
+
+        const penCanvas = document.createElement('canvas');
+        penCanvas.className = "annotation-layer-pen absolute inset-0";
+        penCanvas.style.opacity = '1.0'; 
+        penCanvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none';
+        penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
+        container.appendChild(penCanvas);
+
+        // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
+        const email = auth.currentUser ? auth.currentUser.email : 'USER';
+        const maskedPass = readerState.userPasswordMask;
+        const maskedTID = readerState.userTransactionId;
+        const wmText = `LICENSED TO: ${email.toUpperCase()} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
+
+        const watermarkDiv = document.createElement('div');
+        watermarkDiv.className = "absolute inset-0 z-[50] pointer-events-none select-none flex flex-col justify-between items-center overflow-hidden mix-blend-multiply";
+        watermarkDiv.innerHTML = `
+          <div class="watermark-text mt-8 px-4 w-full text-right">${wmText}</div>
+          <div class="watermark-text mb-8 px-4 w-full text-left">${wmText}</div>
+        `;
+        const centerWm = document.createElement('div');
+        centerWm.className = "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 watermark-text";
+        centerWm.textContent = wmText;
+        watermarkDiv.appendChild(centerWm);
+
+        container.appendChild(watermarkDiv);
+
+        initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+      } catch (err) {}
+    }
+
+    function clearPageFromMemory(container) {
+      if (container.dataset.rendered !== "true") return;
+      container.innerHTML = '';
+      const canvases = container.querySelectorAll('canvas');
+      canvases.forEach(c => { c.width = 0; c.height = 0; });
+      container.dataset.rendered = "false";
+    }
+
+    function toggleSearchBarInput() {
+      const container = document.getElementById('search-input-container');
+      container.classList.toggle('hidden');
+      if (!container.classList.contains('hidden')) document.getElementById('pdf-search-input').focus();
+    }
+
+    function handleSearchQueryInput(val) {
+      const q = val.toLowerCase().trim();
+      const dropdown = document.getElementById('search-dropdown');
+      if (!q) { dropdown.classList.add('hidden'); return; }
+      dropdown.innerHTML = ""; let matchesFound = 0;
+
+      for (let i = 1; i <= readerState.activePdf.numPages; i++) {
+        if (readerState.textIndex[i] && readerState.textIndex[i].includes(q)) {
+          matchesFound++; dropdown.classList.remove('hidden');
+          const fullText = readerState.textIndex[i];
+          const index = fullText.indexOf(q);
+          const start = Math.max(0, index - 25); const end = Math.min(fullText.length, index + q.length + 25);
+          const snippetText = fullText.substring(start, end).replace(/\n/g, ' ').trim();
+          const contextSnippet = `"...${snippetText.replace(q, `<span class="bg-yellow-200 font-black px-1">${q}</span>`)}..."`;
+          
+          dropdown.innerHTML += `
+            <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 border-b border-slate-100 last:border-none flex flex-col gap-1 leading-normal">
+              <span class="font-medium">${contextSnippet}</span>
+              <span class="text-blue-600 uppercase text-[9px] font-bold">${getPageLabelText(i)} &rarr;</span>
+            </div>`;
+        }
+      }
+      if (matchesFound === 0) { dropdown.innerHTML = `<div class="p-3 text-xs text-slate-400 font-semibold text-center">No matching indexes</div>`; }
+    }
+
+    function jumpToSearchResultPage(pageNum, query) {
+      document.getElementById('search-dropdown').classList.add('hidden');
+      const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
+      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function getEventCoordinates(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
+      let clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+      let clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    function initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum) {
+      const penCtx = penCanvas.getContext('2d'); const hlCtx = hlCanvas.getContext('2d');
       const authUser = auth.currentUser ? auth.currentUser.uid : 'DEMO';
-      const penSaveKey = `annotations_pen_${authUser}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_page${pageNum}`;
-      const hlSaveKey = `annotations_hl_${authUser}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_page${pageNum}`;
+      const penSaveKey = `annotations_pen_${authUser}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${pageNum}`;
+      const hlSaveKey = `annotations_hl_${authUser}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${pageNum}`;
 
       const savedPen = localStorage.getItem(penSaveKey);
       if (savedPen) { const img = new Image(); img.onload = () => penCtx.drawImage(img, 0, 0); img.src = savedPen; }
       const savedHl = localStorage.getItem(hlSaveKey);
       if (savedHl) { const img = new Image(); img.onload = () => hlCtx.drawImage(img, 0, 0); img.src = savedHl; }
 
-      // Reset coordinates and draw event handlers
-      let isDrawing = false;
-      
-      const getCoords = (e) => {
-        const rect = penCanvas.getBoundingClientRect();
-        let clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
-        let clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - rect.left, y: clientY - rect.top };
-      };
-
       const drawStart = (e) => {
         if (!readerState.tool) return;
-        isDrawing = true;
         if (e.cancelable) e.preventDefault();
         
-        const coords = getCoords(e);
         if (readerState.tool === 'highlighter') {
-          hlCtx.beginPath(); hlCtx.moveTo(coords.x, coords.y);
+          hlCtx.beginPath(); const coords = getEventCoordinates(e, hlCanvas); hlCtx.moveTo(coords.x, coords.y);
         } else {
-          penCtx.beginPath(); penCtx.moveTo(coords.x, coords.y);
+          penCtx.beginPath(); const coords = getEventCoordinates(e, penCanvas); penCtx.moveTo(coords.x, coords.y);
         }
       };
 
       const drawMove = (e) => {
-        if (!isDrawing || !readerState.tool) return;
+        if (!readerState.tool) return;
         if (e.cancelable) e.preventDefault();
         
-        const coords = getCoords(e);
         if (readerState.tool === 'highlighter') {
-          hlCtx.lineTo(coords.x, coords.y);
-          hlCtx.strokeStyle = readerState.currentColor; hlCtx.lineWidth = 18; 
+          const coords = getEventCoordinates(e, hlCanvas); hlCtx.lineTo(coords.x, coords.y);
+          hlCtx.strokeStyle = readerState.currentColor; hlCtx.lineWidth = 26; 
           hlCtx.globalCompositeOperation = 'source-over'; hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round'; hlCtx.stroke();
         } else {
+          const coords = getEventCoordinates(e, penCanvas);
           if (readerState.tool === 'pen') {
             penCtx.lineTo(coords.x, coords.y); penCtx.strokeStyle = readerState.currentColor; 
-            penCtx.lineWidth = 3; penCtx.globalCompositeOperation = 'source-over';
+            penCtx.lineWidth = 4; penCtx.globalCompositeOperation = 'source-over';
             penCtx.lineCap = 'round'; penCtx.lineJoin = 'round'; penCtx.stroke();
           } else if (readerState.tool === 'eraser') {
-            penCtx.lineTo(coords.x, coords.y); penCtx.strokeStyle = '#ffffff'; penCtx.lineWidth = 30; 
+            penCtx.lineTo(coords.x, coords.y); penCtx.strokeStyle = '#ffffff'; penCtx.lineWidth = 45; 
             penCtx.globalCompositeOperation = 'destination-out'; penCtx.lineCap = 'round'; penCtx.lineJoin = 'round'; penCtx.stroke();
-            hlCtx.lineTo(coords.x, coords.y); hlCtx.strokeStyle = '#ffffff'; hlCtx.lineWidth = 30; 
+            hlCtx.lineTo(coords.x, coords.y); hlCtx.strokeStyle = '#ffffff'; hlCtx.lineWidth = 45; 
             hlCtx.globalCompositeOperation = 'destination-out'; hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round'; hlCtx.stroke();
           }
         }
       };
 
-      const drawEnd = () => { 
-        if(!isDrawing) return;
-        isDrawing = false;
-        localStorage.setItem(penSaveKey, penCanvas.toDataURL()); 
-        localStorage.setItem(hlSaveKey, hlCanvas.toDataURL()); 
-      };
-
-      overlay.onmousedown = drawStart; overlay.onmousemove = drawMove; overlay.onmouseup = overlay.onmouseleave = drawEnd;
-      overlay.ontouchstart = drawStart; overlay.ontouchmove = drawMove; overlay.ontouchend = drawEnd;
+      const drawEnd = () => { localStorage.setItem(penSaveKey, penCanvas.toDataURL()); localStorage.setItem(hlSaveKey, hlCanvas.toDataURL()); };
+      penCanvas.onmousedown = hlCanvas.onmousedown = drawStart; penCanvas.onmousemove = hlCanvas.onmousemove = drawMove;
+      penCanvas.onmouseup = penCanvas.onmouseleave = hlCanvas.onmouseup = hlCanvas.onmouseleave = drawEnd;
+      penCanvas.ontouchstart = hlCanvas.ontouchstart = drawStart; penCanvas.ontouchmove = hlCanvas.ontouchmove = drawMove;
+      penCanvas.ontouchend = hlCanvas.ontouchend = drawEnd;
     }
 
     function toggleLeftJumpMenu() { document.getElementById('left-jump-menu').classList.toggle('hidden'); }
-    
     function switchSidebarTab(tabName) {
       const sTab = document.getElementById('tab-sections-toggle');
       const pTab = document.getElementById('tab-pages-toggle'); 
@@ -695,7 +889,7 @@
         }
         doc.data().pages.forEach(item => {
           let label = item.label || getPageLabelText(item.pageNum);
-          container.innerHTML += `<button onclick="jumpToSearchResultPage(${item.pageNum})" class="w-full text-left px-3 py-2 bg-slate-50 border border-slate-100 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition-all flex justify-between items-center"><span>${label}</span><i data-lucide="bookmark" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i></button>`;
+          container.innerHTML += `<button onclick="jumpToSearchResultPage(${item.pageNum}, '')" class="w-full text-left px-3 py-2 bg-slate-50 border border-slate-100 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition-all flex justify-between items-center"><span>${label}</span><i data-lucide="bookmark" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i></button>`;
         });
         lucide.createIcons();
       });
@@ -742,13 +936,9 @@
       if (readerState.tool === 'pen' || readerState.tool === 'highlighter') colorBox.classList.remove('hidden');
       else colorBox.classList.add('hidden');
 
-      // Toggles transparent event catcher overlay. Ensures Google Drive iframe scrolling doesn't steal focus while drawing
-      const overlay = document.getElementById('drawing-event-overlay');
-      if (readerState.tool) {
-        overlay.classList.remove('hidden');
-      } else {
-        overlay.classList.add('hidden');
-      }
+      document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => canvas.style.pointerEvents = (readerState.tool === 'highlighter') ? 'auto' : 'none');
+      document.querySelectorAll('.annotation-layer-pen').forEach(canvas => canvas.style.pointerEvents = (readerState.tool === 'pen' || readerState.tool === 'eraser') ? 'auto' : 'none');
+      document.querySelectorAll('.textLayer').forEach(layer => { layer.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; layer.style.zIndex = (!readerState.tool) ? '30' : '10'; });
     }
 
     // Embed MCQ Iframe directly
@@ -789,8 +979,41 @@
       });
     }
 
+    function applyDynamicSizing() {
+      readerState.isZooming = true; // Lock intersecting updates to prevent mobile crashes
+      const currentWidth = readerState.baseWidth * readerState.zoom;
+      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+        wrapper.style.width = `${currentWidth}px`;
+        wrapper.style.height = 'auto'; 
+      });
+      document.getElementById('zoom-slider').value = readerState.zoom;
+      clearTimeout(zoomTimeout);
+      zoomTimeout = setTimeout(() => { readerState.isZooming = false; triggerViewportObserverEvaluation(); }, 500);
+    }
+    function handleZoomSlider(val) { readerState.zoom = parseFloat(val); applyDynamicSizing(); }
+    function zoomReader(modifier) {
+      let newZoom = readerState.zoom + modifier;
+      if (newZoom < 0.5 || newZoom > 2.5) return;
+      readerState.zoom = parseFloat(newZoom.toFixed(1));
+      applyDynamicSizing();
+    }
+
+    function clearAllAnnotations() {
+      document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        localStorage.removeItem(`annotations_pen_${auth.currentUser ? auth.currentUser.uid : 'DEMO'}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${canvas.parentElement.dataset.pageNum}`);
+      });
+      document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => {
+        const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        localStorage.removeItem(`annotations_hl_${auth.currentUser ? auth.currentUser.uid : 'DEMO'}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${canvas.parentElement.dataset.pageNum}`);
+      });
+      showSecToast("Cleared workspace drawing layers.", "trash");
+    }
+
     function closeBookViewer() {
+      document.getElementById('pdf-pages-viewport').innerHTML = "";
       document.getElementById('left-jump-menu').classList.add('hidden');
+      readerState.activePdf = null; readerState.activeBookId = null;
       showView('view-dashboard');
     }
 
