@@ -116,8 +116,8 @@
       <div id="login-container" class="w-full max-w-sm">
         <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
           <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
-            <input type="email" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email / Username</label>
+            <input type="text" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
           </div>
           <div>
             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
@@ -363,6 +363,7 @@
       zoom: 1.0,
       activePdf: null,
       activeBookId: null,
+      activeSections: [],
       activeSectionIndex: 0,
       currentPage: 1,
       baseWidth: 760, 
@@ -378,6 +379,7 @@
 
     let progressTimeout;
     let zoomTimeout;
+    let userLibrary = {}; // Stores library metadata for user's active database documents
 
     // Securely Chunked Cloudflare R2 Section Files
     const PDF_SECTIONS = [
@@ -396,7 +398,20 @@
 
     // ===== AUTH GATEWAY =====
     auth.onAuthStateChanged((user) => {
-      if (user) {
+      const masterSession = localStorage.getItem('master_access_session');
+      if (masterSession) {
+        try {
+          const sessionData = JSON.parse(masterSession);
+          userLibrary = {};
+          document.getElementById('dashboard-user').textContent = sessionData.name || sessionData.username;
+          readerState.userTransactionId = "UNIVERSAL_ACCESS";
+          showView('view-dashboard');
+          mockUniversalLibraryAccess();
+        } catch(e) {
+          localStorage.removeItem('master_access_session');
+          showView('view-login');
+        }
+      } else if (user) {
         db.collection('mod_users').doc(user.uid).get().then(doc => {
           if (!doc.exists) {
             showSecToast("Access restricted: store-purchased accounts only.", "shield-alert");
@@ -418,6 +433,7 @@
       const container = document.getElementById('library-container');
       db.collection("mod_users").doc(uid).collection("library").onSnapshot((snapshot) => {
         container.innerHTML = ''; _secureState.flush();
+        userLibrary = {};
         if (snapshot.empty) {
           container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">No active E-Books purchased. Purchase on our store to unlock.</div>`;
           return;
@@ -425,6 +441,7 @@
 
         snapshot.forEach((doc) => {
           const data = doc.data(); const bookId = doc.id;
+          userLibrary[bookId] = data;
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
           let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
           
@@ -469,8 +486,10 @@
             if (pTextEl && pBarEl) {
               if (progDoc.exists && progDoc.data().lastPage) {
                 const lastPage = progDoc.data().lastPage;
-                pTextEl.textContent = getPageLabelText(lastPage, 0);
-                const percent = Math.min(Math.round((lastPage / 14) * 100), 100); 
+                pTextEl.textContent = getPageLabelText(lastPage, 0, bookId);
+                const isHistology = bookId.toLowerCase().includes('histology') || cleanName.toLowerCase().includes('histology') || cleanName.toLowerCase().includes('night');
+                const totalEstPages = isHistology ? 80 : 14;
+                const percent = Math.min(Math.round((lastPage / totalEstPages) * 100), 100); 
                 pBarEl.style.width = `${percent}%`;
               } else { pTextEl.textContent = "Not started yet"; pBarEl.style.width = "0%"; }
             }
@@ -480,7 +499,65 @@
       });
     }
 
-    function getPageLabelText(pageNum, secIndex = readerState.activeSectionIndex) {
+    function mockUniversalLibraryAccess() {
+      const container = document.getElementById('library-container');
+      container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">Syncing Universal Library...</div>`;
+      _secureState.flush();
+      userLibrary = {};
+
+      db.collection("products").get().then((snapshot) => {
+        if (snapshot.empty) {
+          container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">No storefront books found to display.</div>`;
+          return;
+        }
+        container.innerHTML = '';
+        snapshot.forEach((doc) => {
+          const data = doc.data(); const bookId = doc.id;
+          userLibrary[bookId] = data;
+          const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
+          let coverUrl = (data.images && data.images.length > 0) ? data.images[0] : (data.image || "https://i.imgur.com/zFDh5b3.jpeg");
+          
+          _secureState.save(bookId, 'R2_SPLIT_PDF');
+
+          const cardId = `book-card-${bookId}`; const progressId = `progress-text-${bookId}`;
+          const progressBarId = `progress-bar-${bookId}`; const imgCoverId = `img-cover-${bookId}`;
+
+          container.innerHTML += `
+            <div id="${cardId}" class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300 rounded-3xl">
+              <div>
+                <div class="flex gap-4 mb-4">
+                  <img id="${imgCoverId}" src="${coverUrl}" class="w-16 h-24 object-cover border border-slate-200 shadow-sm rounded-lg" alt="Book Cover" />
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="book-open" class="w-4 h-4"></i></div>
+                      <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[9px] font-extrabold uppercase rounded-lg tracking-wider">MCQ Portal</button>
+                    </div>
+                    <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
+                  </div>
+                </div>
+                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Master Access Activated</p>
+                <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden"><div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 100%"></div></div>
+              </div>
+              <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                <button onclick="openBookViewer('${bookId}')" class="w-full inline-flex justify-center items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all"><span>Read E-Book</span><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+              </div>
+            </div>`;
+        });
+        lucide.createIcons();
+      }).catch(err => {
+        container.innerHTML = `<div class="col-span-full text-center py-16 text-red-500 font-bold">Failed to load library: ${err.message}</div>`;
+      });
+    }
+
+    function getPageLabelText(pageNum, secIndex = readerState.activeSectionIndex, bookId = readerState.activeBookId) {
+      const activeId = bookId || readerState.activeBookId || "";
+      const bookData = userLibrary[activeId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+      
+      if (activeId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night')) {
+        return `Page ${pageNum}`;
+      }
+      
       if (secIndex === 0) {
         if (pageNum < 12) return `Intro ${pageNum}`;
         return `Page ${pageNum - 11}`;
@@ -491,7 +568,8 @@
     function renderSectionsList() {
       const container = document.getElementById('jump-sections-list');
       container.innerHTML = "";
-      PDF_SECTIONS.forEach((sec, idx) => {
+      const sections = readerState.activeSections || PDF_SECTIONS;
+      sections.forEach((sec, idx) => {
         const isActive = readerState.activeSectionIndex === idx;
         const bgClass = isActive ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700";
         container.innerHTML += `
@@ -506,6 +584,19 @@
 
     function openBookViewer(bookId) {
       readerState.activeBookId = bookId;
+      
+      const bookData = userLibrary[bookId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '');
+      const cleanNameLower = cleanName.toLowerCase();
+      
+      if (bookId.toLowerCase().includes('histology') || cleanNameLower.includes('histology') || cleanNameLower.includes('night')) {
+        readerState.activeSections = [
+          { title: "HISTOLOGY BY NIGHT", file: "Histology_by_Night.pdf" }
+        ];
+      } else {
+        readerState.activeSections = PDF_SECTIONS;
+      }
+      
       showView('view-reader');
       setReaderTool(null); 
       switchSidebarTab('sections');
@@ -535,7 +626,8 @@
       renderSectionsList();
 
       const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
-      const targetFileName = PDF_SECTIONS[index].file;
+      const sections = readerState.activeSections || PDF_SECTIONS;
+      const targetFileName = sections[index] ? sections[index].file : "";
       const targetUrl = R2_BASE + targetFileName;
       
       try {
@@ -581,10 +673,16 @@
         
         loadSidebarBookmarks();
 
-        const uid = auth.currentUser ? auth.currentUser.uid : 'DEMO';
-        if (auth.currentUser) {
-            const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(readerState.activeBookId + "_sec" + index).get();
-            if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+        const masterSession = localStorage.getItem('master_access_session');
+        if (masterSession) {
+            const savedProg = localStorage.getItem(`master_progress_${readerState.activeBookId}_sec${index}`);
+            if (savedProg) { readerState.currentPage = parseInt(savedProg); }
+        } else {
+            const uid = auth.currentUser ? auth.currentUser.uid : 'DEMO';
+            if (auth.currentUser) {
+                const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(readerState.activeBookId + "_sec" + index).get();
+                if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+            }
         }
 
         renderLazyViewport(pdf);
@@ -610,7 +708,11 @@
       const jumpList = document.getElementById('jump-pages-list');
       jumpList.innerHTML = "";
       
-      const totalDisplayPages = readerState.activeSectionIndex === 0 ? pdf.numPages - 11 : pdf.numPages;
+      const bookData = userLibrary[readerState.activeBookId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+      const isHistology = readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night');
+
+      const totalDisplayPages = (readerState.activeSectionIndex === 0 && !isHistology) ? pdf.numPages - 11 : pdf.numPages;
       document.getElementById('page-indicator-total').textContent = totalDisplayPages;
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -709,6 +811,11 @@
     }
 
     function saveProgressToFirebase(pageNum) {
+      const masterSession = localStorage.getItem('master_access_session');
+      if (masterSession) {
+        localStorage.setItem(`master_progress_${readerState.activeBookId}_sec${readerState.activeSectionIndex}`, pageNum);
+        return;
+      }
       if(!auth.currentUser || !readerState.activeBookId) return;
       db.collection('mod_users').doc(auth.currentUser.uid)
         .collection('progress').doc(readerState.activeBookId + "_sec" + readerState.activeSectionIndex)
@@ -1141,20 +1248,50 @@
     function handleLogin(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-login'); btn.innerHTML = `Verifying...`; btn.disabled = true;
-      const email = document.getElementById('login-email').value.trim();
+      const emailOrUsername = document.getElementById('login-email').value.trim().toLowerCase();
       const pass = document.getElementById('login-password').value;
 
-      auth.signInWithEmailAndPassword(email, pass).then(() => {
-        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
-      }).catch(err => {
-        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
-        document.getElementById('login-alert').classList.remove('hidden');
-        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
-        lucide.createIcons();
+      // Master Universal Accounts bypass configuration
+      db.collection('special_users').doc(emailOrUsername).get().then(doc => {
+        if (doc.exists && doc.data().password === pass) {
+          const sessionData = { username: emailOrUsername, name: doc.data().name || emailOrUsername };
+          localStorage.setItem('master_access_session', JSON.stringify(sessionData));
+          
+          showSecToast("Universal Master Access Activated", "shield");
+          document.getElementById('dashboard-user').textContent = sessionData.name;
+          readerState.userTransactionId = "UNIVERSAL_ACCESS";
+          showView('view-dashboard');
+          mockUniversalLibraryAccess();
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        } else {
+          // Fall back to standard account sign in
+          auth.signInWithEmailAndPassword(emailOrUsername, pass).then(() => {
+            btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+          }).catch(err => {
+            document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+            document.getElementById('login-alert').classList.remove('hidden');
+            btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+            lucide.createIcons();
+          });
+        }
+      }).catch(() => {
+        // Fallback error flow if database configuration collection rejects
+        auth.signInWithEmailAndPassword(emailOrUsername, pass).then(() => {
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        }).catch(err => {
+          document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+          document.getElementById('login-alert').classList.remove('hidden');
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+          lucide.createIcons();
+        });
       });
     }
 
-    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
+    function handleLogout() { 
+      localStorage.removeItem('master_access_session');
+      auth.signOut(); 
+      document.getElementById('login-form').reset(); 
+    }
 
     function showSecToast(msg, iconName = "shield-alert") {
       const toast = document.getElementById('toast-notify');
