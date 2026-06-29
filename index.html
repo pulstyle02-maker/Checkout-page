@@ -2242,19 +2242,42 @@ timestamp: firebase.firestore.FieldValue.serverTimestamp(), status: isEbookCheck
 
 db.collection("orders").add(orderData).then(() => {
   
-  // Invisible background email to modmedicalis@gmail.com
-  // We use _cc to send the exact formatted HTML table receipt to the buyer
-  // We use _from to ensure the email shows "MODMEDICALIS" as the sender name
+  // 1. Create a beautiful, professional receipt strictly for the customer
+  const customerReceiptText = `Hi ${fullName},
+
+Thank you for choosing ModMedicalis! Your order is confirmed and is now being processed.
+
+--- ORDER SUMMARY ---
+Order #: ${currentOrderNumber}
+Total Paid: Rs. ${totalClean}
+Payment TID: ${transIdInput}
+
+Items Ordered:
+${itemsString.replace(/\n/g, '\n')}
+
+Delivery Details:
+${fullName} | ${phone}
+${address}, ${city}
+
+---------------------
+If your order includes an E-Book, it has been unlocked automatically! 
+Access your library instantly here: https://www.modmedicalis.online/ebooksbymodmedicalis
+
+Need help? Reply directly to this email or reach us at modmedicalis@gmail.com.
+
+Best regards,
+The MODMEDICALIS Team`;
+
+  // 2. Send the request. You get the admin table, the customer gets the custom receipt.
   fetch("https://formsubmit.co/ajax/modmedicalis@gmail.com", {
     method: "POST",
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({
-      _subject: `Your Order Receipt [${currentOrderNumber}]`,
-      _template: "table",
-      _from: "MODMEDICALIS", // Sets the email Sender Name
-      _cc: auth.currentUser.email, // Sends the copy directly to the customer's email
-      _autoresponse: `Hi ${fullName}, thank you for your order! Your ModMedicalis order #${currentOrderNumber} is confirmed and processing.`,
-      email: auth.currentUser.email, 
+      _subject: `New Order Alert: Rs. ${totalClean} [${currentOrderNumber}]`, // Subject for YOUR admin email
+      _template: "table", // You get the clean HTML table
+      _from: "ModMedicalis Store", // Shows as sender name in YOUR admin inbox
+      email: auth.currentUser.email, // FormSubmit uses this target to send the autoresponse
+      _autoresponse: customerReceiptText, // The customer receives ONLY this professional text!
       "Order ID": currentOrderNumber,
       "Customer Name": fullName,
       "Phone Number": phone,
