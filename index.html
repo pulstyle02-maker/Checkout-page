@@ -1266,34 +1266,46 @@ const db = firebase.firestore();
 
 // ===== FIREBASE CACHING UTILITY =====
 async function getCachedData(collection, cacheKey, ttlHours = 1) {
-  const cached = localStorage.getItem(cacheKey);
-  const cacheTime = localStorage.getItem(cacheKey + '_time');
-  const now = Date.now();
-  
-  // Stale-While-Revalidate: Return cached data instantly if it exists
-  if (cached) {
-    // If cache is older than TTL, fetch updated data in the background
-    if (!cacheTime || (now - parseInt(cacheTime) > (ttlHours * 60 * 60 * 1000))) {
-      db.collection(collection).get().then(snapshot => {
-        let data = [];
-        snapshot.forEach(doc => { let d = doc.data(); d.id = doc.id; data.push(d); });
-        localStorage.setItem(cacheKey, JSON.stringify(data));
-        localStorage.setItem(cacheKey + '_time', now.toString());
-      }).catch(err => console.error("Background sync failed:", err));
-    }
-    return JSON.parse(cached);
-  }
-  
-  // Cold start fallback when no cache exists
   try {
+    const cachedStr = localStorage.getItem(cacheKey);
+    const cacheTime = localStorage.getItem(cacheKey + '_time');
+    const now = Date.now();
+    
+    let parsedCache = null;
+    if (cachedStr) {
+      try { parsedCache = JSON.parse(cachedStr); } catch(e) {}
+    }
+
+    // 1. If valid cache exists AND is not empty, use it instantly
+    if (parsedCache && Array.isArray(parsedCache) && parsedCache.length > 0) {
+      // If expired, refresh it silently in the background
+      if (!cacheTime || (now - parseInt(cacheTime) > (ttlHours * 60 * 60 * 1000))) {
+        db.collection(collection).get().then(snapshot => {
+          let data = [];
+          snapshot.forEach(doc => { let d = doc.data(); d.id = doc.id; data.push(d); });
+          if (data.length > 0) { // NEVER cache an empty array
+            localStorage.setItem(cacheKey, JSON.stringify(data));
+            localStorage.setItem(cacheKey + '_time', now.toString());
+          }
+        }).catch(err => console.error("Background sync failed:", err));
+      }
+      return parsedCache;
+    }
+    
+    // 2. Cold start fallback (or if cache was empty/corrupted)
     const snapshot = await db.collection(collection).get();
     let data = [];
     snapshot.forEach(doc => { let d = doc.data(); d.id = doc.id; data.push(d); });
-    localStorage.setItem(cacheKey, JSON.stringify(data));
-    localStorage.setItem(cacheKey + '_time', now.toString());
+    
+    // ONLY save to cache if we successfully pulled data
+    if (data.length > 0) { 
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+      localStorage.setItem(cacheKey + '_time', now.toString());
+    }
+    
     return data;
   } catch (err) {
-    console.error("Firebase read fallback:", err);
+    console.error(`Firebase read failed for ${collection}:`, err);
     return [];
   }
 }
