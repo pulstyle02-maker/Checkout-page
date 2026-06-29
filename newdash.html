@@ -11,6 +11,7 @@
     <!-- FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 
     <script>
         tailwind.config = {
@@ -100,6 +101,19 @@
                     <p class="font-display text-3xl text-brand-slate" id="stat-orders">0</p>
                 </div>
             </div>
+
+            <!-- Combo Pricing Partition Indicators -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex flex-col justify-between">
+                    <p class="text-[9px] text-blue-600 font-extrabold uppercase tracking-widest mb-1">📦 Physical Revenue Allocation</p>
+                    <p class="font-display text-2xl text-blue-800" id="stat-physical-rev">Rs. 0</p>
+                </div>
+                <div class="bg-purple-50/50 p-4 rounded-xl border border-purple-100 flex flex-col justify-between">
+                    <p class="text-[9px] text-purple-600 font-extrabold uppercase tracking-widest mb-1">💻 Digital Revenue Allocation</p>
+                    <p class="font-display text-2xl text-purple-800" id="stat-digital-rev">Rs. 0</p>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full">
                     <h3 class="font-bold text-xs uppercase tracking-widest mb-4 text-gray-500">Sales Velocity</h3>
@@ -116,8 +130,28 @@
         <div id="tab-orders" class="tab-content space-y-6">
             <h2 class="font-display text-3xl md:text-4xl uppercase mb-6 text-brand-slate">Live Order Control</h2>
             <div class="flex flex-col md:flex-row gap-4 mb-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                <div class="flex-1"><label class="label-sm">Search Orders</label><input type="text" id="order-search" onkeyup="renderOrders()" placeholder="Search ID, Name, Phone..." class="input-field py-2 text-xs"></div>
-                <div class="w-full md:w-48"><label class="label-sm">Filter Status</label><select id="order-filter" onchange="renderOrders()" class="input-field py-2 text-xs"><option value="all">All</option><option value="pending">⏳ Pending</option><option value="done">✅ Done</option><option value="active">💻 Active (E-Book)</option></select></div>
+                <div class="flex-1">
+                    <label class="label-sm">Search Orders</label>
+                    <input type="text" id="order-search" onkeyup="renderOrders()" placeholder="Search ID, Name, Phone..." class="input-field py-2 text-xs">
+                </div>
+                <div class="w-full md:w-48">
+                    <label class="label-sm">Filter Status</label>
+                    <select id="order-filter" onchange="renderOrders()" class="input-field py-2 text-xs">
+                        <option value="all">All</option>
+                        <option value="pending">⏳ Pending</option>
+                        <option value="done">✅ Done</option>
+                        <option value="active">💻 Active (E-Book)</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-56">
+                    <label class="label-sm">Filter Product Type</label>
+                    <select id="order-type-filter" onchange="renderOrders()" class="input-field py-2 text-xs">
+                        <option value="all">All Items</option>
+                        <option value="physical_only">📦 Printed Copy Only</option>
+                        <option value="ebook_only">💻 E-Book Only</option>
+                        <option value="combo_only">🌀 Printed + E-Book Combo</option>
+                    </select>
+                </div>
             </div>
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto w-full table-wrapper">
                 <table class="w-full text-left font-sans min-w-[900px]">
@@ -125,7 +159,7 @@
                         <tr>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-24">Order ID</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-48">Customer Info</th>
-                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-48">Items & Financials</th>
+                            <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-48">Items & Partitioned Financials</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-40">Status & Ref</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest w-48">Admin Notes</th>
                             <th class="p-3 text-[10px] font-extrabold text-gray-500 uppercase tracking-widest text-right">Actions</th>
@@ -136,14 +170,14 @@
             </div>
         </div>
 
-        <!-- USERS & ACCESS MANAGEMENT TAB -->
+        <!-- USERS TAB -->
         <div id="tab-users" class="tab-content space-y-6">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h2 class="font-display text-3xl md:text-4xl uppercase text-brand-slate">Access Management</h2>
                 <button onclick="openSpecialUserModal()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Master Account</button>
             </div>
 
-            <!-- Panel 1: Master Accounts (Username & Password Bypass Accounts) -->
+            <!-- Panel 1: Master Accounts -->
             <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
                 <h3 class="font-bold text-xs uppercase tracking-widest text-gray-500">Universal Access (Master Credentials)</h3>
                 <div class="bg-white rounded-xl border border-gray-150 overflow-x-auto w-full table-wrapper">
@@ -241,7 +275,6 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 class="font-display text-3xl md:text-4xl uppercase text-brand-slate">Ambassadors</h2>
                 <div class="flex gap-2">
-                    <a href="https://www.modmedicalis.online/ambassadors" target="_blank" class="bg-gray-200 text-brand-slate px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-gray-300 transition shadow">Open Portal Link</a>
                     <button onclick="addAmbassador()" class="bg-brand-red text-white px-4 py-2 rounded font-bold text-[10px] uppercase tracking-widest hover:bg-brand-slate transition shadow">+ Add Code</button>
                 </div>
             </div>
@@ -285,89 +318,119 @@
             </div>
         </div>
 
-        <!-- MODALS -->
-
-        <!-- SPECIAL MASTER USER MODAL -->
-        <div id="special-user-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-md p-6 relative">
-                <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate">Add Master Account</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="label-sm">Username (e.g. kemu_master)</label>
-                        <input type="text" id="su-username" class="input-field" placeholder="e.g. ayesha12">
-                    </div>
-                    <div>
-                        <label class="label-sm">Display Name</label>
-                        <input type="text" id="su-name" class="input-field" placeholder="e.g. Dr. Ayesha">
-                    </div>
-                    <div>
-                        <label class="label-sm">Password</label>
-                        <input type="text" id="su-password" class="input-field" placeholder="e.g. password123">
-                    </div>
-                </div>
-                <div class="flex justify-end gap-3 mt-6">
-                    <button onclick="document.getElementById('special-user-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
-                    <button onclick="saveSpecialUser()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Save Account</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- PRODUCT MODAL -->
-        <div id="product-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative">
-                <h3 class="font-display text-3xl uppercase mb-4 text-brand-slate" id="modal-prod-title">Add/Edit Product</h3>
-                <input type="hidden" id="pm-docid">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="label-sm">System ID (e.g., ms1-block1)</label><input type="text" id="pm-id" class="input-field"></div>
-                    <div><label class="label-sm">Full Name</label><input type="text" id="pm-name" class="input-field"></div>
-                    <div><label class="label-sm">Short Name (Cover Text)</label><input type="text" id="pm-short" class="input-field"></div>
-                    <div><label class="label-sm">Subtitle</label><input type="text" id="pm-sub" class="input-field"></div>
-                    <div><label class="label-sm">Physical Price (Rs)</label><input type="number" id="pm-price" class="input-field"></div>
-                    <div><label class="label-sm">E-Book Price (Rs)</label><input type="number" id="pm-eprice" class="input-field"></div>
-                    <div><label class="label-sm">Production Cost (Physical)</label><input type="number" id="pm-cost" class="input-field"></div>
-                    <div><label class="label-sm">Status</label><select id="pm-soon" class="input-field"><option value="false">Active</option><option value="true">Coming Soon</option></select></div>
-                    <div class="md:col-span-2"><label class="label-sm">Images (Comma separated URLs. First is Cover)</label><textarea id="pm-images" class="input-field" rows="3"></textarea></div>
-                    <div class="md:col-span-2"><label class="label-sm">Free Preview Images (Comma separated URLs)</label><textarea id="pm-preview" class="input-field" rows="2"></textarea></div>
-                    <div class="md:col-span-2"><label class="label-sm">Description</label><textarea id="pm-desc" class="input-field" rows="3"></textarea></div>
-                </div>
-                <div class="flex justify-end gap-3 mt-6">
-                    <button onclick="document.getElementById('product-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
-                    <button onclick="saveProduct()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-red text-white rounded hover:bg-red-700">Save Product</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- TEAM MODAL -->
-        <div id="team-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-md p-6 relative">
-                <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate" id="modal-team-title">Add/Edit Team Member</h3>
-                <input type="hidden" id="tm-docid">
-                <div class="space-y-4">
-                    <div><label class="label-sm">Full Name</label><input type="text" id="tm-name" class="input-field"></div>
-                    <div><label class="label-sm">Role / Subtitle</label><input type="text" id="tm-role" class="input-field" placeholder="e.g. Founder, Illustrator"></div>
-                    <div><label class="label-sm">Profile Picture URL</label><input type="text" id="tm-img" class="input-field"></div>
-                    <div><label class="label-sm">Equity Percentage (%)</label><input type="number" id="tm-eq" class="input-field"></div>
-                </div>
-                <div class="flex justify-end gap-3 mt-6">
-                    <button onclick="document.getElementById('team-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
-                    <button onclick="saveTeamMember()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Save Member</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- USER ORDERS MODAL -->
-        <div id="user-orders-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 relative">
-                <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate">Order History</h3>
-                <p id="uo-user-name" class="text-sm font-bold text-gray-500 mb-4"></p>
-                <div id="uo-container" class="space-y-3"></div>
-                <div class="flex justify-end mt-6">
-                    <button onclick="document.getElementById('user-orders-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Close</button>
-                </div>
-            </div>
-        </div>
-
     </main>
+
+    <!-- PRODUCT MODAL -->
+    <div id="product-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative">
+            <h3 class="font-display text-3xl uppercase mb-4 text-brand-slate" id="modal-prod-title">Add/Edit Product</h3>
+            <input type="hidden" id="pm-docid">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="label-sm">System ID (e.g., ms1-block1)</label><input type="text" id="pm-id" class="input-field"></div>
+                <div><label class="label-sm">Full Name</label><input type="text" id="pm-name" class="input-field"></div>
+                <div><label class="label-sm">Short Name (Cover Text)</label><input type="text" id="pm-short" class="input-field"></div>
+                <div><label class="label-sm">Subtitle</label><input type="text" id="pm-sub" class="input-field"></div>
+                
+                <div>
+                    <label class="label-sm">Format Configuration</label>
+                    <select id="pm-format-option" class="input-field">
+                        <option value="both">Both E-Book & Physical & Combo</option>
+                        <option value="ebook_only">E-Book Only</option>
+                        <option value="physical_only">Printed Book Only</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="label-sm">Physical Copy Out Of Stock?</label>
+                    <select id="pm-physical-stock" class="input-field">
+                        <option value="false">In Stock (Normal)</option>
+                        <option value="true">Out Of Stock (Sold Out Label)</option>
+                    </select>
+                </div>
+
+                <div><label class="label-sm">Physical Price (Rs)</label><input type="number" id="pm-price" class="input-field"></div>
+                <div><label class="label-sm">E-Book Price (Rs)</label><input type="number" id="pm-eprice" class="input-field"></div>
+                
+                <!-- Combo Price Details -->
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-150 md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="label-sm text-brand-red">Combo Package Price (Rs)</label>
+                        <input type="number" id="pm-comboprice" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-sm">Combo Physical Portion (Rs)</label>
+                        <input type="number" id="pm-combo-physical-price" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-sm">Combo E-Book Portion (Rs)</label>
+                        <input type="number" id="pm-combo-ebook-price" class="input-field">
+                    </div>
+                </div>
+
+                <div><label class="label-sm">Production Cost (Physical Copy)</label><input type="number" id="pm-cost" class="input-field"></div>
+                <div>
+                    <label class="label-sm">Status</label>
+                    <select id="pm-soon" class="input-field">
+                        <option value="false">Active</option>
+                        <option value="true">Coming Soon</option>
+                    </select>
+                </div>
+
+                <div class="md:col-span-2"><label class="label-sm">Images (Comma separated URLs. First is Cover)</label><textarea id="pm-images" class="input-field" rows="2"></textarea></div>
+                <div class="md:col-span-2"><label class="label-sm">Free Preview Images (Comma separated URLs)</label><textarea id="pm-preview" class="input-field" rows="2"></textarea></div>
+                <div class="md:col-span-2"><label class="label-sm">Description</label><textarea id="pm-desc" class="input-field" rows="2"></textarea></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="document.getElementById('product-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
+                <button onclick="saveProduct()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-red text-white rounded hover:bg-red-700">Save Product</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPECIAL MASTER USER MODAL -->
+    <div id="special-user-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 relative">
+            <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate">Add Master Account</h3>
+            <div class="space-y-4">
+                <div><label class="label-sm">Username (e.g. kemu_master)</label><input type="text" id="su-username" class="input-field" placeholder="e.g. ayesha12"></div>
+                <div><label class="label-sm">Display Name</label><input type="text" id="su-name" class="input-field" placeholder="e.g. Dr. Ayesha"></div>
+                <div><label class="label-sm">Password</label><input type="text" id="su-password" class="input-field" placeholder="e.g. password123"></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="document.getElementById('special-user-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
+                <button onclick="saveSpecialUser()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Save Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEAM MODAL -->
+    <div id="team-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 relative">
+            <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate" id="modal-team-title">Add/Edit Team Member</h3>
+            <input type="hidden" id="tm-docid">
+            <div class="space-y-4">
+                <div><label class="label-sm">Full Name</label><input type="text" id="tm-name" class="input-field"></div>
+                <div><label class="label-sm">Role / Subtitle</label><input type="text" id="tm-role" class="input-field" placeholder="e.g. Founder, Illustrator"></div>
+                <div><label class="label-sm">Profile Picture URL</label><input type="text" id="tm-img" class="input-field"></div>
+                <div><label class="label-sm">Equity Percentage (%)</label><input type="number" id="tm-eq" class="input-field"></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="document.getElementById('team-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
+                <button onclick="saveTeamMember()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Save Member</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER ORDERS MODAL -->
+    <div id="user-orders-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 relative">
+            <h3 class="font-display text-2xl uppercase mb-4 text-brand-slate">Order History</h3>
+            <p id="uo-user-name" class="text-sm font-bold text-gray-500 mb-4"></p>
+            <div id="uo-container" class="space-y-3"></div>
+            <div class="flex justify-end mt-6">
+                <button onclick="document.getElementById('user-orders-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // FIREBASE SETUP
@@ -390,7 +453,7 @@
         };
         let chartInstance = null;
 
-        // TABS & UI
+        // UI TABS
         function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('menu-open'); document.getElementById('mobile-overlay').classList.toggle('hidden'); }
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -405,7 +468,7 @@
             document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
         }
 
-        // LISTENERS
+        // SYNC HANDLERS
         window.onload = () => {
             db.collection("products").onSnapshot(snap => { state.products = {}; snap.forEach(doc => state.products[doc.id] = {id: doc.id, ...doc.data()}); renderProducts(); renderInventory(); calculateDerivedState(); });
             db.collection("orders").orderBy("timestamp", "desc").onSnapshot(snap => { state.orders = []; snap.forEach(doc => state.orders.push({ docId: doc.id, ...doc.data() })); renderOrders(); calculateDerivedState(); });
@@ -414,14 +477,15 @@
             db.collection("ambassadors").onSnapshot(snap => { state.ambassadors = {}; snap.forEach(doc => state.ambassadors[doc.id] = doc.data()); renderAmbassadors(); calculateDerivedState(); });
             db.collection("config").doc("treasury").onSnapshot(doc => { if(doc.exists) { state.treasury = doc.data(); document.getElementById('bank-jazz').value = state.treasury.jazzcash||0; document.getElementById('bank-easy').value = state.treasury.easypaisa||0; document.getElementById('bank-cash').value = state.treasury.cash||0; }});
             db.collection("reviews").onSnapshot(snap => { state.reviews = []; snap.forEach(doc => state.reviews.push({ id: doc.id, ...doc.data() })); renderReviews(); });
-            
-            // Sync Master Accounts collection
             db.collection("special_users").onSnapshot(snap => { state.specialUsers = []; snap.forEach(doc => state.specialUsers.push({ id: doc.id, ...doc.data() })); renderSpecialUsers(); });
         };
 
-        // CALCULATIONS (Fixed for E-Book = 0 Production Cost)
+        // CALCULATIONS (Physical production cost strictly isolated to printing copies)
         function calculateDerivedState() {
             let rev = 0, cost = 0, validOrders = 0;
+            let physicalRevAllocation = 0;
+            let digitalRevAllocation = 0;
+            
             let salesMap = {}; const chartDates = [], chartRevs = [];
             let ambOwed = 0;
 
@@ -433,15 +497,31 @@
                     
                     if (o.itemsString) {
                         Object.values(state.products).forEach(prod => {
-                            if(o.itemsString.includes(prod.name) || o.itemsString.includes(prod.name + ' (E-Book)')) {
-                                const match = o.itemsString.match(new RegExp(`(\\d+)x ${prod.name}`));
-                                let qty = match ? parseInt(match[1]) : 1;
-                                
-                                // FIX: If the order is explicitly an EBook, it costs 0 to produce
-                                if(o.isEbook) { cost += 0; } 
-                                else { cost += ((prod.productionCost || 0) * qty); }
-                                
-                                salesMap[prod.id] = (salesMap[prod.id] || 0) + qty;
+                            const cleanNamePattern = prod.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const matchEbook = o.itemsString.match(new RegExp(`(\\d+)x ${cleanNamePattern} \\(E-Book\\)`));
+                            const matchPhysical = o.itemsString.match(new RegExp(`(\\d+)x ${cleanNamePattern} \\(Printed Book\\)`));
+                            const matchCombo = o.itemsString.match(new RegExp(`(\\d+)x ${cleanNamePattern} \\(Printed \\+ E-Book Bundle\\)`)) || o.itemsString.match(new RegExp(`(\\d+)x ${cleanNamePattern} \\(Printed \\+ E-Book Combo\\)`));
+                            
+                            let qtyEbook = matchEbook ? parseInt(matchEbook[1]) : 0;
+                            let qtyPhysical = matchPhysical ? parseInt(matchPhysical[1]) : 0;
+                            let qtyCombo = matchCombo ? parseInt(matchCombo[1]) : 0;
+
+                            // Dynamic Financial split based on combo allocations
+                            const currentPhysPrice = prod.price || 0;
+                            const currentEbookPrice = prod.eBookPrice || 550;
+                            const comboPhysPrice = prod.comboPhysicalPrice !== undefined ? prod.comboPhysicalPrice : currentPhysPrice;
+                            const comboEbkPrice = prod.comboEbookPrice !== undefined ? prod.comboEbookPrice : (prod.comboPrice ? prod.comboPrice - comboPhysPrice : currentEbookPrice);
+
+                            physicalRevAllocation += (qtyPhysical * currentPhysPrice) + (qtyCombo * comboPhysPrice);
+                            digitalRevAllocation += (qtyEbook * currentEbookPrice) + (qtyCombo * comboEbkPrice);
+
+                            // Calculate physical production costs strictly on tangible shipments
+                            let physicalDispatches = qtyPhysical + qtyCombo;
+                            cost += ((prod.productionCost || 0) * physicalDispatches);
+
+                            let totalDispatched = qtyEbook + qtyPhysical + qtyCombo;
+                            if (totalDispatched > 0) {
+                                salesMap[prod.id] = (salesMap[prod.id] || 0) + totalDispatched;
                             }
                         });
                     }
@@ -460,6 +540,10 @@
             document.getElementById('stat-final-profit').innerText = `Rs. ${state.calc.finalRetainedProfit.toLocaleString()}`;
             document.getElementById('stat-orders').innerText = validOrders;
 
+            // Update individual allocation visuals
+            document.getElementById('stat-physical-rev').innerText = `Rs. ${physicalRevAllocation.toLocaleString()}`;
+            document.getElementById('stat-digital-rev').innerText = `Rs. ${digitalRevAllocation.toLocaleString()}`;
+
             let trendingHTML = '';
             Object.keys(salesMap).sort((a,b) => salesMap[b] - salesMap[a]).forEach((pid, idx) => {
                 if(state.products[pid]) trendingHTML += `<div class="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-100"><span class="text-[10px] font-bold text-brand-slate uppercase">${idx+1}. ${state.products[pid].shortName}</span><span class="text-[10px] font-extrabold text-brand-red bg-red-100 px-2 py-0.5 rounded">${salesMap[pid]} Sold</span></div>`;
@@ -477,12 +561,24 @@
             Object.values(state.products).forEach(p => {
                 revSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
                 const img = (p.images && p.images.length > 0) ? p.images[0] : (p.image || 'https://i.imgur.com/zFDh5b3.jpeg');
+                
+                let formatText = "Printed + Digital";
+                if(p.formatOption === 'ebook_only') formatText = "E-Book Only 💻";
+                if(p.formatOption === 'physical_only') formatText = "Printed Only 📦";
+
                 pCont.innerHTML += `
                     <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
                         <button onclick="deleteProduct('${p.id}')" class="absolute top-2 right-2 text-red-500 font-bold text-[10px] uppercase hover:underline">Delete</button>
                         <div class="flex gap-4 items-center mb-4">
                             <img src="${img}" class="w-16 h-16 rounded-md object-cover border border-gray-100 shadow-sm">
-                            <div><h4 class="font-display text-xl text-brand-slate leading-tight">${p.name}</h4><p class="text-[10px] font-bold text-brand-red uppercase">Phys: Rs.${p.price} | Ebook: Rs.${p.eBookPrice||550}</p></div>
+                            <div class="flex-1">
+                                <h4 class="font-display text-xl text-brand-slate leading-tight">${p.name}</h4>
+                                <div class="mt-1 flex flex-wrap gap-2 items-center">
+                                    <span class="text-[9px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">${formatText}</span>
+                                    ${p.physicalOutOfStock ? '<span class="text-[9px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded">Phys: Sold Out</span>' : ''}
+                                </div>
+                                <p class="text-[10px] font-bold text-brand-red uppercase mt-2">Phys: Rs.${p.price || 0} | Ebook: Rs.${p.eBookPrice || 550} | Combo: Rs.${p.comboPrice || 1100}</p>
+                            </div>
                         </div>
                         <button onclick="editProduct('${p.id}')" class="w-full bg-brand-slate text-white py-2 rounded font-bold text-[10px] uppercase hover:bg-brand-red transition">Edit Configuration</button>
                     </div>`;
@@ -498,10 +594,15 @@
             document.getElementById('pm-sub').value = '';
             document.getElementById('pm-price').value = 0;
             document.getElementById('pm-eprice').value = 550;
+            document.getElementById('pm-comboprice').value = 1100;
+            document.getElementById('pm-combo-physical-price').value = 1000;
+            document.getElementById('pm-combo-ebook-price').value = 100;
             document.getElementById('pm-cost').value = 0;
             document.getElementById('pm-images').value = '';
             document.getElementById('pm-preview').value = '';
             document.getElementById('pm-desc').value = '';
+            document.getElementById('pm-format-option').value = 'both';
+            document.getElementById('pm-physical-stock').value = 'false';
             document.getElementById('product-modal').classList.remove('hidden');
         }
 
@@ -515,11 +616,16 @@
             document.getElementById('pm-sub').value = p.subtitle || '';
             document.getElementById('pm-price').value = p.price || 0;
             document.getElementById('pm-eprice').value = p.eBookPrice || 550;
+            document.getElementById('pm-comboprice').value = p.comboPrice || 1100;
+            document.getElementById('pm-combo-physical-price').value = p.comboPhysicalPrice !== undefined ? p.comboPhysicalPrice : 1000;
+            document.getElementById('pm-combo-ebook-price').value = p.comboEbookPrice !== undefined ? p.comboEbookPrice : 100;
             document.getElementById('pm-cost').value = p.productionCost || 0;
             document.getElementById('pm-images').value = p.images ? p.images.join(',\n') : (p.image || '');
             document.getElementById('pm-preview').value = p.previewImages ? p.previewImages.join(',\n') : '';
             document.getElementById('pm-desc').value = p.description || '';
             document.getElementById('pm-soon').value = p.comingSoon ? "true" : "false";
+            document.getElementById('pm-format-option').value = p.formatOption || 'both';
+            document.getElementById('pm-physical-stock').value = p.physicalOutOfStock ? "true" : "false";
             document.getElementById('product-modal').classList.remove('hidden');
         }
 
@@ -537,16 +643,21 @@
                 subtitle: document.getElementById('pm-sub').value,
                 price: Number(document.getElementById('pm-price').value),
                 eBookPrice: Number(document.getElementById('pm-eprice').value),
+                comboPrice: Number(document.getElementById('pm-comboprice').value),
+                comboPhysicalPrice: Number(document.getElementById('pm-combo-physical-price').value),
+                comboEbookPrice: Number(document.getElementById('pm-combo-ebook-price').value),
                 productionCost: Number(document.getElementById('pm-cost').value),
                 description: document.getElementById('pm-desc').value,
                 comingSoon: document.getElementById('pm-soon').value === 'true',
+                formatOption: document.getElementById('pm-format-option').value,
+                physicalOutOfStock: document.getElementById('pm-physical-stock').value === 'true',
                 images: imagesArr,
                 previewImages: previewArr,
-                image: imagesArr.length > 0 ? imagesArr[0] : '' // fallback
+                image: imagesArr.length > 0 ? imagesArr[0] : ''
             };
 
             db.collection('products').doc(id).set(data, {merge: true}).then(() => {
-                showToast("Product Saved!");
+                showToast("Product Configuration Synced!");
                 document.getElementById('product-modal').classList.add('hidden');
             });
         }
@@ -643,7 +754,112 @@
             document.getElementById('user-orders-modal').classList.remove('hidden');
         }
 
-        // TEAM & FINANCES
+        // LIVE ORDERS TAB (Separates Mixed Printed and Digital configurations)
+        function renderOrders() {
+            const oTbody = document.getElementById('orders-table-body'); 
+            oTbody.innerHTML = '';
+            const searchTerm = document.getElementById('order-search').value.toLowerCase();
+            const statusFilter = document.getElementById('order-filter').value;
+            const typeFilter = document.getElementById('order-type-filter').value;
+
+            state.orders.forEach(o => {
+                const matchesSearch = (o.orderId||'').toLowerCase().includes(searchTerm) || 
+                                      (o.name||'').toLowerCase().includes(searchTerm) ||
+                                      (o.phone||'').toLowerCase().includes(searchTerm);
+                
+                const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+                
+                const itemsStringLower = (o.itemsString || '').toLowerCase();
+                const hasPhysical = itemsStringLower.includes('(printed book)') || itemsStringLower.includes('bundle') || itemsStringLower.includes('combo') || (!itemsStringLower.includes('(e-book)') && itemsStringLower.length > 0);
+                const hasEbook = itemsStringLower.includes('(e-book)') || itemsStringLower.includes('bundle') || itemsStringLower.includes('combo');
+                
+                let matchesType = true;
+                if (typeFilter === 'physical_only') {
+                    matchesType = hasPhysical && !itemsStringLower.includes('(e-book)') && !itemsStringLower.includes('bundle') && !itemsStringLower.includes('combo');
+                } else if (typeFilter === 'ebook_only') {
+                    matchesType = hasEbook && !itemsStringLower.includes('(printed book)') && !itemsStringLower.includes('bundle') && !itemsStringLower.includes('combo');
+                } else if (typeFilter === 'combo_only') {
+                    matchesType = itemsStringLower.includes('bundle') || itemsStringLower.includes('combo') || (hasPhysical && hasEbook);
+                }
+
+                if (matchesSearch && matchesStatus && matchesType) {
+                    const date = o.timestamp?.toDate ? o.timestamp.toDate().toLocaleString('en-GB') : 'Verified';
+                    
+                    const lines = o.itemsString ? o.itemsString.split('\n') : [];
+                    let printedItems = [];
+                    let ebookItems = [];
+
+                    lines.forEach(line => {
+                        if (line.includes('(E-Book)')) {
+                            ebookItems.push(line);
+                        } else if (line.includes('(Printed + E-Book Bundle)') || line.includes('(Printed + E-Book Combo)')) {
+                            ebookItems.push(line.replace('(Printed + E-Book Bundle)', '💻 Digital Portal Part').replace('(Printed + E-Book Combo)', '💻 Digital Portal Part'));
+                            printedItems.push(line.replace('(Printed + E-Book Bundle)', '📦 Courier Shipment Part').replace('(Printed + E-Book Combo)', '📦 Courier Shipment Part'));
+                        } else {
+                            printedItems.push(line);
+                        }
+                    });
+
+                    let splitItemsHtml = '';
+                    if (printedItems.length > 0) {
+                        splitItemsHtml += `
+                            <div class="mb-2">
+                                <span class="text-[8px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded tracking-wide uppercase">📦 Physical Package</span>
+                                <p class="text-[10px] font-bold text-gray-700 pl-1 mt-0.5">${printedItems.join('<br>')}</p>
+                            </div>
+                        `;
+                    }
+                    if (ebookItems.length > 0) {
+                        splitItemsHtml += `
+                            <div>
+                                <span class="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded tracking-wide uppercase">💻 Digital E-Portal</span>
+                                <p class="text-[10px] font-bold text-gray-700 pl-1 mt-0.5">${ebookItems.join('<br>')}</p>
+                            </div>
+                        `;
+                    }
+
+                    oTbody.innerHTML += `
+                        <tr class="hover:bg-gray-50 border-b border-gray-150">
+                            <td class="p-3">
+                                <p class="font-mono text-xs font-bold">${o.orderId || 'N/A'}</p>
+                                <p class="text-[9px] text-gray-400 font-semibold">${date}</p>
+                            </td>
+                            <td class="p-3">
+                                <p class="text-xs font-bold text-slate-800">${o.name}</p>
+                                <p class="text-[10px] font-extrabold text-brand-slate">${o.phone}</p>
+                                <p class="text-[9px] uppercase text-gray-500 font-semibold">${o.city} / ${o.address}</p>
+                            </td>
+                            <td class="p-3">
+                                ${splitItemsHtml}
+                                <p class="text-xs font-black text-brand-red mt-2">Rs. ${o.total}</p>
+                            </td>
+                            <td class="p-3">
+                                <select onchange="updateOrderStatus('${o.docId}', this.value)" class="input-field py-1 text-[10px] bg-white border border-gray-200">
+                                    <option value="pending" ${o.status==='pending'?'selected':''}>⏳ Pending</option>
+                                    <option value="done" ${o.status==='done'?'selected':''}>✅ Done (Physical Complete)</option>
+                                    <option value="active" ${o.status==='active'?'selected':''}>💻 Active (Portal Access Only)</option>
+                                    <option value="disputed" ${o.status==='disputed'?'selected':''}>❌ Disputed</option>
+                                </select>
+                                <p class="text-[9px] uppercase font-bold mt-1">Ref: <span class="text-brand-red">${o.referralCode || 'None'}</span></p>
+                            </td>
+                            <td class="p-3">
+                                <input type="text" id="note-${o.docId}" value="${o.adminNote||''}" class="input-field py-1 text-[10px]">
+                                <button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold bg-gray-200 px-2 py-0.5 rounded mt-1 hover:bg-gray-300">Save Note</button>
+                            </td>
+                            <td class="p-3 text-right">
+                                <button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[10px] font-bold uppercase hover:underline">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+        }
+        
+        function updateOrderStatus(id, s) { db.collection('orders').doc(id).update({status: s}); }
+        function saveOrderNote(id) { db.collection('orders').doc(id).update({adminNote: document.getElementById(`note-${id}`).value}); }
+        function deleteOrder(id) { if(confirm("Delete order permanently?")) db.collection('orders').doc(id).delete(); }
+
+        // TEAM & FINANCES (TREASURY)
         function renderTeam() {
             const tCont = document.getElementById('team-container');
             tCont.innerHTML = ''; let totalEquity = 0; const safePool = state.calc.finalRetainedProfit > 0 ? state.calc.finalRetainedProfit : 0;
@@ -666,13 +882,16 @@
                         <button onclick="logWithdrawal('${t.id}', '${t.name}', ${available}, ${withdrawn})" class="mt-1 w-full text-center text-[10px] font-bold text-white bg-brand-slate rounded py-1.5 uppercase hover:bg-brand-red transition shadow-sm">Log Payout</button>
                     </div>`;
             });
-            if(totalEquity !== 100 && state.team.length > 0) tCont.innerHTML = `<div class="bg-red-100 text-red-600 p-2 rounded text-[10px] font-bold mb-2 uppercase col-span-full">⚠️ Total Equity is ${totalEquity}%. Should be exactly 100%.</div>` + tCont.innerHTML;
+            if(totalEquity !== 100 && state.team.length > 0) tCont.innerHTML = `<div class="bg-red-100 text-red-600 p-2 rounded text-[10px] font-bold mb-2 uppercase col-span-full">Total Equity is ${totalEquity}%. Adjust team allocations to sum to 100%.</div>` + tCont.innerHTML;
         }
 
         function openTeamModal() {
+            document.getElementById('tm-docid').value = '';
+            document.getElementById('tm-name').value = '';
+            document.getElementById('tm-role').value = '';
+            document.getElementById('tm-img').value = '';
+            document.getElementById('tm-eq').value = '';
             document.getElementById('modal-team-title').innerText = "Add Team Member";
-            document.getElementById('tm-docid').value = 'team-' + Date.now();
-            document.getElementById('tm-name').value = ''; document.getElementById('tm-role').value = ''; document.getElementById('tm-img').value = ''; document.getElementById('tm-eq').value = 0;
             document.getElementById('team-modal').classList.remove('hidden');
         }
 
@@ -680,63 +899,36 @@
             const t = state.team.find(x => x.id === id);
             document.getElementById('modal-team-title').innerText = "Edit Team Member";
             document.getElementById('tm-docid').value = id;
-            document.getElementById('tm-name').value = t.name || ''; document.getElementById('tm-role').value = t.role || ''; document.getElementById('tm-img').value = t.imageUrl || ''; document.getElementById('tm-eq').value = t.equity || 0;
+            document.getElementById('tm-name').value = t.name || '';
+            document.getElementById('tm-role').value = t.role || '';
+            document.getElementById('tm-img').value = t.imageUrl || '';
+            document.getElementById('tm-eq').value = t.equity || 0;
             document.getElementById('team-modal').classList.remove('hidden');
         }
 
         function saveTeamMember() {
-            const id = document.getElementById('tm-docid').value;
-            db.collection('team').doc(id).set({
-                id: id, name: document.getElementById('tm-name').value, role: document.getElementById('tm-role').value,
-                imageUrl: document.getElementById('tm-img').value, equity: Number(document.getElementById('tm-eq').value)
-            }, {merge: true}).then(() => { showToast("Saved"); document.getElementById('team-modal').classList.add('hidden'); });
-        }
-
-        function deleteTeamMember(id) { if(confirm("Remove member?")) db.collection('team').doc(id).delete(); }
-
-        // ORDERS, REVIEWS, AMBASSADORS (Brief Logic)
-        function renderOrders() {
-            const oTbody = document.getElementById('orders-table-body'); oTbody.innerHTML = '';
-            const searchTerm = document.getElementById('order-search').value.toLowerCase();
-            const statusFilter = document.getElementById('order-filter').value;
-            state.orders.filter(o => (o.orderId||'').toLowerCase().includes(searchTerm) || (o.name||'').toLowerCase().includes(searchTerm))
-                        .filter(o => statusFilter === 'all' || o.status === statusFilter)
-                        .forEach(o => {
-                            const date = o.timestamp?.toDate ? o.timestamp.toDate().toLocaleString('en-GB') : '';
-                            oTbody.innerHTML += `<tr class="hover:bg-gray-50"><td class="p-3"><p class="font-mono text-xs font-bold">${o.orderId}</p><p class="text-[9px]">${date}</p></td><td class="p-3"><p class="text-xs font-bold">${o.name}</p><p class="text-[10px] font-extrabold text-brand-slate">${o.phone}</p><p class="text-[9px] uppercase">${o.city}</p></td><td class="p-3"><p class="text-[10px] font-bold text-gray-600 mb-1 leading-tight">${o.itemsString}</p><p class="text-xs font-bold text-green-600">Rs. ${o.total}</p></td><td class="p-3"><select onchange="updateOrderStatus('${o.docId}', this.value)" class="input-field py-1 text-[10px]"><option value="pending" ${o.status==='pending'?'selected':''}>⏳ Pending</option><option value="done" ${o.status==='done'?'selected':''}>✅ Done</option><option value="active" ${o.status==='active'?'selected':''}>💻 Active</option><option value="disputed">❌ Disputed</option></select><p class="text-[9px] uppercase font-bold mt-1">Ref: <span class="text-brand-red">${o.referralCode || 'None'}</span></p></td><td class="p-3"><input type="text" id="note-${o.docId}" value="${o.adminNote||''}" class="input-field py-1 text-[10px]"><button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold bg-gray-200 px-2 rounded mt-1">Save</button></td><td class="p-3 text-right"><button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[9px] font-bold uppercase hover:underline">Delete</button></td></tr>`;
-                        });
-        }
-        
-        function updateOrderStatus(id, s) { db.collection('orders').doc(id).update({status: s}); }
-        function saveOrderNote(id) { db.collection('orders').doc(id).update({adminNote: document.getElementById(`note-${id}`).value}); }
-        function deleteOrder(id) { if(confirm("Delete?")) db.collection('orders').doc(id).delete(); }
-
-        function renderReviews() {
-            const rCont = document.getElementById('reviews-container'); rCont.innerHTML = '';
-            state.reviews.forEach(r => {
-                const prodName = r.productId === 'general' ? 'General Website' : (state.products[r.productId]?.name || 'Unknown Product');
-                rCont.innerHTML += `
-                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
-                    <button onclick="deleteReview('${r.id}')" class="absolute top-2 right-2 text-red-400 hover:text-red-600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
-                    <div class="flex items-center gap-2 mb-2"><div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-[10px] font-display italic text-brand-red">${r.initials}</div><div><p class="text-xs font-bold">${r.name}</p><p class="text-[9px] text-gray-400">${r.year} • ${r.college}</p></div></div>
-                    <p class="text-[10px] text-gray-600 italic mb-2">"${r.text}"</p>
-                    <div class="inline-block bg-brand-red/10 text-brand-red px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest">${prodName}</div>
-                </div>`;
+            const docId = document.getElementById('tm-docid').value || 'team-' + Date.now();
+            const data = {
+                name: document.getElementById('tm-name').value,
+                role: document.getElementById('tm-role').value,
+                imageUrl: document.getElementById('tm-img').value,
+                equity: Number(document.getElementById('tm-eq').value)
+            };
+            db.collection('team').doc(docId).set(data, { merge: true }).then(() => {
+                showToast("Team synced!");
+                document.getElementById('team-modal').classList.add('hidden');
             });
         }
-        function submitReview() { db.collection('reviews').add({ name: document.getElementById('rev-name').value, initials: document.getElementById('rev-init').value, year: document.getElementById('rev-year').value, college: document.getElementById('rev-coll').value, text: document.getElementById('rev-text').value, productId: document.getElementById('rev-prod').value, rating: 5, timestamp: firebase.firestore.FieldValue.serverTimestamp()}).then(()=>{ showToast("Saved"); document.getElementById('review-modal').classList.add('hidden');});}
-        function deleteReview(id) { if(confirm("Delete review?")) db.collection('reviews').doc(id).delete(); }
 
-        function renderInventory() {
-            const iTbody = document.getElementById('inventory-table-body'); iTbody.innerHTML = '';
-            Object.values(state.products).forEach(p => {
-                const soldQty = state.calc.salesDataForInventory[p.id] || 0; const printedQty = p.printedQty || 0; const totalOwed = printedQty * p.productionCost; const paid = p.paidToPublisher || 0; const balance = totalOwed - paid;
-                iTbody.innerHTML += `<tr class="border-b border-gray-100"><td class="p-4"><p class="text-xs font-bold uppercase">${p.shortName}</p><p class="text-[9px] text-gray-500">Cost: Rs.${p.productionCost}</p></td><td class="p-4"><p class="text-[10px] font-bold text-green-600">${soldQty} Sold</p><input type="number" id="inv-print-${p.id}" value="${printedQty}" class="w-16 input-field py-1 text-[10px] mt-1"> Printed</td><td class="p-4 text-xs font-bold text-gray-600">Rs. ${totalOwed}</td><td class="p-4"><input type="number" id="inv-paid-${p.id}" value="${paid}" class="w-24 input-field py-1 text-[10px]"></td><td class="p-4 text-xs font-extrabold ${balance > 0 ? 'text-brand-red' : 'text-green-500'}">Rs. ${balance}</td><td class="p-4 text-right"><button onclick="updateInventory('${p.id}')" class="bg-brand-slate text-white px-3 py-1.5 rounded text-[9px] font-bold uppercase">Save</button></td></tr>`;
-            });
+        function deleteTeamMember(id) { if(confirm("Remove this team member?")) db.collection('team').doc(id).delete(); }
+
+        function saveTreasury() { 
+            db.collection('config').doc('treasury').set({ 
+                jazzcash: Number(document.getElementById('bank-jazz').value), 
+                easypaisa: Number(document.getElementById('bank-easy').value), 
+                cash: Number(document.getElementById('bank-cash').value) 
+            }).then(() => showToast("Treasury Saved")); 
         }
-        function updateInventory(id) { db.collection('products').doc(id).update({ printedQty: Number(document.getElementById(`inv-print-${id}`).value), paidToPublisher: Number(document.getElementById(`inv-paid-${id}`).value) }); }
-        
-        function saveTreasury() { db.collection('config').doc('treasury').set({ jazzcash: Number(document.getElementById('bank-jazz').value), easypaisa: Number(document.getElementById('bank-easy').value), cash: Number(document.getElementById('bank-cash').value) }).then(() => showToast("Treasury Saved")); }
 
         function logWithdrawal(id, name, available, currentWithdrawn) {
             if(available <= 0) return alert("No funds available.");
@@ -746,6 +938,34 @@
             db.collection('team').doc(id).update({ withdrawn: currentWithdrawn + amount, payoutHistory: firebase.firestore.FieldValue.arrayUnion({ amount: amount, date: dateStr }) }).then(() => showToast(`Payout logged`));
         }
 
+        // REVIEWS TAB
+        function renderReviews() {
+            const rCont = document.getElementById('reviews-container'); rCont.innerHTML = '';
+            state.reviews.forEach(r => {
+                const prodName = r.productId === 'general' ? 'General Website' : (state.products[r.productId]?.name || 'Unknown Product');
+                rCont.innerHTML += `
+                <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
+                    <button onclick="deleteReview('${r.id}')" class="absolute top-2 right-2 text-red-400 hover:text-red-600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+                    <div class="flex items-center gap-2 mb-2"><div class="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-[10px] font-display italic text-brand-red">${r.initials || 'S'}</div><div><p class="text-xs font-bold">${r.name}</p><p class="text-[9px] text-gray-400">${r.year || ''} • ${r.college || 'KEMU'}</p></div></div>
+                    <p class="text-[10px] text-gray-600 italic mb-2">"${r.text}"</p>
+                    <div class="inline-block bg-brand-red/10 text-brand-red px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest">${prodName}</div>
+                </div>`;
+            });
+        }
+        function submitReview() { db.collection('reviews').add({ name: document.getElementById('rev-name').value, initials: document.getElementById('rev-init').value, year: document.getElementById('rev-year').value, college: document.getElementById('rev-coll').value, text: document.getElementById('rev-text').value, productId: document.getElementById('rev-prod').value, rating: 5, timestamp: firebase.firestore.FieldValue.serverTimestamp()}).then(()=>{ showToast("Saved"); document.getElementById('review-modal').classList.add('hidden');});}
+        function deleteReview(id) { if(confirm("Delete review?")) db.collection('reviews').doc(id).delete(); }
+
+        // INVENTORY TAB
+        function renderInventory() {
+            const iTbody = document.getElementById('inventory-table-body'); iTbody.innerHTML = '';
+            Object.values(state.products).forEach(p => {
+                const soldQty = state.calc.salesDataForInventory[p.id] || 0; const printedQty = p.printedQty || 0; const totalOwed = printedQty * p.productionCost; const paid = p.paidToPublisher || 0; const balance = totalOwed - paid;
+                iTbody.innerHTML += `<tr class="border-b border-gray-150"><td class="p-4"><p class="text-xs font-bold uppercase">${p.shortName}</p><p class="text-[9px] text-gray-500 font-semibold">Cost: Rs.${p.productionCost}</p></td><td class="p-4"><p class="text-[10px] font-bold text-green-600">${soldQty} Sold</p><input type="number" id="inv-print-${p.id}" value="${printedQty}" class="w-16 input-field py-1 text-[10px] mt-1"> Printed</td><td class="p-4 text-xs font-bold text-gray-600">Rs. ${totalOwed.toLocaleString()}</td><td class="p-4"><input type="number" id="inv-paid-${p.id}" value="${paid}" class="w-24 input-field py-1 text-[10px]"></td><td class="p-4 text-xs font-extrabold ${balance > 0 ? 'text-brand-red' : 'text-green-500'}">Rs. ${balance.toLocaleString()}</td><td class="p-4 text-right"><button onclick="updateInventory('${p.id}')" class="bg-brand-slate text-white px-3 py-1.5 rounded text-[9px] font-bold uppercase">Save</button></td></tr>`;
+            });
+        }
+        function updateInventory(id) { db.collection('products').doc(id).update({ printedQty: Number(document.getElementById(`inv-print-${id}`).value), paidToPublisher: Number(document.getElementById(`inv-paid-${id}`).value) }); }
+
+        // AMBASSADORS TAB
         function renderAmbassadors() {
             if (document.activeElement.tagName === 'INPUT') return;
             const aTbody = document.getElementById('ambassadors-table-body'); aTbody.innerHTML = '';
@@ -755,7 +975,7 @@
                 const isCapped = a.salesLimit > 0 && actualUses >= a.salesLimit;
 
                 aTbody.innerHTML += `
-                    <tr>
+                    <tr class="border-b border-gray-150">
                         <td class="p-3 font-bold text-brand-slate text-xs">${a.code} ${isCapped ? '<span class="text-[8px] bg-red-100 text-red-600 px-1 py-0.5 rounded-full block mt-1 w-max">CAPPED</span>' : ''}</td>
                         <td class="p-3"><input type="text" id="a-pass-${a.code}" value="${a.password || ''}" class="w-24 input-field py-1 px-1 text-center text-xs inline font-mono border-dashed"></td>
                         <td class="p-3"><input type="number" id="a-disc-${a.code}" value="${a.discount}" class="w-16 input-field py-1 px-1 text-center text-xs inline"> %</td>
@@ -770,7 +990,7 @@
             const c = prompt("Enter Ambassador Code (e.g. KEMU10):")?.trim().toUpperCase(); 
             if(!c) return;
             const password = Math.random().toString(36).slice(-6).toUpperCase(); 
-            db.collection('ambassadors').doc(c).set({ code: c, password: password, discount: 10, commissionRate: 500, salesLimit: 0, uses: 0 }).then(() => showToast(`Ambassador Added`)); 
+            db.collection('ambassadors').doc(c).set({ code: c, password: password, discount: 10, commissionRate: 500, salesLimit: 0, uses: 0 }).then(() => showToast(`Ambassador Added!`)); 
         }
         function updateAmbassador(c) { 
             db.collection('ambassadors').doc(c).update({ 
@@ -780,7 +1000,7 @@
                 salesLimit: Number(document.getElementById(`a-limit-${c}`).value) 
             }).then(() => showToast("Ambassador Updated")); 
         }
-        function deleteAmbassador(c) { if(confirm("Delete code?")) db.collection('ambassadors').doc(c).delete(); }
+        function deleteAmbassador(c) { if(confirm("Delete this code permanently?")) db.collection('ambassadors').doc(c).delete(); }
 
         function updateChart(labels, data) {
             if (chartInstance) chartInstance.destroy();
