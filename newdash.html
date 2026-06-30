@@ -765,7 +765,8 @@
             state.orders.forEach(o => {
                 const matchesSearch = (o.orderId||'').toLowerCase().includes(searchTerm) || 
                                       (o.name||'').toLowerCase().includes(searchTerm) ||
-                                      (o.phone||'').toLowerCase().includes(searchTerm);
+                                      (o.phone||'').toLowerCase().includes(searchTerm) ||
+                                      (o.transactionId||o.trxId||'').toLowerCase().includes(searchTerm);
                 
                 const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
                 
@@ -788,6 +789,7 @@
                     const lines = o.itemsString ? o.itemsString.split('\n') : [];
                     let printedItems = [];
                     let ebookItems = [];
+                    let rawPrintedForWA = [];
 
                     lines.forEach(line => {
                         if (line.includes('(E-Book)')) {
@@ -795,8 +797,10 @@
                         } else if (line.includes('(Printed + E-Book Bundle)') || line.includes('(Printed + E-Book Combo)')) {
                             ebookItems.push(line.replace('(Printed + E-Book Bundle)', '💻 Digital Portal Part').replace('(Printed + E-Book Combo)', '💻 Digital Portal Part'));
                             printedItems.push(line.replace('(Printed + E-Book Bundle)', '📦 Courier Shipment Part').replace('(Printed + E-Book Combo)', '📦 Courier Shipment Part'));
+                            rawPrintedForWA.push(line);
                         } else {
                             printedItems.push(line);
+                            rawPrintedForWA.push(line);
                         }
                     });
 
@@ -818,10 +822,25 @@
                         `;
                     }
 
+                    let waButtonHtml = '';
+                    let publisherToggleHtml = '';
+                    
+                    if (rawPrintedForWA.length > 0) {
+                        let cleanPrinted = rawPrintedForWA.map(item => item.replace(/\(Printed Book\)/gi, '').replace(/\(Printed \+ E-Book Bundle\)/gi, '').replace(/\(Printed \+ E-Book Combo\)/gi, '').trim()).join(', ');
+                        let waMessage = `*Order:* ${o.orderId || 'N/A'}\n*Items:* ${cleanPrinted}\n*Name:* ${o.name}\n*Contact:* ${o.phone}\n*Address:* ${o.address}, ${o.city}`;
+                        let waUrl = `https://wa.me/923096554421?text=${encodeURIComponent(waMessage)}`;
+                        
+                        waButtonHtml = `<a href="${waUrl}" target="_blank" class="block w-full text-center bg-[#25D366] text-white px-2 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-green-600 mb-1.5 transition shadow-sm">📱 WA Publisher</a>`;
+                        
+                        let isFwd = o.publisherForwarded === true;
+                        publisherToggleHtml = `<button onclick="togglePublisherStatus('${o.docId}', ${isFwd})" class="block w-full text-center px-2 py-1.5 rounded text-[9px] font-bold uppercase mb-2 transition shadow-sm ${isFwd ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'}">${isFwd ? '✅ Fwd to Pub' : '❌ Not Fwd'}</button>`;
+                    }
+
                     oTbody.innerHTML += `
                         <tr class="hover:bg-gray-50 border-b border-gray-150">
                             <td class="p-3">
                                 <p class="font-mono text-xs font-bold">${o.orderId || 'N/A'}</p>
+                                <p class="text-[9px] text-gray-500 font-extrabold uppercase mt-1 mb-0.5">Trx: <span class="text-brand-slate">${o.transactionId || o.trxId || o.paymentRef || 'N/A'}</span></p>
                                 <p class="text-[9px] text-gray-400 font-semibold">${date}</p>
                             </td>
                             <td class="p-3">
@@ -846,8 +865,12 @@
                                 <input type="text" id="note-${o.docId}" value="${o.adminNote||''}" class="input-field py-1 text-[10px]">
                                 <button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold bg-gray-200 px-2 py-0.5 rounded mt-1 hover:bg-gray-300">Save Note</button>
                             </td>
-                            <td class="p-3 text-right">
-                                <button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[10px] font-bold uppercase hover:underline">Delete</button>
+                            <td class="p-3">
+                                <div class="flex flex-col items-end w-full min-w-[90px]">
+                                    ${waButtonHtml}
+                                    ${publisherToggleHtml}
+                                    <button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[10px] font-bold uppercase hover:underline">Delete</button>
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -858,6 +881,7 @@
         function updateOrderStatus(id, s) { db.collection('orders').doc(id).update({status: s}); }
         function saveOrderNote(id) { db.collection('orders').doc(id).update({adminNote: document.getElementById(`note-${id}`).value}); }
         function deleteOrder(id) { if(confirm("Delete order permanently?")) db.collection('orders').doc(id).delete(); }
+        function togglePublisherStatus(id, currentStatus) { db.collection('orders').doc(id).update({ publisherForwarded: !currentStatus }); }
 
         // TEAM & FINANCES (TREASURY)
         function renderTeam() {
