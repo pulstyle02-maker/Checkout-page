@@ -138,9 +138,9 @@
                     <label class="label-sm">Filter Status</label>
                     <select id="order-filter" onchange="renderOrders()" class="input-field py-2 text-xs">
                         <option value="all">All</option>
-                        <option value="pending">⏳ Pending</option>
-                        <option value="done">✅ Done</option>
-                        <option value="active">💻 Active (E-Book)</option>
+                        <option value="pending">⏳ Pending (processing)</option>
+                        <option value="done">✅ Done (done)</option>
+                        <option value="active">💻 Active (active)</option>
                     </select>
                 </div>
                 <div class="w-full md:w-56">
@@ -428,6 +428,46 @@
             <div id="uo-container" class="space-y-3"></div>
             <div class="flex justify-end mt-6">
                 <button onclick="document.getElementById('user-orders-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORDER EDIT MODAL -->
+    <div id="order-edit-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative animate-fadeIn">
+            <h3 class="font-display text-3xl uppercase mb-4 text-brand-slate">Edit Entire Order</h3>
+            <input type="hidden" id="eo-docid">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="label-sm">Order ID</label><input type="text" id="eo-orderId" class="input-field"></div>
+                <div><label class="label-sm">Customer Name</label><input type="text" id="eo-name" class="input-field"></div>
+                <div><label class="label-sm">Phone Number</label><input type="text" id="eo-phone" class="input-field"></div>
+                <div><label class="label-sm">Email Address</label><input type="email" id="eo-email" class="input-field"></div>
+                <div><label class="label-sm">City</label><input type="text" id="eo-city" class="input-field"></div>
+                <div><label class="label-sm">Address</label><input type="text" id="eo-address" class="input-field"></div>
+                <div><label class="label-sm">Subtotal (Rs)</label><input type="number" id="eo-subtotal" class="input-field"></div>
+                <div><label class="label-sm">Total (Rs)</label><input type="number" id="eo-total" class="input-field"></div>
+                <div><label class="label-sm">Referral Code</label><input type="text" id="eo-referralCode" class="input-field"></div>
+                <div><label class="label-sm">Transaction ID Reference</label><input type="text" id="eo-trxId" class="input-field"></div>
+                
+                <div class="md:col-span-2">
+                    <label class="label-sm text-brand-red">Website Status (Controls User Portal)</label>
+                    <select id="eo-status" class="input-field border-brand-red">
+                        <option value="processing">⏳ Pending Verification (processing)</option>
+                        <option value="active">✅ Confirmed / Active (active)</option>
+                        <option value="done">✅ Done / Delivered (done)</option>
+                        <option value="disputed">❌ Disputed (disputed)</option>
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="label-sm">Ordered Items String (Formatting used for financial calculations & products)</label>
+                    <textarea id="eo-itemsString" class="input-field" rows="4" placeholder="e.g. 1x Anatomy (Printed Book)"></textarea>
+                    <p class="text-[9px] text-gray-500 mt-1 font-bold">To change product format, simply change words like (E-Book) to (Printed Book) or vice versa.</p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="document.getElementById('order-edit-modal').classList.add('hidden')" class="px-4 py-2 font-bold text-xs uppercase text-gray-500 hover:text-brand-slate">Cancel</button>
+                <button onclick="saveEditedOrder()" class="px-4 py-2 font-bold text-xs uppercase bg-brand-slate text-white rounded hover:bg-brand-red">Save Order</button>
             </div>
         </div>
     </div>
@@ -754,6 +794,149 @@
             document.getElementById('user-orders-modal').classList.remove('hidden');
         }
 
+        // EDIT ENTIRE ORDER FUNCTIONALITY (Controls User Portal Status)
+        function openEditOrderModal(docId) {
+            const o = state.orders.find(x => x.docId === docId);
+            if (!o) return;
+            document.getElementById('eo-docid').value = docId;
+            document.getElementById('eo-orderId').value = o.orderId || '';
+            document.getElementById('eo-name').value = o.name || '';
+            document.getElementById('eo-phone').value = o.phone || '';
+            document.getElementById('eo-email').value = o.email || '';
+            document.getElementById('eo-city').value = o.city || '';
+            document.getElementById('eo-address').value = o.address || '';
+            document.getElementById('eo-subtotal').value = o.subtotal || 0;
+            document.getElementById('eo-total').value = o.total || 0;
+            document.getElementById('eo-referralCode').value = o.referralCode || '';
+            document.getElementById('eo-trxId').value = o.transactionId || o.trxId || o.paymentRef || '';
+            document.getElementById('eo-itemsString').value = o.itemsString || '';
+            document.getElementById('eo-status').value = o.status || 'processing';
+            
+            document.getElementById('order-edit-modal').classList.remove('hidden');
+        }
+
+        function saveEditedOrder() {
+            const docId = document.getElementById('eo-docid').value;
+            if (!docId) return;
+            
+            const updatedData = {
+                orderId: document.getElementById('eo-orderId').value.trim(),
+                name: document.getElementById('eo-name').value.trim(),
+                phone: document.getElementById('eo-phone').value.trim(),
+                email: document.getElementById('eo-email').value.trim(),
+                city: document.getElementById('eo-city').value.trim(),
+                address: document.getElementById('eo-address').value.trim(),
+                subtotal: Number(document.getElementById('eo-subtotal').value),
+                total: Number(document.getElementById('eo-total').value),
+                referralCode: document.getElementById('eo-referralCode').value.trim(),
+                transactionId: document.getElementById('eo-trxId').value.trim(),
+                trxId: document.getElementById('eo-trxId').value.trim(),
+                itemsString: document.getElementById('eo-itemsString').value.trim(),
+                status: document.getElementById('eo-status').value // Updates website display!
+            };
+
+            db.collection('orders').doc(docId).update(updatedData).then(() => {
+                showToast("Order Configuration Synced!");
+                document.getElementById('order-edit-modal').classList.add('hidden');
+            }).catch(err => {
+                alert("Error updating order: " + err.message);
+            });
+        }
+
+        // SAVE MESSAGE FORWARDED FLAG (MANUAL TICK/CROSS LOGIC)
+        function setMessageSentStatus(docId, val) {
+            db.collection('orders').doc(docId).update({ messageSent: val }).then(() => {
+                showToast("Message Tracking Updated!");
+            }).catch(err => {
+                alert("Firestore Error: " + err.message);
+            });
+        }
+
+        // SAVE PAYMENT VERIFICATION FLAG (Connects to Website Status = 'active' or 'processing')
+        function togglePaymentStatus(docId, currentStatus) {
+            // If it's active, revert to processing. If anything else, make it active.
+            const newStatus = (currentStatus === 'active') ? 'processing' : 'active';
+            
+            db.collection('orders').doc(docId).update({ status: newStatus }).then(() => {
+                showToast("Payment & Website Status Updated!");
+            }).catch(err => {
+                alert("Firestore Error: " + err.message);
+            });
+        }
+
+        // AUTO EMAIL COMPOSER (mailto launcher linking modmedicalis@gmail.com with custom content)
+        function sendCustomerEmail(docId) {
+            const o = state.orders.find(x => x.docId === docId);
+            if (!o) return;
+
+            const email = o.email || '';
+            if (!email) {
+                alert("No email address saved for this order.");
+                return;
+            }
+
+            const userName = o.name || 'Customer';
+            const orderNum = o.orderId || 'N/A';
+            const cityLower = (o.city || '').toLowerCase().trim();
+            const isLahore = cityLower === 'lahore';
+            const itemsLower = (o.itemsString || '').toLowerCase();
+            const hasEbook = itemsLower.includes('e-book') || itemsLower.includes('bundle') || itemsLower.includes('combo');
+
+            const deliveryWindow = isLahore ? "2-3 days (for Lahore orders)" : "3-4 days (for out of Lahore orders)";
+
+            let emailBody = `Hello ${userName},\n\n`;
+            emailBody += `For your order number #${orderNum}, the payment has been verified. Your order will be delivered in ${deliveryWindow}.\n\n`;
+
+            if (hasEbook) {
+                emailBody += `To access your E-Book, you can go to the website www.modmedicalis.online and login. Then on the menu, you will see a black button for the E-Library. OR you can simply visit the E-Book library directly via www.modmedicalis.online/ebooksbymodmedicalis\n\n`;
+            }
+
+            emailBody += `Regards,\nTeam ModMedicalis`;
+
+            const mailtoUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(`Payment Verified - Order #${orderNum}`)}&body=${encodeURIComponent(emailBody)}`;
+            window.open(mailtoUrl, '_blank');
+        }
+
+        // AUTO WHATSAPP COMPOSER (Using customer phone number directly)
+        function sendCustomerWhatsapp(docId) {
+            const o = state.orders.find(x => x.docId === docId);
+            if (!o) return;
+
+            let phone = o.phone || '';
+            phone = phone.replace(/[^0-9]/g, '');
+            if (phone.startsWith('0')) {
+                phone = '92' + phone.substring(1);
+            } else if (phone.startsWith('3')) {
+                phone = '92' + phone;
+            }
+
+            if (!phone) {
+                alert("No phone number saved for this order.");
+                return;
+            }
+
+            const userName = o.name || 'Customer';
+            const orderNum = o.orderId || 'N/A';
+            const cityLower = (o.city || '').toLowerCase().trim();
+            const isLahore = cityLower === 'lahore';
+            const itemsLower = (o.itemsString || '').toLowerCase();
+            const hasEbook = itemsLower.includes('e-book') || itemsLower.includes('bundle') || itemsLower.includes('combo');
+
+            const deliveryWindow = isLahore ? "2-3 days (for Lahore orders)" : "3-4 days (for out of Lahore orders)";
+
+            let waBody = `Hello ${userName},\n\n`;
+            waBody += `For your order number *#${orderNum}*, the payment has been verified. Your order will be delivered in *${deliveryWindow}*.\n\n`;
+
+            if (hasEbook) {
+                waBody += `To access your E-Book, you can go to the website www.modmedicalis.online and login. Then on the menu, you will see a black button for the E-Library. OR you can simply visit the E-Book library directly via www.modmedicalis.online/ebooksbymodmedicalis\n\n`;
+            }
+
+            waBody += `Regards,\n*Team ModMedicalis*`;
+
+            const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waBody)}`;
+            window.open(waUrl, '_blank');
+        }
+
         // LIVE ORDERS TAB (Separates Mixed Printed and Digital configurations)
         function renderOrders() {
             const oTbody = document.getElementById('orders-table-body'); 
@@ -836,6 +1019,33 @@
                         publisherToggleHtml = `<button onclick="togglePublisherStatus('${o.docId}', ${isFwd})" class="block w-full text-center px-2 py-1.5 rounded text-[9px] font-bold uppercase mb-2 transition shadow-sm ${isFwd ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'}">${isFwd ? '✅ Fwd to Pub' : '❌ Not Fwd'}</button>`;
                     }
 
+                    // Payment Verification Status Html (Mapped directly to 'status' string to link with website)
+                    const payVerified = o.status === 'active';
+                    const payVerifiedToggleHtml = `
+                        <div class="mt-2 pt-2 border-t border-gray-100 flex flex-col gap-1">
+                            <span class="text-[8px] font-extrabold uppercase tracking-widest text-gray-400">Payment Status (Website)</span>
+                            <button onclick="togglePaymentStatus('${o.docId}', '${o.status}')" class="flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-black transition ${payVerified ? 'bg-green-100 border border-green-500 text-green-700 shadow-sm' : 'bg-orange-100 border border-orange-400 text-orange-700 shadow-sm'}">
+                                ${payVerified ? '✅ VERIFIED' : '⏳ PENDING'}
+                            </button>
+                        </div>
+                    `;
+
+                    // Message Status Html
+                    const messageSent = o.messageSent === true;
+                    const trackingHtml = `
+                        <div class="mt-2 pt-2 border-t border-gray-100 flex flex-col gap-1">
+                            <span class="text-[8px] font-extrabold uppercase tracking-widest text-gray-400">Message Sent?</span>
+                            <div class="flex gap-2">
+                                <button onclick="setMessageSentStatus('${o.docId}', true)" class="flex-1 py-1 rounded text-center border transition text-sm ${messageSent ? 'bg-green-100 border-green-500 text-green-700 font-bold' : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'}" title="Message Sent (Tick)">
+                                    ✅
+                                </button>
+                                <button onclick="setMessageSentStatus('${o.docId}', false)" class="flex-1 py-1 rounded text-center border transition text-sm ${!messageSent ? 'bg-red-100 border-red-500 text-red-700 font-bold' : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'}" title="Message Not Sent (Cross)">
+                                    ❌
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
                     oTbody.innerHTML += `
                         <tr class="hover:bg-gray-50 border-b border-gray-150">
                             <td class="p-3">
@@ -847,6 +1057,7 @@
                                 <p class="text-xs font-bold text-slate-800">${o.name}</p>
                                 <p class="text-[10px] font-extrabold text-brand-slate">${o.phone}</p>
                                 <p class="text-[9px] uppercase text-gray-500 font-semibold">${o.city} / ${o.address}</p>
+                                <p class="text-[9px] text-gray-400 lowercase">${o.email || ''}</p>
                             </td>
                             <td class="p-3">
                                 ${splitItemsHtml}
@@ -854,19 +1065,24 @@
                             </td>
                             <td class="p-3">
                                 <select onchange="updateOrderStatus('${o.docId}', this.value)" class="input-field py-1 text-[10px] bg-white border border-gray-200">
-                                    <option value="pending" ${o.status==='pending'?'selected':''}>⏳ Pending</option>
-                                    <option value="done" ${o.status==='done'?'selected':''}>✅ Done (Physical Complete)</option>
-                                    <option value="active" ${o.status==='active'?'selected':''}>💻 Active (Portal Access Only)</option>
+                                    <option value="processing" ${o.status==='processing'?'selected':''}>⏳ Pending / Processing</option>
+                                    <option value="done" ${o.status==='done'?'selected':''}>✅ Done</option>
+                                    <option value="active" ${o.status==='active'?'selected':''}>💻 Active (Verified)</option>
                                     <option value="disputed" ${o.status==='disputed'?'selected':''}>❌ Disputed</option>
                                 </select>
                                 <p class="text-[9px] uppercase font-bold mt-1">Ref: <span class="text-brand-red">${o.referralCode || 'None'}</span></p>
+                                ${payVerifiedToggleHtml}
+                                ${trackingHtml}
                             </td>
                             <td class="p-3">
                                 <input type="text" id="note-${o.docId}" value="${o.adminNote||''}" class="input-field py-1 text-[10px]">
                                 <button onclick="saveOrderNote('${o.docId}')" class="text-[9px] font-bold bg-gray-200 px-2 py-0.5 rounded mt-1 hover:bg-gray-300">Save Note</button>
                             </td>
                             <td class="p-3">
-                                <div class="flex flex-col items-end w-full min-w-[90px]">
+                                <div class="flex flex-col items-end w-full min-w-[110px]">
+                                    <button onclick="openEditOrderModal('${o.docId}')" class="block w-full text-center bg-brand-slate text-white px-2 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-brand-red mb-1.5 transition shadow-sm">✏️ Edit Order</button>
+                                    <button onclick="sendCustomerEmail('${o.docId}')" class="block w-full text-center bg-blue-600 text-white px-2 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-blue-700 mb-1.5 transition shadow-sm">📧 Email Customer</button>
+                                    <button onclick="sendCustomerWhatsapp('${o.docId}')" class="block w-full text-center bg-[#128C7E] text-white px-2 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-green-700 mb-1.5 transition shadow-sm">📱 Customer WA</button>
                                     ${waButtonHtml}
                                     ${publisherToggleHtml}
                                     <button onclick="deleteOrder('${o.docId}')" class="text-red-500 text-[10px] font-bold uppercase hover:underline">Delete</button>
@@ -919,6 +1135,7 @@
             document.getElementById('team-modal').classList.remove('hidden');
         }
 
+        // EDIT TEAM MEMBER CONFIGURATION
         function editTeamMember(id) {
             const t = state.team.find(x => x.id === id);
             document.getElementById('modal-team-title').innerText = "Edit Team Member";
