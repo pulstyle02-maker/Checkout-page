@@ -1,3 +1,5 @@
+--- START OF FILE Paste July 01, 2026 - 2:29PM ---
+
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-[#FAF9F6] text-slate-800">
 <head>
@@ -187,7 +189,7 @@
     <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden relative">
       
       <!-- Collapsible Page Jump & Bookmarks Sidebar Menu -->
-      <div id="left-jump-menu" class="hidden fixed left-0 top-16 bottom-0 w-52 bg-white border-r border-slate-200 z-40 overflow-y-auto no-scrollbar p-3 shadow-lg flex flex-col">
+      <div id="left-jump-menu" class="hidden fixed left-0 top-16 bottom-0 w-52 bg-white border-r border-slate-200 z-[100] overflow-y-auto no-scrollbar p-3 shadow-lg flex flex-col">
         <div class="flex border-b border-slate-100 mb-3 text-[9px] font-black uppercase tracking-widest text-center">
           <button id="tab-sections-toggle" onclick="switchSidebarTab('sections')" class="flex-1 pb-2 border-b-2 border-blue-600 text-slate-800 transition-colors">Sections</button>
           <button id="tab-pages-toggle" onclick="switchSidebarTab('pages')" class="flex-1 pb-2 border-b-2 border-transparent text-slate-400 transition-colors">Pages</button>
@@ -210,7 +212,7 @@
       </div>
 
       <!-- Floating Page Counter Indicator -->
-      <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg pointer-events-none">
+      <div class="fixed bottom-4 right-4 z-[100] bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg pointer-events-none">
         Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
       </div>
 
@@ -227,7 +229,7 @@
       </div>
 
       <!-- Responsive Toolbar -->
-      <div id="reader-toolbar" class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar relative">
+      <div id="reader-toolbar" class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-[100] select-none w-full shadow-sm overflow-x-auto no-scrollbar relative">
         <div class="flex items-center justify-between gap-2 max-w-7xl mx-auto">
           
           <!-- Left Elements: Exit, Menu, Search -->
@@ -277,10 +279,11 @@
       </div>
       
       <!-- Detached High Z-Index Search Dropdown -->
-      <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[250] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
+      <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[150] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
 
-      <!-- Viewport (Horizontally Streams Pages as they are scrolled into view) -->
-      <div class="flex-1 w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
+      <!-- Viewport (Vertically Streams Pages as they are scrolled into view) -->
+      <!-- Strict z-0 applied here so it creates a localized stacking context below dropdowns -->
+      <div class="flex-1 w-full h-full overflow-y-auto overflow-x-auto no-scrollbar scroll-smooth relative z-0" id="pdf-scroll-container">
         <!-- Skeleton Loading Bar Overlay -->
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
           <div class="w-64 h-2 bg-slate-200 rounded-full overflow-hidden mb-4 shadow-inner">
@@ -288,11 +291,11 @@
           </div>
           <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting securely...</p>
         </div>
-        <!-- Horizontal Scroll Viewport -->
-        <div id="pdf-pages-viewport" class="flex flex-row items-center justify-start h-full min-w-max py-6 px-6 space-x-6"></div>
+        <!-- Vertical Scroll Viewport -->
+        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start h-max min-w-full py-6 px-6 space-y-6 relative z-0"></div>
       </div>
       
-      <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
+      <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-[250] transition-all">
         <i data-lucide="shield-alert" id="toast-icon" class="w-4 h-4 text-blue-400 shrink-0"></i>
         <span id="toast-text" class="font-medium tracking-wide"></span>
       </div>
@@ -747,13 +750,13 @@
       const originalViewport = firstPage.getViewport({ scale: 1.0 });
       const aspectRatio = originalViewport.width / originalViewport.height;
       
-      const containerH = document.getElementById('pdf-scroll-container').clientHeight;
       const containerW = document.getElementById('pdf-scroll-container').clientWidth;
       
+      // Optimized width calculation for vertical layout flow
       if (window.innerWidth < 768) {
-          readerState.baseWidth = containerW * 0.88;
+          readerState.baseWidth = containerW * 0.95;
       } else {
-          readerState.baseWidth = (containerH - 48) * aspectRatio;
+          readerState.baseWidth = Math.min(containerW * 0.8, 800);
       }
       
       viewportContainer.style.setProperty('--base-width', `${readerState.baseWidth}px`);
@@ -761,18 +764,20 @@
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-slate-100 shadow-xl border border-slate-300 transition-none flex-shrink-0 flex items-center justify-center overflow-hidden animate-pulse";
+        // z-10 restricts internal layers from overlaying parent sibling menus
+        pageWrapper.className = "page-wrapper relative z-10 bg-slate-100 shadow-xl border border-slate-300 transition-none flex-shrink-0 flex items-center justify-center overflow-hidden animate-pulse";
         
         pageWrapper.style.height = 'auto'; 
         pageWrapper.style.aspectRatio = `${aspectRatio}`;
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
+        pageWrapper.dataset.rendering = "false";
         viewportContainer.appendChild(pageWrapper);
       }
 
       preIndexDocumentText(pdf);
 
-      // Safe Memory Management - Keeps pages alive within 2000px, but safely clears far away ones to prevent RAM Crashing
+      // Safe Memory Management - Limits bounding box to 1000px preventing Zoom rendering crash from overload
       const observer = new IntersectionObserver((entries) => {
         if (readerState.isZooming) return; 
         entries.forEach(entry => {
@@ -784,28 +789,36 @@
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
-             // Freeing memory of far-away pages. Because of the 2000px margin, users wont see this happening
+             // Freeing memory of far-away pages avoiding rendering race condition loops
              clearPageFromMemory(entry.target);
           }
         });
-      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.05, rootMargin: '0px 2000px 0px 2000px' });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.05, rootMargin: '1000px 1000px 1000px 1000px' });
 
+      window.pdfObserver = observer; // Stored globally to force re-evaluation during heavy zoom transforms
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
 
       setTimeout(() => {
         document.getElementById('reader-loading').classList.add('hidden');
         if(readerState.currentPage > 1) {
           const target = document.getElementById(`page-wrapper-${readerState.currentPage}`);
-          if(target) target.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'start' });
+          if(target) target.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
         }
       }, 400);
     }
     
     function clearPageFromMemory(container) {
-      if (container.dataset.rendered !== "true") return;
-      // We empty the contents (Canvases) to save RAM, but keep the container exactly the same size.
+      if (container.dataset.rendered !== "true" && container.dataset.rendering !== "true") return;
+      
+      // Safely cancels internal PDF canvas painting to prevent WebGL/Context Crashes on unmount
+      if (container.dataset.rendering === "true" && container._renderTask) {
+          try { container._renderTask.cancel(); } catch(e) {}
+      }
+
+      // Empty the contents (Canvases) to heavily save RAM, container size is maintained via pure CSS calculations.
       container.innerHTML = '';
       container.dataset.rendered = "false";
+      container.dataset.rendering = "false";
       container.classList.add('animate-pulse', 'bg-slate-100');
       container.classList.remove('bg-white');
     }
@@ -828,11 +841,14 @@
     }
 
     async function renderPageOnDemand(pdf, pageNum, container) {
-      if (container.dataset.rendered === "true") return;
-      container.dataset.rendered = "true";
+      // Prevents memory leak rendering race conditions where clear memory attempts failed mid-promise
+      if (container.dataset.rendered === "true" || container.dataset.rendering === "true") return;
+      container.dataset.rendering = "true";
 
       try {
         const page = await pdf.getPage(pageNum);
+        if (container.dataset.rendering === "false") return; // Safely aborts if cleared during fetch promise
+
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
 
         const canvas = document.createElement('canvas');
@@ -841,7 +857,15 @@
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
+        const renderTask = page.render({ canvasContext: ctx, viewport: highResViewport });
+        container._renderTask = renderTask; // Bind to DOM to enable manual cancellation 
+
+        await renderTask.promise;
+
+        if (container.dataset.rendering === "false") {
+            container.innerHTML = ''; // Ensure abort respects DOM clearance preventing duplicate hidden memory loads
+            return;
+        }
 
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
@@ -886,11 +910,15 @@
 
         container.appendChild(watermarkDiv);
 
+        container.dataset.rendered = "true";
+        container.dataset.rendering = "false";
         container.classList.remove('animate-pulse', 'bg-slate-100');
         container.classList.add('bg-white');
 
         initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
-      } catch (err) {}
+      } catch (err) {
+          container.dataset.rendering = "false";
+      }
     }
 
     function toggleSearchBarInput() {
@@ -927,7 +955,7 @@
     function jumpToSearchResultPage(pageNum, query) {
       document.getElementById('search-dropdown').classList.add('hidden');
       const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
-      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     }
 
     function getEventCoordinates(e, canvas) {
@@ -1131,9 +1159,16 @@
 
       clearTimeout(zoomTimeout);
       zoomTimeout = setTimeout(() => { 
-          readerState.isZooming = false; 
+          readerState.isZooming = false;
+          // Forces observer to wake up and catch rendering missed during heavy layout shifts avoiding crashes
+          if (window.pdfObserver) {
+              document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+                  window.pdfObserver.unobserve(wrapper);
+                  window.pdfObserver.observe(wrapper);
+              });
+          }
           triggerViewportObserverEvaluation(); 
-      }, 250);
+      }, 350);
     }
     
     function handleZoomSlider(val) { 
