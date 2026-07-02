@@ -5668,47 +5668,34 @@ window.checkPremiumStatusOnLoad = async function() {
         }
     }
 };
-window.executePremiumRegistration = async function() { const trxId = document.getElementById('pr-receipt').value.trim(); const contactEmail = document.getElementById('pr-contact-email').value.trim(); const btn = document.getElementById('btn-premium-action'); if(!contactEmail) return window.showToast("Please enter your email address."); if(!trxId) return window.showToast("Please enter your transaction code."); let finalPrice = 1189; if(window._appliedDiscount && window._appliedDiscount.finalPrice) { finalPrice = window._appliedDiscount.finalPrice; } if(window.currentUser) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; try { await updateDoc(doc(db, "users", window.currentUser.uid), { plan: "pending", receipt: trxId, contactEmail: contactEmail, selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0 }); window._tempProUid = window.currentUser.uid; navTo('premium-success'); } catch(e) { window.showToast("Error updating account."); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } return; } const name = document.getElementById('pr-name').value.trim(), college = document.getElementById('pr-college').value.trim(), username = document.getElementById('pr-user').value.trim(), pass = document.getElementById('pr-pass').value.trim(), confirmPass = document.getElementById('pr-confirm-pass').value.trim(); if(!name || !college || !username || !pass || !confirmPass) return window.showToast("Please fill all account details."); if(pass !== confirmPass) return window.showToast("Passwords do not match."); if(pass.length < 6) return window.showToast("Password must be at least 6 characters."); const generatedEmail = username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@modmed.local"; try { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...'; btn.disabled = true; const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, pass); await setDoc(doc(db, "users", userCredential.user.uid), { name, classInfo: "MBBS " + (window.selectedYearForPlan === '1st' ? '1st Year' : '3rd Year'), college, username, email: generatedEmail, contactEmail: contactEmail, password: pass, avatar: "👨‍⚕️", plan: "pending", selectedPlan: "early-bird", planPrice: finalPrice, discountApplied: window._appliedDiscount?.code || null, discountPercentage: window._appliedDiscount?.percentage || 0, receipt: trxId, activeSession: window.currentSessionId, stats: { attempted: 0, correct: 0 }, progress: {}, loStats: {}, mistakes: {}, activityHistory: {}, savedMCQs: [], bookmarks: {}, sessionHistory: [], completedSets: {}, createdAt: new Date().toISOString(), lastActiveDate: new Date().toDateString(), streak: 1 }); window._tempProUid = userCredential.user.uid; await signOut(auth); navTo('premium-success'); } catch(error) { window.showToast(error.message.includes('email-already') ? "Username already taken." : error.message); } finally { btn.innerHTML = 'Confirm Payment - Rs <span id="final-price">'+finalPrice+'</span>'; btn.disabled = false; } };
-// CLEAN INITIALIZATION (Replaces the broken duplicate listener)
 window.checkPremiumStatusOnLoad = async function() {
-	if (!window.currentUser) return;
-	const plan = window.currentUser.plan;
-	if (plan === 'pending') {
-		document.body.classList.add('pending-verification');
-		const activePage = document.querySelector('.page.active');
-		if (activePage && activePage.id !== 'view-dashboard') {
-			window.navTo('dashboard', true);
-		}
-	} else if (plan === 'early-bird') {
-		const activePage = document.querySelector('.page.active');
-		if (activePage && ['view-login','view-premium-locked','view-premium-success'].includes(activePage.id)) {
-			window.navTo('premium-activated');
-		}
-	}
-};
-window.handlePendingContinueToApp = function() {
-	if (window.currentUser) {
-		signOut(auth).then(() => {
-			window.navTo('login');
-			window.showToast("Log in to check your payment status", "info");
-		});
-	} else {
-		window.navTo('login');
-		window.showToast("Log in to check your payment status", "info");
-	}
+    if (!window.currentUser) return;
+    const plan = window.currentUser.plan;
+    if (plan === 'pending') {
+        document.body.classList.add('pending-verification');
+        const activePage = document.querySelector('.page.active');
+        if (activePage && activePage.id !== 'view-dashboard') {
+            window.navTo('dashboard', true);
+        }
+    } else if (plan === 'early-bird') {
+        const activePage = document.querySelector('.page.active');
+        if (activePage && ['view-login','view-premium-locked','view-premium-success'].includes(activePage.id)) {
+            window.navTo('premium-activated');
+        }
+    }
 };
 
 window.handlePendingContinueToApp = function() {
-  if(window.currentUser) {
-    signOut(auth).then(()=> {
-      window.navTo('login');
-      window.showToast("Log in to check your payment status", "info");
-    });
-  } else {
-    window.navTo('login');
-    window.showToast("Log in to check your payment status", "info");
-  }
-}
+    if (window.currentUser) {
+        signOut(auth).then(() => {
+            window.navTo('login');
+            window.showToast("Log in to check your payment status", "info");
+        });
+    } else {
+        window.navTo('login');
+        window.showToast("Log in to check your payment status", "info");
+    }
+};
 if ('serviceWorker' in navigator) {
 navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
 console.log('SW registered:', reg.scope);
