@@ -160,6 +160,9 @@
             <p id="loader-text" class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Connecting to Engine...</p>
         </div>
 
+        <!-- Very Thin Bottom Edge Selection Gradient -->
+        <div id="selection-bottom-gradient" class="fixed bottom-0 left-0 right-0 h-1.5 bg-brand-gradient z-[100] hidden pointer-events-none"></div>
+
         <!-- ================= LOGIN SCREEN ================= -->
         <div id="screen-login" class="app-screen bg-zinc-50 dark:bg-black p-6 justify-center items-center relative">
             <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -219,9 +222,9 @@
                     </button>
                     <button onclick="toggleDrawer(false); switchTab('explore')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
                         <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
-                            <i data-lucide="compass" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
+                            <i data-lucide="book-open" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
                         </div>
-                        <span>Explore Syllabus</span>
+                        <span>Syllabus</span>
                     </button>
                     <button onclick="toggleDrawer(false); switchTab('analytics')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
                         <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
@@ -480,15 +483,26 @@
 
         <!-- 6c. QUICK NOTES VIEWER SCREEN -->
         <div id="screen-notes_viewer" class="app-screen z-40 bg-zinc-50 dark:bg-black">
-            <div class="absolute inset-0 bg-grid-pattern opacity-50 z-0"></div>
+            <div class="absolute inset-0 bg-grid-pattern opacity-50 z-0 pointer-events-none"></div>
             <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col min-h-full z-10">
                 <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black flex items-center space-x-3">
                     <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
                     <h1 class="text-2xl font-black text-zinc-900 dark:text-white truncate">Quick Notes</h1>
                 </div>
-                <div class="flex-1 overflow-y-auto no-scrollbar py-2 space-y-8 pb-32" id="notes-content-area">
-                    <!-- Populated dynamically -->
+                <div class="flex-1 overflow-y-auto no-scrollbar py-2 pb-32" id="notes-content-area">
+                    <!-- Populated dynamically without containers -->
                 </div>
+            </div>
+        </div>
+
+        <!-- EXPLORE / SYLLABUS SCREEN -->
+        <div id="screen-explore" class="app-screen z-20 pb-32">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black">
+                    <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Syllabus</h1>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Complete modular curriculum overview</p>
+                </div>
+                <div id="syllabus-content" class="pt-4 pb-12"></div>
             </div>
         </div>
 
@@ -634,9 +648,9 @@
                 </div>
                 <div onclick="switchTab('explore')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="explore">
                     <div class="nav-icon-box w-8 h-8 flex items-center justify-center transition-all duration-300">
-                        <i data-lucide="compass" class="w-5 h-5"></i>
+                        <i data-lucide="book-open" class="w-5 h-5"></i>
                     </div>
-                    <span class="nav-text text-[9px] font-bold transition-colors">Explore</span>
+                    <span class="nav-text text-[9px] font-bold transition-colors">Syllabus</span>
                 </div>
                 <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="analytics">
                     <div class="nav-icon-box w-8 h-8 flex items-center justify-center transition-all duration-300">
@@ -743,6 +757,22 @@
         function setMode(newMode) {
             appState.mode = newMode;
             appState.selectedLOs = [];
+        }
+
+        // Circular Progress Helper
+        function getCircularProgress(pct) {
+            const radius = 14;
+            const circumference = 2 * Math.PI * radius; // 87.96
+            const offset = circumference - (pct / 100) * circumference;
+            return `
+            <div class="relative w-11 h-11 flex items-center justify-center flex-shrink-0">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="${radius}" fill="none" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="3"></circle>
+                    <circle cx="18" cy="18" r="${radius}" fill="none" class="stroke-slategreen" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"></circle>
+                </svg>
+                <span class="absolute text-[9px] font-extrabold text-zinc-700 dark:text-zinc-300">${pct}%</span>
+            </div>
+            `;
         }
 
         // --- THEME ENGINE CONTROLLER ---
@@ -1059,7 +1089,7 @@
             auth.signOut();
         }
 
-        // PARALLEL SUPER-FETCH ENGINE (b2a to b2z) -> Concurrent Execution
+        // PARALLEL SUPER-FETCH ENGINE (b2a to b2z) -> Concurrent Execution (Fast)
         async function prefetchCurrentBlockMCQs() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
@@ -1069,12 +1099,12 @@
             const timestamp = new Date().getTime();
             const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)); // a to z
             
-            // Fire all 26 fetches in parallel without stopping
+            // Fire all 26 fetches in parallel
             const fetchPromises = letters.map(char => {
                 const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}${char}.json?nocache=${timestamp}`;
                 return fetch(url, { cache: 'no-store' })
                     .then(res => res.ok ? res.json() : [])
-                    .catch(() => []); // Silently swallow 404s to avoid breaking Promise.all
+                    .catch(() => []); // Silently swallow 404s
             });
 
             try {
@@ -1253,7 +1283,7 @@
                         code: code,
                         title: title,
                         mcqs: count, 
-                        accuracy: count > 0 && loStats.attempted > 0 ? Math.round((loStats.correct / loStats.attempted) * 100) : 0, 
+                        accuracy: count > 0 ? Math.min(100, Math.round((loStats.attempted / count) * 100)) : 0, 
                         status: count > 10 ? 'high' : count > 0 ? 'medium' : 'low'
                     });
 
@@ -1304,7 +1334,7 @@
             document.querySelectorAll('.app-screen').forEach(el => el.classList.remove('active'));
             document.getElementById(`screen-${screenId}`).classList.add('active');
 
-            const mainTabs = ['dashboard', 'module_selection', 'explore', 'analytics', 'profile'];
+            const mainTabs = ['dashboard', 'explore', 'analytics', 'profile'];
             const bottomNav = document.getElementById('bottom-nav');
             
             if (mainTabs.includes(screenId)) {
@@ -1325,6 +1355,14 @@
                 bottomNav.style.display = 'none';
             }
 
+            // Selection Bottom Gradient Hook
+            const selPages = ['module_selection', 'lo_selection', 'session_builder'];
+            if (selPages.includes(screenId)) {
+                document.getElementById('selection-bottom-gradient').classList.remove('hidden');
+            } else {
+                document.getElementById('selection-bottom-gradient').classList.add('hidden');
+            }
+
             if (screenId === 'dashboard') {
                 updateContinueCardUI(); 
                 renderStreakDots();
@@ -1337,6 +1375,7 @@
             if (screenId === 'result_screen') renderResults();
             if (screenId === 'mistakes_review') renderMistakesReview();
             if (screenId === 'notes_viewer') renderNotesViewer();
+            if (screenId === 'explore') renderSyllabusTab();
 
             lucide.createIcons();
         }
@@ -1395,17 +1434,9 @@
                     
                     return `
                     <div onclick="goToLOSelection('${safeStr(appState.activeModuleTab)}', '${safeStr(s.name)}')" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 rounded-[20px] card-press cursor-pointer shadow-sm">
-                        <div class="flex justify-between items-center mb-4">
+                        <div class="flex justify-between items-center mb-1">
                             <h3 class="text-base font-bold text-zinc-900 dark:text-white truncate pr-2">${s.name}</h3>
-                            <i data-lucide="chevron-right" class="w-5 h-5 text-zinc-400"></i>
-                        </div>
-                        <div class="flex items-center space-x-4 mb-3">
-                            <div class="flex flex-col flex-1">
-                                <span class="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider mb-1.5">Completion</span>
-                                <div class="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                    <div class="h-full bg-slategreen rounded-full" style="width: ${appState.mode === 'mcqs' ? completionPct : 0}%"></div>
-                                </div>
-                            </div>
+                            ${appState.mode === 'mcqs' ? getCircularProgress(completionPct) : '<i data-lucide="chevron-right" class="w-5 h-5 text-zinc-400"></i>'}
                         </div>
                         ${appState.mode === 'mcqs' ? `<p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">${s.los.length} LOs • <span class="text-brand-blue dark:text-brand-yellow font-bold">${s.totalMcqs} MCQs</span></p>` : `<p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">${s.los.length} Total Objectives</p>`}
                     </div>`;
@@ -1468,16 +1499,17 @@
                         <div class="mt-0.5 w-6 h-6 rounded-full border flex items-center justify-center mr-4 transition-colors flex-shrink-0 ${checkClass}">
                             ${isSelected ? `<i data-lucide="check" class="w-4 h-4 text-white"></i>` : ''}
                         </div>
-                        <div class="flex-1">
+                        <div class="flex-1 pr-2">
                             <div class="flex items-center space-x-2 mb-2">
                                 <span class="text-[10px] font-bold px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full uppercase tracking-wider">${lo.code}</span>
                             </div>
-                            <p class="text-sm font-bold text-zinc-900 dark:text-white leading-relaxed mb-3">${lo.title}</p>
+                            <p class="text-sm font-bold text-zinc-900 dark:text-white leading-relaxed mb-2">${lo.title}</p>
                             ${appState.mode === 'mcqs' ? `
                             <div class="flex items-center space-x-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                                 <span class="flex items-center"><i data-lucide="layers" class="w-3.5 h-3.5 mr-1.5 ${lo.mcqs > 0 ? 'text-brand-blue dark:text-brand-yellow' : ''}"></i> <span class="${lo.mcqs > 0 ? 'text-brand-blue dark:text-brand-yellow font-bold' : ''}">${lo.mcqs} MCQs</span></span>
                             </div>` : ''}
                         </div>
+                        ${appState.mode === 'mcqs' ? getCircularProgress(lo.accuracy) : ''}
                     </div>
                 </div>
                 `;
@@ -1506,12 +1538,12 @@
             } else {
                 container.innerHTML = matchedNotes.map(note => {
                     return `
-                    <div class="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-lg border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 shadow-sm mb-6">
-                        <div class="mb-4 pb-3 border-b border-zinc-200 dark:border-zinc-800">
-                            <span class="text-[9px] font-bold px-2 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full uppercase tracking-wider mb-2 inline-block">${note.loCode}</span>
-                            <h3 class="text-sm font-bold text-zinc-900 dark:text-white leading-snug">${note.topicTitle}</h3>
+                    <div class="mb-8 px-4 md:px-0">
+                        <div class="mb-4 pb-2 border-b-2 border-zinc-200 dark:border-zinc-800">
+                            <span class="text-[10px] font-black px-2 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-md uppercase tracking-wider mb-2 inline-block">${note.loCode}</span>
+                            <h3 class="text-lg font-black text-zinc-900 dark:text-white leading-snug">${note.topicTitle}</h3>
                         </div>
-                        <div class="text-[14px] text-zinc-900 dark:text-zinc-100 leading-relaxed space-y-2">
+                        <div class="text-[15px] text-zinc-800 dark:text-zinc-200 leading-[1.8] font-medium tracking-wide space-y-3 pb-4">
                             ${parseNotesMarkdown(note.content)}
                         </div>
                     </div>`;
@@ -1524,15 +1556,19 @@
             if(!text) return '';
             let parsed = text;
             
-            // Replace **bold** with gradient *TEXT* (no container wrapper)
-            parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<span class="text-brand-gradient font-bold my-0.5">$1</span>');
+            // 1. Headings: **Heading**: or *Heading*: -> Gradient Container
+            parsed = parsed.replace(/\*\*(.*?)\*\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
+            parsed = parsed.replace(/\*(.*?)\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
             
-            // Handle bullet points
+            // 2. Body bold text: **text** -> Gradient Text ONLY (no container)
+            parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<span class="text-brand-gradient font-extrabold">$1</span>');
+            
+            // Handle bullet points cleanly
             const bulletRegex = /^- (.*)$/gm;
             if(bulletRegex.test(parsed)) {
-                parsed = parsed.replace(bulletRegex, '<li class="ml-5 list-disc pl-1 mb-2 marker:text-brand-blue dark:marker:text-brand-yellow">$1</li>');
+                parsed = parsed.replace(bulletRegex, '<li class="ml-4 list-none relative before:content-[\'\\2022\'] before:absolute before:-left-4 before:text-brand-blue dark:before:text-brand-yellow before:font-bold mb-3">$1</li>');
                 // Wrap contiguous li's in ul
-                parsed = parsed.replace(/(<li.*<\/li>(\s*<br>\s*)*)+/g, '<ul class="my-2">$&</ul>');
+                parsed = parsed.replace(/(<li.*<\/li>(\s*<br>\s*)*)+/g, '<ul class="my-3 space-y-2">$&</ul>');
             }
             
             // Handle newlines
@@ -1541,6 +1577,42 @@
             parsed = parsed.replace(/<\/ul>\s*<br>/g, '</ul>');
             
             return parsed;
+        }
+
+        // --- NEW: SYLLABUS RENDERER ---
+        function renderSyllabusTab() {
+            const container = document.getElementById('syllabus-content');
+            let html = '';
+
+            if (Object.keys(APP_DATA.modules).length === 0) {
+                container.innerHTML = `<p class="text-center text-zinc-500 mt-10 text-sm font-bold">No syllabus data found.</p>`;
+                return;
+            }
+
+            html += `<table class="w-full text-left border-collapse shadow-sm rounded-[16px] overflow-hidden">
+                        <thead class="bg-brand-gradient text-white">
+                            <tr>
+                                <th class="py-4 px-4 text-[11px] font-black uppercase tracking-widest w-1/3 border-r border-white/20">Module</th>
+                                <th class="py-4 px-4 text-[11px] font-black uppercase tracking-widest border-r border-white/20">Subject</th>
+                                <th class="py-4 px-3 text-[11px] font-black uppercase tracking-widest text-center w-16">LOs</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">`;
+
+            Object.values(APP_DATA.modules).forEach(mod => {
+                const subjects = Object.values(mod.subjects);
+                subjects.forEach((sub, sIdx) => {
+                    html += `
+                    <tr>
+                        ${sIdx === 0 ? `<td rowspan="${subjects.length}" class="py-4 px-4 align-top border-r border-zinc-100 dark:border-zinc-800 font-bold text-sm text-brand-blue dark:text-brand-yellow">${mod.name}</td>` : ''}
+                        <td class="py-4 px-4 align-top border-r border-zinc-100 dark:border-zinc-800 font-semibold text-sm text-zinc-800 dark:text-zinc-200">${sub.name}</td>
+                        <td class="py-4 px-3 align-middle text-center font-black text-sm text-zinc-600 dark:text-zinc-400">${sub.los.length}</td>
+                    </tr>`;
+                });
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
         }
 
         // --- UPDATED SESSION BUILDER (Premade 20-MCQ Sets) ---
@@ -1930,18 +2002,16 @@
                 ` : ''}
             `;
             
-            // Tabulated Table wrapped for absolute mobile safety with auto-break width
+            // Un-crumpled full width vertical table mapping
             html += `
-            <div class="overflow-hidden rounded-[20px] border border-zinc-200 dark:border-zinc-800 shadow-sm mt-2">
-                <div class="w-full overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[300px]">
-                        <thead class="bg-brand-gradient text-white">
-                            <tr>
-                                <th class="py-3 px-3 text-[10px] font-black uppercase tracking-wider w-10 text-center border-r border-white/20">Opt</th>
-                                <th class="py-3 px-4 text-[10px] font-black uppercase tracking-wider">Details & Rationale</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800 text-sm">
+            <table class="w-full text-left mt-2 border-collapse">
+                <thead class="bg-brand-gradient text-white">
+                    <tr>
+                        <th class="py-4 px-3 text-[11px] font-black uppercase tracking-widest w-12 text-center border-r border-white/20 rounded-tl-[16px]">Opt</th>
+                        <th class="py-4 px-4 text-[11px] font-black uppercase tracking-widest rounded-tr-[16px]">Details & Rationale</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-zinc-900 text-sm border-b border-zinc-200 dark:border-zinc-800 shadow-sm rounded-b-[16px]">
             `;
             
             question.options.forEach((optText, index) => {
@@ -1964,26 +2034,24 @@
                 }
 
                 html += `
-                <tr class="${rowCls}">
-                    <td class="py-4 px-3 align-top text-center border-r border-zinc-100 dark:border-zinc-800 w-10">
-                        <span class="font-black text-base ${letterColor}">${letter}</span>
+                <tr class="border-t border-zinc-100 dark:border-zinc-800 ${rowCls}">
+                    <td class="py-5 px-3 align-top text-center border-r border-zinc-100 dark:border-zinc-800 w-12">
+                        <span class="font-black text-lg ${letterColor}">${letter}</span>
                     </td>
-                    <td class="py-4 px-4 align-top break-words whitespace-normal">
-                        <div class="flex items-start justify-between mb-1.5">
-                            <span class="font-semibold text-zinc-900 dark:text-white leading-snug mr-3">${optText}</span>
+                    <td class="py-5 px-4 align-top break-words whitespace-normal">
+                        <div class="flex items-start justify-between mb-2">
+                            <span class="font-bold text-zinc-900 dark:text-white leading-snug mr-3 text-[15px]">${optText}</span>
                             ${iconHtml}
                         </div>
-                        ${question.optionExplanations[index] ? `<p class="text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed mt-2 pt-2 border-t border-black/5 dark:border-white/5 break-words whitespace-normal">${question.optionExplanations[index]}</p>` : ''}
+                        ${question.optionExplanations[index] ? `<p class="text-[14px] text-zinc-600 dark:text-zinc-400 leading-relaxed mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 break-words whitespace-normal font-medium">${question.optionExplanations[index]}</p>` : ''}
                     </td>
                 </tr>
                 `;
             });
             
             html += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                </tbody>
+            </table>
             `;
             
             document.getElementById('explanation-content-area').innerHTML = html;
