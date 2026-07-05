@@ -1077,10 +1077,11 @@
                 }
                 
                 appState.streak = newStreak;
+                // Don't await, let it happen in background
                 db.collection("users").doc(appState.currentUser.uid).update({
                     streak: newStreak,
                     lastActiveDate: today
-                });
+                }).catch(e => console.warn(e));
             }
             const display = document.getElementById('streak-number-display');
             if (display) display.innerText = appState.streak;
@@ -1133,45 +1134,55 @@
                     const docSnap = await db.collection("users").doc(user.uid).get();
                     if (docSnap.exists) {
                         appState.userData = docSnap.data();
-                        
-                        document.getElementById('drawer-name').innerText = appState.userData.fullName || "Student";
-                        document.getElementById('dashboard-name').innerText = appState.userData.fullName || "Student";
-                        document.getElementById('edit-name').value = appState.userData.fullName || "";
-                        
-                        appState.bookmarkedMCQs = appState.userData.bookmarkedMCQs || [];
-                        appState.incorrectMCQs = appState.userData.incorrectMCQs || [];
-                        appState.completedSets = appState.userData.completedSets || [];
-                        appState.totalMcqsDone = appState.userData.totalMcqsDone || 0;
-                        appState.totalCorrect = appState.userData.totalCorrect || 0;
-                        appState.streak = appState.userData.streak || 0;
-                        appState.loStats = appState.userData.loStats || {};
-                        appState.setStats = appState.userData.setStats || {};
-
-                        const plans = appState.userData.purchasedBlocks || [];
-                        if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
-                            const parts = plans[0].split('_');
-                            appState.academicYear = parts[0];
-                            appState.academicBlock = parts[1];
-                        }
-                        
-                        document.getElementById('drawer-subtitle').innerText = `${appState.academicYear} Year MBBS • UHS`;
-                        
-                        updateStreak();
-                        updateDashboardStatisticsUI();
-                        updateContinueCardUI();
-
-                        await fetchSyllabus();
-                        switchTab('dashboard');
                     } else {
-                        auth.signOut();
-                        showLoginError("Account found, but database profile is missing.");
+                        appState.userData = {};
                     }
+                    
+                    appState.userData = appState.userData || {};
+                    
+                    const fullName = appState.userData.fullName || "Student";
+                    const dName = document.getElementById('drawer-name');
+                    if(dName) dName.innerText = fullName;
+                    const dbName = document.getElementById('dashboard-name');
+                    if(dbName) dbName.innerText = fullName;
+                    const eName = document.getElementById('edit-name');
+                    if(eName) eName.value = fullName;
+                    
+                    appState.bookmarkedMCQs = appState.userData.bookmarkedMCQs || [];
+                    appState.incorrectMCQs = appState.userData.incorrectMCQs || [];
+                    appState.completedSets = appState.userData.completedSets || [];
+                    appState.totalMcqsDone = appState.userData.totalMcqsDone || 0;
+                    appState.totalCorrect = appState.userData.totalCorrect || 0;
+                    appState.streak = appState.userData.streak || 0;
+                    appState.loStats = appState.userData.loStats || {};
+                    appState.setStats = appState.userData.setStats || {};
+
+                    const plans = appState.userData.purchasedBlocks || [];
+                    if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
+                        const parts = plans[0].split('_');
+                        if(parts[0]) appState.academicYear = parts[0];
+                        if(parts[1]) appState.academicBlock = parts[1];
+                    }
+                    
+                    const subT = document.getElementById('drawer-subtitle');
+                    if(subT) subT.innerText = `${appState.academicYear} Year MBBS • UHS`;
+                    
+                    try { updateStreak(); } catch(e){}
+                    try { updateDashboardStatisticsUI(); } catch(e){}
+                    try { updateContinueCardUI(); } catch(e){}
+
+                    await fetchSyllabus();
+                    switchTab('dashboard');
+                    
                 } catch(e) {
-                    console.error("Hydration Error: ", e);
-                    auth.signOut();
-                    showLoginError("Hydration failed: " + e.message);
+                    console.warn("Hydration soft-fallback active: ", e);
+                    // Bulletproof fallback: Never lock user out
+                    appState.userData = appState.userData || {};
+                    await fetchSyllabus();
+                    switchTab('dashboard');
+                } finally {
+                    hideLoader();
                 }
-                hideLoader();
             } else {
                 switchTab('login');
                 hideLoader();
@@ -1307,7 +1318,6 @@
             const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)); 
             
             let allData = [];
-            // Chunked sequential break logic (checks 6 at a time, breaks if chunk has 0 hits)
             for (let i = 0; i < letters.length; i += 6) {
                 const chunk = letters.slice(i, i + 6);
                 const promises = chunk.map(char => 
@@ -1317,7 +1327,7 @@
                 );
                 const results = await Promise.all(promises);
                 const validData = results.filter(Boolean); 
-                if (validData.length === 0) break; // Instant break if we hit 404 territory
+                if (validData.length === 0) break; 
                 allData.push(...validData.flat(Infinity));
             }
 
@@ -1432,18 +1442,21 @@
                 const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/1styearsyllabus.json?nocache=${timestamp}`;
                 
                 const response = await fetch(url, { cache: 'no-store' });
+                if(!response.ok) throw new Error("Syllabus fetch failed");
                 const data = await response.json();
                 
-                APP_DATA.rawSyllabus = data.syllabus;
+                APP_DATA.rawSyllabus = data.syllabus || [];
                 buildSyllabusTree();
                 
                 Promise.all([
                     prefetchCurrentBlockMCQs(),
                     prefetchCurrentBlockNotes(),
                     prefetchCurrentBlockVivacards()
-                ]);
+                ]).catch(e => console.warn("Prefetch warning", e));
             } catch (error) {
-                console.error("Error fetching syllabus:", error);
+                console.warn("Error fetching syllabus:", error);
+                APP_DATA.rawSyllabus = [];
+                buildSyllabusTree();
             }
         }
 
@@ -1451,16 +1464,15 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
-            // Strict checks to avoid infinite loaders if array is genuinely 0 from 404s
-            if (appState.mode === 'mcqs' && (!MCQ_CACHE[bNum])) {
+            if (appState.mode === 'mcqs' && (!MCQ_CACHE[bNum] || MCQ_CACHE[bNum].length === 0)) {
                 showLoader("Syncing MCQ database...");
                 await prefetchCurrentBlockMCQs();
                 hideLoader();
-            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum])) {
+            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
                 showLoader("Syncing Notes database...");
                 await prefetchCurrentBlockNotes();
                 hideLoader();
-            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum])) {
+            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
                 showLoader("Syncing Vivacards database...");
                 await prefetchCurrentBlockVivacards();
                 hideLoader();
@@ -1647,6 +1659,8 @@
             lucide.createIcons();
         }
 
+        // --- RENDER DYNAMIC SCREENS ---
+
         function renderModulesAndSubjects() {
             const modules = Object.values(APP_DATA.modules);
             const listContainer = document.getElementById('unified-subject-list');
@@ -1780,6 +1794,7 @@
             lucide.createIcons();
         }
 
+        // --- QUICK NOTES VIEWER ---
         function renderAndNavigateNotes() {
             navigate('notes_viewer');
         }
@@ -1833,6 +1848,11 @@
             parsed = parsed.replace(/<\/ul>\s*<br>/g, '</ul>');
             
             return parsed;
+        }
+
+        // --- VIVACARDS VIEWER ---
+        function renderAndNavigateVivacards() {
+            navigate('session_builder');
         }
 
         function renderVivacardsViewer() {
@@ -1892,6 +1912,7 @@
             }
         }
 
+        // --- INTERACTIVE ACCORDION SYLLABUS RENDERER ---
         function renderInteractiveSyllabusTab() {
             const container = document.getElementById('syllabus-content');
             let html = '<div class="space-y-4">';
@@ -1971,9 +1992,6 @@
         // --- ROUND ROBIN SESSION BUILDER ENGINE ---
         function renderSessionBuilder() {
             try {
-                // Remove the buggy UI call
-                // document.getElementById('build-lo-count').innerText = appState.selectedLOs.length;
-
                 let pool = [];
                 if (appState.mode === 'mcqs') pool = APP_DATA.allMCQs || [];
                 else if (appState.mode === 'vivacards') pool = APP_DATA.allFlashcards || [];
@@ -2094,6 +2112,7 @@
             renderLOs();
         }
 
+        // --- UPDATED SECURITY-SYNC PROFILE CONTROLS ---
         function renderProfile() {
             const yearSelector = document.getElementById('year-selector');
             const blockSelector = document.getElementById('block-selector');
@@ -2135,6 +2154,7 @@
             }).join('');
         }
 
+        // --- DYNAMIC MISTAKES PORTAL TREE RENDERER ---
         function renderMistakesReview() {
             const container = document.getElementById('mistakes-grouped-list');
             
@@ -2311,6 +2331,7 @@
             
             appState.totalMcqsDone++;
 
+            // Functionalizing Firebase Progress Tracking per LO
             if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
             appState.loStats[qTag].attempted += 1;
             if (isCorrect) appState.loStats[qTag].correct += 1;
@@ -2336,6 +2357,7 @@
         function handleNextMCQ() {
             const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
             if (isLast) {
+                // Save Set Stats
                 const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
                 const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
                 const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
@@ -2377,15 +2399,16 @@
             document.getElementById('result-incorrect').innerText = incorrect;
             
             const circle = document.getElementById('result-circle');
-            const circumference = 2 * Math.PI * 45; 
+            const circumference = 2 * Math.PI * 45; // 282.7
             const offset = circumference - (pct / 100) * circumference;
             circle.style.strokeDashoffset = offset;
             
-            if (pct >= 80) circle.style.stroke = "#477864"; 
-            else if (pct >= 50) circle.style.stroke = "#fbd043"; 
+            if (pct >= 80) circle.style.stroke = "#477864"; // Slate green success
+            else if (pct >= 50) circle.style.stroke = "#fbd043"; // Brand Yellow
             else circle.style.stroke = "#ef4444"; 
 
             updateDashboardStatisticsUI(); 
+            // Re-render modules behind the scenes so progress rings update globally
             buildSyllabusTree();
         }
 
@@ -2408,6 +2431,7 @@
             const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
             const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
             
+            // Header with Citation toggle (Safe Areas Respected)
             document.getElementById('explanation-header').innerHTML = `
                 <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black flex justify-between items-center px-4 md:px-0">
                     <div class="flex items-center space-x-3">
@@ -2431,6 +2455,7 @@
                 ` : ''}
             `;
             
+            // Un-crumpled full width vertical table mapping
             html += `
             <table class="w-full text-left mt-2 border-collapse">
                 <thead class="bg-brand-gradient text-white">
