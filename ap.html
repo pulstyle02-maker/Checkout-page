@@ -1313,58 +1313,48 @@
 
         // ================= PARALLEL SUPER-FETCH ENGINE (INSTANT LOAD) =================
         async function prefetchCurrentBlockMCQs() {
-            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-            const bNum = blockToNum[appState.academicBlock] || 1;
-
-            if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return; 
-
-            const timestamp = new Date().getTime();
-            const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)); 
-            
-            let allData = [];
-            // Chunked sequential break logic (checks 6 at a time, breaks if chunk has 0 hits)
-            for (let i = 0; i < letters.length; i += 6) {
-                const chunk = letters.slice(i, i + 6);
-                const promises = chunk.map(char => 
-                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}${char}.json?nocache=${timestamp}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
-                );
-                const results = await Promise.all(promises);
-                const validData = results.filter(Boolean); 
-                if (validData.length === 0) break; // Instant break if we hit 404 territory
-                allData.push(...validData.flat(Infinity));
-            }
-
-            MCQ_CACHE[bNum] = allData;
-            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                APP_DATA.allMCQs = allData;
-                buildSyllabusTree();
-            }
-        }
+    const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+    const bNum = blockToNum[appState.academicBlock] || 1;
+    if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
+    const timestamp = new Date().getTime();
+    const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i));
+    
+    // PARALLEL FETCH: Fire all requests at once instead of waiting for chunks
+    const promises = letters.map(char =>
+        fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}${char}.json?nocache=${timestamp}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    );
+    
+    const results = await Promise.all(promises);
+    // Filter out nulls (404s) and flatten the array
+    const allData = results.filter(Boolean).flat(Infinity);
+    
+    MCQ_CACHE[bNum] = allData;
+    if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+        APP_DATA.allMCQs = allData;
+        buildSyllabusTree();
+        // Update UI instantly if user is already looking at these screens
+        if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+        else if (appState.currentScreen === 'lo_selection') renderLOs();
+        else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+    }
+}
 
         async function prefetchCurrentBlockNotes() {
-            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-            const bNum = blockToNum[appState.academicBlock] || 1;
-
-            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return; 
-
-            const timestamp = new Date().getTime();
-            const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)); 
-            let allNotesRaw = [];
-
-            for (let i = 0; i < letters.length; i += 6) {
-                const chunk = letters.slice(i, i + 6);
-                const promises = chunk.map(char => 
-                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N${char}.json?nocache=${timestamp}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
-                );
-                const results = await Promise.all(promises);
-                const validData = results.filter(Boolean); 
-                if (validData.length === 0) break; 
-                allNotesRaw.push(...validData.flat(Infinity));
-            }
+    const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+    const bNum = blockToNum[appState.academicBlock] || 1;
+    if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
+    const timestamp = new Date().getTime();
+    const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i));
+    
+    const promises = letters.map(char =>
+        fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N${char}.json?nocache=${timestamp}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    );
+    const results = await Promise.all(promises);
+    const allNotesRaw = results.filter(Boolean).flat(Infinity);
 
             let allNotes = [];
             allNotesRaw.forEach(modData => {
@@ -1384,27 +1374,19 @@
         }
 
         async function prefetchCurrentBlockVivacards() {
-            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-            const bNum = blockToNum[appState.academicBlock] || 1;
-
-            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return; 
-
-            const timestamp = new Date().getTime();
-            const letters = Array.from({length: 13}, (_, i) => String.fromCharCode(97 + i)); 
-            let allCardsRaw = [];
-
-            for (let i = 0; i < letters.length; i += 6) {
-                const chunk = letters.slice(i, i + 6);
-                const promises = chunk.map(char => 
-                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash${char}.json?nocache=${timestamp}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
-                );
-                const results = await Promise.all(promises);
-                const validData = results.filter(Boolean); 
-                if (validData.length === 0) break; 
-                allCardsRaw.push(...validData.flat(Infinity));
-            }
+    const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+    const bNum = blockToNum[appState.academicBlock] || 1;
+    if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
+    const timestamp = new Date().getTime();
+    const letters = Array.from({length: 13}, (_, i) => String.fromCharCode(97 + i));
+    
+    const promises = letters.map(char =>
+        fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash${char}.json?nocache=${timestamp}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    );
+    const results = await Promise.all(promises);
+    const allCardsRaw = results.filter(Boolean).flat(Infinity);
 
             let allFlashcards = [];
             allCardsRaw.forEach(modData => {
