@@ -757,7 +757,7 @@
         let appState = {
             currentScreen: 'login',
             navHistory: ['login'],
-            mode: 'mcqs', // 'mcqs' or 'notes' or 'vivacards'
+            mode: 'mcqs', 
             context: { module: null, subject: null },
             activeModuleTab: null,
             currentContextLOs: [], 
@@ -769,6 +769,7 @@
             sessionQuestions: [],
             currentQuestionIndex: 0,
             
+            mcqSessionQuestions: [],
             mcqHistory: {}, 
             currentMcqIndex: 0,
             mcqSelectedOptionIndex: null,
@@ -802,7 +803,6 @@
             '5th': ['XIII', 'XIV', 'XV']
         };
 
-        // --- HOISTED DATA RENDER HELPER ---
         function updateDashboardStatisticsUI() {
             const accuracy = appState.totalMcqsDone > 0 ? Math.round((appState.totalCorrect / appState.totalMcqsDone) * 100) : 0;
             const uiAcc = document.getElementById('ui-dashboard-accuracy');
@@ -811,7 +811,6 @@
             if(uiDone) uiDone.innerText = `${appState.totalMcqsDone} MCQs Done`;
         }
 
-        // --- ANIMATED STREAK DOTS RENDERER ---
         function renderStreakDots() {
             const container = document.getElementById('streak-dots-container');
             if(!container) return;
@@ -835,7 +834,6 @@
             appState.selectedLOs = [];
         }
 
-        // Circular Progress Helper
         function getCircularProgress(pct) {
             const radius = 14;
             const circumference = 2 * Math.PI * radius; 
@@ -851,7 +849,6 @@
             `;
         }
 
-        // --- THEME ENGINE CONTROLLER ---
         function initTheme() {
             const theme = localStorage.getItem('app-theme') || 'dark';
             document.documentElement.className = theme;
@@ -873,7 +870,6 @@
             }
         }
 
-        // --- CONTINUE STUDYING CARD UPDATES ---
         function updateContinueCardUI() {
             const session = appState.userData ? appState.userData.currentSession : null;
             const card = document.getElementById('continue-card');
@@ -977,7 +973,6 @@
             appState.userData.currentSession = sessionData;
         }
 
-        // --- PREMIUM STREAK TRACKING ENGINE ---
         function updateStreak() {
             if (!appState.userData) return;
             const today = new Date().toDateString();
@@ -1034,7 +1029,6 @@
             }
         }
 
-        // ================= FIREBASE SYSTEM CONFIGURATION =================
         firebase.initializeApp({
             apiKey: "AIzaSyC5NkowybsLrQnTyuFrm2VTTHE2R2yNddA",
             authDomain: "modqbank.firebaseapp.com",
@@ -1046,7 +1040,6 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Check auth persistence on load
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 showLoader("Accessing Profile Data...");
@@ -1086,7 +1079,7 @@
                         switchTab('dashboard');
                     } else {
                         auth.signOut();
-                        showLoginError("Account found, but database profile is missing. Please register again through the checkout page.");
+                        showLoginError("Account found, but database profile is missing.");
                     }
                 } catch(e) {
                     console.error("Hydration Error: ", e);
@@ -1107,7 +1100,6 @@
             switchTab('login');
         }
 
-        // Login Submit Bind
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const emailInput = document.getElementById('login-email').value.trim();
@@ -1131,7 +1123,6 @@
             }
         });
 
-        // Edit Profile Details submit
         document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const newName = document.getElementById('edit-name').value.trim();
@@ -1169,7 +1160,7 @@
             auth.signOut();
         }
 
-        // PARALLEL SUPER-FETCH ENGINE (b2a to b2z) -> Fast Break Loop
+        // ================= FAST BREAK PREFETCH ENGINE (b2a to b2z) =================
         async function prefetchCurrentBlockMCQs() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
@@ -1180,17 +1171,17 @@
             const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)); 
             
             let allData = [];
-            // Chunked sequential break logic (checks 5 at a time, breaks if chunk has 0 hits)
+            // Chunked request to avoid browser connection limits & instantly break on 404
             for (let i = 0; i < letters.length; i += 6) {
                 const chunk = letters.slice(i, i + 6);
                 const promises = chunk.map(char => 
-                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}${char}.json`)
+                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}${char}.json?nocache=${timestamp}`)
                     .then(r => r.ok ? r.json() : null)
                     .catch(() => null)
                 );
                 const results = await Promise.all(promises);
-                const validData = results.filter(Boolean); // Remove nulls
-                if (validData.length === 0) break; // Instant break if we hit 404 territory
+                const validData = results.filter(Boolean); 
+                if (validData.length === 0) break; // Break instantly if files don't exist
                 allData.push(...validData.flat(Infinity));
             }
 
@@ -1201,20 +1192,20 @@
             }
         }
 
-        // PARALLEL SUPER-FETCH FOR NOTES (b2Na to b2Nz) -> Fast Break
         async function prefetchCurrentBlockNotes() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
             if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return; 
 
+            const timestamp = new Date().getTime();
             const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)); 
             let allNotesRaw = [];
 
             for (let i = 0; i < letters.length; i += 6) {
                 const chunk = letters.slice(i, i + 6);
                 const promises = chunk.map(char => 
-                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N${char}.json`)
+                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N${char}.json?nocache=${timestamp}`)
                     .then(r => r.ok ? r.json() : null)
                     .catch(() => null)
                 );
@@ -1241,20 +1232,20 @@
             }
         }
 
-        // PARALLEL SUPER-FETCH FOR VIVACARDS (b2flasha to b2flashm) -> Fast Break
         async function prefetchCurrentBlockVivacards() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
             if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return; 
 
+            const timestamp = new Date().getTime();
             const letters = Array.from({length: 13}, (_, i) => String.fromCharCode(97 + i)); 
             let allCardsRaw = [];
 
             for (let i = 0; i < letters.length; i += 6) {
                 const chunk = letters.slice(i, i + 6);
                 const promises = chunk.map(char => 
-                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash${char}.json`)
+                    fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash${char}.json?nocache=${timestamp}`)
                     .then(r => r.ok ? r.json() : null)
                     .catch(() => null)
                 );
@@ -1310,10 +1301,11 @@
                 APP_DATA.rawSyllabus = data.syllabus;
                 buildSyllabusTree();
                 
-                // Fire tasks simultaneously
-                prefetchCurrentBlockMCQs();
-                prefetchCurrentBlockNotes();
-                prefetchCurrentBlockVivacards();
+                Promise.all([
+                    prefetchCurrentBlockMCQs(),
+                    prefetchCurrentBlockNotes(),
+                    prefetchCurrentBlockVivacards()
+                ]);
             } catch (error) {
                 console.error("Error fetching syllabus:", error);
             }
@@ -1411,11 +1403,10 @@
                     let matchingMcqs = APP_DATA.allMCQs.filter(q => q.tag && String(q.tag).trim() === code);
                     const count = matchingMcqs.length;
                     
-                    // Hook into Firebase Functional Progress
                     let loStats = appState.loStats[code] || { attempted: 0, correct: 0 };
                     
                     subTotalMCQs += count;
-                    subAttemptedMCQs += Math.min(loStats.attempted, count); // Cap at max available so it doesn't exceed 100%
+                    subAttemptedMCQs += Math.min(loStats.attempted, count);
 
                     APP_DATA.modules[item.moduleName].subjects[item.subject].los.push({
                         id: code,
@@ -1494,7 +1485,6 @@
                 bottomNav.style.display = 'none';
             }
 
-            // Selection Bottom Gradient Hook
             const selPages = ['module_selection', 'lo_selection', 'session_builder'];
             if (selPages.includes(screenId)) {
                 document.getElementById('selection-bottom-gradient').classList.remove('hidden');
@@ -1522,13 +1512,11 @@
 
         // --- RENDER DYNAMIC SCREENS ---
 
-        // MERGED MODULE & SUBJECT SCREEN
         function renderModulesAndSubjects() {
             const modules = Object.values(APP_DATA.modules);
             const listContainer = document.getElementById('unified-subject-list');
             const capsulesContainer = document.getElementById('module-capsules');
             
-            // Adjust title based on Mode
             document.getElementById('module-select-title').innerText = appState.mode === 'notes' ? "Quick Notes" : appState.mode === 'vivacards' ? "Vivacards" : "Practice";
 
             const allowed = hasBlockAccess(appState.academicYear, appState.academicBlock);
@@ -1558,14 +1546,12 @@
                 appState.activeModuleTab = modules[0].name;
             }
 
-            // Render Capsules
             capsulesContainer.innerHTML = modules.map(m => {
                 const isActive = appState.activeModuleTab === m.name;
                 const cls = isActive ? 'bg-zinc-900 dark:bg-white text-white dark:text-black shadow-md' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800';
                 return `<button onclick="setActiveModule('${safeStr(m.name)}')" class="px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors card-press ${cls}">${m.name}</button>`;
             }).join('');
 
-            // Render Active Subjects
             const activeMod = APP_DATA.modules[appState.activeModuleTab];
             if (activeMod) {
                 const subjects = Object.values(activeMod.subjects);
@@ -1610,14 +1596,15 @@
             countText.innerText = `${appState.selectedLOs.length} Selected`;
             btn.disabled = appState.selectedLOs.length === 0;
             
-            // Breadcrumb logic
             document.getElementById('bc-module').innerText = appState.context.module;
             document.getElementById('bc-subject').innerText = appState.context.subject;
 
-            // Adjust logic based on mode
             if (appState.mode === 'notes') {
                 btn.innerText = "View Notes";
                 btn.onclick = () => renderAndNavigateNotes();
+            } else if (appState.mode === 'vivacards') {
+                btn.innerText = "View Vivacards";
+                btn.onclick = () => renderAndNavigateVivacards();
             } else {
                 btn.innerText = "Continue";
                 btn.onclick = () => navigate('session_builder');
@@ -1658,7 +1645,7 @@
             lucide.createIcons();
         }
 
-        // --- NEW: QUICK NOTES VIEWER ---
+        // --- QUICK NOTES VIEWER ---
         function renderAndNavigateNotes() {
             navigate('notes_viewer');
         }
@@ -1697,22 +1684,16 @@
             if(!text) return '';
             let parsed = text;
             
-            // 1. Headings: **Heading**: or *Heading*: -> Gradient Container
             parsed = parsed.replace(/\*\*(.*?)\*\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
             parsed = parsed.replace(/\*(.*?)\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
-            
-            // 2. Body bold text: **text** -> Gradient Text ONLY (no container)
             parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<span class="text-brand-gradient font-extrabold">$1</span>');
             
-            // Handle bullet points cleanly
             const bulletRegex = /^- (.*)$/gm;
             if(bulletRegex.test(parsed)) {
                 parsed = parsed.replace(bulletRegex, '<li class="ml-4 list-none relative before:content-[\'\\2022\'] before:absolute before:-left-4 before:text-brand-blue before:font-bold mb-3">$1</li>');
-                // Wrap contiguous li's in ul
                 parsed = parsed.replace(/(<li.*<\/li>(\s*<br>\s*)*)+/g, '<ul class="my-3 space-y-2">$&</ul>');
             }
             
-            // Handle newlines
             parsed = parsed.replace(/\n/g, '<br>');
             parsed = parsed.replace(/<br>\s*<li/g, '<li');
             parsed = parsed.replace(/<\/ul>\s*<br>/g, '</ul>');
@@ -1720,7 +1701,11 @@
             return parsed;
         }
 
-        // --- NEW: VIVACARDS VIEWER (1-by-1 3D UI) ---
+        // --- VIVACARDS VIEWER ---
+        function renderAndNavigateVivacards() {
+            navigate('session_builder');
+        }
+
         function renderVivacardsViewer() {
             const container = document.getElementById('vivacard-flip-container');
             if(!appState.sessionQuestions || appState.sessionQuestions.length === 0) return;
@@ -1729,12 +1714,11 @@
             const total = appState.sessionQuestions.length;
             
             document.getElementById('vivacard-progress-text').innerText = `${appState.currentQuestionIndex + 1} / ${total}`;
-            
             document.getElementById('vivacard-locode').innerText = `${card.loCode} • Card ${appState.currentQuestionIndex + 1}`;
             document.getElementById('vivacard-front-text').innerText = card.front;
             document.getElementById('vivacard-back-text').innerHTML = parseNotesMarkdown(card.back);
             
-            container.classList.remove('flipped'); // Reset flip state for new card
+            container.classList.remove('flipped'); 
             
             const btnPrev = document.getElementById('btn-viva-prev');
             const btnNext = document.getElementById('btn-viva-next');
@@ -1758,16 +1742,13 @@
 
         function nextVivacard() {
             if (appState.currentQuestionIndex === appState.sessionQuestions.length - 1) {
-                // Save Set Stats for Vivacards
                 const setKey = `${appState.academicYear}_${appState.academicBlock}_Viva_${appState.selectedSetIndex}`;
                 const currentStats = appState.setStats[setKey] || { times: 0, best: 100 };
                 appState.setStats[setKey] = {
                     times: currentStats.times + 1,
-                    best: 100 // Completion-based
+                    best: 100
                 };
-                db.collection("users").doc(appState.currentUser.uid).update({
-                    setStats: appState.setStats
-                });
+                db.collection("users").doc(appState.currentUser.uid).update({ setStats: appState.setStats });
                 navigate('dashboard');
             } else {
                 appState.currentQuestionIndex++;
@@ -1782,7 +1763,7 @@
             }
         }
 
-        // --- NEW: INTERACTIVE ACCORDION SYLLABUS RENDERER ---
+        // --- INTERACTIVE ACCORDION SYLLABUS RENDERER ---
         function renderInteractiveSyllabusTab() {
             const container = document.getElementById('syllabus-content');
             let html = '<div class="space-y-4">';
@@ -1859,23 +1840,42 @@
             }
         }
 
-        // --- UPDATED SESSION BUILDER (Firebase Linked Premade Sets) ---
+        // --- ROUND ROBIN SESSION BUILDER ENGINE ---
         function renderSessionBuilder() {
             try {
-                document.getElementById('build-lo-count').innerText = appState.selectedLOs.length;
-
                 let pool = [];
                 if (appState.mode === 'mcqs') pool = APP_DATA.allMCQs || [];
                 else if (appState.mode === 'vivacards') pool = APP_DATA.allFlashcards || [];
                 
-                let filtered = pool.filter(q => {
-                    const tag = appState.mode === 'mcqs' ? q.tag : q.loCode;
-                    return tag && appState.selectedLOs.includes(String(tag).trim());
-                });
+                // Group by LO to allow perfect equal distribution
+                let groupedByLO = {};
+                appState.selectedLOs.forEach(lo => { groupedByLO[lo] = []; });
                 
-                const countEl = document.getElementById('build-mcq-count');
-                if(countEl) countEl.innerText = filtered.length;
+                pool.forEach(item => {
+                    const tag = String(appState.mode === 'mcqs' ? item.tag : item.loCode).trim();
+                    if (appState.selectedLOs.includes(tag)) {
+                        groupedByLO[tag].push(item);
+                    }
+                });
 
+                // Randomize inside each LO group independently
+                for (let lo in groupedByLO) {
+                    groupedByLO[lo].sort(() => 0.5 - Math.random());
+                }
+
+                // Round Robin mixing: 1 from LO1, 1 from LO2, 1 from LO3... repeating
+                let mixedFiltered = [];
+                let hasItems = true;
+                while (hasItems) {
+                    hasItems = false;
+                    for (let lo of appState.selectedLOs) {
+                        if (groupedByLO[lo] && groupedByLO[lo].length > 0) {
+                            mixedFiltered.push(groupedByLO[lo].pop());
+                            hasItems = true;
+                        }
+                    }
+                }
+                
                 const bcSubj = document.getElementById('bc-sb-subject');
                 if(bcSubj) bcSubj.innerText = appState.context.subject || "Subject";
                 
@@ -1883,14 +1883,14 @@
                 if(bcLo) bcLo.innerText = `${appState.selectedLOs.length} LOs`;
 
                 const SET_SIZE = 20;
-                const totalSets = Math.ceil(filtered.length / SET_SIZE);
+                const totalSets = Math.ceil(mixedFiltered.length / SET_SIZE);
                 
                 appState.availableSets = [];
                 for (let i = 0; i < totalSets; i++) {
                     appState.availableSets.push({
                         id: i,
                         title: `Set ${i + 1}`,
-                        mcqs: filtered.slice(i * SET_SIZE, (i + 1) * SET_SIZE)
+                        items: mixedFiltered.slice(i * SET_SIZE, (i + 1) * SET_SIZE)
                     });
                 }
 
@@ -1932,7 +1932,7 @@
                             <p class="text-sm font-bold text-zinc-900 dark:text-white mb-1">${set.title}</p>
                             ${stats.times > 0 
                                 ? `<p class="text-[10px] text-brand-blue font-bold">Best: ${stats.best}% <span class="text-zinc-400 ml-1 font-medium">(${stats.times}x)</span></p>`
-                                : `<p class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">Not attempted</p>`
+                                : `<p class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mb-1">${set.items.length} Items</p>`
                             }
                         </div>
                         `;
@@ -2127,7 +2127,7 @@
                 }
 
                 const selectedSet = appState.availableSets[appState.selectedSetIndex];
-                let setItems = [...selectedSet.mcqs];
+                let setItems = [...selectedSet.items]; // Items correctly pulled from the set
                 
                 if (!setItems || setItems.length === 0) {
                     alert("Empty practice set detected.");
