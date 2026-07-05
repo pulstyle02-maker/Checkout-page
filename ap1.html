@@ -1,0 +1,2692 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA / Native App Meta Tags -->
+    <title>MODMEDICALIS</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/wliwntu.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            blue: '#4bb8d6', /* Cyan Blue from Logo */
+                            yellow: '#fbd043' /* Golden Yellow from Logo */
+                        },
+                        slategreen: '#477864'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* iOS-Grade Viewport Lock */
+        html, body {
+            height: 100dvh;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+            margin: 0;
+            padding: 0;
+            -webkit-overflow-scrolling: touch;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            box-sizing: border-box;
+            background-color: #f4f4f5; 
+            color: #18181b;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        html.dark, html.dark body {
+            background-color: #000000; 
+            color: #ffffff;
+        }
+
+        /* App container */
+        #app-container {
+            height: 100dvh;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            margin: 0 auto;
+        }
+
+        /* Hide Scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Screen Transitions */
+        .app-screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
+        }
+        
+        .app-screen.active { 
+            display: flex; 
+            flex-direction: column;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Button Press Animation */
+        .card-press { transition: transform 0.1s ease; }
+        .card-press:active { transform: scale(0.97); }
+
+        /* Exact Logo Brand Gradient (60% Blue / 40% Yellow) */
+        .bg-brand-gradient {
+            background: linear-gradient(135deg, #4bb8d6 0%, #4bb8d6 60%, #fbd043 100%);
+        }
+        
+        .text-brand-gradient {
+            background: linear-gradient(135deg, #4bb8d6 0%, #4bb8d6 60%, #fbd043 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Responsive Notch & Home Bar Adjustments */
+        .safe-pt { padding-top: calc(max(1rem, env(safe-area-inset-top)) + 0.25rem); }
+        .safe-pb { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+
+        /* SVG Gradient Classes */
+        .stroke-gradient { stroke: url(#iconGrad) !important; }
+        .fill-gradient { fill: url(#iconGrad) !important; }
+
+        /* Notes Background Grid */
+        .bg-grid-pattern {
+            background-size: 24px 24px;
+            background-image: linear-gradient(to right, rgba(161, 161, 170, 0.15) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(161, 161, 170, 0.15) 1px, transparent 1px);
+        }
+        html.dark .bg-grid-pattern {
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        }
+
+        /* 3D Flip Card Engine */
+        .perspective-1000 { perspective: 1000px; }
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            inset: 0;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white">
+
+    <!-- 60/40 Logo Gradient Def for pure icons -->
+    <svg aria-hidden="true" class="absolute w-0 h-0">
+        <defs>
+            <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#4bb8d6" />
+                <stop offset="60%" stop-color="#4bb8d6" />
+                <stop offset="100%" stop-color="#fbd043" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <div id="app-container">
+
+        <!-- Global Loader Overlay -->
+        <div id="global-loader" class="fixed inset-0 bg-zinc-50/95 dark:bg-black/95 z-[60] flex flex-col items-center justify-center transition-opacity duration-300">
+            <div class="w-12 h-12 rounded-[16px] bg-brand-gradient flex items-center justify-center mb-4 shadow-lg">
+                <i data-lucide="loader-2" class="w-6 h-6 text-white animate-spin"></i>
+            </div>
+            <p id="loader-text" class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Connecting to Engine...</p>
+        </div>
+
+        <!-- Very Thin Bottom Edge Selection Gradient -->
+        <div id="selection-bottom-gradient" class="fixed bottom-0 left-0 right-0 h-1.5 bg-brand-gradient z-[100] hidden pointer-events-none"></div>
+
+        <!-- ================= LOGIN SCREEN ================= -->
+        <div id="screen-login" class="app-screen bg-zinc-50 dark:bg-black p-6 justify-center items-center relative">
+            <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div class="absolute -top-[10%] -left-[10%] w-[60%] h-[40%] rounded-full bg-brand-blue/20 blur-[80px]"></div>
+                <div class="absolute top-[50%] -right-[10%] w-[50%] h-[50%] rounded-full bg-brand-yellow/15 blur-[80px]"></div>
+            </div>
+
+            <div class="w-full max-w-sm text-center my-auto relative z-10 px-2">
+                <div class="flex flex-col items-center mb-10">
+                    <img src="https://i.imgur.com/wliwntu.png" class="w-24 h-24 rounded-[24px] mb-6 shadow-xl object-cover" alt="ModQBank Logo">
+                    <h1 class="text-4xl md:text-5xl font-black tracking-tighter text-zinc-900 dark:text-white leading-none">MODMEDICALIS</h1>
+                    <p class="text-xs font-black text-brand-blue mt-3 uppercase tracking-[0.15em]">UHS Modular Syllabus Prep</p>
+                </div>
+
+                <form id="login-form" class="space-y-5 text-left w-full">
+                    <div>
+                        <label class="text-[11px] font-black uppercase tracking-widest text-zinc-900 dark:text-white block mb-2 px-2">Email Address</label>
+                        <input type="text" id="login-email" required class="w-full bg-zinc-200/50 dark:bg-zinc-900/80 rounded-[20px] px-5 py-4 text-lg font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-brand-blue outline-none transition-all placeholder-zinc-400 dark:placeholder-zinc-600 border-none" placeholder="Enter your email">
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-black uppercase tracking-widest text-zinc-900 dark:text-white block mb-2 px-2">Password</label>
+                        <input type="password" id="login-password" required class="w-full bg-zinc-200/50 dark:bg-zinc-900/80 rounded-[20px] px-5 py-4 text-lg font-bold text-zinc-900 dark:text-white focus:ring-2 focus:ring-brand-blue outline-none transition-all placeholder-zinc-400 dark:placeholder-zinc-600 border-none" placeholder="••••••••">
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-brand-gradient text-white font-black text-lg py-5 rounded-[20px] shadow-[0_8px_30px_rgba(75,184,214,0.3)] card-press">
+                            Access Portal
+                        </button>
+                    </div>
+                </form>
+
+                <div id="login-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-50/80 dark:bg-rose-950/30 backdrop-blur-md p-4 rounded-[16px] mt-6 border border-rose-200 dark:border-rose-900/50"></div>
+            </div>
+        </div>
+
+        <!-- ================= LEFT DRAWER MENU ================= -->
+        <div id="drawer-overlay" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/60 z-[45] hidden transition-opacity duration-300"></div>
+        <div id="left-drawer" class="fixed inset-y-0 left-0 w-[280px] md:w-80 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 z-[50] transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between">
+            <div class="p-6 safe-pt">
+                <div class="flex items-center space-x-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+                    <img src="https://i.imgur.com/wliwntu.png" class="w-12 h-12 rounded-[16px] shadow-md object-cover flex-shrink-0" alt="Profile">
+                    <div>
+                        <h2 id="drawer-name" class="text-sm font-bold text-zinc-900 dark:text-white">Guest</h2>
+                        <p id="drawer-subtitle" class="text-[10px] text-zinc-500 dark:text-zinc-400">Loading plan...</p>
+                    </div>
+                </div>
+
+                <div class="mt-5 space-y-2">
+                    <button onclick="toggleDrawer(false); switchTab('dashboard')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl bg-zinc-100 dark:bg-zinc-900 text-left text-sm font-semibold text-zinc-900 dark:text-white card-press">
+                        <div class="w-9 h-9 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-sm">
+                            <i data-lucide="home" class="w-4 h-4 text-white"></i>
+                        </div>
+                        <span>Dashboard</span>
+                    </button>
+                    <button onclick="toggleDrawer(false); setMode('mcqs'); navigate('module_selection')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
+                        <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
+                            <i data-lucide="target" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
+                        </div>
+                        <span>Practice Modules</span>
+                    </button>
+                    <button onclick="toggleDrawer(false); switchTab('explore')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
+                        <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
+                            <i data-lucide="book-open" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
+                        </div>
+                        <span>Syllabus</span>
+                    </button>
+                    <button onclick="toggleDrawer(false); switchTab('analytics')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
+                        <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
+                        </div>
+                        <span>Stats & Analytics</span>
+                    </button>
+                    <button onclick="toggleDrawer(false); navigate('profile')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
+                        <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
+                            <i data-lucide="settings" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
+                        </div>
+                        <span>Settings</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= DASHBOARD SCREEN ================= -->
+        <div id="screen-dashboard" class="app-screen pb-24 md:pb-28">
+            <!-- Ultra-Slim Solid Gradient Top Bar -->
+            <div class="sticky top-0 z-20 bg-brand-gradient safe-pt pb-2 px-4 md:px-6 flex justify-between items-center w-full shadow-md">
+                <button onclick="toggleDrawer(true)" class="p-2 -ml-2 text-white/90 hover:text-white transition-colors">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+                <div class="flex-1 text-center">
+                    <h1 class="text-sm font-black text-white tracking-widest uppercase">MODMEDICALIS</h1>
+                </div>
+                <button onclick="navigate('profile')" class="p-2 -mr-2 text-white/90 hover:text-white transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 pt-6 flex-1">
+                
+                <!-- Dynamic On-Background Greeting -->
+                <div class="pb-6 px-1">
+                    <p id="dashboard-greeting" class="text-sm font-bold text-zinc-500 dark:text-zinc-400">Good morning,</p>
+                    <h1 id="dashboard-username" class="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Dr. Student</h1>
+                </div>
+
+                <!-- iOS Widgets Row (Directly on Background) -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <!-- Streak Widget -->
+                    <div class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex flex-col justify-between">
+                        <div class="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 mb-4">
+                            <i data-lucide="flame" class="w-5 h-5 text-brand-yellow"></i>
+                            <span class="text-[11px] font-bold uppercase tracking-wider">Streak</span>
+                        </div>
+                        <div>
+                            <div class="flex items-baseline space-x-1">
+                                <span id="streak-number-display" class="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">0</span>
+                                <span class="text-xs font-bold text-zinc-500">Days</span>
+                            </div>
+                            <div class="flex space-x-1.5 mt-3 items-center" id="streak-dots-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Accuracy Widget -->
+                    <div class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex flex-col justify-between">
+                        <div class="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400 mb-4">
+                            <i data-lucide="target" class="w-5 h-5 text-brand-blue"></i>
+                            <span class="text-[11px] font-bold uppercase tracking-wider">Accuracy</span>
+                        </div>
+                        <div>
+                            <div class="flex items-baseline space-x-1">
+                                <span id="ui-dashboard-accuracy" class="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">0%</span>
+                            </div>
+                            <p id="ui-dashboard-mcqs-done" class="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider mt-1.5">0 MCQs Done</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Continue Learning Card -->
+                <div class="mb-6">
+                    <h2 class="text-base font-black text-zinc-900 dark:text-white uppercase tracking-wider mb-3 px-1">CONTINUE</h2>
+                    <div id="continue-card" class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] card-press relative overflow-hidden cursor-pointer border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]">
+                        <!-- Content dynamically rendered -->
+                    </div>
+                </div>
+
+                <!-- Quick Actions / Resources Grid -->
+                <div class="mb-2">
+                    <h2 class="text-base font-black text-zinc-900 dark:text-white uppercase tracking-wider mb-3 px-1">STUDY RESOURCES</h2>
+                    
+                    <!-- Combined 2x2 Grid -->
+                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] mb-3 overflow-hidden">
+                        <div class="grid grid-cols-2 divide-x divide-y divide-zinc-100 dark:divide-zinc-800">
+                            <!-- MCQs trigger 'mcqs' mode -->
+                            <div onclick="setMode('mcqs'); navigate('module_selection')" class="p-5 flex items-center space-x-4 card-press cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <div class="w-10 h-10 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-sm flex-shrink-0">
+                                    <i data-lucide="clipboard-list" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-white leading-tight">Practice MCQs</p>
+                            </div>
+                            <!-- Vivacards trigger 'vivacards' mode -->
+                            <div onclick="setMode('vivacards'); navigate('module_selection')" class="p-5 flex items-center space-x-4 card-press cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <div class="w-10 h-10 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-sm flex-shrink-0">
+                                    <i data-lucide="layers" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-white leading-tight">Vivacards</p>
+                            </div>
+                            <!-- Past Papers -->
+                            <div class="p-5 flex items-center space-x-4 card-press cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-t border-zinc-100 dark:border-zinc-800">
+                                <div class="w-10 h-10 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-sm flex-shrink-0">
+                                    <i data-lucide="file-text" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-white leading-tight">Past Papers</p>
+                            </div>
+                            <!-- Notes trigger 'notes' mode -->
+                            <div onclick="setMode('notes'); navigate('module_selection')" class="p-5 flex items-center space-x-4 card-press cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-t border-zinc-100 dark:border-zinc-800">
+                                <div class="w-10 h-10 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-sm flex-shrink-0">
+                                    <i data-lucide="edit-3" class="w-5 h-5 text-white"></i>
+                                </div>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-white leading-tight">Quick Notes</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Horizontal Remediation Card -->
+                    <div onclick="navigate('mistakes_review')" class="p-4 rounded-[24px] flex items-center justify-between card-press cursor-pointer bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] w-full mt-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-[12px] bg-rose-500 dark:bg-rose-600 flex items-center justify-center shadow-sm">
+                                <i data-lucide="alert-triangle" class="w-5 h-5 text-white"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-zinc-900 dark:text-white">Remediation Portal</p>
+                                <p class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">Targeted mistake review</p>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-5 h-5 text-zinc-400"></i>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. MERGED MODULE & SUBJECT SELECTION SCREEN -->
+        <div id="screen-module_selection" class="app-screen z-20 pb-28 md:pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-2 sticky top-0 z-20 bg-zinc-50 dark:bg-black">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white" id="module-select-title">Practice</h1>
+                    </div>
+                    
+                    <!-- Horizontally scrollable capsule tabs for modules -->
+                    <div id="module-capsules" class="flex overflow-x-auto no-scrollbar space-x-2 pb-3 border-b border-zinc-200 dark:border-zinc-800 mb-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                
+                <!-- Subjects mapped to the selected module -->
+                <div id="unified-subject-list" class="space-y-3 pt-4">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. LO SELECTION SCREEN -->
+        <div id="screen-lo_selection" class="app-screen z-20 pb-32 md:pb-36 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative h-full flex flex-col">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black">
+                    <!-- Breadcrumbs -->
+                    <div class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 px-1 flex items-center">
+                        <span id="bc-module" class="truncate max-w-[40%]">Practice</span> 
+                        <i data-lucide="chevron-right" class="w-3 h-3 mx-1 flex-shrink-0"></i> 
+                        <span id="bc-subject" class="text-brand-blue truncate">Subject</span>
+                    </div>
+
+                    <div class="flex items-center space-x-3 mb-4">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white truncate">Objectives</h1>
+                    </div>
+                    <div class="flex justify-between items-center bg-white dark:bg-zinc-900 p-3.5 rounded-[20px] border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <span id="lo-count-text" class="text-sm font-bold text-zinc-900 dark:text-white">0 Selected</span>
+                        <button onclick="toggleSelectAllLOs()" id="lo-select-all-btn" class="text-sm font-bold text-brand-gradient">Select All</button>
+                    </div>
+                </div>
+                <div id="lo-list" class="space-y-3 pt-4 flex-1 pb-24"></div>
+                
+                <div class="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-zinc-50 dark:from-black to-transparent pb-8 md:pb-12 z-30 pointer-events-none">
+                    <div class="w-full max-w-3xl mx-auto pointer-events-auto">
+                        <button id="lo-continue-btn" disabled class="w-full bg-zinc-200 dark:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 disabled:cursor-not-allowed font-bold py-4 rounded-[20px] transition-all text-sm shadow-sm">
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. SESSION BUILDER SCREEN -->
+        <div id="screen-session_builder" class="app-screen z-20 pb-32 md:pb-36 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col min-h-full">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black">
+                    <!-- Breadcrumbs -->
+                    <div class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 px-1 flex items-center">
+                        <span id="bc-sb-subject" class="truncate max-w-[50%]">Subject</span> 
+                        <i data-lucide="chevron-right" class="w-3 h-3 mx-1 flex-shrink-0"></i> 
+                        <span id="bc-sb-lo" class="text-brand-blue truncate">0 LOs</span>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Study Session</h1>
+                    </div>
+                </div>
+                <div class="space-y-6 pt-4 flex-1 pb-24">
+                    <div>
+                        <h3 class="text-sm font-extrabold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 px-1">Select Practice Set</h3>
+                        <div class="grid grid-cols-2 gap-3" id="premade-sets-container"></div>
+                    </div>
+                </div>
+
+                <div class="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-zinc-50 dark:from-black to-transparent pb-8 md:pb-12 z-30 pointer-events-none">
+                    <div class="w-full max-w-3xl mx-auto pointer-events-auto">
+                        <button id="btn-start-session" onclick="startSessionFlow()" class="w-full bg-zinc-200 dark:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm shadow-sm">
+                            Start Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. MCQ SCREEN -->
+        <div id="screen-mcq_screen" class="app-screen z-30 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col h-full justify-between">
+                <!-- Header -->
+                <div class="safe-pt pb-4 bg-zinc-50 dark:bg-black flex flex-col sticky top-0 z-20">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center space-x-3">
+                            <button onclick="endSessionConfirm()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                            <span id="mcq-progress-text" class="text-xs font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700"></span>
+                        </div>
+                        <div class="flex items-center space-x-1.5 text-zinc-500 dark:text-zinc-400">
+                            <i data-lucide="clock" class="w-4 h-4"></i>
+                            <span class="text-xs font-bold font-mono tracking-wider">18:42</span>
+                        </div>
+                    </div>
+                    <div class="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div id="mcq-progress-bar" class="h-full bg-slategreen rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Scroll Content -->
+                <div class="flex-1 overflow-y-auto no-scrollbar py-6 flex flex-col" id="mcq-content-area"></div>
+
+                <!-- Solid Bottom Bar -->
+                <div class="py-4 bg-zinc-50 dark:bg-black flex justify-between items-center z-20 pb-8 space-x-3" id="mcq-action-container">
+                    <!-- Populated by JS (Changes when submitted) -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 6b. MCQ EXPLANATION SCREEN (Tabulated, NO Question Text) -->
+        <div id="screen-mcq_explanation" class="app-screen z-40 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col min-h-full">
+                <div id="explanation-header"></div>
+                <!-- Massive bottom padding to avoid clipping on small devices -->
+                <div class="flex-1 overflow-y-auto no-scrollbar py-4 flex flex-col pb-[200px]" id="explanation-content-area">
+                </div>
+            </div>
+        </div>
+
+        <!-- 6c. QUICK NOTES VIEWER SCREEN -->
+        <div id="screen-notes_viewer" class="app-screen z-40 bg-zinc-50 dark:bg-black">
+            <div class="absolute inset-0 bg-grid-pattern opacity-50 z-0 pointer-events-none"></div>
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col min-h-full z-10">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black flex items-center space-x-3">
+                    <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <h1 class="text-2xl font-black text-zinc-900 dark:text-white truncate">Quick Notes</h1>
+                </div>
+                <div class="flex-1 overflow-y-auto no-scrollbar py-2 pb-32" id="notes-content-area">
+                    <!-- Populated dynamically without containers -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 6d. VIVACARDS VIEWER SCREEN (1-by-1 3D Flip UI) -->
+        <div id="screen-vivacards_viewer" class="app-screen z-40 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col min-h-full justify-between safe-pb">
+                
+                <div class="safe-pt pb-4 flex justify-between items-center z-20">
+                    <button onclick="endSessionConfirm()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    <span id="vivacard-progress-text" class="text-xs font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700"></span>
+                </div>
+                
+                <!-- 3D Flip Area -->
+                <div class="flex-1 flex items-center justify-center py-6 perspective-1000">
+                    <div id="vivacard-flip-container" class="flip-card w-full h-[60vh] max-h-[500px] cursor-pointer" onclick="this.classList.toggle('flipped')">
+                        <div class="flip-card-inner shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] rounded-[24px]">
+                            
+                            <!-- Front -->
+                            <div class="flip-card-front bg-white dark:bg-zinc-900 rounded-[24px] p-6 md:p-10 flex flex-col items-center justify-center text-center border border-zinc-200 dark:border-zinc-800">
+                                <span id="vivacard-locode" class="text-[10px] font-bold px-3 py-1.5 bg-brand-blue/10 text-brand-blue rounded-full uppercase tracking-wider mb-6"></span>
+                                <h2 id="vivacard-front-text" class="text-xl md:text-2xl font-black text-zinc-900 dark:text-white leading-relaxed select-none"></h2>
+                                <p class="absolute bottom-6 text-xs font-bold text-zinc-400 flex items-center"><i data-lucide="rotate-cw" class="w-3 h-3 mr-1.5 text-brand-yellow"></i> Tap to flip</p>
+                            </div>
+                            
+                            <!-- Back -->
+                            <div class="flip-card-back bg-white dark:bg-zinc-900 rounded-[24px] p-1 shadow-2xl border border-brand-blue/30 dark:border-brand-blue/50">
+                                <div class="w-full h-full bg-brand-blue/5 dark:bg-brand-blue/10 rounded-[22px] p-6 md:p-10 flex flex-col items-center justify-center text-center overflow-y-auto no-scrollbar relative">
+                                    <span class="text-[10px] font-bold px-3 py-1.5 bg-brand-yellow/20 text-brand-yellow rounded-full uppercase tracking-wider mb-6 flex-shrink-0">Answer</span>
+                                    <div id="vivacard-back-text" class="text-base md:text-lg text-zinc-800 dark:text-zinc-200 leading-relaxed font-semibold"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Navigation for Vivacards -->
+                <div class="py-4 flex justify-between items-center z-20 pb-8 space-x-4">
+                    <button id="btn-viva-prev" onclick="prevVivacard()" class="flex-1 py-4 rounded-[20px] bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold transition-all text-sm card-press shadow-sm">
+                        Previous
+                    </button>
+                    <button id="btn-viva-next" onclick="nextVivacard()" class="flex-1 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press">
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXPLORE / SYLLABUS SCREEN -->
+        <div id="screen-explore" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-800">
+                    <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Syllabus</h1>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Interactive Modular Curriculum</p>
+                </div>
+                <div id="syllabus-content" class="pt-6 pb-12"></div>
+            </div>
+        </div>
+
+        <!-- ANALYTICS / STATS SCREEN -->
+        <div id="screen-analytics" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-800">
+                    <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Stats & Analytics</h1>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Your performance overview</p>
+                </div>
+                <div class="pt-6 pb-12 space-y-5" id="analytics-content">
+                    <!-- Accuracy Widget (Ring) -->
+                    <div class="bg-white dark:bg-zinc-900 p-6 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Overall Accuracy</h3>
+                            <div class="flex items-baseline space-x-1 mt-2">
+                                <span id="stat-accuracy" class="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">0%</span>
+                            </div>
+                        </div>
+                        <div class="relative w-20 h-20">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="15" fill="none" class="stroke-zinc-100 dark:stroke-zinc-800" stroke-width="4"></circle>
+                                <circle id="stat-accuracy-ring" cx="18" cy="18" r="15" fill="none" class="stroke-brand-blue transition-all duration-1000 ease-out" stroke-width="4" stroke-dasharray="94.2" stroke-dashoffset="94.2" stroke-linecap="round"></circle>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <!-- 2x2 Small Widgets -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex flex-col justify-between">
+                            <i data-lucide="layers" class="w-6 h-6 text-brand-blue mb-3"></i>
+                            <div>
+                                <h3 class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">MCQs Done</h3>
+                                <span id="stat-total-mcqs" class="text-2xl font-black text-zinc-900 dark:text-white">0</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex flex-col justify-between">
+                            <i data-lucide="check-circle" class="w-6 h-6 text-slategreen mb-3"></i>
+                            <div>
+                                <h3 class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Correct</h3>
+                                <span id="stat-correct-mcqs" class="text-2xl font-black text-zinc-900 dark:text-white">0</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex flex-col justify-between">
+                            <i data-lucide="folder-check" class="w-6 h-6 text-brand-yellow mb-3"></i>
+                            <div>
+                                <h3 class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Sets Done</h3>
+                                <span id="stat-sets-completed" class="text-2xl font-black text-zinc-900 dark:text-white">0</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50 flex flex-col justify-between">
+                            <i data-lucide="flame" class="w-6 h-6 text-rose-500 mb-3"></i>
+                            <div>
+                                <h3 class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Current Streak</h3>
+                                <span id="stat-best-streak" class="text-2xl font-black text-zinc-900 dark:text-white">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar Chart (Animated Widget) -->
+                    <div class="bg-white dark:bg-zinc-900 p-6 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-zinc-100 dark:border-zinc-800/50">
+                        <h3 class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-5">Module Completion</h3>
+                        <div id="stat-module-bars" class="space-y-4">
+                            <!-- JS injected bars -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. RESULT SCREEN -->
+        <div id="screen-result_screen" class="app-screen z-30 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-6 text-center">
+                <h1 class="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white pt-20 mb-10">Performance Overview</h1>
+                
+                <div class="relative w-48 h-48 mx-auto mb-10 border border-zinc-200 dark:border-zinc-800 rounded-full p-2 bg-white dark:bg-zinc-900 shadow-sm">
+                    <svg class="w-full h-full transform -rotate-90 glow-circle" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" class="stroke-zinc-100 dark:stroke-zinc-800" stroke-width="8"></circle>
+                        <circle id="result-circle" cx="50" cy="50" r="45" fill="none" stroke="#477864" stroke-width="8" stroke-dasharray="282.7" stroke-dashoffset="67.8" stroke-linecap="round" class="transition-all duration-1000"></circle>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="result-percentage" class="text-5xl font-black text-zinc-900 dark:text-white">0%</span>
+                        <span id="result-fraction" class="text-sm text-zinc-500 dark:text-zinc-400 font-bold mt-2">0 / 0</span>
+                    </div>
+                </div>
+                
+                <h3 class="text-xl font-bold text-zinc-900 dark:text-white mb-8">Session Completed</h3>
+
+                <div class="grid grid-cols-2 gap-4 mb-12 text-left">
+                    <div class="p-6 rounded-[20px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-2">Correct Answers</p>
+                        <p id="result-correct" class="text-3xl font-black text-zinc-900 dark:text-white">0</p>
+                    </div>
+                    <div class="p-6 rounded-[20px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <p class="text-[11px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider mb-2">Incorrect Answers</p>
+                        <p id="result-incorrect" class="text-3xl font-black text-zinc-900 dark:text-white">0</p>
+                    </div>
+                </div>
+
+                <button onclick="navigate('dashboard')" class="w-full bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-lg card-press">
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+
+        <!-- 8. PROFILE / SETTINGS SCREEN -->
+        <div id="screen-profile" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 bg-zinc-50 dark:bg-black z-10 flex items-center space-x-3">
+                    <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <h1 class="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Settings</h1>
+                </div>
+
+                <div class="space-y-6 pt-4">
+                    
+                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 md:p-8 shadow-sm">
+                        <h2 class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-5">Edit Profile</h2>
+                        <form id="edit-profile-form" class="space-y-4">
+                            <div>
+                                <label class="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block mb-1.5">Full Name</label>
+                                <input type="text" id="edit-name" required class="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-900 dark:text-white focus:border-brand-blue outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block mb-1.5">New Password (Optional)</label>
+                                <input type="password" id="edit-pass" class="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-900 dark:text-white focus:border-brand-blue outline-none" placeholder="••••••••">
+                            </div>
+                            <button type="submit" class="w-full bg-brand-gradient text-white font-bold py-3.5 rounded-xl text-sm shadow-md card-press">
+                                Save Changes
+                            </button>
+                        </form>
+                        <div id="edit-profile-msg" class="text-xs font-bold mt-4 hidden text-center"></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 md:p-8 shadow-sm">
+                        <h2 class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-5">Curriculum Control</h2>
+                        <div class="mb-6">
+                            <label class="text-xs font-bold text-zinc-900 dark:text-white block mb-3">MBBS Year</label>
+                            <div class="grid grid-cols-3 gap-2" id="year-selector"></div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-zinc-900 dark:text-white block mb-3">Selected Block</label>
+                            <div class="grid grid-cols-3 gap-2" id="block-selector"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-2 shadow-sm">
+                        <div onclick="toggleTheme()" class="flex items-center space-x-4 p-4 hover:bg-zinc-50 dark:hover:bg-black rounded-[16px] transition-colors cursor-pointer card-press">
+                            <div class="w-10 h-10 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-sm flex-shrink-0">
+                                <i data-lucide="sun-moon" class="w-5 h-5 text-white"></i>
+                            </div>
+                            <div class="flex-1"><p id="theme-btn-text" class="font-bold text-sm text-zinc-900 dark:text-white">Switch to Light Mode</p></div>
+                        </div>
+                        <div onclick="logOutUser()" class="flex items-center space-x-4 p-4 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-[16px] transition-colors cursor-pointer card-press">
+                            <div class="w-10 h-10 rounded-[12px] bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center shadow-sm flex-shrink-0">
+                                <i data-lucide="log-out" class="w-5 h-5 text-rose-500"></i>
+                            </div>
+                            <div class="flex-1"><p class="font-bold text-sm">Logout Session</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 9. DIAGNOSTIC MISTAKES PORTAL ================= -->
+        <div id="screen-mistakes_review" class="app-screen z-20 pb-28 md:pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Diagnostic Review</h1>
+                    </div>
+                </div>
+                <div id="mistakes-grouped-list" class="space-y-4 pt-4"></div>
+            </div>
+        </div>
+
+        <!-- ================= IN-APP EXIT DIALOGUE MODAL ================= -->
+        <div id="exit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden opacity-0 flex items-center justify-center p-6 transition-opacity duration-300">
+            <div class="w-full max-w-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 text-center transform scale-95 transition-transform duration-300 shadow-2xl" id="exit-modal-container">
+                <div class="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+                </div>
+                <h3 class="text-lg font-black text-zinc-900 dark:text-white mb-2">Suspend Session?</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">Your current test progress will be discarded. Do you wish to proceed?</p>
+                <div class="space-y-2">
+                    <button onclick="confirmExitSession()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl text-sm transition-colors shadow-md">
+                        Exit & Abandon
+                    </button>
+                    <button onclick="closeExitDialog()" class="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold py-3.5 rounded-xl text-sm transition-colors">
+                        Resume Study
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= BOTTOM NAVIGATION ================= -->
+        <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 z-40 safe-pb">
+            <div class="w-full max-w-3xl mx-auto px-6 pb-1 pt-1.5 flex justify-between items-center">
+                <div onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="dashboard">
+                    <div class="nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300">
+                        <i data-lucide="home" class="w-4 h-4"></i>
+                    </div>
+                    <span class="nav-text text-[8px] font-bold transition-colors">Home</span>
+                </div>
+                <div onclick="setMode('mcqs'); switchTab('module_selection')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="module_selection">
+                    <div class="nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300">
+                        <i data-lucide="target" class="w-4 h-4"></i>
+                    </div>
+                    <span class="nav-text text-[8px] font-bold transition-colors">Practice</span>
+                </div>
+                <div onclick="switchTab('explore')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="explore">
+                    <div class="nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                    </div>
+                    <span class="nav-text text-[8px] font-bold transition-colors">Syllabus</span>
+                </div>
+                <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="analytics">
+                    <div class="nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                    </div>
+                    <span class="nav-text text-[8px] font-bold transition-colors">Stats</span>
+                </div>
+                <div onclick="switchTab('profile')" class="nav-item flex flex-col items-center space-y-0.5 cursor-pointer group" data-target="profile">
+                    <div class="nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                    </div>
+                    <span class="nav-text text-[8px] font-bold transition-colors">Profile</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        // --- DATA STATE & CACHING SYSTEM ---
+        let APP_DATA = { rawSyllabus: [], allMCQs: [], allNotes: [], allFlashcards: [], modules: {} };
+        let MCQ_CACHE = {}; 
+        let NOTES_CACHE = {};
+        let FLASH_CACHE = {};
+
+        let appState = {
+            currentScreen: 'login',
+            navHistory: ['login'],
+            mode: 'mcqs', 
+            context: { module: null, subject: null },
+            activeModuleTab: null,
+            currentContextLOs: [], 
+            selectedLOs: [],
+            
+            availableSets: [],
+            selectedSetIndex: 0,
+            
+            sessionQuestions: [],
+            currentQuestionIndex: 0,
+            
+            mcqSessionQuestions: [],
+            mcqHistory: {}, 
+            currentMcqIndex: 0,
+            mcqSelectedOptionIndex: null,
+            mcqIsSubmitted: false,
+            mcqIsBookmarked: false,
+            sessionStats: { correct: 0, incorrect: 0 },
+
+            academicYear: '1st',
+            academicBlock: 'II',
+            streak: 0, 
+
+            // Cloud Synced User Stats
+            bookmarkedMCQs: [],
+            incorrectMCQs: [],
+            completedSets: [],
+            totalMcqsDone: 0,
+            totalCorrect: 0,
+            loStats: {}, 
+            setStats: {}, 
+
+            // Auth State
+            currentUser: null,
+            userData: null
+        };
+
+        const yearBlockMap = {
+            '1st': ['I', 'II', 'III'],
+            '2nd': ['IV', 'V', 'VI'],
+            '3rd': ['VII', 'VIII', 'IX'],
+            '4th': ['X', 'XI', 'XII'],
+            '5th': ['XIII', 'XIV', 'XV']
+        };
+
+        function updateDashboardStatisticsUI() {
+            const accuracy = appState.totalMcqsDone > 0 ? Math.round((appState.totalCorrect / appState.totalMcqsDone) * 100) : 0;
+            
+            const greetEl = document.getElementById('dashboard-greeting');
+            if(greetEl) {
+                const hour = new Date().getHours();
+                let greet = 'Good evening,';
+                if(hour < 12) greet = 'Good morning,';
+                else if(hour < 18) greet = 'Good afternoon,';
+                greetEl.innerText = greet;
+            }
+
+            const nameEl = document.getElementById('dashboard-username');
+            if(nameEl) {
+                nameEl.innerText = appState.userData ? (appState.userData.fullName || 'Student') : 'Student';
+            }
+
+            const uiAcc = document.getElementById('ui-dashboard-accuracy');
+            const uiDone = document.getElementById('ui-dashboard-mcqs-done');
+            if(uiAcc) uiAcc.innerText = `${accuracy}%`;
+            if(uiDone) uiDone.innerText = `${appState.totalMcqsDone} MCQs Done`;
+        }
+
+        function renderStreakDots() {
+            const container = document.getElementById('streak-dots-container');
+            if(!container) return;
+            const streak = appState.streak || 0;
+            let html = '';
+            
+            for(let i=0; i<7; i++) {
+                if (i < (streak % 7 || (streak > 0 ? 7 : 0))) {
+                    html += `<div class="w-1.5 h-1.5 rounded-full bg-brand-yellow shadow-[0_0_6px_rgba(251,208,67,0.6)]"></div>`;
+                } else if (i === (streak % 7) || (streak === 0 && i === 0)) {
+                    html += `<div class="w-1.5 h-1.5 rounded-full bg-brand-yellow animate-pulse"></div>`;
+                } else {
+                    html += `<div class="w-1.5 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800"></div>`;
+                }
+            }
+            container.innerHTML = html;
+        }
+
+        function setMode(newMode) {
+            appState.mode = newMode;
+            appState.selectedLOs = [];
+        }
+
+        function getCircularProgress(pct) {
+            const radius = 14;
+            const circumference = 2 * Math.PI * radius; 
+            const offset = circumference - (pct / 100) * circumference;
+            return `
+            <div class="relative w-11 h-11 flex items-center justify-center flex-shrink-0">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="${radius}" fill="none" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="3"></circle>
+                    <circle cx="18" cy="18" r="${radius}" fill="none" class="stroke-brand-blue" stroke-width="3" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"></circle>
+                </svg>
+                <span class="absolute text-[9px] font-extrabold text-zinc-700 dark:text-zinc-300">${pct}%</span>
+            </div>
+            `;
+        }
+
+        function initTheme() {
+            const theme = localStorage.getItem('app-theme') || 'dark';
+            document.documentElement.className = theme;
+            updateThemeButtonUI(theme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.className;
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.className = next;
+            localStorage.setItem('app-theme', next);
+            updateThemeButtonUI(next);
+        }
+
+        function updateThemeButtonUI(theme) {
+            const text = document.getElementById('theme-btn-text');
+            if (text) {
+                text.innerText = theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode";
+            }
+        }
+
+        function updateContinueCardUI() {
+            const session = appState.userData ? appState.userData.currentSession : null;
+            const card = document.getElementById('continue-card');
+            if (session && card) {
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="text-[9px] font-bold px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full uppercase tracking-wider">${session.subject}</span>
+                            <h3 class="text-base font-bold text-zinc-900 dark:text-white mt-2">${session.module}</h3>
+                            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Objective Code: ${(session.selectedLOs || []).slice(0, 3).join(', ')}</p>
+                        </div>
+                        <i data-lucide="play-circle" class="w-10 h-10 stroke-gradient flex-shrink-0 drop-shadow-md"></i>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-brand-blue rounded-full" style="width: ${session.pct || 65}%"></div>
+                        </div>
+                        <span class="text-[10px] font-bold text-zinc-900 dark:text-white">${session.pct || 65}%</span>
+                    </div>
+                `;
+                card.onclick = () => resumeLastSavedSession();
+            } else if (card) {
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="text-[9px] font-bold px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full uppercase tracking-wider">General Anatomy</span>
+                            <h3 class="text-base font-bold text-zinc-900 dark:text-white mt-2">Upper Limb</h3>
+                            <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Brachial Plexus & Axillary Region</p>
+                        </div>
+                        <i data-lucide="play-circle" class="w-10 h-10 stroke-gradient flex-shrink-0 drop-shadow-md"></i>
+                    </div>
+                `;
+                card.onclick = () => { setMode('mcqs'); navigate('module_selection'); };
+            }
+            lucide.createIcons();
+        }
+
+        async function resumeLastSavedSession() {
+            const session = appState.userData.currentSession;
+            if(!session) return;
+            
+            showLoader("Restoring Session...");
+            appState.context.module = session.module;
+            appState.context.subject = session.subject;
+            appState.selectedLOs = session.selectedLOs;
+            appState.selectedSetIndex = session.selectedSetIndex;
+            appState.academicYear = session.academicYear;
+            appState.academicBlock = session.academicBlock;
+            
+            setMode('mcqs');
+            await ensureMCQsLoaded();
+            
+            let filtered = APP_DATA.allMCQs.filter(q => q.tag && appState.selectedLOs.includes(String(q.tag).trim()));
+            if(!filtered || filtered.length === 0) {
+                alert("No MCQs available in the database to restore this session.");
+                hideLoader();
+                return;
+            }
+
+            const SET_SIZE = 20;
+            appState.availableSets = [];
+            for (let i = 0; i < Math.ceil(filtered.length / SET_SIZE); i++) {
+                appState.availableSets.push({
+                    id: i, title: `Set ${i + 1}`, items: filtered.slice(i * SET_SIZE, (i + 1) * SET_SIZE)
+                });
+            }
+            
+            const selectedSet = appState.availableSets[appState.selectedSetIndex];
+            appState.sessionQuestions = [...selectedSet.items].sort(() => 0.5 - Math.random());
+            appState.mcqSessionQuestions = appState.sessionQuestions;
+            
+            appState.mcqHistory = session.mcqHistory || {}; 
+            appState.currentQuestionIndex = session.currentMcqIndex || 0;
+            appState.currentMcqIndex = appState.currentQuestionIndex;
+            appState.mcqSelectedOptionIndex = null;
+            appState.mcqIsSubmitted = false;
+            
+            hideLoader();
+            navigate('mcq_screen');
+        }
+
+        async function syncSessionProgress() {
+            if(!appState.currentUser) return;
+            const currentPct = Math.round(((appState.currentMcqIndex + 1) / appState.mcqSessionQuestions.length) * 100);
+            
+            const sessionData = {
+                module: appState.context.module,
+                subject: appState.context.subject,
+                selectedLOs: appState.selectedLOs,
+                selectedSetIndex: appState.selectedSetIndex,
+                currentMcqIndex: appState.currentMcqIndex,
+                pct: currentPct,
+                academicYear: appState.academicYear,
+                academicBlock: appState.academicBlock,
+                mcqHistory: appState.mcqHistory
+            };
+
+            await db.collection("users").doc(appState.currentUser.uid).update({
+                currentSession: sessionData
+            });
+            appState.userData.currentSession = sessionData;
+        }
+
+        function updateStreak() {
+            if (!appState.userData) return;
+            const today = new Date().toDateString();
+            const lastActive = appState.userData.lastActiveDate || "";
+            
+            if (lastActive !== today) {
+                let newStreak = appState.streak;
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                if (lastActive === yesterday.toDateString()) {
+                    newStreak++;
+                } else if (lastActive === "") {
+                    newStreak = 1;
+                } else {
+                    newStreak = 0; 
+                }
+                
+                appState.streak = newStreak;
+                // Offline persistence enabled, background safe
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    streak: newStreak,
+                    lastActiveDate: today
+                }).catch(e => console.warn(e));
+            }
+            const display = document.getElementById('streak-number-display');
+            if (display) display.innerText = appState.streak;
+            renderStreakDots();
+        }
+
+        function safeStr(str) { return str.replace(/'/g, "\\'"); }
+
+        function showLoader(text) {
+            document.getElementById('loader-text').innerText = text;
+            const loader = document.getElementById('global-loader');
+            loader.classList.remove('hidden');
+            setTimeout(() => loader.classList.remove('opacity-0'), 10);
+        }
+        
+        function hideLoader() {
+            const loader = document.getElementById('global-loader');
+            loader.classList.add('opacity-0');
+            setTimeout(() => loader.classList.add('hidden'), 300);
+        }
+
+        function toggleDrawer(open) {
+            const drawer = document.getElementById('left-drawer');
+            const overlay = document.getElementById('drawer-overlay');
+            if (open) {
+                drawer.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                drawer.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        firebase.initializeApp({
+            apiKey: "AIzaSyC5NkowybsLrQnTyuFrm2VTTHE2R2yNddA",
+            authDomain: "modqbank.firebaseapp.com",
+            projectId: "modqbank",
+            storageBucket: "modqbank.firebasestorage.app",
+            messagingSenderId: "44011667684",
+            appId: "1:44011667684:web:89421cc40c8bb37e806cf1"
+        });
+        const db = firebase.firestore();
+        // Vital for Instant Nano-second Load
+        db.enablePersistence({synchronizeTabs:true}).catch(function(err) {
+            console.warn("Persistence error:", err.code);
+        });
+        const auth = firebase.auth();
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                appState.currentUser = user;
+                try {
+                    // Try to get cached doc first for speed, fallback to server
+                    const docSnap = await db.collection("users").doc(user.uid).get();
+                    appState.userData = docSnap.exists ? docSnap.data() : {};
+                    
+                    appState.userData = appState.userData || {};
+                    
+                    const fullName = appState.userData.fullName || "Student";
+                    const dName = document.getElementById('drawer-name');
+                    if(dName) dName.innerText = fullName;
+                    const dbName = document.getElementById('dashboard-name');
+                    if(dbName) dbName.innerText = fullName;
+                    const eName = document.getElementById('edit-name');
+                    if(eName) eName.value = fullName;
+                    
+                    appState.bookmarkedMCQs = appState.userData.bookmarkedMCQs || [];
+                    appState.incorrectMCQs = appState.userData.incorrectMCQs || [];
+                    appState.completedSets = appState.userData.completedSets || [];
+                    appState.totalMcqsDone = appState.userData.totalMcqsDone || 0;
+                    appState.totalCorrect = appState.userData.totalCorrect || 0;
+                    appState.streak = appState.userData.streak || 0;
+                    appState.loStats = appState.userData.loStats || {};
+                    appState.setStats = appState.userData.setStats || {};
+
+                    const plans = appState.userData.purchasedBlocks || [];
+                    if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
+                        const parts = plans[0].split('_');
+                        if(parts[0]) appState.academicYear = parts[0];
+                        if(parts[1]) appState.academicBlock = parts[1];
+                    }
+                    
+                    const subT = document.getElementById('drawer-subtitle');
+                    if(subT) subT.innerText = `${appState.academicYear} Year MBBS • UHS`;
+                    
+                    try { updateStreak(); } catch(e){}
+                    try { updateDashboardStatisticsUI(); } catch(e){}
+                    try { updateContinueCardUI(); } catch(e){}
+
+                    // INSTANT ROUTING (Do not await syllabus)
+                    hideLoader();
+                    switchTab('dashboard');
+                    
+                    fetchSyllabus(); // Fetch quietly in background
+                    
+                } catch(e) {
+                    console.warn("Hydration soft-fallback active: ", e);
+                    appState.userData = appState.userData || {};
+                    hideLoader();
+                    switchTab('dashboard');
+                    fetchSyllabus(); 
+                }
+            } else {
+                switchTab('login');
+                hideLoader();
+            }
+        });
+
+        function showLoginError(msg) {
+            const errorDiv = document.getElementById('login-error');
+            errorDiv.innerText = msg;
+            errorDiv.classList.remove('hidden');
+            switchTab('login');
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById('login-email').value.trim();
+            const passInput = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            errorDiv.classList.add('hidden');
+            showLoader("Authenticating...");
+
+            let parsedEmail = emailInput;
+            if (!emailInput.includes('@')) {
+                parsedEmail = emailInput + "@mod.admin";
+            }
+
+            try {
+                // signIn will instantly trigger onAuthStateChanged which hides loader
+                await auth.signInWithEmailAndPassword(parsedEmail, passInput);
+            } catch(error) {
+                hideLoader();
+                errorDiv.innerText = "Error: " + error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newName = document.getElementById('edit-name').value.trim();
+            const newPass = document.getElementById('edit-pass').value;
+            const msg = document.getElementById('edit-profile-msg');
+            
+            msg.className = "text-xs font-bold mt-3 text-zinc-500 text-center";
+            msg.innerText = "Saving changes...";
+            msg.classList.remove('hidden');
+
+            try {
+                await db.collection("users").doc(appState.currentUser.uid).update({
+                    fullName: newName
+                });
+
+                appState.userData.fullName = newName;
+                document.getElementById('drawer-name').innerText = newName;
+                document.getElementById('dashboard-name').innerText = newName;
+
+                if (newPass) {
+                    await appState.currentUser.updatePassword(newPass);
+                }
+
+                msg.className = "text-xs font-bold mt-3 text-emerald-500 text-center";
+                msg.innerText = "Profile updated successfully!";
+                document.getElementById('edit-pass').value = ''; 
+
+            } catch (error) {
+                msg.className = "text-xs font-bold mt-3 text-rose-500 text-center";
+                msg.innerText = "Error: " + error.message;
+            }
+        });
+
+        function logOutUser() {
+            auth.signOut();
+        }
+
+        function renderAnalytics() {
+            const total = appState.totalMcqsDone || 0;
+            const correct = appState.totalCorrect || 0;
+            const acc = total > 0 ? Math.round((correct / total) * 100) : 0;
+            
+            document.getElementById('stat-accuracy').innerText = `${acc}%`;
+            document.getElementById('stat-total-mcqs').innerText = total;
+            document.getElementById('stat-correct-mcqs').innerText = correct;
+            document.getElementById('stat-sets-completed').innerText = Object.keys(appState.setStats).length || 0;
+            document.getElementById('stat-best-streak').innerText = appState.streak || 0; 
+
+            const ring = document.getElementById('stat-accuracy-ring');
+            if (ring) {
+                const circumference = 2 * Math.PI * 15;
+                const offset = circumference - (acc / 100) * circumference;
+                setTimeout(() => { ring.style.strokeDashoffset = offset; }, 100);
+            }
+
+            const barsContainer = document.getElementById('stat-module-bars');
+            if (barsContainer) {
+                const modules = Object.values(APP_DATA.modules);
+                if (modules.length === 0) {
+                    barsContainer.innerHTML = '<p class="text-xs text-zinc-500">No module data available yet.</p>';
+                } else {
+                    barsContainer.innerHTML = modules.map(m => {
+                        const mTotal = m.totalMcqs || 0;
+                        const mAttempted = Object.values(m.subjects).reduce((sum, s) => sum + (s.attempted || 0), 0);
+                        const mPct = mTotal > 0 ? Math.min(100, Math.round((mAttempted / mTotal) * 100)) : 0;
+                        
+                        return `
+                        <div>
+                            <div class="flex justify-between text-[10px] font-bold mb-1.5">
+                                <span class="text-zinc-700 dark:text-zinc-300 truncate pr-2">${m.name}</span>
+                                <span class="text-brand-blue">${mPct}%</span>
+                            </div>
+                            <div class="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-brand-gradient rounded-full transition-all duration-1000 ease-out" style="width: 0%" data-target-width="${mPct}%"></div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    
+                    setTimeout(() => {
+                        barsContainer.querySelectorAll('[data-target-width]').forEach(el => {
+                            el.style.width = el.getAttribute('data-target-width');
+                        });
+                    }, 100);
+                }
+            }
+            lucide.createIcons();
+        }
+
+        // ================= SMART-BATCH SUPER-FETCH ENGINE =================
+        async function fetchInSequentialBatches(baseUrl, maxLetters = 26) {
+            const results = [];
+            const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
+            const batchSize = 3; // Micro-batching prevents browser choke limits
+            
+            // Daily cache buster instead of millisecond. It caches locally saving gigs of data, but updates if you modify Github on a new day.
+            const cacheDate = new Date().toISOString().slice(0, 10); 
+            
+            for (let i = 0; i < letters.length; i += batchSize) {
+                const batch = letters.slice(i, i + batchSize);
+                const promises = batch.map(char => 
+                    fetch(`${baseUrl}${char}.json?v=${cacheDate}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+                );
+                
+                const batchResults = await Promise.all(promises);
+                let hit404 = false;
+                
+                for (let data of batchResults) {
+                    if (data) {
+                        results.push(data);
+                    } else {
+                        hit404 = true;
+                    }
+                }
+                
+                // If we hit a 404 (file doesn't exist), stop pinging GitHub. Massive speed boost.
+                if (hit404) break; 
+            }
+            return results.flat(Infinity);
+        }
+
+        async function prefetchCurrentBlockMCQs() {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}`;
+            const allData = await fetchInSequentialBatches(baseUrl, 26);
+            
+            MCQ_CACHE[bNum] = allData;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allMCQs = allData;
+                buildSyllabusTree();
+                if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+                else if (appState.currentScreen === 'lo_selection') renderLOs();
+                else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+            }
+        }
+
+        async function prefetchCurrentBlockNotes() {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
+            const allNotesRaw = await fetchInSequentialBatches(baseUrl, 26);
+
+            let allNotes = [];
+            allNotesRaw.forEach(modData => {
+                if (modData.learningObjectives) {
+                    modData.learningObjectives.forEach(lo => {
+                        let code = lo.objective.split('.')[0].trim();
+                        lo.topics?.forEach(topic => {
+                            allNotes.push({ loCode: code, topicTitle: topic.topic, content: topic.generatedNotes });
+                        });
+                    });
+                }
+            });
+            NOTES_CACHE[bNum] = allNotes;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allNotes = allNotes;
+            }
+        }
+
+        async function prefetchCurrentBlockVivacards() {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
+            const allCardsRaw = await fetchInSequentialBatches(baseUrl, 13); // fetch up to 'm'
+
+            let allFlashcards = [];
+            allCardsRaw.forEach(modData => {
+                if (modData.learningObjectives) {
+                    modData.learningObjectives.forEach(lo => {
+                        let code = lo.objective.split('.')[0].trim();
+                        if(lo.flashcards) {
+                            lo.flashcards.forEach(card => {
+                                allFlashcards.push({ loCode: code, front: card.front || card.question, back: card.back || card.answer });
+                            });
+                        } else if (lo.topics) {
+                            lo.topics.forEach(t => {
+                                if (t.generatedNotes) {
+                                    const qaBlocks = t.generatedNotes.split(/(?=Q:\s*)/);
+                                    qaBlocks.forEach(block => {
+                                        if (block.trim().startsWith('Q:')) {
+                                            const parts = block.split(/A:\s*/);
+                                            const q = parts[0].replace('Q:', '').trim();
+                                            const a = parts[1] ? parts[1].trim() : '';
+                                            if (q && a) {
+                                                allFlashcards.push({ loCode: code, front: q, back: a });
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+            FLASH_CACHE[bNum] = allFlashcards;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allFlashcards = allFlashcards;
+            }
+        }
+
+        async function fetchSyllabus() {
+            try {
+                const timestamp = new Date().getTime();
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/1styearsyllabus.json?nocache=${timestamp}`;
+                
+                const response = await fetch(url, { cache: 'no-store' });
+                if(!response.ok) throw new Error("Syllabus fetch failed");
+                const data = await response.json();
+                
+                APP_DATA.rawSyllabus = data.syllabus || [];
+                buildSyllabusTree();
+                
+                // Fire these parallel tasks silently without blocking UI
+                Promise.all([
+                    prefetchCurrentBlockMCQs(),
+                    prefetchCurrentBlockNotes(),
+                    prefetchCurrentBlockVivacards()
+                ]).catch(e => console.warn("Prefetch warning", e));
+            } catch (error) {
+                console.warn("Error fetching syllabus:", error);
+                APP_DATA.rawSyllabus = [];
+                buildSyllabusTree();
+            }
+        }
+
+        async function ensureMCQsLoaded() {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+
+            if (appState.mode === 'mcqs' && (!MCQ_CACHE[bNum] || MCQ_CACHE[bNum].length === 0)) {
+                showLoader("Syncing MCQ database...");
+                await prefetchCurrentBlockMCQs();
+                hideLoader();
+            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
+                showLoader("Syncing Notes database...");
+                await prefetchCurrentBlockNotes();
+                hideLoader();
+            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
+                showLoader("Syncing Vivacards database...");
+                await prefetchCurrentBlockVivacards();
+                hideLoader();
+            }
+        }
+
+        function hasBlockAccess(year, block) {
+            if (!appState.userData) return false;
+            if (appState.userData.role === "master" || (appState.userData.purchasedBlocks || []).includes("ALL")) {
+                return true;
+            }
+            const targetId = `${year}_${block}`;
+            return (appState.userData.purchasedBlocks || []).includes(targetId);
+        }
+
+        function hasYearAccess(year) {
+            if (!appState.userData) return false;
+            if (appState.userData.role === "master" || (appState.userData.purchasedBlocks || []).includes("ALL")) {
+                return true;
+            }
+            const blocks = yearBlockMap[year] || [];
+            return blocks.some(b => hasBlockAccess(year, b));
+        }
+
+        function buildSyllabusTree() {
+            APP_DATA.modules = {};
+            const currentYearStr = appState.academicYear + " Year";
+            const currentBlockStr = "Block " + appState.academicBlock;
+
+            const relevantItems = APP_DATA.rawSyllabus.filter(item => 
+                item.year === currentYearStr && item.block === currentBlockStr
+            );
+
+            const ICONS = ['layers', 'activity', 'zap', 'microscope', 'book-open', 'box'];
+            let modIndex = 0;
+
+            relevantItems.forEach(item => {
+                if (!APP_DATA.modules[item.moduleName]) {
+                    APP_DATA.modules[item.moduleName] = {
+                        name: item.moduleName,
+                        subjects: {},
+                        progress: 0,
+                        icon: ICONS[modIndex % ICONS.length],
+                        totalMcqs: 0
+                    };
+                    modIndex++;
+                }
+
+                if (!APP_DATA.modules[item.moduleName].subjects[item.subject]) {
+                    APP_DATA.modules[item.moduleName].subjects[item.subject] = {
+                        name: item.subject,
+                        los: [],
+                        totalMcqs: 0,
+                        attempted: 0
+                    };
+                }
+
+                let subTotalMCQs = 0;
+                let subAttemptedMCQs = 0;
+
+                item.learningObjectives.forEach(lo => {
+                    let code = "LO";
+                    let title = lo.objective;
+                    
+                    const dotIndex = lo.objective.indexOf('.');
+                    if (dotIndex > 0 && dotIndex < 15) {
+                        code = lo.objective.substring(0, dotIndex).trim();
+                        title = lo.objective.substring(dotIndex + 1).trim();
+                    } else {
+                        const spaceIndex = lo.objective.indexOf(' ');
+                        if (spaceIndex > 0 && spaceIndex < 15) {
+                            code = lo.objective.substring(0, spaceIndex).trim();
+                            title = lo.objective.substring(spaceIndex + 1).trim();
+                        }
+                    }
+
+                    let matchingMcqs = APP_DATA.allMCQs.filter(q => q.tag && String(q.tag).trim() === code);
+                    const count = matchingMcqs.length;
+                    
+                    let loStats = appState.loStats[code] || { attempted: 0, correct: 0 };
+                    
+                    subTotalMCQs += count;
+                    subAttemptedMCQs += Math.min(loStats.attempted, count);
+
+                    APP_DATA.modules[item.moduleName].subjects[item.subject].los.push({
+                        id: code,
+                        code: code,
+                        title: title,
+                        mcqs: count, 
+                        accuracy: count > 0 ? Math.min(100, Math.round((loStats.attempted / count) * 100)) : 0, 
+                        status: count > 10 ? 'high' : count > 0 ? 'medium' : 'low'
+                    });
+
+                    APP_DATA.modules[item.moduleName].subjects[item.subject].totalMcqs += count;
+                    APP_DATA.modules[item.moduleName].totalMcqs += count;
+                });
+                
+                APP_DATA.modules[item.moduleName].subjects[item.subject].attempted = subAttemptedMCQs;
+            });
+        }
+
+        function switchTab(screenId) {
+            appState.navHistory = [screenId];
+            appState.currentScreen = screenId;
+            showScreen(screenId);
+        }
+
+        async function navigate(screenId, contextData = null) {
+            if (contextData) appState.context = { ...appState.context, ...contextData };
+            if (appState.currentScreen !== screenId) appState.navHistory.push(screenId);
+            appState.currentScreen = screenId;
+            await showScreen(screenId);
+        }
+
+        async function goBack() {
+            if (appState.navHistory.length > 1) {
+                appState.navHistory.pop(); 
+                const previousScreen = appState.navHistory[appState.navHistory.length - 1];
+                appState.currentScreen = previousScreen;
+                await showScreen(previousScreen);
+            } else {
+                switchTab('dashboard');
+            }
+        }
+
+        async function showScreen(screenId) {
+            if (screenId !== 'login' && !appState.currentUser) {
+                switchTab('login');
+                return;
+            }
+
+            const practiceScreens = ['module_selection', 'lo_selection', 'session_builder'];
+            if (practiceScreens.includes(screenId)) {
+                await ensureMCQsLoaded();
+            }
+
+            document.querySelectorAll('.app-screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(`screen-${screenId}`).classList.add('active');
+
+            const mainTabs = ['dashboard', 'explore', 'analytics', 'profile'];
+            const bottomNav = document.getElementById('bottom-nav');
+            
+            if (mainTabs.includes(screenId)) {
+                bottomNav.style.display = 'block';
+                document.querySelectorAll('.nav-item').forEach(el => {
+                    const iconBox = el.querySelector('.nav-icon-box');
+                    const textSpan = el.querySelector('.nav-text');
+                    
+                    if (el.dataset.target === screenId) {
+                        iconBox.className = "nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300 text-brand-blue scale-110";
+                        textSpan.className = "nav-text text-[8px] font-bold transition-colors text-brand-blue";
+                    } else {
+                        iconBox.className = "nav-icon-box w-7 h-7 flex items-center justify-center transition-all duration-300 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 scale-100";
+                        textSpan.className = "nav-text text-[8px] font-bold transition-colors text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300";
+                    }
+                });
+            } else {
+                bottomNav.style.display = 'none';
+            }
+
+            const selPages = ['module_selection', 'lo_selection', 'session_builder'];
+            if (selPages.includes(screenId)) {
+                document.getElementById('selection-bottom-gradient').classList.remove('hidden');
+            } else {
+                document.getElementById('selection-bottom-gradient').classList.add('hidden');
+            }
+
+            if (screenId === 'dashboard') {
+                updateContinueCardUI(); 
+                renderStreakDots();
+            }
+            if (screenId === 'module_selection') renderModulesAndSubjects();
+            if (screenId === 'lo_selection') renderLOs();
+            if (screenId === 'session_builder') renderSessionBuilder();
+            if (screenId === 'mcq_screen') renderMCQ();
+            if (screenId === 'profile') renderProfile();
+            if (screenId === 'result_screen') renderResults();
+            if (screenId === 'mistakes_review') renderMistakesReview();
+            if (screenId === 'notes_viewer') renderNotesViewer();
+            if (screenId === 'vivacards_viewer') renderVivacardsViewer();
+            if (screenId === 'explore') renderInteractiveSyllabusTab();
+            if (screenId === 'analytics') renderAnalytics();
+
+            lucide.createIcons();
+        }
+
+        // --- RENDER DYNAMIC SCREENS ---
+
+        function renderModulesAndSubjects() {
+            const modules = Object.values(APP_DATA.modules);
+            const listContainer = document.getElementById('unified-subject-list');
+            const capsulesContainer = document.getElementById('module-capsules');
+            
+            document.getElementById('module-select-title').innerText = appState.mode === 'notes' ? "Quick Notes" : appState.mode === 'vivacards' ? "Vivacards" : "Practice";
+
+            const allowed = hasBlockAccess(appState.academicYear, appState.academicBlock);
+            if (!allowed) {
+                capsulesContainer.innerHTML = '';
+                listContainer.innerHTML = `
+                    <div class="text-center p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] mt-6 shadow-sm">
+                        <i data-lucide="lock" class="w-10 h-10 mx-auto text-zinc-400 mb-4"></i>
+                        <h3 class="font-bold text-lg text-zinc-900 dark:text-white mb-2">Block locked</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">You do not have premium access to ${appState.academicYear} Year, Block ${appState.academicBlock}. Please upgrade your plan on the website.</p>
+                        <button onclick="navigate('profile')" class="px-5 py-3 bg-zinc-100 dark:bg-zinc-800 rounded-[16px] text-xs font-bold text-zinc-900 dark:text-white card-press">Configure Settings</button>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            if (modules.length === 0) {
+                capsulesContainer.innerHTML = '';
+                listContainer.innerHTML = `
+                    <div class="text-center text-zinc-500 mt-10 font-medium p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] shadow-sm">
+                        <p class="mb-4">No structured modules setup for ${appState.academicYear} Year, Block ${appState.academicBlock}.</p>
+                    </div>`;
+                return;
+            }
+
+            if (!appState.activeModuleTab) {
+                appState.activeModuleTab = modules[0].name;
+            }
+
+            capsulesContainer.innerHTML = modules.map(m => {
+                const isActive = appState.activeModuleTab === m.name;
+                const cls = isActive ? 'bg-zinc-900 dark:bg-white text-white dark:text-black shadow-md' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800';
+                return `<button onclick="setActiveModule('${safeStr(m.name)}')" class="px-5 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors card-press ${cls}">${m.name}</button>`;
+            }).join('');
+
+            const activeMod = APP_DATA.modules[appState.activeModuleTab];
+            if (activeMod) {
+                const subjects = Object.values(activeMod.subjects);
+                listContainer.innerHTML = subjects.map(s => {
+                    const completionPct = s.totalMcqs > 0 ? Math.min(100, Math.round((s.attempted / s.totalMcqs) * 100)) : 0;
+                    
+                    return `
+                    <div onclick="goToLOSelection('${safeStr(appState.activeModuleTab)}', '${safeStr(s.name)}')" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 rounded-[20px] card-press cursor-pointer shadow-sm">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="text-base font-bold text-zinc-900 dark:text-white truncate pr-2">${s.name}</h3>
+                            ${appState.mode === 'mcqs' ? getCircularProgress(completionPct) : '<i data-lucide="chevron-right" class="w-5 h-5 text-zinc-400"></i>'}
+                        </div>
+                        ${appState.mode === 'mcqs' ? `<p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">${s.los.length} LOs • <span class="text-brand-blue font-bold">${s.totalMcqs} MCQs</span></p>` : `<p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">${s.los.length} Total Objectives</p>`}
+                    </div>`;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        function setActiveModule(modName) {
+            appState.activeModuleTab = modName;
+            renderModulesAndSubjects();
+        }
+
+        function goToLOSelection(mod, sub) {
+            appState.context.module = mod;
+            appState.context.subject = sub;
+            appState.selectedLOs = [];
+            navigate('lo_selection');
+        }
+
+        function renderLOs() {
+            const mod = APP_DATA.modules[appState.context.module];
+            const subj = mod.subjects[appState.context.subject];
+            appState.currentContextLOs = subj.los; 
+            const los = appState.currentContextLOs;
+
+            const countText = document.getElementById('lo-count-text');
+            const btn = document.getElementById('lo-continue-btn');
+            const selectAllBtn = document.getElementById('lo-select-all-btn');
+
+            countText.innerText = `${appState.selectedLOs.length} Selected`;
+            btn.disabled = appState.selectedLOs.length === 0;
+            
+            document.getElementById('bc-module').innerText = appState.context.module;
+            document.getElementById('bc-subject').innerText = appState.context.subject;
+
+            if (appState.mode === 'notes') {
+                btn.innerText = "View Notes";
+                btn.onclick = () => renderAndNavigateNotes();
+            } else if (appState.mode === 'vivacards') {
+                btn.innerText = "Build Vivacard Set";
+                btn.onclick = () => navigate('session_builder');
+            } else {
+                btn.innerText = "Continue";
+                btn.onclick = () => navigate('session_builder');
+            }
+
+            btn.className = appState.selectedLOs.length === 0 
+                ? "w-full bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm cursor-not-allowed shadow-sm"
+                : "w-full bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press";
+
+            selectAllBtn.innerText = appState.selectedLOs.length === los.length ? 'Deselect All' : 'Select All';
+
+            document.getElementById('lo-list').innerHTML = los.map(lo => {
+                const isSelected = appState.selectedLOs.includes(lo.id);
+                const borderClass = isSelected ? 'border-brand-blue bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900';
+                const checkClass = isSelected ? 'bg-brand-blue border-transparent' : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700';
+                
+                return `
+                <div onclick="toggleLO('${lo.id}')" class="p-5 rounded-[20px] border transition-all card-press cursor-pointer shadow-sm ${borderClass}">
+                    <div class="flex items-start">
+                        <div class="mt-0.5 w-6 h-6 rounded-full border flex items-center justify-center mr-4 transition-colors flex-shrink-0 ${checkClass}">
+                            ${isSelected ? `<i data-lucide="check" class="w-4 h-4 text-white"></i>` : ''}
+                        </div>
+                        <div class="flex-1 pr-2">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="text-[10px] font-bold px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full uppercase tracking-wider">${lo.code}</span>
+                            </div>
+                            <p class="text-sm font-bold text-zinc-900 dark:text-white leading-relaxed mb-2">${lo.title}</p>
+                            ${appState.mode === 'mcqs' ? `
+                            <div class="flex items-center space-x-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                                <span class="flex items-center"><i data-lucide="layers" class="w-3.5 h-3.5 mr-1.5 ${lo.mcqs > 0 ? 'text-brand-blue' : ''}"></i> <span class="${lo.mcqs > 0 ? 'text-brand-blue font-bold' : ''}">${lo.mcqs} MCQs</span></span>
+                            </div>` : ''}
+                        </div>
+                        ${appState.mode === 'mcqs' ? getCircularProgress(lo.accuracy) : ''}
+                    </div>
+                </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function renderAndNavigateNotes() {
+            navigate('notes_viewer');
+        }
+
+        function renderNotesViewer() {
+            const container = document.getElementById('notes-content-area');
+            if(!APP_DATA.allNotes) APP_DATA.allNotes = [];
+            
+            let matchedNotes = APP_DATA.allNotes.filter(n => appState.selectedLOs.includes(n.loCode));
+            
+            if (matchedNotes.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center p-8 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] shadow-sm mx-4">
+                        <i data-lucide="file-x" class="w-10 h-10 mx-auto text-zinc-400 mb-3"></i>
+                        <h3 class="font-bold text-zinc-600 dark:text-zinc-300 mb-1">No Notes Found</h3>
+                        <p class="text-xs text-zinc-500">There are currently no quick notes mapped to these selected objectives.</p>
+                    </div>`;
+            } else {
+                container.innerHTML = matchedNotes.map(note => {
+                    return `
+                    <div class="mb-8 px-4 md:px-6">
+                        <div class="mb-4 pb-2 border-b-2 border-zinc-200 dark:border-zinc-800">
+                            <span class="text-[10px] font-black px-2 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-md uppercase tracking-wider mb-2 inline-block">${note.loCode}</span>
+                            <h3 class="text-lg font-black text-zinc-900 dark:text-white leading-snug">${note.topicTitle}</h3>
+                        </div>
+                        <div class="text-[15px] text-zinc-800 dark:text-zinc-200 leading-[1.8] font-medium tracking-wide space-y-3 pb-4">
+                            ${parseNotesMarkdown(note.content)}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        function parseNotesMarkdown(text) {
+            if(!text) return '';
+            let parsed = text;
+            
+            parsed = parsed.replace(/\*\*(.*?)\*\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
+            parsed = parsed.replace(/\*(.*?)\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
+            parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<span class="text-brand-gradient font-extrabold">$1</span>');
+            
+            const bulletRegex = /^- (.*)$/gm;
+            if(bulletRegex.test(parsed)) {
+                parsed = parsed.replace(bulletRegex, '<li class="ml-4 list-none relative before:content-[\'\\2022\'] before:absolute before:-left-4 before:text-brand-blue before:font-bold mb-3">$1</li>');
+                parsed = parsed.replace(/(<li.*<\/li>(\s*<br>\s*)*)+/g, '<ul class="my-3 space-y-2">$&</ul>');
+            }
+            
+            parsed = parsed.replace(/\n/g, '<br>');
+            parsed = parsed.replace(/<br>\s*<li/g, '<li');
+            parsed = parsed.replace(/<\/ul>\s*<br>/g, '</ul>');
+            
+            return parsed;
+        }
+
+        function renderAndNavigateVivacards() {
+            navigate('session_builder');
+        }
+
+        function renderVivacardsViewer() {
+            const container = document.getElementById('vivacard-flip-container');
+            if(!appState.sessionQuestions || appState.sessionQuestions.length === 0) return;
+            
+            const card = appState.sessionQuestions[appState.currentQuestionIndex];
+            const total = appState.sessionQuestions.length;
+            
+            document.getElementById('vivacard-progress-text').innerText = `${appState.currentQuestionIndex + 1} / ${total}`;
+            document.getElementById('vivacard-locode').innerText = `${card.loCode} • Card ${appState.currentQuestionIndex + 1}`;
+            document.getElementById('vivacard-front-text').innerText = card.front;
+            document.getElementById('vivacard-back-text').innerHTML = parseNotesMarkdown(card.back);
+            
+            container.classList.remove('flipped'); 
+            
+            const btnPrev = document.getElementById('btn-viva-prev');
+            const btnNext = document.getElementById('btn-viva-next');
+            
+            if (appState.currentQuestionIndex === 0) {
+                btnPrev.disabled = true;
+                btnPrev.classList.add('opacity-40', 'cursor-not-allowed');
+            } else {
+                btnPrev.disabled = false;
+                btnPrev.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+            
+            if (appState.currentQuestionIndex === total - 1) {
+                btnNext.innerText = "Finish Set";
+            } else {
+                btnNext.innerText = "Next Card";
+            }
+
+            lucide.createIcons();
+        }
+
+        function nextVivacard() {
+            if (appState.currentQuestionIndex === appState.sessionQuestions.length - 1) {
+                const setKey = `${appState.academicYear}_${appState.academicBlock}_Viva_${appState.selectedSetIndex}`;
+                const currentStats = appState.setStats[setKey] || { times: 0, best: 100 };
+                appState.setStats[setKey] = {
+                    times: currentStats.times + 1,
+                    best: 100
+                };
+                db.collection("users").doc(appState.currentUser.uid).update({ setStats: appState.setStats });
+                navigate('dashboard');
+            } else {
+                appState.currentQuestionIndex++;
+                renderVivacardsViewer();
+            }
+        }
+
+        function prevVivacard() {
+            if (appState.currentQuestionIndex > 0) {
+                appState.currentQuestionIndex--;
+                renderVivacardsViewer();
+            }
+        }
+
+        function renderInteractiveSyllabusTab() {
+            const container = document.getElementById('syllabus-content');
+            let html = '<div class="space-y-4">';
+
+            if (Object.keys(APP_DATA.modules).length === 0) {
+                container.innerHTML = `<p class="text-center text-zinc-500 mt-10 text-sm font-bold">No syllabus data found.</p>`;
+                return;
+            }
+
+            Object.values(APP_DATA.modules).forEach(mod => {
+                const modId = 'mod-' + mod.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+                html += `
+                <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] overflow-hidden shadow-sm">
+                    <button onclick="toggleAccordion('${modId}')" class="w-full text-left p-4 bg-zinc-50 dark:bg-black font-black text-brand-blue flex justify-between items-center transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-950">
+                        <span>${mod.name}</span>
+                        <i data-lucide="chevron-down" class="w-5 h-5 transition-transform duration-300" id="icon-${modId}"></i>
+                    </button>
+                    <div id="${modId}" class="hidden flex-col divide-y divide-zinc-100 dark:divide-zinc-800">
+                `;
+                
+                Object.values(mod.subjects).forEach(sub => {
+                    const subId = modId + '-sub-' + sub.name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+                    html += `
+                        <div class="p-0">
+                            <button onclick="toggleAccordion('${subId}')" class="w-full text-left px-5 py-4 font-bold text-zinc-800 dark:text-zinc-200 flex justify-between items-center transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                <span>${sub.name} <span class="ml-2 text-xs font-medium text-zinc-400">(${sub.los.length} LOs)</span></span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-zinc-400 transition-transform duration-300" id="icon-${subId}"></i>
+                            </button>
+                            <div id="${subId}" class="hidden flex-col bg-zinc-50/50 dark:bg-black/30 px-5 py-4 space-y-4">
+                    `;
+                    
+                    sub.los.forEach(lo => {
+                        let topicsHtml = '';
+                        let matchedNotes = (APP_DATA.allNotes || []).filter(n => n.loCode === lo.code);
+                        if (matchedNotes.length > 0) {
+                            topicsHtml = `<ul class="ml-5 mt-2 list-disc list-outside text-xs text-zinc-500 dark:text-zinc-400 space-y-1 marker:text-brand-yellow">` +
+                                matchedNotes.map(n => `<li>${n.topicTitle}</li>`).join('') + `</ul>`;
+                        } else {
+                            topicsHtml = `<p class="ml-5 mt-1 text-[10px] text-zinc-400 italic">No topics mapped yet</p>`;
+                        }
+
+                        html += `
+                                <div class="pb-3 border-b border-zinc-200/50 dark:border-zinc-800/50 last:border-0 last:pb-0">
+                                    <div class="flex items-start">
+                                        <span class="text-[9px] font-black px-2 py-1 bg-brand-blue/10 text-brand-blue rounded-md mr-3 mt-0.5 whitespace-nowrap">${lo.code}</span>
+                                        <span class="text-[13px] font-semibold text-zinc-700 dark:text-zinc-300 leading-snug">${lo.title}</span>
+                                    </div>
+                                    ${topicsHtml}
+                                </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                });
+                html += `</div></div>`;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+                if(icon) icon.classList.add('rotate-180');
+            } else {
+                el.classList.add('hidden');
+                el.classList.remove('flex');
+                if(icon) icon.classList.remove('rotate-180');
+            }
+        }
+
+        // --- ROUND ROBIN SESSION BUILDER ENGINE ---
+        function renderSessionBuilder() {
+            try {
+                let pool = [];
+                if (appState.mode === 'mcqs') pool = APP_DATA.allMCQs || [];
+                else if (appState.mode === 'vivacards') pool = APP_DATA.allFlashcards || [];
+                
+                // Group by LO to allow perfect equal distribution
+                let groupedByLO = {};
+                appState.selectedLOs.forEach(lo => { groupedByLO[lo] = []; });
+                
+                pool.forEach(item => {
+                    const tag = String(appState.mode === 'mcqs' ? item.tag : item.loCode).trim();
+                    if (appState.selectedLOs.includes(tag)) {
+                        groupedByLO[tag].push(item);
+                    }
+                });
+
+                // Randomize inside each LO group independently
+                for (let lo in groupedByLO) {
+                    groupedByLO[lo].sort(() => 0.5 - Math.random());
+                }
+
+                // Round Robin mixing: 1 from LO1, 1 from LO2, 1 from LO3... repeating
+                let mixedFiltered = [];
+                let hasItems = true;
+                while (hasItems) {
+                    hasItems = false;
+                    for (let lo of appState.selectedLOs) {
+                        if (groupedByLO[lo] && groupedByLO[lo].length > 0) {
+                            mixedFiltered.push(groupedByLO[lo].pop());
+                            hasItems = true;
+                        }
+                    }
+                }
+                
+                const bcSubj = document.getElementById('bc-sb-subject');
+                if(bcSubj) bcSubj.innerText = appState.context.subject || "Subject";
+                
+                const bcLo = document.getElementById('bc-sb-lo');
+                if(bcLo) bcLo.innerText = `${appState.selectedLOs.length} LOs`;
+
+                const SET_SIZE = 20;
+                const totalSets = Math.ceil(mixedFiltered.length / SET_SIZE);
+                
+                appState.availableSets = [];
+                for (let i = 0; i < totalSets; i++) {
+                    appState.availableSets.push({
+                        id: i,
+                        title: `Set ${i + 1}`,
+                        items: mixedFiltered.slice(i * SET_SIZE, (i + 1) * SET_SIZE)
+                    });
+                }
+
+                if (appState.selectedSetIndex >= totalSets) {
+                    appState.selectedSetIndex = 0;
+                }
+
+                const setsContainer = document.getElementById('premade-sets-container');
+                const btn = document.getElementById('btn-start-session');
+                
+                if (totalSets === 0) {
+                    const label = appState.mode === 'mcqs' ? 'MCQs' : 'Vivacards';
+                    setsContainer.innerHTML = `
+                        <div class="col-span-2 p-5 rounded-[20px] bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 text-center">
+                            <i data-lucide="alert-circle" class="w-8 h-8 mx-auto text-zinc-400 mb-2"></i>
+                            <p class="text-sm font-bold text-zinc-600 dark:text-zinc-400">No Questions Found</p>
+                            <p class="text-[10px] text-zinc-500 mt-1">There are currently no ${label} attached to this selection in the database.</p>
+                        </div>`;
+                        
+                    btn.disabled = true;
+                    btn.className = "w-full bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm cursor-not-allowed shadow-sm";
+                    btn.innerText = `No ${label} Available`;
+                } else {
+                    setsContainer.innerHTML = appState.availableSets.map(set => {
+                        const isActive = appState.selectedSetIndex === set.id;
+                        const cls = isActive ? 'border-brand-blue bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900';
+                        const iconBg = isActive ? 'bg-brand-gradient shadow-md' : 'bg-zinc-100 dark:bg-zinc-800';
+                        const iconColor = isActive ? 'text-white' : 'text-zinc-400';
+                        
+                        const modePrefix = appState.mode === 'vivacards' ? 'Viva_' : '';
+                        const setKey = `${appState.academicYear}_${appState.academicBlock}_${modePrefix}${set.id}`;
+                        const stats = appState.setStats[setKey] || { times: 0, best: 0 };
+                        
+                        return `
+                        <div onclick="setPracticeSet(${set.id})" class="p-4 rounded-[20px] border transition-all card-press cursor-pointer flex flex-col items-start shadow-sm ${cls}">
+                            <div class="w-10 h-10 rounded-[12px] flex items-center justify-center mb-3 transition-colors ${iconBg}">
+                                <i data-lucide="layers" class="w-5 h-5 ${iconColor}"></i>
+                            </div>
+                            <p class="text-sm font-bold text-zinc-900 dark:text-white mb-1">${set.title}</p>
+                            ${stats.times > 0 
+                                ? `<p class="text-[10px] text-brand-blue font-bold">Best: ${stats.best}% <span class="text-zinc-400 ml-1 font-medium">(${stats.times}x)</span></p>`
+                                : `<p class="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium mb-1">${set.items.length} Items</p>`
+                            }
+                        </div>
+                        `;
+                    }).join('');
+                    
+                    btn.disabled = false;
+                    btn.className = "w-full bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press";
+                    btn.innerText = "Start Session";
+                }
+
+                lucide.createIcons();
+            } catch(e) {
+                console.error("Session Builder Error:", e);
+            }
+        }
+
+        function setPracticeSet(index) {
+            appState.selectedSetIndex = index;
+            renderSessionBuilder();
+        }
+
+        function toggleLO(id) {
+            if (appState.selectedLOs.includes(id)) appState.selectedLOs = appState.selectedLOs.filter(loId => loId !== id);
+            else appState.selectedLOs.push(id);
+            renderLOs();
+        }
+
+        function toggleSelectAllLOs() {
+            if (appState.selectedLOs.length === appState.currentContextLOs.length) appState.selectedLOs = [];
+            else appState.selectedLOs = appState.currentContextLOs.map(lo => lo.id);
+            renderLOs();
+        }
+
+        function renderProfile() {
+            const yearSelector = document.getElementById('year-selector');
+            const blockSelector = document.getElementById('block-selector');
+            
+            if (!yearSelector || !blockSelector) return;
+
+            const years = ['1st', '2nd', '3rd', '4th', '5th'];
+            yearSelector.innerHTML = years.map(y => {
+                const isSelected = appState.academicYear === y;
+                const isAllowed = hasYearAccess(y);
+                
+                if (!isAllowed) {
+                    return `<button disabled class="px-3 py-3 rounded-[16px] text-xs font-bold bg-zinc-100 dark:bg-zinc-900 text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-55">
+                                <i data-lucide="lock" class="w-3 h-3"></i> ${y} Yr
+                            </button>`;
+                }
+                
+                const cls = isSelected 
+                    ? 'bg-brand-gradient text-white font-bold shadow-md border-transparent' 
+                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800';
+                return `<button onclick="changeYear('${y}')" class="px-3 py-3 rounded-[16px] text-xs font-bold transition-all card-press ${cls}">${y} Yr</button>`;
+            }).join('');
+
+            const availableBlocks = yearBlockMap[appState.academicYear] || [];
+            blockSelector.innerHTML = availableBlocks.map(b => {
+                const isSelected = appState.academicBlock === b;
+                const isAllowed = hasBlockAccess(appState.academicYear, b);
+                
+                if (!isAllowed) {
+                    return `<button disabled class="px-3 py-3 rounded-[16px] text-xs font-bold bg-zinc-100 dark:bg-zinc-900 text-zinc-400 dark:text-zinc-600 border border-zinc-200 dark:border-zinc-800 cursor-not-allowed flex items-center justify-center gap-1.5 opacity-55">
+                                <i data-lucide="lock" class="w-3 h-3"></i> Block ${b}
+                            </button>`;
+                }
+                
+                const cls = isSelected 
+                    ? 'bg-brand-gradient text-white font-bold shadow-md border-transparent' 
+                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800';
+                return `<button onclick="changeBlock('${b}')" class="px-3 py-3 rounded-[16px] text-xs font-bold transition-all card-press ${cls}">Block ${b}</button>`;
+            }).join('');
+        }
+
+        function renderMistakesReview() {
+            const container = document.getElementById('mistakes-grouped-list');
+            
+            if (!appState.incorrectMCQs || appState.incorrectMCQs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] mt-6 shadow-sm">
+                        <i data-lucide="check-circle" class="w-12 h-12 mx-auto text-emerald-500 mb-4"></i>
+                        <h3 class="font-bold text-lg text-zinc-900 dark:text-white mb-2">Zero Mistakes!</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">Awesome job. You have resolved all medical remediation blocks perfectly.</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            const groups = {};
+            appState.incorrectMCQs.forEach(q => {
+                const mod = q.module || "General Systems";
+                const sub = q.subject || "Anatomy";
+                const tag = q.tag || "General Objectives";
+
+                if (!groups[mod]) groups[mod] = {};
+                if (!groups[mod][sub]) groups[mod][sub] = {};
+                if (!groups[mod][sub][tag]) groups[mod][sub][tag] = [];
+
+                groups[mod][sub][tag].push(q);
+            });
+
+            let html = '';
+            for (const mod in groups) {
+                html += `
+                <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 mb-4 shadow-sm">
+                    <h3 class="text-sm font-black text-brand-blue uppercase tracking-wider mb-4 flex items-center">
+                        <i data-lucide="folder" class="w-4 h-4 mr-2"></i> ${mod}
+                    </h3>`;
+                
+                for (const sub in groups[mod]) {
+                    html += `
+                    <div class="ml-2 pl-4 border-l-2 border-zinc-100 dark:border-zinc-800 mb-4">
+                        <h4 class="text-xs font-bold text-zinc-900 dark:text-white mb-3 flex items-center">
+                            <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1.5 text-zinc-400"></i> ${sub}
+                        </h4>`;
+                        
+                    for (const tag in groups[mod][sub]) {
+                        const count = groups[mod][sub][tag].length;
+                        html += `
+                        <div class="flex justify-between items-center bg-zinc-50 dark:bg-black p-3 rounded-[16px] border border-zinc-200 dark:border-zinc-800 mb-2">
+                            <div>
+                                <span class="text-[9px] font-bold px-2 py-1 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 rounded-full uppercase tracking-wider border border-zinc-200 dark:border-zinc-800">${tag}</span>
+                                <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium">${count} Missed Question${count > 1 ? 's' : ''}</p>
+                            </div>
+                            <button onclick="startMistakesSession('${mod}', '${sub}', '${tag}')" class="px-4 py-2 bg-brand-gradient text-white text-xs font-bold rounded-[12px] card-press shadow-sm">
+                                Practice
+                            </button>
+                        </div>`;
+                    }
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function startMistakesSession(mod, sub, tag) {
+            const pool = appState.incorrectMCQs.filter(q => q.module === mod && q.subject === sub && q.tag === tag);
+            if (pool.length === 0) return;
+
+            appState.sessionQuestions = [...pool].sort(() => 0.5 - Math.random());
+            appState.mcqSessionQuestions = appState.sessionQuestions;
+            appState.mcqHistory = {};
+            appState.currentQuestionIndex = 0;
+            appState.currentMcqIndex = 0;
+            appState.mcqSelectedOptionIndex = null;
+            appState.mcqIsSubmitted = false;
+            appState.sessionStats = { correct: 0, incorrect: 0 };
+
+            setMode('mcqs');
+            navigate('mcq_screen');
+        }
+
+        function changeYear(year) {
+            appState.academicYear = year;
+            appState.academicBlock = yearBlockMap[year][0];
+            
+            APP_DATA.allMCQs = [];
+            APP_DATA.allNotes = [];
+            APP_DATA.allFlashcards = [];
+            
+            document.getElementById('drawer-subtitle').innerText = `${year} Year MBBS`;
+            
+            renderProfile();
+            buildSyllabusTree();
+            prefetchCurrentBlockMCQs();
+            prefetchCurrentBlockNotes();
+            prefetchCurrentBlockVivacards();
+        }
+
+        function changeBlock(block) {
+            appState.academicBlock = block;
+            APP_DATA.allMCQs = [];
+            APP_DATA.allNotes = [];
+            APP_DATA.allFlashcards = [];
+            renderProfile();
+            buildSyllabusTree();
+            prefetchCurrentBlockMCQs();
+            prefetchCurrentBlockNotes();
+            prefetchCurrentBlockVivacards();
+        }
+
+        function startSessionFlow() {
+            try {
+                if (!appState.availableSets || appState.availableSets.length === 0) {
+                    alert("No Practice Set available to start a session.");
+                    return;
+                }
+
+                const selectedSet = appState.availableSets[appState.selectedSetIndex];
+                let setItems = [...selectedSet.items]; 
+                
+                if (!setItems || setItems.length === 0) {
+                    alert("Empty practice set detected.");
+                    return;
+                }
+                
+                setItems.sort(() => 0.5 - Math.random());
+                
+                appState.sessionQuestions = setItems;
+                appState.currentQuestionIndex = 0;
+                
+                if (appState.mode === 'mcqs') {
+                    appState.mcqSessionQuestions = setItems;
+                    appState.currentMcqIndex = 0;
+                    appState.mcqHistory = {}; 
+                    appState.mcqSelectedOptionIndex = null;
+                    appState.mcqIsSubmitted = false;
+                    appState.sessionStats = { correct: 0, incorrect: 0 };
+                    navigate('mcq_screen');
+                } else if (appState.mode === 'vivacards') {
+                    navigate('vivacards_viewer');
+                    renderVivacardsViewer();
+                }
+                
+            } catch (e) {
+                alert("Error starting session: " + e.message);
+            }
+        }
+
+        function selectOption(index) {
+            appState.mcqSelectedOptionIndex = index;
+            renderMCQ();
+        }
+
+        async function submitMCQAnswer() {
+            if (appState.mcqSelectedOptionIndex === null) return;
+            appState.mcqIsSubmitted = true;
+            
+            const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
+            const isCorrect = appState.mcqSelectedOptionIndex === question.correctOptionIndex;
+            const qTag = String(question.tag).trim();
+            
+            if (isCorrect) {
+                appState.sessionStats.correct++;
+                appState.totalCorrect++;
+            } else {
+                appState.sessionStats.incorrect++;
+                const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                if (!exists) {
+                    appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
+                }
+            }
+            
+            appState.totalMcqsDone++;
+
+            if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
+            appState.loStats[qTag].attempted += 1;
+            if (isCorrect) appState.loStats[qTag].correct += 1;
+            
+            appState.mcqHistory[appState.currentMcqIndex] = {
+                selected: appState.mcqSelectedOptionIndex,
+                correct: isCorrect
+            };
+
+            if (appState.currentUser) {
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    totalMcqsDone: appState.totalMcqsDone,
+                    totalCorrect: appState.totalCorrect,
+                    incorrectMCQs: appState.incorrectMCQs,
+                    loStats: appState.loStats
+                });
+                syncSessionProgress();
+            }
+
+            renderMCQ();
+        }
+
+        function handleNextMCQ() {
+            const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
+            if (isLast) {
+                const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+                const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
+                const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
+                
+                appState.setStats[setKey] = {
+                    times: (appState.setStats[setKey] ? appState.setStats[setKey].times : 0) + 1,
+                    best: Math.max(currentBest, newScore)
+                };
+
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    setStats: appState.setStats
+                });
+                navigate('result_screen');
+            } else {
+                appState.currentMcqIndex++;
+                appState.currentQuestionIndex = appState.currentMcqIndex;
+                const history = appState.mcqHistory[appState.currentMcqIndex];
+                if (history) {
+                    appState.mcqIsSubmitted = true;
+                    appState.mcqSelectedOptionIndex = history.selected;
+                } else {
+                    appState.mcqIsSubmitted = false;
+                    appState.mcqSelectedOptionIndex = null;
+                }
+                appState.mcqIsBookmarked = false;
+                renderMCQ();
+            }
+        }
+
+        function renderResults() {
+            const total = appState.mcqSessionQuestions.length;
+            const correct = appState.sessionStats.correct;
+            const incorrect = appState.sessionStats.incorrect;
+            const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+            
+            document.getElementById('result-percentage').innerText = `${pct}%`;
+            document.getElementById('result-fraction').innerText = `${correct} / ${total}`;
+            document.getElementById('result-correct').innerText = correct;
+            document.getElementById('result-incorrect').innerText = incorrect;
+            
+            const circle = document.getElementById('result-circle');
+            const circumference = 2 * Math.PI * 45; 
+            const offset = circumference - (pct / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+            
+            if (pct >= 80) circle.style.stroke = "#477864"; 
+            else if (pct >= 50) circle.style.stroke = "#fbd043"; 
+            else circle.style.stroke = "#ef4444"; 
+
+            updateDashboardStatisticsUI(); 
+            buildSyllabusTree();
+        }
+
+        function trimExplanation(text) {
+            if(!text) return '';
+            let cleaned = text.replace(/the text explicitly states that /gi, '')
+                              .replace(/the text explicitly states /gi, '')
+                              .replace(/in the text it says that /gi, '')
+                              .replace(/in the text it says /gi, '')
+                              .trim();
+            if(cleaned.length > 0) {
+                cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+            }
+            return cleaned;
+        }
+
+        function showExplanation() {
+            const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
+            const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+            
+            document.getElementById('explanation-header').innerHTML = `
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black flex justify-between items-center px-4 md:px-0">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="goBackFromExplanation()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-brand-blue transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-xl font-black text-zinc-900 dark:text-white">Explanation</h1>
+                    </div>
+                    ${question.citation ? `<button onclick="toggleCitation()" class="p-2 -mr-2 text-brand-yellow hover:text-brand-blue transition-colors"><i data-lucide="info" class="w-5 h-5"></i></button>` : ''}
+                </div>
+            `;
+            
+            let html = `
+                ${question.citation ? `
+                <div id="citation-box" class="overflow-hidden transition-all duration-300 max-h-0 opacity-0 px-1">
+                    <div class="mb-5 p-4 bg-brand-blue/10 border border-brand-blue/30 rounded-[16px]">
+                        <p class="text-[11px] text-zinc-700 dark:text-zinc-300 flex items-start">
+                            <i data-lucide="book" class="w-3.5 h-3.5 mr-2 mt-0.5 text-brand-yellow flex-shrink-0"></i> 
+                            <span class="leading-relaxed"><strong class="mr-1 text-zinc-900 dark:text-white">Citation:</strong> ${question.citation}</span>
+                        </p>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+            
+            html += `
+            <table class="w-full text-left mt-2 border-collapse">
+                <thead class="bg-brand-gradient text-white">
+                    <tr>
+                        <th class="py-4 px-3 text-[11px] font-black uppercase tracking-widest w-12 text-center border-r border-white/20 rounded-tl-[16px]">Opt</th>
+                        <th class="py-4 px-4 text-[11px] font-black uppercase tracking-widest rounded-tr-[16px]">Details & Rationale</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-zinc-900 text-sm border-b border-zinc-200 dark:border-zinc-800 shadow-sm rounded-b-[16px]">
+            `;
+            
+            question.options.forEach((optText, index) => {
+                const isCorrect = index === question.correctOptionIndex;
+                const isUserChoice = index === appState.mcqSelectedOptionIndex;
+                const letter = letters[index] || '';
+
+                let rowCls = '';
+                let iconHtml = '';
+                let letterColor = 'text-zinc-900 dark:text-white';
+                
+                if (isCorrect) {
+                    rowCls = 'bg-[#477864]/5 dark:bg-[#477864]/10';
+                    letterColor = 'text-[#477864]';
+                    iconHtml = `<i data-lucide="check-circle" class="w-4 h-4 text-[#477864] mt-0.5 flex-shrink-0"></i>`;
+                } else if (isUserChoice) {
+                    rowCls = 'bg-rose-50/50 dark:bg-rose-900/10';
+                    letterColor = 'text-rose-500';
+                    iconHtml = `<i data-lucide="x-circle" class="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0"></i>`;
+                }
+
+                const cleanedExp = trimExplanation(question.optionExplanations[index]);
+
+                html += `
+                <tr class="border-t border-zinc-100 dark:border-zinc-800 ${rowCls}">
+                    <td class="py-5 px-3 align-top text-center border-r border-zinc-100 dark:border-zinc-800 w-12">
+                        <span class="font-black text-lg ${letterColor}">${letter}</span>
+                    </td>
+                    <td class="py-5 px-4 align-top break-words whitespace-normal">
+                        <div class="flex items-start justify-between mb-2">
+                            <span class="font-bold text-zinc-900 dark:text-white leading-snug mr-3 text-[15px]">${optText}</span>
+                            ${iconHtml}
+                        </div>
+                        ${cleanedExp ? `<p class="text-[14px] text-zinc-600 dark:text-zinc-400 leading-relaxed mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 break-words whitespace-normal font-medium">${cleanedExp}</p>` : ''}
+                    </td>
+                </tr>
+                `;
+            });
+            
+            html += `
+                </tbody>
+            </table>
+            `;
+            
+            document.getElementById('explanation-content-area').innerHTML = html;
+            navigate('mcq_explanation');
+            lucide.createIcons();
+        }
+
+        function toggleCitation() {
+            const box = document.getElementById('citation-box');
+            if (!box) return;
+            if (box.classList.contains('max-h-0')) {
+                box.classList.remove('max-h-0', 'opacity-0');
+                box.classList.add('max-h-[500px]', 'opacity-100');
+            } else {
+                box.classList.add('max-h-0', 'opacity-0');
+                box.classList.remove('max-h-[500px]', 'opacity-100');
+            }
+        }
+
+        function goBackFromExplanation() {
+            goBack();
+        }
+
+        function renderMCQ() {
+            try {
+                if (!appState.mcqSessionQuestions || appState.mcqSessionQuestions.length === 0) {
+                    document.getElementById('mcq-content-area').innerHTML = `
+                        <div class="text-center p-8 text-zinc-500">
+                            <i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-3 text-brand-yellow"></i>
+                            <p class="text-sm font-semibold">No questions available in this set.</p>
+                        </div>`;
+                    lucide.createIcons();
+                    return;
+                }
+
+                const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
+                if (!question || !question.options) {
+                    throw new Error("Invalid question format detected.");
+                }
+
+                const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
+
+                document.getElementById('mcq-progress-text').innerText = `${appState.currentMcqIndex + 1} / ${appState.mcqSessionQuestions.length}`;
+                const progressPct = ((appState.currentMcqIndex) / appState.mcqSessionQuestions.length) * 100;
+                document.getElementById('mcq-progress-bar').style.width = `${progressPct}%`;
+
+                let html = `<p class="text-base md:text-lg text-zinc-900 dark:text-white font-bold leading-relaxed mb-6 select-none">${question.statement}</p>`;
+                html += `<div class="space-y-3 flex-1">`;
+                
+                question.options.forEach((optText, index) => {
+                    let cls = 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-gray-300 hover:bg-zinc-50 dark:hover:bg-zinc-800';
+                    const letter = letters[index] || '';
+
+                    if (!appState.mcqIsSubmitted) {
+                        if (appState.mcqSelectedOptionIndex === index) {
+                            cls = 'border-brand-blue bg-brand-blue/10 text-brand-blue';
+                        }
+                    } else {
+                        if (index === question.correctOptionIndex) {
+                            cls = 'border-[#477864] bg-[#477864]/10 text-[#477864]';
+                        } else if (appState.mcqSelectedOptionIndex === index) {
+                            cls = 'border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444]';
+                        } else {
+                            cls = 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black text-zinc-400 dark:text-zinc-600 opacity-50';
+                        }
+                    }
+
+                    html += `
+                    <button ${appState.mcqIsSubmitted ? 'disabled' : ''} onclick="selectOption(${index})" class="w-full text-left py-3.5 px-5 rounded-[10px] border transition-all flex items-start card-press shadow-sm ${cls}">
+                        <span class="font-bold mr-3 text-sm ${!appState.mcqIsSubmitted && appState.mcqSelectedOptionIndex === index ? 'text-brand-blue' : 'opacity-50'}">${letter}</span>
+                        <span class="flex-1 text-sm leading-relaxed font-medium">${optText}</span>
+                    </button>
+                    `;
+                });
+                html += `</div>`;
+
+                document.getElementById('mcq-content-area').innerHTML = html;
+
+                let bottomHtml = `
+                    <div class="flex items-center space-x-3">
+                        <button id="btn-prev" class="p-3.5 rounded-[16px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white card-press shadow-sm ${appState.currentMcqIndex === 0 ? 'opacity-30 cursor-not-allowed' : ''}">
+                            <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                        </button>
+                        <button id="btn-bookmark" class="p-3.5 rounded-[16px] ${appState.bookmarkedMCQs.includes(question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) ? 'bg-brand-gradient border-transparent shadow-md' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'} text-zinc-900 dark:text-white card-press transition-colors">
+                            <i data-lucide="bookmark" class="w-6 h-6 ${appState.bookmarkedMCQs.includes(question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) ? 'text-white fill-current' : ''}"></i>
+                        </button>
+                    </div>
+                `;
+
+                if (!appState.mcqIsSubmitted) {
+                    const btnClass = appState.mcqSelectedOptionIndex !== null 
+                        ? "flex-1 ml-4 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press" 
+                        : "flex-1 ml-4 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm cursor-not-allowed";
+                    
+                    bottomHtml += `
+                    <button id="btn-mcq-action" class="${btnClass}">
+                        Check Answer
+                    </button>`;
+                } else {
+                    bottomHtml += `
+                    <div class="flex-1 flex items-center space-x-3 ml-4">
+                        <button onclick="showExplanation()" class="flex-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-sm">
+                            Explain
+                        </button>
+                        <button onclick="handleNextMCQ()" class="flex-1 bg-zinc-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-md">
+                            ${isLast ? "Finish" : "Next"}
+                        </button>
+                    </div>`;
+                }
+
+                document.getElementById('mcq-action-container').innerHTML = bottomHtml;
+                
+                const btnPrev = document.getElementById('btn-prev');
+                if (btnPrev && appState.currentMcqIndex !== 0) {
+                    btnPrev.onclick = () => {
+                        appState.currentMcqIndex--;
+                        appState.currentQuestionIndex--;
+                        const history = appState.mcqHistory[appState.currentMcqIndex];
+                        if (history) {
+                            appState.mcqIsSubmitted = true;
+                            appState.mcqSelectedOptionIndex = history.selected;
+                        } else {
+                            appState.mcqIsSubmitted = false;
+                            appState.mcqSelectedOptionIndex = null;
+                        }
+                        renderMCQ();
+                    };
+                }
+
+                const btnBookmark = document.getElementById('btn-bookmark');
+                if (btnBookmark) {
+                    btnBookmark.onclick = async () => {
+                        const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                        if (appState.bookmarkedMCQs.includes(qId)) {
+                            appState.bookmarkedMCQs = appState.bookmarkedMCQs.filter(id => id !== qId);
+                        } else {
+                            appState.bookmarkedMCQs.push(qId);
+                        }
+                        renderMCQ();
+                        await db.collection("users").doc(appState.currentUser.uid).update({
+                            bookmarkedMCQs: appState.bookmarkedMCQs
+                        });
+                    };
+                }
+
+                const btnAction = document.getElementById('btn-mcq-action');
+                if (btnAction && !appState.mcqIsSubmitted && appState.mcqSelectedOptionIndex !== null) {
+                    btnAction.onclick = submitMCQAnswer;
+                }
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error("MCQ Render Error:", error);
+                document.getElementById('mcq-content-area').innerHTML = `
+                    <div class="text-center p-8 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-[20px]">
+                        <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto mb-3 text-rose-500"></i>
+                        <h3 class="font-bold text-rose-600 dark:text-rose-400 mb-2">Render Error</h3>
+                        <p class="text-xs text-rose-500 dark:text-rose-300">${error.message}</p>
+                    </div>`;
+                lucide.createIcons();
+            }
+        }
+
+        function endSessionConfirm() {
+            const modal = document.getElementById('exit-modal');
+            const container = document.getElementById('exit-modal-container');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeExitDialog() {
+            const modal = document.getElementById('exit-modal');
+            const container = document.getElementById('exit-modal-container');
+            modal.classList.add('opacity-0');
+            container.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function confirmExitSession() {
+            closeExitDialog();
+            goBack();
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initTheme(); 
+            lucide.createIcons();
+        });
+
+    </script>
+</body>
+</html>
