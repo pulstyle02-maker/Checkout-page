@@ -1465,42 +1465,53 @@
         }
 
         // ================= PARALLEL SUPER-FETCH ENGINE (INSTANT LOAD) =================
-        let activeFetches = {}; // Prevents duplicate network requests if user clicks too fast
+        let activeFetches = {}; // Prevents duplicate sequential fetch loops if clicking quickly
 
-        async function fetchGitHubFilesParallel(baseUrl, maxLetters) {
-            const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
-            
-            // Fire all requests immediately, but use 'force-cache' so the browser serves 
-            // from local disk if it was already fetched, eliminating network wait times.
-            const promises = letters.map(char => 
-                fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' })
-                .then(r => r.ok ? r.json() : null)
-                .catch(() => null)
-            );
-            
-            const results = await Promise.all(promises);
-            // Filter out nulls (404s) and flatten the arrays
-            return results.filter(Boolean).flat(Infinity);
+        async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
+            let allData = [];
+            for (let i = 0; i < maxLetters; i++) {
+                const char = String.fromCharCode(97 + i); // Starts at 'a', then 'b', 'c', etc.
+                try {
+                    const response = await fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' });
+                    
+                    // If the response is not OK (like a 404), STOP searching immediately
+                    if (!response.ok) {
+                        break;
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // If the file is empty or represents an empty array, STOP searching immediately
+                    if (!data || (Array.isArray(data) && data.length === 0)) {
+                        break;
+                    }
+                    
+                    allData.push(...[data].flat(Infinity));
+                } catch (error) {
+                    // Stop sequential finding on any fetch or JSON parsing error
+                    break;
+                }
+            }
+            return allData;
         }
 
         async function prefetchCurrentBlockMCQs() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
             
-            // If already loaded or currently loading, DO NOT fire new requests
             if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
             if (activeFetches['mcqs_' + bNum]) return activeFetches['mcqs_' + bNum];
 
             activeFetches['mcqs_' + bNum] = (async () => {
                 const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/b${bNum}`;
-                const allData = await fetchGitHubFilesParallel(baseUrl, 26);
+                const allData = await fetchGitHubFilesSequentially(baseUrl, 26);
                 
                 MCQ_CACHE[bNum] = allData;
                 if (bNum === (blockToNum[appState.academicBlock] || 1)) {
                     APP_DATA.allMCQs = allData;
                     buildSyllabusTree();
                     
-                    // Update UI instantly if the user is currently staring at a loading screen
+                    // Render changes instantly if the user is currently waiting on selection screens
                     if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
                     else if (appState.currentScreen === 'lo_selection') renderLOs();
                     else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
@@ -1520,7 +1531,7 @@
 
             activeFetches['notes_' + bNum] = (async () => {
                 const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
-                const allNotesRaw = await fetchGitHubFilesParallel(baseUrl, 26);
+                const allNotesRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
                 let allNotes = [];
                 allNotesRaw.forEach(modData => {
@@ -1552,7 +1563,7 @@
 
             activeFetches['viva_' + bNum] = (async () => {
                 const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
-                const allCardsRaw = await fetchGitHubFilesParallel(baseUrl, 13);
+                const allCardsRaw = await fetchGitHubFilesSequentially(baseUrl, 13);
 
                 let allFlashcards = [];
                 allCardsRaw.forEach(modData => {
@@ -1664,6 +1675,18 @@
                 item.year === currentYearStr && item.block === currentBlockStr
             );
 
+            // Create an O(1) hash table map of MCQ counts by code tag.
+            // This replaces the extremely slow O(N * M) nested filter loops with a simple look-up.
+            const mcqCountByTag = {};
+            if (Array.isArray(APP_DATA.allMCQs)) {
+                APP_DATA.allMCQs.forEach(q => {
+                    if (q && q.tag) {
+                        const cleanTag = String(q.tag).trim();
+                        mcqCountByTag[cleanTag] = (mcqCountByTag[cleanTag] || 0) + 1;
+                    }
+                });
+            }
+
             const ICONS = ['layers', 'activity', 'zap', 'microscope', 'book-open', 'box'];
             let modIndex = 0;
 
@@ -1707,8 +1730,8 @@
                         }
                     }
 
-                    let matchingMcqs = APP_DATA.allMCQs.filter(q => q.tag && String(q.tag).trim() === code);
-                    const count = matchingMcqs.length;
+                    // Look up MCQ count in O(1) constant time
+                    const count = mcqCountByTag[code] || 0;
                     
                     let loStats = appState.loStats[code] || { attempted: 0, correct: 0 };
                     
