@@ -1498,6 +1498,132 @@
             return allData;
         }
 
+        // --- ULTRA-LIGHTWEIGHT INDEXEDDB ENGINE ---
+        const DB_NAME = "ModMedicalisCache";
+        const STORE_NAME = "mcq_files";
+        
+        function getDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+        
+        async function getCachedFile(key) {
+            try {
+                const db = await getDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(STORE_NAME, "readonly");
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.get(key);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        async function cacheFile(key, val) {
+            try {
+                const db = await getDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(STORE_NAME, "readwrite");
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.put(val, key);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (e) {
+                // Recover silently
+            }
+        }
+
+        function mergeMCQs(data) {
+            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
+            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
+            data.forEach(q => {
+                const qId = q.id || q.statement;
+                if (!existingIds.has(qId)) {
+                    APP_DATA.allMCQs.push(q);
+                }
+            });
+        }
+
+        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE ---
+        async function startBackgroundBlockSync(bNum) {
+            const indexData = MCQ_INDEX_CACHE[bNum];
+            if (!indexData) return;
+            
+            const blockKey = "b" + appState.academicBlock;
+            const blockData = indexData[blockKey] || Object.values(indexData)[0];
+            const fileNames = Object.keys(blockData);
+            
+            if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
+            if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
+            
+            let fileIdx = 0;
+            
+            async function downloadNext() {
+                // Stop sync if block or mode changes during download queue
+                const currentBlockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+                const currentBNum = currentBlockToNum[appState.academicBlock] || 1;
+                if (currentBNum !== bNum) return;
+
+                if (fileIdx >= fileNames.length) {
+                    console.log("Background synchronization complete.");
+                    return;
+                }
+                
+                const fileName = fileNames[fileIdx];
+                fileIdx++;
+                
+                // If already in RAM, continue
+                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) {
+                    downloadNext();
+                    return;
+                }
+                
+                // If already in local IndexedDB storage, load into RAM quietly and skip network
+                try {
+                    const cachedData = await getCachedFile(fileName);
+                    if (cachedData && cachedData.length > 0) {
+                        window.LOADED_MCQ_FILES[bNum].add(fileName);
+                        mergeMCQs(cachedData);
+                        downloadNext();
+                        return;
+                    }
+                } catch (e) {
+                    console.warn(e);
+                }
+                
+                // Staggered Download - 1 file every 4 seconds
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
+                fetch(url, { cache: 'default' })
+                    .then(r => r.ok ? r.json() : [])
+                    .then(data => {
+                        window.LOADED_MCQ_FILES[bNum].add(fileName);
+                        mergeMCQs(data);
+                        cacheFile(fileName, data);
+                        setTimeout(downloadNext, 4000); 
+                    })
+                    .catch(err => {
+                        console.warn(`Silent sync skipped ${fileName}:`, err);
+                        setTimeout(downloadNext, 4000); 
+                    });
+            }
+            
+            // Starts background download after initial dashboard setup delay
+            setTimeout(downloadNext, 4000);
+        }
+
         async function fetchMCQIndexForBlock(bNum) {
             if (MCQ_INDEX_CACHE[bNum]) return MCQ_INDEX_CACHE[bNum];
             const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}mcqsindex.json`;
@@ -1537,6 +1663,9 @@
                 if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
                 else if (appState.currentScreen === 'lo_selection') renderLOs();
                 else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+                
+                // Initialize background sync task quietly
+                startBackgroundBlockSync(bNum);
                 return;
             }
             
@@ -1576,33 +1705,45 @@
             });
             
             if (filesToFetch.size === 0) return;
+
+            let missingFiles = [];
+            if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
+            if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
+
+            filesToFetch.forEach(fileName => {
+                if (!window.LOADED_MCQ_FILES[bNum].has(fileName)) {
+                    missingFiles.push(fileName);
+                }
+            });
+
+            if (missingFiles.length === 0) return; // Instantly loads from system RAM memory
             
             showLoader("Syncing questions...");
             
-            if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
-            if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
-            
             let fetchPromises = [];
-            filesToFetch.forEach(fileName => {
-                if (!window.LOADED_MCQ_FILES[bNum].has(fileName)) {
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                    const p = fetch(url, { cache: 'default' })
-                        .then(r => r.ok ? r.json() : [])
-                        .then(data => {
-                            window.LOADED_MCQ_FILES[bNum].add(fileName);
-                            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
-                            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
-                            data.forEach(q => {
-                                const qId = q.id || q.statement;
-                                if (!existingIds.has(qId)) {
-                                    APP_DATA.allMCQs.push(q);
-                                }
-                            });
-                        })
-                        .catch(err => console.warn(`Failed to fetch file ${fileName}:`, err));
-                    fetchPromises.push(p);
+            for (let fileName of missingFiles) {
+                try {
+                    const cachedData = await getCachedFile(fileName);
+                    if (cachedData && cachedData.length > 0) {
+                        window.LOADED_MCQ_FILES[bNum].add(fileName);
+                        mergeMCQs(cachedData);
+                        continue;
+                    }
+                } catch (e) {
+                    console.warn(e);
                 }
-            });
+
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
+                const p = fetch(url, { cache: 'default' })
+                    .then(r => r.ok ? r.json() : [])
+                    .then(data => {
+                        window.LOADED_MCQ_FILES[bNum].add(fileName);
+                        mergeMCQs(data);
+                        cacheFile(fileName, data);
+                    })
+                    .catch(err => console.warn(`Failed to fetch file ${fileName}:`, err));
+                fetchPromises.push(p);
+            }
             
             if (fetchPromises.length > 0) {
                 await Promise.all(fetchPromises);
@@ -1999,63 +2140,10 @@
             renderModulesAndSubjects();
         }
 
-        async function preloadMCQFilesForSubject(modName, subName) {
-            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-            const bNum = blockToNum[appState.academicBlock] || 1;
-            
-            const indexData = MCQ_INDEX_CACHE[bNum];
-            if (!indexData) return;
-            
-            const blockKey = "b" + appState.academicBlock;
-            const blockData = indexData[blockKey] || Object.values(indexData)[0];
-            
-            const mod = APP_DATA.modules[modName];
-            if (!mod) return;
-            const subj = mod.subjects[subName];
-            if (!subj) return;
-            const subjectLOs = subj.los.map(lo => String(lo.id).trim());
-            
-            let filesToFetch = new Set();
-            subjectLOs.forEach(lo => {
-                for (const [fileName, fileInfo] of Object.entries(blockData)) {
-                    if (fileInfo.lo_codes && fileInfo.lo_codes.map(c => String(c).trim()).includes(lo)) {
-                        filesToFetch.add(fileName);
-                    }
-                }
-            });
-            
-            if (filesToFetch.size === 0) return;
-            
-            if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
-            if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
-            
-            filesToFetch.forEach(fileName => {
-                if (!window.LOADED_MCQ_FILES[bNum].has(fileName)) {
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                    fetch(url, { cache: 'default' })
-                        .then(r => r.ok ? r.json() : [])
-                        .then(data => {
-                            window.LOADED_MCQ_FILES[bNum].add(fileName);
-                            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
-                            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
-                            data.forEach(q => {
-                                const qId = q.id || q.statement;
-                                if (!existingIds.has(qId)) {
-                                    APP_DATA.allMCQs.push(q);
-                                }
-                            });
-                            console.log(`Preloaded ${fileName} in background.`);
-                        })
-                        .catch(err => console.warn(`Background preload failed for ${fileName}:`, err));
-                }
-            });
-        }
-
         function goToLOSelection(mod, sub) {
             appState.context.module = mod;
             appState.context.subject = sub;
             appState.selectedLOs = [];
-            preloadMCQFilesForSubject(mod, sub); // Quiet background download initiated here
             navigate('lo_selection');
         }
 
