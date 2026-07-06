@@ -1499,16 +1499,17 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
             
-            if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
+            // Fix: Check if undefined. If it's empty [], we still don't fetch again!
+            if (MCQ_CACHE[bNum] !== undefined) return;
             if (activeFetches['mcqs_' + bNum]) return activeFetches['mcqs_' + bNum];
 
             activeFetches['mcqs_' + bNum] = (async () => {
                 const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/b${bNum}`;
                 const allData = await fetchGitHubFilesSequentially(baseUrl, 26);
                 
-                MCQ_CACHE[bNum] = allData;
+                MCQ_CACHE[bNum] = allData || [];
                 if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                    APP_DATA.allMCQs = allData;
+                    APP_DATA.allMCQs = allData || [];
                     buildSyllabusTree();
                     
                     // Render changes instantly if the user is currently waiting on selection screens
@@ -1526,7 +1527,7 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
             
-            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
+            if (NOTES_CACHE[bNum] !== undefined) return;
             if (activeFetches['notes_' + bNum]) return activeFetches['notes_' + bNum];
 
             activeFetches['notes_' + bNum] = (async () => {
@@ -1544,9 +1545,9 @@
                         });
                     }
                 });
-                NOTES_CACHE[bNum] = allNotes;
+                NOTES_CACHE[bNum] = allNotes || [];
                 if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                    APP_DATA.allNotes = allNotes;
+                    APP_DATA.allNotes = allNotes || [];
                 }
                 delete activeFetches['notes_' + bNum];
             })();
@@ -1558,7 +1559,7 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
             
-            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
+            if (FLASH_CACHE[bNum] !== undefined) return;
             if (activeFetches['viva_' + bNum]) return activeFetches['viva_' + bNum];
 
             activeFetches['viva_' + bNum] = (async () => {
@@ -1594,9 +1595,9 @@
                         });
                     }
                 });
-                FLASH_CACHE[bNum] = allFlashcards;
+                FLASH_CACHE[bNum] = allFlashcards || [];
                 if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                    APP_DATA.allFlashcards = allFlashcards;
+                    APP_DATA.allFlashcards = allFlashcards || [];
                 }
                 delete activeFetches['viva_' + bNum];
             })();
@@ -1633,15 +1634,16 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
-            if (appState.mode === 'mcqs' && (!MCQ_CACHE[bNum] || MCQ_CACHE[bNum].length === 0)) {
+            // Fix: Check cache definition so we never show loader on already loaded blocks
+            if (appState.mode === 'mcqs' && MCQ_CACHE[bNum] === undefined) {
                 showLoader("Syncing MCQ database...");
                 await prefetchCurrentBlockMCQs();
                 hideLoader();
-            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
+            } else if (appState.mode === 'notes' && NOTES_CACHE[bNum] === undefined) {
                 showLoader("Syncing Notes database...");
                 await prefetchCurrentBlockNotes();
                 hideLoader();
-            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
+            } else if (appState.mode === 'vivacards' && FLASH_CACHE[bNum] === undefined) {
                 showLoader("Syncing Vivacards database...");
                 await prefetchCurrentBlockVivacards();
                 hideLoader();
