@@ -1999,10 +1999,63 @@
             renderModulesAndSubjects();
         }
 
+        async function preloadMCQFilesForSubject(modName, subName) {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            
+            const indexData = MCQ_INDEX_CACHE[bNum];
+            if (!indexData) return;
+            
+            const blockKey = "b" + appState.academicBlock;
+            const blockData = indexData[blockKey] || Object.values(indexData)[0];
+            
+            const mod = APP_DATA.modules[modName];
+            if (!mod) return;
+            const subj = mod.subjects[subName];
+            if (!subj) return;
+            const subjectLOs = subj.los.map(lo => String(lo.id).trim());
+            
+            let filesToFetch = new Set();
+            subjectLOs.forEach(lo => {
+                for (const [fileName, fileInfo] of Object.entries(blockData)) {
+                    if (fileInfo.lo_codes && fileInfo.lo_codes.map(c => String(c).trim()).includes(lo)) {
+                        filesToFetch.add(fileName);
+                    }
+                }
+            });
+            
+            if (filesToFetch.size === 0) return;
+            
+            if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
+            if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
+            
+            filesToFetch.forEach(fileName => {
+                if (!window.LOADED_MCQ_FILES[bNum].has(fileName)) {
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
+                    fetch(url, { cache: 'default' })
+                        .then(r => r.ok ? r.json() : [])
+                        .then(data => {
+                            window.LOADED_MCQ_FILES[bNum].add(fileName);
+                            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
+                            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
+                            data.forEach(q => {
+                                const qId = q.id || q.statement;
+                                if (!existingIds.has(qId)) {
+                                    APP_DATA.allMCQs.push(q);
+                                }
+                            });
+                            console.log(`Preloaded ${fileName} in background.`);
+                        })
+                        .catch(err => console.warn(`Background preload failed for ${fileName}:`, err));
+                }
+            });
+        }
+
         function goToLOSelection(mod, sub) {
             appState.context.module = mod;
             appState.context.subject = sub;
             appState.selectedLOs = [];
+            preloadMCQFilesForSubject(mod, sub); // Quiet background download initiated here
             navigate('lo_selection');
         }
 
