@@ -1464,50 +1464,60 @@
             lucide.createIcons();
         }
 
-        // ================= PARALLEL SUPER-FETCH ENGINE (INSTANT LOAD) =================
+        // ================= PARALLEL SUPER-FETCH ENGINE (OPTIMIZED FOR SPEED) =================
+        
+        async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
+            let allData = [];
+            const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
+            
+            // Fetch in small batches of 3 to avoid browser connection limits stalling the app
+            // Instantly breaks the loop as soon as it hits a missing file (404)
+            const chunkSize = 3;
+            for (let i = 0; i < letters.length; i += chunkSize) {
+                const chunk = letters.slice(i, i + chunkSize);
+                const promises = chunk.map(char => 
+                    fetch(`${baseUrl}${char}.json`, { cache: 'default' })
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+                );
+                
+                const results = await Promise.all(promises);
+                const validResults = results.filter(Boolean);
+                allData.push(...validResults.flat(Infinity));
+                
+                // If any file in this chunk returned a 404 (null), there are no more files. Break immediately!
+                if (validResults.length < chunk.length) {
+                    break; 
+                }
+            }
+            return allData;
+        }
+
         async function prefetchCurrentBlockMCQs() {
-    const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-    const bNum = blockToNum[appState.academicBlock] || 1;
-    if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
-    const timestamp = new Date().getTime();
-    const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i));
-    
-    // PARALLEL FETCH: Fire all requests at once instead of waiting for chunks
-    const promises = letters.map(char =>
-        fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/b${bNum}${char}.json?nocache=${timestamp}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null)
-    );
-    
-    const results = await Promise.all(promises);
-    // Filter out nulls (404s) and flatten the array
-    const allData = results.filter(Boolean).flat(Infinity);
-    
-    MCQ_CACHE[bNum] = allData;
-    if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-        APP_DATA.allMCQs = allData;
-        buildSyllabusTree();
-        // Update UI instantly if user is already looking at these screens
-        if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
-        else if (appState.currentScreen === 'lo_selection') renderLOs();
-        else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
-    }
-}
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/b${bNum}`;
+            const allData = await fetchGitHubFilesSequentially(baseUrl, 26);
+            
+            MCQ_CACHE[bNum] = allData;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allMCQs = allData;
+                buildSyllabusTree();
+                if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+                else if (appState.currentScreen === 'lo_selection') renderLOs();
+                else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+            }
+        }
 
         async function prefetchCurrentBlockNotes() {
-    const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-    const bNum = blockToNum[appState.academicBlock] || 1;
-    if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
-    const timestamp = new Date().getTime();
-    const letters = Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i));
-    
-    const promises = letters.map(char =>
-        fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N${char}.json?nocache=${timestamp}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null)
-    );
-    const results = await Promise.all(promises);
-    const allNotesRaw = results.filter(Boolean).flat(Infinity);
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
+            const allNotesRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
             let allNotes = [];
             allNotesRaw.forEach(modData => {
@@ -1527,19 +1537,12 @@
         }
 
         async function prefetchCurrentBlockVivacards() {
-    const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-    const bNum = blockToNum[appState.academicBlock] || 1;
-    if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
-    const timestamp = new Date().getTime();
-    const letters = Array.from({length: 13}, (_, i) => String.fromCharCode(97 + i));
-    
-    const promises = letters.map(char =>
-        fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash${char}.json?nocache=${timestamp}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null)
-    );
-    const results = await Promise.all(promises);
-    const allCardsRaw = results.filter(Boolean).flat(Infinity);
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
+            const allCardsRaw = await fetchGitHubFilesSequentially(baseUrl, 13);
 
             let allFlashcards = [];
             allCardsRaw.forEach(modData => {
