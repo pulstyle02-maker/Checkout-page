@@ -1469,27 +1469,35 @@
 
         async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
             let allData = [];
-            for (let i = 0; i < maxLetters; i++) {
-                const char = String.fromCharCode(97 + i); // Starts at 'a', then 'b', 'c', etc.
-                try {
-                    const response = await fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' });
-                    
-                    // If the response is not OK (like a 404), STOP searching immediately
-                    if (!response.ok) {
+            const batchSize = 5; // Fetch 5 letters at a time in parallel to cut down round-trip mobile latency
+            
+            for (let i = 0; i < maxLetters; i += batchSize) {
+                const promises = [];
+                const chunkLetters = [];
+                
+                for (let j = 0; j < batchSize && (i + j) < maxLetters; j++) {
+                    const char = String.fromCharCode(97 + i + j);
+                    chunkLetters.push(char);
+                    promises.push(
+                        fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' })
+                        .then(r => r.ok ? r.json() : null)
+                        .catch(() => null)
+                    );
+                }
+                
+                const results = await Promise.all(promises);
+                let hitEnd = false;
+                
+                for (let k = 0; k < results.length; k++) {
+                    if (results[k] === null) {
+                        hitEnd = true;
                         break;
                     }
-                    
-                    const data = await response.json();
-                    
-                    // If the file is empty or represents an empty array, STOP searching immediately
-                    if (!data || (Array.isArray(data) && data.length === 0)) {
-                        break;
-                    }
-                    
-                    allData.push(...[data].flat(Infinity));
-                } catch (error) {
-                    // Stop sequential finding on any fetch or JSON parsing error
-                    break;
+                    allData.push(...[results[k]].flat(Infinity));
+                }
+                
+                if (hitEnd) {
+                    break; // Non-existent or empty file found. STOP immediately.
                 }
             }
             return allData;
@@ -1511,7 +1519,6 @@
                     APP_DATA.allMCQs = allData || [];
                     buildSyllabusTree();
                     
-                    // Render changes instantly
                     if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
                     else if (appState.currentScreen === 'lo_selection') renderLOs();
                     else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
@@ -1607,7 +1614,8 @@
         async function fetchSyllabus() {
             try {
                 const timestamp = new Date().getTime();
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/1styearsyllabus.json?nocache=${timestamp}`;
+                // Bust CDN cache only for syllabus so structure updates always remain live
+                const url = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/1styearsyllabus.json?v=${timestamp}`;
                 
                 const response = await fetch(url, { cache: 'no-store' });
                 if(!response.ok) throw new Error("Syllabus fetch failed");
@@ -1616,8 +1624,7 @@
                 APP_DATA.rawSyllabus = data.syllabus || [];
                 buildSyllabusTree();
                 
-                // CRITICAL SPEED FIX: Do not prefetch notes, mcqs, and vivacards simultaneously here.
-                // This preserves 100% bandwidth, letting the active mode load sequentially in a split-second.
+                // Keep network clean at login. Do not download databases concurrently here.
             } catch (error) {
                 console.warn("Error fetching syllabus:", error);
                 APP_DATA.rawSyllabus = [];
@@ -1671,8 +1678,6 @@
                 item.year === currentYearStr && item.block === currentBlockStr
             );
 
-            // Create an O(1) hash table map of MCQ counts by code tag.
-            // This replaces the extremely slow O(N * M) nested filter loops with a simple look-up.
             const mcqCountByTag = {};
             if (Array.isArray(APP_DATA.allMCQs)) {
                 APP_DATA.allMCQs.forEach(q => {
@@ -1726,9 +1731,7 @@
                         }
                     }
 
-                    // Look up MCQ count in O(1) constant time
                     const count = mcqCountByTag[code] || 0;
-                    
                     let loStats = appState.loStats[code] || { attempted: 0, correct: 0 };
                     
                     subTotalMCQs += count;
@@ -1775,7 +1778,6 @@
             }
         }
 
-        // Fix: Force Notes Viewer navigation to strictly wait for its dataset to fully compile
         async function renderAndNavigateNotes() {
             await ensureMCQsLoaded();
             navigate('notes_viewer');
@@ -1787,8 +1789,7 @@
                 return;
             }
 
-            // Fix: Re-enforce blocking loader on selection screens.
-            // This guarantees correct MCQ totals are compiled before painting module buttons.
+            // Lock navigation screens until selected dataset compiles to avoid "0 MCQs" rendering glitch
             const practiceScreens = ['module_selection', 'lo_selection', 'session_builder'];
             if (practiceScreens.includes(screenId)) {
                 await ensureMCQsLoaded();
