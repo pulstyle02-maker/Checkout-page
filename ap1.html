@@ -860,6 +860,8 @@
         let MCQ_CACHE = {}; 
         let NOTES_CACHE = {};
         let FLASH_CACHE = {};
+        let MCQ_INDEX_CACHE = {};
+        let loCountEstimateMap = {};
 
         const SUBJECT_ICONS = {
             'anatomy': 'bone',
@@ -1083,6 +1085,9 @@
             
             setMode('mcqs');
             await ensureMCQsLoaded();
+            if (session.selectedLOs && session.selectedLOs.length > 0) {
+                await loadMCQsForSelectedLOs(session.selectedLOs);
+            }
             
             let filtered = APP_DATA.allMCQs.filter(q => q.tag && appState.selectedLOs.includes(String(q.tag).trim()));
             if(!filtered || filtered.length === 0) {
@@ -1464,158 +1469,226 @@
             lucide.createIcons();
         }
 
-        // ================= PARALLEL SUPER-FETCH ENGINE (INSTANT LOAD) =================
-        let activeFetches = {}; // Prevents duplicate sequential fetch loops if clicking quickly
-
+        // ================= PARALLEL SUPER-FETCH ENGINE (OPTIMIZED FOR SPEED) =================
+        
         async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
             let allData = [];
-            const batchSize = 5; // Fetch 5 letters at a time in parallel to cut down round-trip mobile latency
+            const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
             
-            for (let i = 0; i < maxLetters; i += batchSize) {
-                const promises = [];
-                const chunkLetters = [];
-                
-                for (let j = 0; j < batchSize && (i + j) < maxLetters; j++) {
-                    const char = String.fromCharCode(97 + i + j);
-                    chunkLetters.push(char);
-                    promises.push(
-                        fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' })
-                        .then(r => r.ok ? r.json() : null)
-                        .catch(() => null)
-                    );
-                }
+            // Fetch in small batches of 3 to avoid browser connection limits stalling the app
+            // Instantly breaks the loop as soon as it hits a missing file (404)
+            const chunkSize = 3;
+            for (let i = 0; i < letters.length; i += chunkSize) {
+                const chunk = letters.slice(i, i + chunkSize);
+                const promises = chunk.map(char => 
+                    fetch(`${baseUrl}${char}.json`, { cache: 'default' })
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+                );
                 
                 const results = await Promise.all(promises);
-                let hitEnd = false;
+                const validResults = results.filter(Boolean);
+                allData.push(...validResults.flat(Infinity));
                 
-                for (let k = 0; k < results.length; k++) {
-                    if (results[k] === null) {
-                        hitEnd = true;
-                        break;
-                    }
-                    allData.push(...[results[k]].flat(Infinity));
-                }
-                
-                if (hitEnd) {
-                    break; // Non-existent or empty file found. STOP immediately.
+                // If any file in this chunk returned a 404 (null), there are no more files. Break immediately!
+                if (validResults.length < chunk.length) {
+                    break; 
                 }
             }
             return allData;
+        }
+
+        async function fetchMCQIndexForBlock(bNum) {
+            if (MCQ_INDEX_CACHE[bNum]) return MCQ_INDEX_CACHE[bNum];
+            const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}mcqsindex.json`;
+            try {
+                const response = await fetch(url, { cache: 'default' });
+                if (response.ok) {
+                    const data = await response.json();
+                    MCQ_INDEX_CACHE[bNum] = data;
+                    return data;
+                }
+            } catch (e) {
+                console.warn("MCQ Index fetch failed for block " + bNum, e);
+            }
+            return null;
         }
 
         async function prefetchCurrentBlockMCQs() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
             
-            if (MCQ_CACHE[bNum] !== undefined) return;
-            if (activeFetches['mcqs_' + bNum]) return activeFetches['mcqs_' + bNum];
-
-            activeFetches['mcqs_' + bNum] = (async () => {
-                const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/b${bNum}`;
-                const allData = await fetchGitHubFilesSequentially(baseUrl, 26);
+            const indexData = await fetchMCQIndexForBlock(bNum);
+            if (indexData) {
+                const blockKey = "b" + appState.academicBlock;
+                const blockData = indexData[blockKey] || Object.values(indexData)[0];
                 
-                MCQ_CACHE[bNum] = allData || [];
-                if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                    APP_DATA.allMCQs = allData || [];
-                    buildSyllabusTree();
-                    
-                    if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
-                    else if (appState.currentScreen === 'lo_selection') renderLOs();
-                    else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+                loCountEstimateMap = {};
+                for (const [fileName, fileInfo] of Object.entries(blockData)) {
+                    const loCodes = fileInfo.lo_codes || [];
+                    const countPerLo = loCodes.length > 0 ? Math.round(fileInfo.mcq_count / loCodes.length) : 0;
+                    loCodes.forEach(code => {
+                        const cleanCode = String(code).trim();
+                        loCountEstimateMap[cleanCode] = (loCountEstimateMap[cleanCode] || 0) + countPerLo;
+                    });
                 }
-                delete activeFetches['mcqs_' + bNum];
-            })();
+                
+                buildSyllabusTree();
+                if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+                else if (appState.currentScreen === 'lo_selection') renderLOs();
+                else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+                return;
+            }
+            
+            if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
+            
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/b${bNum}`;
+            const allData = await fetchGitHubFilesSequentially(baseUrl, 26);
+            
+            MCQ_CACHE[bNum] = allData;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allMCQs = allData;
+                buildSyllabusTree();
+                if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+                else if (appState.currentScreen === 'lo_selection') renderLOs();
+                else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
+            }
+        }
 
-            return activeFetches['mcqs_' + bNum];
+        async function loadMCQsForSelectedLOs(selectedLOs) {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const bNum = blockToNum[appState.academicBlock] || 1;
+            
+            const indexData = MCQ_INDEX_CACHE[bNum];
+            if (!indexData) return;
+            
+            const blockKey = "b" + appState.academicBlock;
+            const blockData = indexData[blockKey] || Object.values(indexData)[0];
+            
+            let filesToFetch = new Set();
+            selectedLOs.forEach(lo => {
+                const cleanLo = String(lo).trim();
+                for (const [fileName, fileInfo] of Object.entries(blockData)) {
+                    if (fileInfo.lo_codes && fileInfo.lo_codes.map(c => String(c).trim()).includes(cleanLo)) {
+                        filesToFetch.add(fileName);
+                    }
+                }
+            });
+            
+            if (filesToFetch.size === 0) return;
+            
+            showLoader("Syncing questions...");
+            
+            if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
+            if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
+            
+            let fetchPromises = [];
+            filesToFetch.forEach(fileName => {
+                if (!window.LOADED_MCQ_FILES[bNum].has(fileName)) {
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
+                    const p = fetch(url, { cache: 'default' })
+                        .then(r => r.ok ? r.json() : [])
+                        .then(data => {
+                            window.LOADED_MCQ_FILES[bNum].add(fileName);
+                            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
+                            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
+                            data.forEach(q => {
+                                const qId = q.id || q.statement;
+                                if (!existingIds.has(qId)) {
+                                    APP_DATA.allMCQs.push(q);
+                                }
+                            });
+                        })
+                        .catch(err => console.warn(`Failed to fetch file ${fileName}:`, err));
+                    fetchPromises.push(p);
+                }
+            });
+            
+            if (fetchPromises.length > 0) {
+                await Promise.all(fetchPromises);
+            }
+            hideLoader();
+        }
+
+        async function handleLOContinue() {
+            if (appState.mode === 'mcqs') {
+                await loadMCQsForSelectedLOs(appState.selectedLOs);
+            }
+            navigate('session_builder');
         }
 
         async function prefetchCurrentBlockNotes() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
+            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
             
-            if (NOTES_CACHE[bNum] !== undefined) return;
-            if (activeFetches['notes_' + bNum]) return activeFetches['notes_' + bNum];
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
+            const allNotesRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
-            activeFetches['notes_' + bNum] = (async () => {
-                const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
-                const allNotesRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
-
-                let allNotes = [];
-                allNotesRaw.forEach(modData => {
-                    if (modData.learningObjectives) {
-                        modData.learningObjectives.forEach(lo => {
-                            let code = lo.objective.split('.')[0].trim();
-                            lo.topics?.forEach(topic => {
-                                allNotes.push({ loCode: code, topicTitle: topic.topic, content: topic.generatedNotes });
-                            });
+            let allNotes = [];
+            allNotesRaw.forEach(modData => {
+                if (modData.learningObjectives) {
+                    modData.learningObjectives.forEach(lo => {
+                        let code = lo.objective.split('.')[0].trim();
+                        lo.topics?.forEach(topic => {
+                            allNotes.push({ loCode: code, topicTitle: topic.topic, content: topic.generatedNotes });
                         });
-                    }
-                });
-                NOTES_CACHE[bNum] = allNotes || [];
-                if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                    APP_DATA.allNotes = allNotes || [];
+                    });
                 }
-                delete activeFetches['notes_' + bNum];
-            })();
-
-            return activeFetches['notes_' + bNum];
+            });
+            NOTES_CACHE[bNum] = allNotes;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allNotes = allNotes;
+            }
         }
 
         async function prefetchCurrentBlockVivacards() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
+            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
             
-            if (FLASH_CACHE[bNum] !== undefined) return;
-            if (activeFetches['viva_' + bNum]) return activeFetches['viva_' + bNum];
+            const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
+            const allCardsRaw = await fetchGitHubFilesSequentially(baseUrl, 13);
 
-            activeFetches['viva_' + bNum] = (async () => {
-                const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
-                const allCardsRaw = await fetchGitHubFilesSequentially(baseUrl, 13);
-
-                let allFlashcards = [];
-                allCardsRaw.forEach(modData => {
-                    if (modData.learningObjectives) {
-                        modData.learningObjectives.forEach(lo => {
-                            let code = lo.objective.split('.')[0].trim();
-                            if(lo.flashcards) {
-                                lo.flashcards.forEach(card => {
-                                    allFlashcards.push({ loCode: code, front: card.front || card.question, back: card.back || card.answer });
-                                });
-                            } else if (lo.topics) {
-                                lo.topics.forEach(t => {
-                                    if (t.generatedNotes) {
-                                        const qaBlocks = t.generatedNotes.split(/(?=Q:\s*)/);
-                                        qaBlocks.forEach(block => {
-                                            if (block.trim().startsWith('Q:')) {
-                                                const parts = block.split(/A:\s*/);
-                                                const q = parts[0].replace('Q:', '').trim();
-                                                const a = parts[1] ? parts[1].trim() : '';
-                                                if (q && a) {
-                                                    allFlashcards.push({ loCode: code, front: q, back: a });
-                                                }
+            let allFlashcards = [];
+            allCardsRaw.forEach(modData => {
+                if (modData.learningObjectives) {
+                    modData.learningObjectives.forEach(lo => {
+                        let code = lo.objective.split('.')[0].trim();
+                        if(lo.flashcards) {
+                            lo.flashcards.forEach(card => {
+                                allFlashcards.push({ loCode: code, front: card.front || card.question, back: card.back || card.answer });
+                            });
+                        } else if (lo.topics) {
+                            lo.topics.forEach(t => {
+                                if (t.generatedNotes) {
+                                    const qaBlocks = t.generatedNotes.split(/(?=Q:\s*)/);
+                                    qaBlocks.forEach(block => {
+                                        if (block.trim().startsWith('Q:')) {
+                                            const parts = block.split(/A:\s*/);
+                                            const q = parts[0].replace('Q:', '').trim();
+                                            const a = parts[1] ? parts[1].trim() : '';
+                                            if (q && a) {
+                                                allFlashcards.push({ loCode: code, front: q, back: a });
                                             }
-                                        });
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-                FLASH_CACHE[bNum] = allFlashcards || [];
-                if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                    APP_DATA.allFlashcards = allFlashcards || [];
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
                 }
-                delete activeFetches['viva_' + bNum];
-            })();
-
-            return activeFetches['viva_' + bNum];
+            });
+            FLASH_CACHE[bNum] = allFlashcards;
+            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                APP_DATA.allFlashcards = allFlashcards;
+            }
         }
 
         async function fetchSyllabus() {
             try {
                 const timestamp = new Date().getTime();
-                // Bust CDN cache only for syllabus so structure updates always remain live
-                const url = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/1styearsyllabus.json?v=${timestamp}`;
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/1styearsyllabus.json?nocache=${timestamp}`;
                 
                 const response = await fetch(url, { cache: 'no-store' });
                 if(!response.ok) throw new Error("Syllabus fetch failed");
@@ -1624,7 +1697,12 @@
                 APP_DATA.rawSyllabus = data.syllabus || [];
                 buildSyllabusTree();
                 
-                // Keep network clean at login. Do not download databases concurrently here.
+                // Fire these parallel tasks silently without blocking UI
+                Promise.all([
+                    prefetchCurrentBlockMCQs(),
+                    prefetchCurrentBlockNotes(),
+                    prefetchCurrentBlockVivacards()
+                ]).catch(e => console.warn("Prefetch warning", e));
             } catch (error) {
                 console.warn("Error fetching syllabus:", error);
                 APP_DATA.rawSyllabus = [];
@@ -1636,15 +1714,15 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
-            if (appState.mode === 'mcqs' && MCQ_CACHE[bNum] === undefined) {
+            if (appState.mode === 'mcqs' && (!MCQ_INDEX_CACHE[bNum])) {
                 showLoader("Syncing MCQ database...");
                 await prefetchCurrentBlockMCQs();
                 hideLoader();
-            } else if (appState.mode === 'notes' && NOTES_CACHE[bNum] === undefined) {
+            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
                 showLoader("Syncing Notes database...");
                 await prefetchCurrentBlockNotes();
                 hideLoader();
-            } else if (appState.mode === 'vivacards' && FLASH_CACHE[bNum] === undefined) {
+            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
                 showLoader("Syncing Vivacards database...");
                 await prefetchCurrentBlockVivacards();
                 hideLoader();
@@ -1677,16 +1755,6 @@
             const relevantItems = APP_DATA.rawSyllabus.filter(item => 
                 item.year === currentYearStr && item.block === currentBlockStr
             );
-
-            const mcqCountByTag = {};
-            if (Array.isArray(APP_DATA.allMCQs)) {
-                APP_DATA.allMCQs.forEach(q => {
-                    if (q && q.tag) {
-                        const cleanTag = String(q.tag).trim();
-                        mcqCountByTag[cleanTag] = (mcqCountByTag[cleanTag] || 0) + 1;
-                    }
-                });
-            }
 
             const ICONS = ['layers', 'activity', 'zap', 'microscope', 'book-open', 'box'];
             let modIndex = 0;
@@ -1731,7 +1799,14 @@
                         }
                     }
 
-                    const count = mcqCountByTag[code] || 0;
+                    let count = 0;
+                    if (APP_DATA.allMCQs && APP_DATA.allMCQs.length > 0) {
+                        count = APP_DATA.allMCQs.filter(q => q.tag && String(q.tag).trim() === code).length;
+                    }
+                    if (count === 0 && typeof loCountEstimateMap !== 'undefined' && loCountEstimateMap[code]) {
+                        count = loCountEstimateMap[code];
+                    }
+                    
                     let loStats = appState.loStats[code] || { attempted: 0, correct: 0 };
                     
                     subTotalMCQs += count;
@@ -1778,18 +1853,12 @@
             }
         }
 
-        async function renderAndNavigateNotes() {
-            await ensureMCQsLoaded();
-            navigate('notes_viewer');
-        }
-
         async function showScreen(screenId) {
             if (screenId !== 'login' && !appState.currentUser) {
                 switchTab('login');
                 return;
             }
 
-            // Lock navigation screens until selected dataset compiles to avoid "0 MCQs" rendering glitch
             const practiceScreens = ['module_selection', 'lo_selection', 'session_builder'];
             if (practiceScreens.includes(screenId)) {
                 await ensureMCQsLoaded();
@@ -1965,14 +2034,14 @@
                 btn.onclick = () => navigate('session_builder');
             } else {
                 btn.innerText = "Continue";
-                btn.onclick = () => navigate('session_builder');
+                btn.onclick = () => handleLOContinue();
             }
 
             const btnTop = document.getElementById('lo-continue-btn-top');
             if (btnTop) {
                 if (appState.mode === 'notes') { btnTop.innerText = "View Notes"; btnTop.onclick = () => renderAndNavigateNotes(); }
                 else if (appState.mode === 'vivacards') { btnTop.innerText = "Build Viva"; btnTop.onclick = () => navigate('session_builder'); }
-                else { btnTop.innerText = "Continue"; btnTop.onclick = () => navigate('session_builder'); }
+                else { btnTop.innerText = "Continue"; btnTop.onclick = () => handleLOContinue(); }
                 
                 btnTop.disabled = appState.selectedLOs.length === 0;
                 btnTop.className = appState.selectedLOs.length === 0 
@@ -2581,6 +2650,9 @@
             APP_DATA.allMCQs = [];
             APP_DATA.allNotes = [];
             APP_DATA.allFlashcards = [];
+            MCQ_INDEX_CACHE = {};
+            window.LOADED_MCQ_FILES = {};
+            loCountEstimateMap = {};
             
             document.getElementById('drawer-subtitle').innerText = `${year} Year MBBS`;
             
@@ -2596,6 +2668,9 @@
             APP_DATA.allMCQs = [];
             APP_DATA.allNotes = [];
             APP_DATA.allFlashcards = [];
+            MCQ_INDEX_CACHE = {};
+            window.LOADED_MCQ_FILES = {};
+            loCountEstimateMap = {};
             renderProfile();
             buildSyllabusTree();
             prefetchCurrentBlockMCQs();
