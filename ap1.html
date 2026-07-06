@@ -1469,35 +1469,27 @@
 
         async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
             let allData = [];
-            const batchSize = 5; // Fetch 5 files concurrently to beat mobile RTT latency limits
-            
-            for (let i = 0; i < maxLetters; i += batchSize) {
-                const promises = [];
-                const batchChars = [];
-                
-                for (let j = 0; j < batchSize && (i + j) < maxLetters; j++) {
-                    const char = String.fromCharCode(97 + i + j);
-                    batchChars.push(char);
-                    promises.push(
-                        fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' })
-                        .then(r => r.ok ? r.json() : null)
-                        .catch(() => null)
-                    );
-                }
-                
-                const results = await Promise.all(promises);
-                let hitEnd = false;
-                
-                for (let k = 0; k < results.length; k++) {
-                    if (results[k] === null) {
-                        hitEnd = true;
+            for (let i = 0; i < maxLetters; i++) {
+                const char = String.fromCharCode(97 + i); // Starts at 'a', then 'b', 'c', etc.
+                try {
+                    const response = await fetch(`${baseUrl}${char}.json`, { cache: 'force-cache' });
+                    
+                    // If the response is not OK (like a 404), STOP searching immediately
+                    if (!response.ok) {
                         break;
                     }
-                    allData.push(...[results[k]].flat(Infinity));
-                }
-                
-                if (hitEnd) {
-                    break; // Stop fetching next batches immediately
+                    
+                    const data = await response.json();
+                    
+                    // If the file is empty or represents an empty array, STOP searching immediately
+                    if (!data || (Array.isArray(data) && data.length === 0)) {
+                        break;
+                    }
+                    
+                    allData.push(...[data].flat(Infinity));
+                } catch (error) {
+                    // Stop sequential finding on any fetch or JSON parsing error
+                    break;
                 }
             }
             return allData;
@@ -1519,7 +1511,7 @@
                     APP_DATA.allMCQs = allData || [];
                     buildSyllabusTree();
                     
-                    // Render updates silently in the background
+                    // Render changes instantly
                     if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
                     else if (appState.currentScreen === 'lo_selection') renderLOs();
                     else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
@@ -1624,12 +1616,8 @@
                 APP_DATA.rawSyllabus = data.syllabus || [];
                 buildSyllabusTree();
                 
-                // Fetch silently in background without blocking dashboard loads
-                Promise.all([
-                    prefetchCurrentBlockMCQs(),
-                    prefetchCurrentBlockNotes(),
-                    prefetchCurrentBlockVivacards()
-                ]).catch(e => console.warn("Prefetch warning", e));
+                // CRITICAL SPEED FIX: Do not prefetch notes, mcqs, and vivacards simultaneously here.
+                // This preserves 100% bandwidth, letting the active mode load sequentially in a split-second.
             } catch (error) {
                 console.warn("Error fetching syllabus:", error);
                 APP_DATA.rawSyllabus = [];
@@ -1683,6 +1671,8 @@
                 item.year === currentYearStr && item.block === currentBlockStr
             );
 
+            // Create an O(1) hash table map of MCQ counts by code tag.
+            // This replaces the extremely slow O(N * M) nested filter loops with a simple look-up.
             const mcqCountByTag = {};
             if (Array.isArray(APP_DATA.allMCQs)) {
                 APP_DATA.allMCQs.forEach(q => {
@@ -1736,7 +1726,9 @@
                         }
                     }
 
+                    // Look up MCQ count in O(1) constant time
                     const count = mcqCountByTag[code] || 0;
+                    
                     let loStats = appState.loStats[code] || { attempted: 0, correct: 0 };
                     
                     subTotalMCQs += count;
@@ -1795,9 +1787,9 @@
                 return;
             }
 
-            // Optimization: Remove 'module_selection' and 'lo_selection' from blocking screens list.
-            // This grants immediate background loading and completely hides the loading ring!
-            const practiceScreens = ['session_builder'];
+            // Fix: Re-enforce blocking loader on selection screens.
+            // This guarantees correct MCQ totals are compiled before painting module buttons.
+            const practiceScreens = ['module_selection', 'lo_selection', 'session_builder'];
             if (practiceScreens.includes(screenId)) {
                 await ensureMCQsLoaded();
             }
