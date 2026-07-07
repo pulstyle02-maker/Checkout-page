@@ -128,13 +128,13 @@
         /* Global 16px Corner Override */
         .rounded-\[20px\], .rounded-\[24px\] { border-radius: 16px !important; }
 
-        /* Exact Logo Brand Gradient (60% Blue / 40% Yellow) */
+        /* Exact Logo Brand Gradient (Blue -> Light Green -> Yellow) */
         .bg-brand-gradient {
-            background: linear-gradient(135deg, #4bb8d6 0%, #4bb8d6 60%, #fbd043 100%);
+            background: linear-gradient(135deg, #4bb8d6 0%, #56d0a0 50%, #fbd043 100%);
         }
         
         .text-brand-gradient {
-            background: linear-gradient(135deg, #4bb8d6 0%, #4bb8d6 60%, #fbd043 100%);
+            background: linear-gradient(135deg, #4bb8d6 0%, #56d0a0 50%, #fbd043 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -183,12 +183,12 @@
 </head>
 <body class="bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white">
 
-    <!-- 60/40 Logo Gradient Def for pure icons -->
+    <!-- Dynamic 3-Color Gradient Def for icons -->
     <svg aria-hidden="true" class="absolute w-0 h-0">
         <defs>
             <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="#4bb8d6" />
-                <stop offset="60%" stop-color="#4bb8d6" />
+                <stop offset="50%" stop-color="#56d0a0" />
                 <stop offset="100%" stop-color="#fbd043" />
             </linearGradient>
         </defs>
@@ -197,11 +197,15 @@
     <div id="app-container">
 
         <!-- Global Loader Overlay -->
-        <div id="global-loader" class="fixed inset-0 bg-zinc-50/95 dark:bg-black/95 z-[60] flex flex-col items-center justify-center transition-opacity duration-300">
-            <div class="w-12 h-12 rounded-[16px] bg-brand-gradient flex items-center justify-center mb-4 shadow-lg">
-                <i data-lucide="loader-2" class="w-6 h-6 text-white animate-spin"></i>
+        <div id="global-loader" class="fixed inset-0 bg-zinc-50/95 dark:bg-black/95 z-[60] flex items-center justify-center transition-opacity duration-300">
+            <div class="relative w-16 h-16 flex items-center justify-center">
+                <svg class="animate-spin w-full h-full" viewBox="0 0 50 50">
+                    <circle cx="25" cy="25" r="20" fill="none" class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="6"></circle>
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="url(#iconGrad)" stroke-width="6" stroke-linecap="round" stroke-dasharray="90" stroke-dashoffset="0"></circle>
+                </svg>
             </div>
-            <p id="loader-text" class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Connecting to Engine...</p>
+            <!-- Hidden text so JS doesn't break -->
+            <span id="loader-text" class="hidden"></span>
         </div>
 
         <!-- Very Thin Bottom Edge Selection Gradient -->
@@ -278,6 +282,12 @@
                         </div>
                         <span>Stats & Analytics</span>
                     </button>
+                    <button onclick="toggleDrawer(false); navigate('saved_mcqs')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
+                        <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
+                            <i data-lucide="bookmark" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
+                        </div>
+                        <span>Saved MCQs</span>
+                    </button>
                     <button onclick="toggleDrawer(false); navigate('profile')" class="w-full flex items-center space-x-4 px-3 py-3 rounded-xl text-left text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 card-press">
                         <div class="w-9 h-9 rounded-[12px] bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
                             <i data-lucide="settings" class="w-4 h-4 text-zinc-500 dark:text-zinc-400"></i>
@@ -291,7 +301,7 @@
         <!-- ================= DASHBOARD SCREEN ================= -->
         <div id="screen-dashboard" class="app-screen pb-24 md:pb-28">
             <!-- Ultra-Slim Solid Gradient Top Bar -->
-            <div class="sticky top-0 z-20 bg-brand-gradient safe-pt pb-2 px-4 md:px-6 flex justify-between items-center w-full shadow-md">
+            <div class="sticky top-0 z-20 bg-brand-gradient safe-pt pb-1 px-4 md:px-6 flex justify-between items-center w-full shadow-md">
                 <button onclick="toggleDrawer(true)" class="p-2 -ml-2 text-white/90 hover:text-white transition-colors">
                     <i data-lucide="menu" class="w-5 h-5"></i>
                 </button>
@@ -303,7 +313,7 @@
                 </button>
             </div>
 
-            <div class="w-full max-w-3xl mx-auto px-5 md:px-8 pt-3 flex-1">
+            <div class="w-full max-w-4xl mx-auto px-3.5 md:px-8 pt-4 flex-1">
                 
                 <!-- Dynamic On-Background Greeting -->
                 <div class="pb-5 px-1">
@@ -514,6 +524,30 @@
                     </div>
                 </div>
                 <div class="space-y-6 pt-4 flex-1 pb-24">
+                    <!-- Configurator Panel -->
+                    <div id="session-config-panel" class="bg-white dark:bg-[#18181b] rounded-[24px] border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">Test Mode</h3>
+                            <!-- Toggle Timed -->
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] font-bold text-zinc-500" id="timed-label">Timed</span>
+                                <div id="timer-toggle-bg" onclick="toggleTimerMode()" class="w-[36px] h-[20px] rounded-full bg-[#34c759] relative cursor-pointer flex items-center px-[2px] transition-colors">
+                                    <div id="timer-toggle-thumb" class="w-[16px] h-[16px] bg-white rounded-full shadow-sm transform translate-x-[16px] transition-transform duration-300"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest mb-2.5">Difficulty</h3>
+                            <div class="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
+                                <button onclick="setDifficultyFilter('All')" id="diff-All" class="flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press">All</button>
+                                <button onclick="setDifficultyFilter('Easy')" id="diff-Easy" class="flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press">Easy</button>
+                                <button onclick="setDifficultyFilter('Medium')" id="diff-Medium" class="flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press">Medium</button>
+                                <button onclick="setDifficultyFilter('Hard')" id="diff-Hard" class="flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press">Hard</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div>
                         <h3 class="text-sm font-extrabold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 px-1">Select Practice Set</h3>
                         <div class="grid grid-cols-2 gap-3" id="premade-sets-container"></div>
@@ -531,22 +565,50 @@
         </div>
 
         <!-- 6. MCQ SCREEN -->
-        <div id="screen-mcq_screen" class="app-screen z-30 bg-zinc-50 dark:bg-black">
-            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col h-full justify-between">
+        <div id="screen-mcq_screen" class="app-screen z-30 bg-zinc-50 dark:bg-black transition-colors duration-300">
+            <!-- Normal MCQ Wrapper -->
+            <div id="mcq-normal-wrapper" class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col h-full justify-between">
                 <!-- Header -->
-                <div class="safe-pt pb-4 bg-zinc-50 dark:bg-black flex flex-col sticky top-0 z-20">
-                    <div class="flex justify-between items-center mb-4">
-                        <div class="flex items-center space-x-3">
-                            <button onclick="endSessionConfirm()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
-                            <span id="mcq-progress-text" class="text-xs font-bold text-zinc-600 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700"></span>
+                <div class="safe-pt pb-3 bg-zinc-50 dark:bg-black flex flex-col sticky top-0 z-20 transition-colors duration-300">
+                    <!-- Info Row -->
+                    <div class="flex justify-between items-start mb-2.5">
+                        <div class="flex items-center space-x-2.5">
+                            <button onclick="endSessionConfirm()" class="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                            <div class="flex flex-col">
+                                <span id="mcq-current-subject" class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Subject</span>
+                                <span id="mcq-current-lo" class="text-[10px] font-black text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded uppercase tracking-wider leading-none self-start">LO CODE</span>
+                            </div>
                         </div>
-                        <div class="flex items-center space-x-1.5 text-zinc-500 dark:text-zinc-400">
-                            <i data-lucide="clock" class="w-4 h-4"></i>
-                            <span class="text-xs font-bold font-mono tracking-wider">18:42</span>
+                        
+                        <!-- Timer -->
+                        <div id="mcq-timer-box" class="flex items-center space-x-1.5 text-brand-blue bg-brand-blue/10 px-2 py-1 rounded-md transition-colors">
+                            <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+                            <span id="mcq-time-text" class="text-[11px] font-bold font-mono tracking-wider">00:00</span>
                         </div>
                     </div>
-                    <div class="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                        <div id="mcq-progress-bar" class="h-full bg-slategreen rounded-full transition-all duration-300" style="width: 0%"></div>
+                    
+                    <!-- Progress Row -->
+                    <div class="flex items-center space-x-3 mb-1 cursor-pointer group" onclick="toggleQuestionJumpModal()">
+                        <div class="h-1.5 flex-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div id="mcq-progress-bar" class="h-full bg-brand-gradient rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <span id="mcq-progress-text" class="text-[10px] font-black text-zinc-500 group-hover:text-brand-blue transition-colors flex items-center gap-1 shrink-0">1/20 <i data-lucide="layout-grid" class="w-3 h-3"></i></span>
+                    </div>
+                </div>
+                
+                <!-- Question Jump Grid Modal -->
+                <div id="mcq-jump-modal" class="absolute top-20 left-4 right-4 md:left-8 md:right-8 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[20px] shadow-2xl p-4 z-40 transform origin-top transition-all duration-300 scale-95 opacity-0 pointer-events-none">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider">Jump to Question</h3>
+                        <button onclick="toggleQuestionJumpModal()" class="text-zinc-400 hover:text-zinc-900 dark:hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>
+                    <div id="mcq-jump-grid" class="grid grid-cols-5 gap-2 max-h-[300px] overflow-y-auto no-scrollbar pb-2">
+                        <!-- Generated by JS -->
+                    </div>
+                    <div class="flex items-center justify-between mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 text-[9px] font-bold text-zinc-500">
+                        <span class="flex items-center"><div class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></div> Correct</span>
+                        <span class="flex items-center"><div class="w-2 h-2 rounded-full bg-rose-500 mr-1"></div> Incorrect</span>
+                        <span class="flex items-center"><div class="w-2 h-2 border border-zinc-300 dark:border-zinc-600 rounded-full bg-transparent mr-1"></div> Skipped</span>
                     </div>
                 </div>
 
@@ -554,9 +616,14 @@
                 <div class="flex-1 overflow-y-auto no-scrollbar py-6 flex flex-col" id="mcq-content-area"></div>
 
                 <!-- Solid Bottom Bar -->
-                <div class="py-4 bg-zinc-50 dark:bg-black flex justify-between items-center z-20 pb-8 space-x-3" id="mcq-action-container">
+                <div class="py-4 bg-zinc-50 dark:bg-black flex justify-between items-center z-20 pb-8 space-x-3 transition-colors duration-300" id="mcq-action-container">
                     <!-- Populated by JS (Changes when submitted) -->
                 </div>
+            </div>
+
+            <!-- OMR Exam Wrapper (Injected by JS dynamically when enabled) -->
+            <div id="mcq-omr-wrapper" class="hidden w-full h-full max-w-6xl mx-auto flex-col md:flex-row safe-pt safe-pb font-serif gap-4 p-2 md:p-6 bg-gray-300">
+                <!-- Injected via JS -->
             </div>
         </div>
 
@@ -761,36 +828,61 @@
 
         <!-- 7. RESULT SCREEN -->
         <div id="screen-result_screen" class="app-screen z-30 pb-32 bg-zinc-50 dark:bg-black">
-            <div class="w-full max-w-3xl mx-auto px-6 text-center">
-                <h1 class="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white pt-20 mb-10">Performance Overview</h1>
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8 pt-10 md:pt-16 flex flex-col items-center">
                 
-                <div class="relative w-48 h-48 mx-auto mb-10 border border-zinc-200 dark:border-zinc-800 rounded-full p-2 bg-white dark:bg-zinc-900 shadow-sm">
-                    <svg class="w-full h-full transform -rotate-90 glow-circle" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" fill="none" class="stroke-zinc-100 dark:stroke-zinc-800" stroke-width="8"></circle>
-                        <circle id="result-circle" cx="50" cy="50" r="45" fill="none" stroke="#477864" stroke-width="8" stroke-dasharray="282.7" stroke-dashoffset="67.8" stroke-linecap="round" class="transition-all duration-1000"></circle>
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span id="result-percentage" class="text-5xl font-black text-zinc-900 dark:text-white">0%</span>
-                        <span id="result-fraction" class="text-sm text-zinc-500 dark:text-zinc-400 font-bold mt-2">0 / 0</span>
+                <!-- Glow Background Effect -->
+                <div class="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-brand-blue/15 dark:from-brand-blue/10 to-transparent pointer-events-none z-0"></div>
+
+                <div class="relative z-10 w-full flex flex-col items-center">
+                    <h1 class="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white mb-2 tracking-tight" id="result-greeting">Session Complete!</h1>
+                    <p class="text-xs md:text-sm font-bold text-zinc-500 dark:text-zinc-400 mb-8 text-center" id="result-subtext">Here is your performance breakdown.</p>
+                    
+                    <!-- Circular Chart (Enhanced) -->
+                    <div class="relative w-44 h-44 md:w-48 md:h-48 mb-8">
+                        <div class="absolute inset-0 bg-white dark:bg-zinc-900 rounded-full shadow-xl dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-zinc-100 dark:border-zinc-800 flex items-center justify-center"></div>
+                        <svg class="w-full h-full transform -rotate-90 relative z-10 drop-shadow-md" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="42" fill="none" class="stroke-zinc-100 dark:stroke-zinc-800" stroke-width="8"></circle>
+                            <circle id="result-circle" cx="50" cy="50" r="42" fill="none" stroke="#4bb8d6" stroke-width="8" stroke-dasharray="263.89" stroke-dashoffset="263.89" stroke-linecap="round" class="transition-all duration-[1500ms] ease-out"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center z-20">
+                            <span id="result-percentage" class="text-4xl md:text-5xl font-black text-zinc-900 dark:text-white tracking-tighter">0%</span>
+                            <span id="result-fraction" class="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-md">0 / 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="w-full grid grid-cols-2 gap-3 mb-8">
+                        <div class="bg-white dark:bg-zinc-900 p-4 rounded-[20px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center text-center">
+                            <div class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center mb-2">
+                                <i data-lucide="check" class="w-4 h-4 text-emerald-500 stroke-[3px]"></i>
+                            </div>
+                            <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Correct</p>
+                            <p id="result-correct" class="text-2xl font-black text-zinc-900 dark:text-white">0</p>
+                        </div>
+                        <div class="bg-white dark:bg-zinc-900 p-4 rounded-[20px] border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center text-center">
+                            <div class="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center mb-2">
+                                <i data-lucide="x" class="w-4 h-4 text-rose-500 stroke-[3px]"></i>
+                            </div>
+                            <p class="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Incorrect</p>
+                            <p id="result-incorrect" class="text-2xl font-black text-zinc-900 dark:text-white">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="w-full flex flex-col gap-3">
+                        <button onclick="renderExamReview()" class="w-full bg-brand-gradient text-white font-black py-4 rounded-[20px] shadow-[0_8px_30px_rgba(75,184,214,0.3)] card-press flex justify-center items-center gap-2">
+                            <i data-lucide="search" class="w-5 h-5"></i> Review Exam
+                        </button>
+                        <div class="flex gap-3">
+                            <button onclick="navigate('session_builder')" class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white font-bold py-3.5 rounded-[16px] card-press shadow-sm flex justify-center items-center gap-1.5 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm">
+                                <i data-lucide="layers" class="w-4 h-4 text-brand-blue"></i> Back to Sets
+                            </button>
+                            <button onclick="navigate('dashboard')" class="flex-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold py-3.5 rounded-[16px] card-press shadow-sm flex justify-center items-center gap-1.5 transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700 text-sm">
+                                <i data-lucide="home" class="w-4 h-4 opacity-70"></i> Dashboard
+                            </button>
+                        </div>
                     </div>
                 </div>
-                
-                <h3 class="text-xl font-bold text-zinc-900 dark:text-white mb-8">Session Completed</h3>
-
-                <div class="grid grid-cols-2 gap-4 mb-12 text-left">
-                    <div class="p-6 rounded-[20px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                        <p class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-2">Correct Answers</p>
-                        <p id="result-correct" class="text-3xl font-black text-zinc-900 dark:text-white">0</p>
-                    </div>
-                    <div class="p-6 rounded-[20px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                        <p class="text-[11px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider mb-2">Incorrect Answers</p>
-                        <p id="result-incorrect" class="text-3xl font-black text-zinc-900 dark:text-white">0</p>
-                    </div>
-                </div>
-
-                <button onclick="navigate('dashboard')" class="w-full bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-lg card-press">
-                    Back to Dashboard
-                </button>
             </div>
         </div>
 
@@ -932,74 +1024,109 @@
             </div>
         </div>
 
+        <!-- ================= EXAM REVIEW SCREEN ================= -->
+        <div id="screen-exam_review" class="app-screen z-30 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-800 mb-4">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="navigate('result_screen')" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Exam Review</h1>
+                    </div>
+                </div>
+                <div id="exam-review-list" class="space-y-6"></div>
+            </div>
+        </div>
+
+        <!-- ================= SAVED MCQS SCREEN ================= -->
+        <div id="screen-saved_mcqs" class="app-screen z-30 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-800 mb-4">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white">Saved MCQs</h1>
+                    </div>
+                </div>
+                <div id="saved-mcqs-list" class="space-y-4"></div>
+            </div>
+        </div>
+
         <!-- ================= MY SCHEDULE PLANNER SCREEN ================= -->
         <div id="screen-my_schedule" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
-            <div class="w-full max-w-2xl mx-auto px-4 md:px-6">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-6">
                 <!-- Header -->
-                <div class="safe-pt pb-4 sticky top-0 bg-zinc-50 dark:bg-black z-30 flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 mb-4">
+                <div class="safe-pt pb-4 sticky top-0 bg-zinc-50 dark:bg-black z-30 flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 mb-6">
                     <div class="flex items-center space-x-3">
                         <button onclick="goBack()" class="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
-                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Planner</h1>
+                        <div>
+                            <h1 class="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">Planner</h1>
+                            <p class="text-[10px] text-zinc-500 mt-1 font-bold tracking-wide uppercase">Study Milestones</p>
+                        </div>
                     </div>
-                    <button onclick="toggleScheduleCreator(true)" class="bg-brand-gradient text-white text-xs font-black px-4 py-2.5 rounded-full card-press shadow-md flex items-center gap-1.5">
-                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Create
+                    <button onclick="toggleScheduleCreator(true)" class="bg-zinc-900 dark:bg-white text-white dark:text-black text-xs font-black px-5 py-2.5 rounded-full card-press shadow-md flex items-center gap-2 hover:opacity-90 transition-opacity">
+                        <i data-lucide="plus" class="w-4 h-4"></i> New Plan
                     </button>
                 </div>
 
                 <!-- Live Schedule Creator Panel (Slide Down Interface) -->
-                <div id="sched-creator-panel" class="hidden bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-zinc-200 dark:border-zinc-800 p-5 mb-6 shadow-lg transition-all">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-base font-black text-zinc-900 dark:text-white">New Schedule Bucket</h3>
-                        <button onclick="toggleScheduleCreator(false)" class="text-zinc-400 hover:text-zinc-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <div id="sched-creator-panel" class="hidden bg-white dark:bg-[#18181b] rounded-[24px] border border-zinc-200 dark:border-zinc-800 p-6 mb-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-none transition-all transform origin-top">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="calendar-plus" class="w-5 h-5 text-brand-blue"></i> Create Routine
+                        </h3>
+                        <button onclick="toggleScheduleCreator(false)" class="p-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
                     </div>
 
-                    <div class="space-y-4">
-                        <div>
-                            <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Schedule Title</label>
-                            <input type="text" id="sched-name" placeholder="e.g. Midterm General Pathology" class="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm text-zinc-900 dark:text-white outline-none">
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Target Date</label>
-                            <input type="date" id="sched-date" class="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm text-zinc-900 dark:text-white outline-none">
+                    <div class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-zinc-50 dark:bg-zinc-900/50 p-1 rounded-[16px] border border-zinc-200 dark:border-zinc-800">
+                                <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest block pt-2 px-3">Title</label>
+                                <input type="text" id="sched-name" placeholder="e.g. Pathology Revision" class="w-full bg-transparent border-none px-3 pb-2 pt-1 text-sm font-bold text-zinc-900 dark:text-white outline-none placeholder-zinc-300 dark:placeholder-zinc-600">
+                            </div>
+                            <div class="bg-zinc-50 dark:bg-zinc-900/50 p-1 rounded-[16px] border border-zinc-200 dark:border-zinc-800">
+                                <label class="text-[10px] font-black text-zinc-400 uppercase tracking-widest block pt-2 px-3">Target Date</label>
+                                <input type="date" id="sched-date" class="w-full bg-transparent border-none px-3 pb-2 pt-1 text-sm font-bold text-zinc-900 dark:text-white outline-none">
+                            </div>
                         </div>
 
-                        <!-- Mini Sub-Task Builder (The Bucket List Builder) -->
-                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                            <h4 class="text-xs font-black text-brand-blue uppercase tracking-wider mb-2">Build Task Queue</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                        <!-- Add Task Block -->
+                        <div class="bg-zinc-100 dark:bg-zinc-900 p-4 rounded-[20px]">
+                            <h4 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-wider mb-3">Add Target Objectives</h4>
+                            
+                            <div class="grid grid-cols-2 gap-3 mb-3">
                                 <div>
-                                    <label class="text-[9px] font-bold text-zinc-400 block mb-1">Subject</label>
-                                    <select id="sched-subject-select" onchange="populateScheduleLOCodes(this.value)" class="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 text-xs text-zinc-900 dark:text-white outline-none">
-                                        <!-- Built dynamically -->
+                                    <label class="text-[10px] font-bold text-zinc-500 block mb-1">Subject</label>
+                                    <select id="sched-subject-select" onchange="populateScheduleLOCodes(this.value)" class="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none focus:border-brand-blue">
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-[9px] font-bold text-zinc-400 block mb-1">LO Code</label>
-                                    <select id="sched-lo-select" class="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 text-xs text-zinc-900 dark:text-white outline-none">
-                                        <!-- Built dynamically -->
+                                    <label class="text-[10px] font-bold text-zinc-500 block mb-1">LO Code</label>
+                                    <select id="sched-lo-select" class="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none focus:border-brand-blue">
                                     </select>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 mb-3">
+                            
+                            <div class="flex items-end gap-3">
                                 <div class="flex-1">
-                                    <label class="text-[9px] font-bold text-zinc-400 block mb-1">Target MCQs</label>
-                                    <input type="number" id="sched-target-mcqs" value="20" min="5" max="100" class="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-xl px-3 py-2.5 text-xs text-zinc-900 dark:text-white outline-none">
+                                    <label class="text-[10px] font-bold text-zinc-500 block mb-1">Target MCQs</label>
+                                    <input type="number" id="sched-target-mcqs" value="20" min="5" max="100" class="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-bold text-zinc-900 dark:text-white outline-none focus:border-brand-blue">
                                 </div>
-                                <button type="button" onclick="addCustomTaskToTempBucket()" class="bg-brand-blue/10 text-brand-blue hover:bg-brand-blue hover:text-white text-xs font-black px-4 py-2.5 rounded-xl mt-4 transition-colors card-press">Add Task</button>
+                                <button type="button" onclick="addCustomTaskToTempBucket()" class="bg-brand-gradient text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all shadow-md card-press h-[38px] flex items-center justify-center">
+                                    <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Add
+                                </button>
                             </div>
-
-                            <!-- Visual Temp Task Queue -->
-                            <div id="sched-temp-task-list" class="space-y-1.5 mb-4"></div>
                         </div>
 
-                        <button onclick="saveScheduleToCloud()" class="w-full bg-brand-gradient text-white text-sm font-black py-3 rounded-xl shadow-md card-press mt-2">
-                            Commit Schedule Plan
+                        <!-- Visual Temp Task Queue -->
+                        <div id="sched-temp-task-list" class="space-y-2 mt-2"></div>
+
+                        <button onclick="saveScheduleToCloud()" class="w-full bg-zinc-900 dark:bg-white text-white dark:text-black text-sm font-black py-4 rounded-[16px] shadow-lg card-press mt-4 hover:opacity-90">
+                            Commit Routine
                         </button>
                     </div>
                 </div>
 
                 <!-- Display List of active schedules -->
-                <div id="schedules-view-container" class="space-y-4">
+                <div id="schedules-view-container" class="space-y-6">
                     <!-- Loaded via JS -->
                 </div>
             </div>
@@ -1097,6 +1224,11 @@
             currentContextLOs: [], 
             selectedLOs: [],
             
+            // Premium Session Configuration
+            sessionConfig: { mode: 'Practice', difficulty: 'All', useBubbleSheet: false, timePerMcq: 60 },
+            timerInterval: null,
+            timeRemaining: 0,
+            
             availableSets: [],
             selectedSetIndex: 0,
             
@@ -1128,6 +1260,264 @@
             currentUser: null,
             userData: null
         };
+
+        // --- PREMIUM CONFIG & HELPER FUNCTIONS ---
+        function updateTimePerMcq(val) {
+            appState.sessionConfig.timePerMcq = parseInt(val);
+            document.getElementById('time-per-mcq-display').innerText = val + 's';
+        }
+
+        function selectOmrOption(qIndex, optIndex) {
+            // LOCK LOGIC: Agar student pehle se fill kar chuka hai, to reject kar do!
+            if (appState.mcqHistory[qIndex] && typeof appState.mcqHistory[qIndex].selected !== 'undefined' && appState.mcqHistory[qIndex].selected !== null) {
+                // Pehle se selected bubble ko thora sa hila do (shake) taa-k pata chale lock hai!
+                const selectedBtn = document.getElementById(`omr-btn-${qIndex}-${appState.mcqHistory[qIndex].selected}`);
+                if (selectedBtn) {
+                    selectedBtn.classList.remove('animate-shake');
+                    void selectedBtn.offsetWidth; 
+                    selectedBtn.classList.add('animate-shake');
+                }
+                return; // Yahin se wapis bhej do (No changes allowed)
+            }
+
+            // Save the selection permanently
+            appState.mcqHistory[qIndex] = { selected: optIndex };
+            const q = appState.mcqSessionQuestions[qIndex];
+            
+            // UI Update: Make the selected bubble dark, and dim the rest to show they are locked!
+            q.options.forEach((_, oIdx) => {
+                const btn = document.getElementById(`omr-btn-${qIndex}-${oIdx}`);
+                if (btn) {
+                    if (oIdx === optIndex) {
+                        btn.className = "w-[26px] h-[26px] rounded-full border-[1.5px] font-bold text-[11px] flex items-center justify-center transition-colors shrink-0 bg-black text-white border-black shadow-md";
+                    } else {
+                        btn.className = "w-[26px] h-[26px] rounded-full border-[1.5px] font-bold text-[11px] flex items-center justify-center transition-colors shrink-0 bg-white text-black border-gray-300 text-gray-300 opacity-40 cursor-not-allowed";
+                    }
+                }
+            });
+        }
+
+        async function submitOmrExam() {
+            if(!confirm("Are you sure you want to submit the exam?")) return;
+            
+            clearInterval(appState.timerInterval);
+            appState.sessionStats = { correct: 0, incorrect: 0 };
+            
+            appState.mcqSessionQuestions.forEach((q, i) => {
+                const hist = appState.mcqHistory[i];
+                if (hist && hist.selected === q.correctOptionIndex) {
+                    appState.sessionStats.correct++;
+                    appState.totalCorrect++;
+                } else {
+                    appState.sessionStats.incorrect++;
+                    const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                    const exists = appState.incorrectMCQs.find(x => (x.id || x.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                    if (!exists) {
+                        appState.incorrectMCQs.push({...q, module: appState.context.module, subject: appState.context.subject});
+                    }
+                }
+                appState.totalMcqsDone++;
+            });
+
+            if (appState.currentUser) {
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    totalMcqsDone: appState.totalMcqsDone,
+                    totalCorrect: appState.totalCorrect,
+                    incorrectMCQs: appState.incorrectMCQs
+                });
+            }
+
+            const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+            const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
+            const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
+            
+            appState.setStats[setKey] = {
+                times: (appState.setStats[setKey] ? appState.setStats[setKey].times : 0) + 1,
+                best: Math.max(currentBest, newScore)
+            };
+
+            db.collection("users").doc(appState.currentUser.uid).update({ setStats: appState.setStats });
+
+            // Restore normal screen style
+            document.getElementById('screen-mcq_screen').classList.remove('bg-gray-300');
+            document.getElementById('screen-mcq_screen').classList.add('bg-zinc-50', 'dark:bg-black');
+            
+            navigate('result_screen');
+        }
+
+        function setSessionMode(mode) {
+            appState.sessionConfig.mode = mode;
+            ['Practice', 'Tutor', 'Test'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if(btn) {
+                    if(m === mode) btn.className = "flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press";
+                    else btn.className = "flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press";
+                }
+            });
+
+            const bsWrap = document.getElementById('bubble-sheet-toggle-wrapper');
+            const timeWrap = document.getElementById('time-slider-wrapper');
+            
+            if (bsWrap) {
+                if (mode === 'Test') {
+                    bsWrap.style.display = 'flex';
+                } else {
+                    bsWrap.style.display = 'none';
+                    appState.sessionConfig.useBubbleSheet = false;
+                    updateBubbleSheetToggleUI();
+                }
+            }
+            if (timeWrap) {
+                if (mode === 'Test') {
+                    timeWrap.style.display = 'block';
+                } else {
+                    timeWrap.style.display = 'none';
+                }
+            }
+        }
+
+        function toggleBubbleSheet() {
+            appState.sessionConfig.useBubbleSheet = !appState.sessionConfig.useBubbleSheet;
+            updateBubbleSheetToggleUI();
+        }
+
+        function updateBubbleSheetToggleUI() {
+            const thumb = document.getElementById('bs-toggle-thumb');
+            const bg = document.getElementById('bs-toggle-bg');
+            if(!thumb || !bg) return;
+            if(appState.sessionConfig.useBubbleSheet) {
+                thumb.style.transform = 'translateX(16px)';
+                bg.classList.add('bg-[#34c759]');
+                bg.classList.remove('bg-zinc-300', 'dark:bg-zinc-700');
+            } else {
+                thumb.style.transform = 'translateX(0px)';
+                bg.classList.remove('bg-[#34c759]');
+                bg.classList.add('bg-zinc-300', 'dark:bg-zinc-700');
+            }
+        }
+
+        function setDifficultyFilter(diff) {
+            appState.sessionConfig.difficulty = diff;
+            ['All', 'Easy', 'Medium', 'Hard'].forEach(d => {
+                const btn = document.getElementById(`diff-${d}`);
+                if(!btn) return;
+                if(d === diff) btn.className = "flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press";
+                else btn.className = "flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press";
+            });
+            renderSessionBuilder(); 
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function toggleQuestionJumpModal() {
+            const modal = document.getElementById('mcq-jump-modal');
+            if (!modal) return;
+            if (modal.classList.contains('scale-95')) {
+                modal.classList.remove('scale-95', 'opacity-0', 'pointer-events-none');
+                modal.classList.add('scale-100', 'opacity-100', 'pointer-events-auto');
+                
+                const grid = document.getElementById('mcq-jump-grid');
+                grid.innerHTML = appState.mcqSessionQuestions.map((_, i) => {
+                    const isCurrent = i === appState.currentMcqIndex;
+                    const hist = appState.mcqHistory[i];
+                    let bgClass = "bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800";
+                    let borderClass = isCurrent ? "border-brand-blue border-[2px]" : "border-zinc-200 dark:border-zinc-700 border";
+                    
+                    if(hist) {
+                        bgClass = hist.correct ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400";
+                        borderClass = hist.correct ? "border-emerald-500" : "border-rose-500";
+                    }
+
+                    return `<button onclick="jumpToQuestion(${i})" class="w-full aspect-square rounded-[12px] flex items-center justify-center text-xs font-black transition-all ${bgClass} ${borderClass}">${i + 1}</button>`;
+                }).join('');
+            } else {
+                modal.classList.add('scale-95', 'opacity-0', 'pointer-events-none');
+                modal.classList.remove('scale-100', 'opacity-100', 'pointer-events-auto');
+            }
+        }
+
+        function jumpToQuestion(index) {
+            appState.currentMcqIndex = index;
+            appState.currentQuestionIndex = index;
+            const history = appState.mcqHistory[index];
+            if (history) {
+                appState.mcqIsSubmitted = (appState.sessionConfig.mode !== 'Test');
+                appState.mcqSelectedOptionIndex = history.selected;
+            } else {
+                appState.mcqIsSubmitted = false;
+                appState.mcqSelectedOptionIndex = null;
+            }
+            toggleQuestionJumpModal();
+            renderMCQ();
+        }
+
+        function handleTestModeNext() {
+            if (appState.mcqSelectedOptionIndex !== null) {
+                const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
+                const isCorrect = appState.mcqSelectedOptionIndex === question.correctOptionIndex;
+                const qTag = String(question.tag).trim();
+                
+                if (isCorrect) {
+                    appState.sessionStats.correct++;
+                    appState.totalCorrect++;
+                } else {
+                    appState.sessionStats.incorrect++;
+                    const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                    const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                    if (!exists) {
+                        appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
+                    }
+                }
+                
+                appState.totalMcqsDone++;
+                if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
+                appState.loStats[qTag].attempted += 1;
+                if (isCorrect) appState.loStats[qTag].correct += 1;
+                
+                appState.mcqHistory[appState.currentMcqIndex] = {
+                    selected: appState.mcqSelectedOptionIndex,
+                    correct: isCorrect
+                };
+            } else {
+                appState.mcqHistory[appState.currentMcqIndex] = { selected: null, correct: false };
+            }
+
+            if (appState.currentUser) {
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    totalMcqsDone: appState.totalMcqsDone,
+                    totalCorrect: appState.totalCorrect,
+                    incorrectMCQs: appState.incorrectMCQs,
+                    loStats: appState.loStats
+                });
+                syncSessionProgress();
+            }
+
+            const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
+            if (isLast) {
+                const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+                const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
+                const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
+                appState.setStats[setKey] = {
+                    times: (appState.setStats[setKey] ? appState.setStats[setKey].times : 0) + 1,
+                    best: Math.max(currentBest, newScore)
+                };
+                db.collection("users").doc(appState.currentUser.uid).update({ setStats: appState.setStats });
+                clearInterval(appState.timerInterval);
+                navigate('result_screen');
+            } else {
+                appState.currentMcqIndex++;
+                appState.currentQuestionIndex = appState.currentMcqIndex;
+                const history = appState.mcqHistory[appState.currentMcqIndex];
+                appState.mcqIsSubmitted = false;
+                appState.mcqSelectedOptionIndex = history ? history.selected : null;
+                appState.mcqIsBookmarked = false;
+                renderMCQ();
+            }
+        }
 
         const yearBlockMap = {
             '1st': ['I', 'II', 'III'],
@@ -2572,6 +2962,7 @@
             if (screenId === 'vivacards_viewer') renderVivacardsViewer();
             if (screenId === 'explore') renderInteractiveSyllabusTab();
             if (screenId === 'analytics') renderAnalytics();
+            if (screenId === 'saved_mcqs') renderSavedMCQs(); // <-- SAVED MCQS RENDER TRIGGER FIXED! 💖
 
             lucide.createIcons();
         }
@@ -3063,36 +3454,87 @@
                 if (appState.mode === 'mcqs') pool = APP_DATA.allMCQs || [];
                 else if (appState.mode === 'vivacards') pool = APP_DATA.allFlashcards || [];
                 
-                // Group by LO to allow perfect equal distribution
+                const configPanel = document.getElementById('session-config-panel');
+                if(configPanel) {
+                    if(appState.mode === 'mcqs') {
+                        configPanel.innerHTML = `
+                        <div class="mb-4">
+                            <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest mb-2.5">Session Mode</h3>
+                            <div class="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
+                                <button onclick="setSessionMode('Practice')" id="mode-Practice" class="${appState.sessionConfig.mode === 'Practice' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">Practice</button>
+                                <button onclick="setSessionMode('Tutor')" id="mode-Tutor" class="${appState.sessionConfig.mode === 'Tutor' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">Tutor</button>
+                                <button onclick="setSessionMode('Test')" id="mode-Test" class="${appState.sessionConfig.mode === 'Test' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">Test</button>
+                            </div>
+                        </div>
+
+                        <div id="bubble-sheet-toggle-wrapper" class="${appState.sessionConfig.mode === 'Test' ? 'flex' : 'hidden'} items-center justify-between mb-4 bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800">
+                            <div>
+                                <h4 class="text-[11px] font-black text-zinc-900 dark:text-white">Exam Bubble Sheet</h4>
+                                <p class="text-[9px] text-zinc-500 font-bold">Use OMR style plain paper interface.</p>
+                            </div>
+                            <div id="bs-toggle-bg" onclick="toggleBubbleSheet()" class="w-[36px] h-[20px] rounded-full ${appState.sessionConfig.useBubbleSheet ? 'bg-[#34c759]' : 'bg-zinc-300 dark:bg-zinc-700'} relative cursor-pointer flex items-center px-[2px] transition-colors">
+                                <div id="bs-toggle-thumb" class="w-[16px] h-[16px] bg-white rounded-full shadow-sm transform ${appState.sessionConfig.useBubbleSheet ? 'translate-x-[16px]' : 'translate-x-[0px]'} transition-transform duration-300"></div>
+                            </div>
+                        </div>
+
+                        <div id="time-slider-wrapper" class="${appState.sessionConfig.mode === 'Test' ? 'block' : 'hidden'} mb-4 bg-zinc-50 dark:bg-zinc-900/50 p-3.5 rounded-xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+                            <div class="flex justify-between items-end mb-3">
+                                <div>
+                                    <h4 class="text-[11px] font-black text-zinc-900 dark:text-white">Time Per MCQ</h4>
+                                    <p class="text-[9px] text-zinc-500 font-bold mt-0.5">Allocate limit per question.</p>
+                                </div>
+                                <span id="time-per-mcq-display" class="bg-brand-blue/10 text-brand-blue px-2.5 py-1 rounded-md font-black text-xs">${appState.sessionConfig.timePerMcq}s</span>
+                            </div>
+                            <input type="range" min="30" max="120" step="10" value="${appState.sessionConfig.timePerMcq}" oninput="updateTimePerMcq(this.value)" class="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-brand-blue">
+                            <div class="flex justify-between mt-2 text-[9px] font-bold text-zinc-400 px-1">
+                                <span>30s</span>
+                                <span>120s</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest mb-2.5">Difficulty</h3>
+                            <div class="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
+                                <button onclick="setDifficultyFilter('All')" id="diff-All" class="${appState.sessionConfig.difficulty === 'All' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">All</button>
+                                <button onclick="setDifficultyFilter('Easy')" id="diff-Easy" class="${appState.sessionConfig.difficulty === 'Easy' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">Easy</button>
+                                <button onclick="setDifficultyFilter('Medium')" id="diff-Medium" class="${appState.sessionConfig.difficulty === 'Medium' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">Medium</button>
+                                <button onclick="setDifficultyFilter('Hard')" id="diff-Hard" class="${appState.sessionConfig.difficulty === 'Hard' ? 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'flex-1 py-1.5 rounded-[8px] text-[10px] font-bold text-zinc-500'} transition-all card-press">Hard</button>
+                            </div>
+                        </div>
+                        `;
+                        configPanel.style.display = 'block';
+                    } else {
+                        configPanel.style.display = 'none';
+                    }
+                }
+
+                if(appState.mode === 'mcqs' && appState.sessionConfig.difficulty !== 'All') {
+                    const diffLower = appState.sessionConfig.difficulty.toLowerCase();
+                    pool = pool.filter(item => {
+                        const itemDiff = (item.difficulty || 'medium').toLowerCase();
+                        return itemDiff === diffLower;
+                    });
+                }
+                
                 let groupedByLO = {};
                 appState.selectedLOs.forEach(lo => { groupedByLO[lo] = []; });
                 
-                // 1. Enforce absolute uniqueness by ID so MCQs never duplicate in the pool
                 let seenIds = new Set();
-
                 pool.forEach(item => {
                     const tag = String(appState.mode === 'mcqs' ? item.tag : item.loCode).trim();
-                    // Lock onto unique ID (with fallback to statement text if ID is somehow missing)
                     const uniqueId = item.id || (item.statement ? item.statement.substring(0,30) : (item.front ? item.front.substring(0,30) : Math.random()));
-                    
                     if (appState.selectedLOs.includes(tag) && !seenIds.has(uniqueId)) {
                         seenIds.add(uniqueId);
                         groupedByLO[tag].push(item);
                     }
                 });
 
-                // 2. NO RANDOM SHUFFLING HERE! 
-                // This keeps the assigned sets stable. Set 1 always gets 1-20, Set 2 gets 21-40.
-                // They will shuffle internally ONLY when you press the "Start" button.
-
-                // Round Robin mixing: 1 from LO1, 1 from LO2, 1 from LO3... keeping JSON original order
                 let mixedFiltered = [];
                 let hasItems = true;
                 while (hasItems) {
                     hasItems = false;
                     for (let lo of appState.selectedLOs) {
                         if (groupedByLO[lo] && groupedByLO[lo].length > 0) {
-                            // Use shift() to pull sequentially from start of JSON (pop reversed it)
                             mixedFiltered.push(groupedByLO[lo].shift());
                             hasItems = true;
                         }
@@ -3122,28 +3564,31 @@
                 }
 
                 const setsContainer = document.getElementById('premade-sets-container');
-                const btn = document.getElementById('btn-start-session');
+                const btnTop = document.getElementById('btn-start-session-top');
+                const mainBottomBtn = document.getElementById('btn-start-session');
                 
+                // Bottom Fixed Button Sets k ooper layer kar raha tha, usko humesha ke liye GHAAYAB kardia! 🪄
+                if (mainBottomBtn && mainBottomBtn.parentElement && mainBottomBtn.parentElement.parentElement) {
+                    mainBottomBtn.parentElement.parentElement.style.display = 'none';
+                }
+                // Upar (Top Right) wale cute button ko wapis zinda kardia!
+                if (btnTop) {
+                    btnTop.style.display = 'inline-flex';
+                }
+
                 if (totalSets === 0) {
                     const label = appState.mode === 'mcqs' ? 'MCQs' : 'Vivacards';
                     setsContainer.innerHTML = `
                         <div class="col-span-2 p-5 rounded-[20px] bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 text-center">
                             <i data-lucide="alert-circle" class="w-8 h-8 mx-auto text-zinc-400 mb-2"></i>
                             <p class="text-sm font-bold text-zinc-600 dark:text-zinc-400">No Questions Found</p>
-                            <p class="text-[10px] text-zinc-500 mt-1">There are currently no ${label} attached to this selection in the database.</p>
+                            <p class="text-[10px] text-zinc-500 mt-1">There are currently no ${label} for this difficulty/selection.</p>
                         </div>`;
                         
-                    const btnTop = document.getElementById('btn-start-session-top');
                     if (btnTop) {
                         btnTop.disabled = true;
                         btnTop.className = "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-2.5 px-6 rounded-[14px] transition-all text-sm cursor-not-allowed shadow-sm";
                         btnTop.innerText = `No ${label}`;
-                    }
-                    
-                    // Automatically find and permanently hide the old bottom bar
-                    const oldBtn = document.getElementById('btn-start-session');
-                    if(oldBtn && oldBtn.parentElement && oldBtn.parentElement.parentElement) {
-                        oldBtn.parentElement.parentElement.style.display = 'none';
                     }
                 } else {
                     setsContainer.innerHTML = appState.availableSets.map(set => {
@@ -3175,14 +3620,12 @@
                         `;
                     }).join('');
                     
-                    const btnTop = document.getElementById('btn-start-session-top');
                     if (btnTop) {
                         btnTop.disabled = false;
                         btnTop.className = "bg-brand-gradient text-white font-bold py-2.5 px-8 rounded-[14px] shadow-[0_4px_15px_rgba(75,184,214,0.3)] transition-all text-sm card-press";
                         btnTop.innerText = "Start";
                     }
                 }
-
                 lucide.createIcons();
             } catch(e) {
                 console.error("Session Builder Error:", e);
@@ -3300,12 +3743,17 @@
         function renderTempTasks() {
             const list = document.getElementById('sched-temp-task-list');
             list.innerHTML = temporaryTaskBucket.map((t, idx) => `
-                <div class="flex items-center justify-between bg-zinc-100 dark:bg-zinc-900 p-2.5 rounded-lg text-xs">
-                    <div>
-                        <span class="font-extrabold text-brand-blue">${t.loCode}</span>
-                        <span class="text-zinc-500 dark:text-zinc-400 ml-2">${t.subject} (${t.targetMCQs} Qs)</span>
+                <div class="flex items-center justify-between bg-white dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700 p-3 rounded-[14px] shadow-sm animate-[fadeIn_0.3s_ease-out]">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
+                            <span class="text-[9px] font-black text-brand-blue">${idx + 1}</span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-black text-zinc-900 dark:text-white leading-none">${t.loCode}</span>
+                            <p class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mt-0.5">${t.subject} • ${t.targetMCQs} MCQs</p>
+                        </div>
                     </div>
-                    <button onclick="temporaryTaskBucket.splice(${idx}, 1); renderTempTasks();" class="text-rose-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="temporaryTaskBucket.splice(${idx}, 1); renderTempTasks();" class="w-8 h-8 flex items-center justify-center rounded-full text-rose-500 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-colors card-press"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>
             `).join('');
             lucide.createIcons();
@@ -3350,12 +3798,12 @@
 
             if (list.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center py-16 bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-zinc-200 dark:border-zinc-800">
-                        <div class="w-12 h-12 bg-brand-blue/10 rounded-[14px] flex items-center justify-center mx-auto mb-3">
-                            <i data-lucide="calendar" class="w-6 h-6 text-brand-blue stroke-[2.5px]"></i>
+                    <div class="text-center py-20 bg-white dark:bg-[#18181b] rounded-[24px] border border-zinc-200 dark:border-zinc-800 shadow-sm mt-4">
+                        <div class="w-16 h-16 bg-brand-gradient rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
+                            <i data-lucide="calendar" class="w-7 h-7 text-white"></i>
                         </div>
-                        <h3 class="text-zinc-900 dark:text-white font-black text-sm mb-1">Create your first planner bucket</h3>
-                        <p class="text-zinc-500 font-semibold text-[11px] px-6">Select a date, queue target LO codes and track your exact progress to standard.</p>
+                        <h3 class="text-zinc-900 dark:text-white font-black text-lg mb-2">No Plans Yet</h3>
+                        <p class="text-zinc-500 font-medium text-xs px-8 leading-relaxed">Create a structured routine by combining objectives, dates, and target limits to stay on track.</p>
                     </div>`;
                 lucide.createIcons();
                 return;
@@ -3365,49 +3813,51 @@
                 const totalTasks = sched.tasks.length;
                 const completedTasks = sched.tasks.filter(t => t.completed).length;
                 const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                
+                const isAllDone = pct === 100;
+                const headerColor = isAllDone ? 'bg-emerald-500/10' : 'bg-brand-gradient';
+                const headerText = isAllDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-white';
 
                 return `
-                <div class="bg-white dark:bg-[#1c1c1e] rounded-[24px] border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
-                    <div class="flex items-start justify-between mb-2">
-                        <div>
-                            <h3 class="text-base font-black text-zinc-900 dark:text-white leading-tight">${sched.name}</h3>
-                            <span class="text-[10px] font-bold text-zinc-400 flex items-center mt-1"><i data-lucide="calendar" class="w-3 h-3 mr-1"></i> ${sched.date}</span>
+                <div class="bg-white dark:bg-[#18181b] rounded-[24px] border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+                    <!-- Card Top -->
+                    <div class="p-5 flex items-start justify-between border-b border-zinc-100 dark:border-zinc-800/50 relative">
+                        <div class="z-10">
+                            <h3 class="text-lg font-black text-zinc-900 dark:text-white leading-tight mb-1.5">${sched.name}</h3>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-full flex items-center"><i data-lucide="calendar" class="w-3 h-3 mr-1.5"></i> ${sched.date}</span>
+                                ${isAllDone ? `<span class="text-[10px] font-black px-2.5 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center"><i data-lucide="check-circle-2" class="w-3 h-3 mr-1"></i> Completed</span>` : ''}
+                            </div>
                         </div>
-                        <button onclick="deleteSchedulePlan('${sched.id}')" class="text-zinc-400 hover:text-rose-500 transition-colors"><i data-lucide="trash" class="w-4 h-4"></i></button>
+                        <button onclick="deleteSchedulePlan('${sched.id}')" class="text-zinc-400 hover:text-rose-500 transition-colors z-10 bg-white dark:bg-[#18181b] p-1 rounded-full"><i data-lucide="trash" class="w-5 h-5"></i></button>
+                        
+                        <!-- Progress overlay absolute -->
+                        <div class="absolute bottom-0 left-0 h-1 ${isAllDone ? 'bg-emerald-500' : 'bg-brand-blue'} transition-all duration-1000" style="width: ${pct}%"></div>
                     </div>
 
-                    <!-- Progress Indicator Bar -->
-                    <div class="flex items-center justify-between text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 mt-3">
-                        <span>Task Progression</span>
-                        <span class="text-brand-blue">${completedTasks}/${totalTasks} (${pct}%)</span>
-                    </div>
-                    <div class="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-4">
-                        <div class="h-full bg-brand-gradient rounded-full transition-all duration-500" style="width: ${pct}%"></div>
-                    </div>
-
-                    <!-- Bucket tasks lists -->
-                    <div class="space-y-3.5 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/50">
-                        ${sched.tasks.map(t => `
-                            <div class="flex items-start justify-between bg-zinc-50 dark:bg-black/40 p-3 rounded-[16px] border border-zinc-100 dark:border-zinc-850">
-                                <div class="flex items-start space-x-3">
-                                    <button onclick="toggleScheduleTaskCheckbox('${sched.id}', '${t.id}')" class="w-5 h-5 rounded-[6px] border-[1.5px] border-zinc-300 dark:border-zinc-700 flex items-center justify-center mt-0.5 shadow-sm transition-colors ${t.completed ? 'bg-emerald-500 border-transparent text-white' : 'bg-white dark:bg-zinc-900 text-transparent'}">
+                    <!-- Tasks List -->
+                    <div class="p-4 space-y-3">
+                        ${sched.tasks.map((t, index) => `
+                            <div class="group flex items-center justify-between p-3.5 bg-zinc-50 dark:bg-[#1f1f22] rounded-[16px] border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-all">
+                                <div class="flex items-center space-x-4">
+                                    <button onclick="toggleScheduleTaskCheckbox('${sched.id}', '${t.id}')" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${t.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-transparent border-zinc-300 dark:border-zinc-600 text-transparent hover:border-brand-blue'}">
                                         <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3px]"></i>
                                     </button>
                                     <div>
-                                        <div class="flex items-center gap-1.5 flex-wrap">
-                                            <span class="text-[10px] font-black text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded-md uppercase tracking-wider">${t.loCode}</span>
-                                            <span class="text-[9px] font-bold text-zinc-400">${t.subject}</span>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <h4 class="text-[13px] font-black ${t.completed ? 'text-zinc-400 line-through' : 'text-zinc-900 dark:text-white'} leading-none">${t.loCode}</h4>
+                                            <span class="text-[9px] font-black bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-1.5 py-0.5 rounded uppercase">${t.targetMCQs} Qs</span>
                                         </div>
-                                        <p class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mt-1 leading-none">Target Goal: ${t.targetMCQs} MCQs</p>
+                                        <p class="text-[11px] font-bold text-zinc-500">${t.subject}</p>
                                     </div>
                                 </div>
                                 
-                                <div class="flex items-center gap-1.5 shrink-0">
-                                    <button onclick="runScheduleDirectTask('mcqs', '${t.loCode}', '${t.subject}')" class="w-8 h-8 rounded-[10px] bg-brand-blue/10 text-brand-blue flex items-center justify-center hover:bg-brand-blue hover:text-white transition-colors card-press" title="Start MCQs">
+                                <div class="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    <button onclick="runScheduleDirectTask('mcqs', '${t.loCode}', '${t.subject}')" class="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center hover:bg-brand-blue hover:border-brand-blue hover:text-white transition-all shadow-sm card-press" title="Practice MCQs">
                                         <i data-lucide="target" class="w-4 h-4"></i>
                                     </button>
-                                    <button onclick="runScheduleDirectTask('vivacards', '${t.loCode}', '${t.subject}')" class="w-8 h-8 rounded-[10px] bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors card-press" title="Start Vivacards">
-                                        <i data-lucide="layers" class="w-4 h-4"></i>
+                                    <button onclick="runScheduleDirectTask('notes', '${t.loCode}', '${t.subject}')" class="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center hover:bg-brand-yellow hover:border-brand-yellow hover:text-black transition-all shadow-sm card-press" title="View Notes">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
                                     </button>
                                 </div>
                             </div>
@@ -3626,9 +4076,47 @@
                     appState.mcqIsSubmitted = false;
                     appState.sessionStats = { correct: 0, incorrect: 0 };
                     
-                    // Instantly lock array mapping to DB upon starting to guarantee resume works
-                    syncSessionProgress();
+                    clearInterval(appState.timerInterval);
+                    const timerBox = document.getElementById('mcq-timer-box');
+                    // Automatically enable timer if Test Mode
+                    if(timerBox && appState.sessionConfig.mode === 'Test') {
+                        timerBox.classList.remove('hidden');
+                        
+                        const timePerQ = appState.sessionConfig.timePerMcq || 60;
+                        appState.timeRemaining = setItems.length * timePerQ; 
+                        
+                        document.getElementById('mcq-time-text').innerText = formatTime(appState.timeRemaining);
+                        const omrTime = document.getElementById('omr-timer');
+                        if (omrTime) omrTime.innerText = formatTime(appState.timeRemaining);
+
+                        appState.timerInterval = setInterval(() => {
+                            appState.timeRemaining--;
+                            
+                            const tText = document.getElementById('mcq-time-text');
+                            const oTime = document.getElementById('omr-timer');
+                            if(tText) tText.innerText = formatTime(appState.timeRemaining);
+                            if(oTime) oTime.innerText = formatTime(appState.timeRemaining);
+
+                            if(appState.timeRemaining <= 60) {
+                                timerBox.classList.replace('text-brand-blue', 'text-rose-500');
+                                timerBox.classList.replace('bg-brand-blue/10', 'bg-rose-500/10');
+                                if(oTime) oTime.parentElement.classList.add('animate-pulse');
+                            }
+                            if(appState.timeRemaining <= 0) {
+                                clearInterval(appState.timerInterval);
+                                alert("Time is up! Submitting your current exam.");
+                                if(appState.sessionConfig.useBubbleSheet) {
+                                    submitOmrExam();
+                                } else {
+                                    navigate('result_screen');
+                                }
+                            }
+                        }, 1000);
+                    } else if (timerBox) {
+                        timerBox.classList.add('hidden');
+                    }
                     
+                    syncSessionProgress();
                     navigate('mcq_screen');
                 } else if (appState.mode === 'vivacards') {
                     navigate('vivacards_viewer');
@@ -3732,17 +4220,44 @@
             document.getElementById('result-correct').innerText = correct;
             document.getElementById('result-incorrect').innerText = incorrect;
             
+            // Dynamic Cutie Greeting Messages 🥳
+            const greeting = document.getElementById('result-greeting');
+            const subtext = document.getElementById('result-subtext');
+            if (pct >= 90) { 
+                greeting.innerText = "Outstanding!"; 
+                subtext.innerText = "You crushed this session perfectly. ✨"; 
+            } else if (pct >= 70) { 
+                greeting.innerText = "Great Job!"; 
+                subtext.innerText = "Solid performance, keep it up! 🚀"; 
+            } else if (pct >= 50) { 
+                greeting.innerText = "Good Effort!"; 
+                subtext.innerText = "A little more practice needed. 💪"; 
+            } else { 
+                greeting.innerText = "Keep Practicing!"; 
+                subtext.innerText = "Review your mistakes to improve. 📖"; 
+            }
+
             const circle = document.getElementById('result-circle');
-            const circumference = 2 * Math.PI * 45; 
+            const circumference = 2 * Math.PI * 42; 
             const offset = circumference - (pct / 100) * circumference;
-            circle.style.strokeDashoffset = offset;
             
-            if (pct >= 80) circle.style.stroke = "#477864"; 
-            else if (pct >= 50) circle.style.stroke = "#fbd043"; 
-            else circle.style.stroke = "#ef4444"; 
+            // Setup base for animation
+            circle.style.strokeDasharray = circumference;
+            circle.style.strokeDashoffset = circumference; // Start empty
+            
+            // Trigger animation after slight delay
+            setTimeout(() => {
+                circle.style.strokeDashoffset = offset;
+            }, 100);
+            
+            // Color changing logic
+            if (pct >= 80) circle.style.stroke = "#10b981"; // Emerald Green
+            else if (pct >= 50) circle.style.stroke = "#fbd043"; // Brand Yellow
+            else circle.style.stroke = "#f43f5e"; // Rose Red
 
             updateDashboardStatisticsUI(); 
             buildSyllabusTree();
+            lucide.createIcons();
         }
 
         function trimExplanation(text) {
@@ -3859,6 +4374,134 @@
             goBack();
         }
 
+        // Mobile Tab Toggle Logic for OMR Mode
+        window.toggleMobileOMR = function(view) {
+            const paper = document.getElementById('omr-paper-panel');
+            const bubbles = document.getElementById('omr-bubbles-panel');
+            const btnPaper = document.getElementById('btn-view-paper');
+            const btnOmr = document.getElementById('btn-view-omr');
+
+            if (view === 'omr') {
+                paper.classList.add('max-md:hidden');
+                bubbles.classList.remove('max-md:hidden');
+                
+                btnOmr.classList.add('ring-2', 'ring-white', 'scale-[1.03]', 'opacity-100');
+                btnOmr.classList.remove('opacity-60', 'scale-95');
+                
+                btnPaper.classList.remove('ring-2', 'ring-white', 'scale-[1.03]', 'opacity-100');
+                btnPaper.classList.add('opacity-60', 'scale-95');
+            } else {
+                bubbles.classList.add('max-md:hidden');
+                paper.classList.remove('max-md:hidden');
+                
+                btnPaper.classList.add('ring-2', 'ring-white', 'scale-[1.03]', 'opacity-100');
+                btnPaper.classList.remove('opacity-60', 'scale-95');
+                
+                btnOmr.classList.remove('ring-2', 'ring-white', 'scale-[1.03]', 'opacity-100');
+                btnOmr.classList.add('opacity-60', 'scale-95');
+            }
+        };
+
+        function renderOMRExamView() {
+            const screen = document.getElementById('screen-mcq_screen');
+            const normalWrap = document.getElementById('mcq-normal-wrapper');
+            const omrWrap = document.getElementById('mcq-omr-wrapper');
+            
+            if(screen) {
+                screen.classList.remove('bg-zinc-50', 'dark:bg-black');
+                screen.classList.add('bg-gray-300');
+            }
+            if(normalWrap) {
+                normalWrap.classList.add('hidden');
+                normalWrap.classList.remove('flex');
+            }
+            if(omrWrap) {
+                omrWrap.classList.remove('hidden', 'md:flex-row'); // Reset classes for safe mobile stacking
+                omrWrap.className = 'w-full h-full max-w-6xl mx-auto flex flex-col safe-pt safe-pb font-serif p-2 md:p-6 bg-gray-300 overflow-hidden';
+            }
+
+            let html = `
+                <!-- Mobile Only Tab Buttons (Hidden on Desktop) -->
+                <div class="md:hidden flex bg-gray-900 p-[6px] gap-2 shrink-0 shadow-lg rounded-[16px] mb-3 mx-1">
+                    <button id="btn-view-paper" onclick="toggleMobileOMR('paper')" class="flex-1 bg-white text-black font-black py-3 rounded-[12px] text-[11px] uppercase tracking-widest ring-2 ring-white scale-[1.03] transition-all flex items-center justify-center gap-1"><i data-lucide="file-text" class="w-3.5 h-3.5"></i> Paper</button>
+                    <button id="btn-view-omr" onclick="toggleMobileOMR('omr')" class="flex-1 bg-[#c2185b] text-white font-black py-3 rounded-[12px] text-[11px] uppercase tracking-widest opacity-60 scale-95 transition-all flex items-center justify-center gap-1"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i> OMR Sheet</button>
+                </div>
+
+                <div class="flex flex-col md:flex-row flex-1 w-full gap-4 overflow-hidden">
+                    <!-- Left: Printed Question Paper -->
+                    <div id="omr-paper-panel" class="flex-1 bg-white shadow-2xl border border-gray-400 flex flex-col overflow-hidden rounded-[16px] md:rounded-lg">
+                        <div class="border-b-[3px] border-black p-4 text-center bg-white flex justify-between items-center shrink-0">
+                            <div class="text-left text-black">
+                                <h1 class="text-lg md:text-xl font-black uppercase tracking-widest leading-none mb-1">MOCK EXAM</h1>
+                                <p class="text-[10px] md:text-xs font-bold font-sans opacity-70">UHS Modular • ${appState.context.subject || 'General'}</p>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                 <div class="font-sans font-black text-rose-600 border-2 border-rose-600 px-3 py-1 rounded bg-rose-50 mb-1.5">
+                                    <span id="omr-timer">${formatTime(appState.timeRemaining || 0)}</span>
+                                 </div>
+                                 <button onclick="endSessionConfirm()" class="text-[9px] font-sans font-bold text-gray-500 hover:text-rose-600 uppercase tracking-widest">Abandon Exam</button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto p-5 md:p-8 space-y-8 bg-white text-black font-serif text-[15px] md:text-[17px] leading-[1.6]">
+                            ${appState.mcqSessionQuestions.map((q, i) => `
+                                <div class="flex items-start gap-3">
+                                    <span class="font-bold shrink-0 mt-0.5">${i + 1}.</span>
+                                    <div>
+                                        <p class="font-semibold mb-3 select-none">${q.statement}</p>
+                                        <div class="space-y-2 ml-1">
+                                            ${q.options.map((opt, oIdx) => `
+                                                <div class="flex gap-2.5">
+                                                    <span class="font-bold">(${String.fromCharCode(65 + oIdx)})</span>
+                                                    <span>${opt}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            <div class="text-center pt-8 pb-4 text-gray-400 font-bold uppercase tracking-[0.3em] text-xs">END OF QUESTIONS PAPER</div>
+                        </div>
+                    </div>
+
+                    <!-- Right: OMR Bubble Sheet -->
+                    <!-- MAGIC FIX: 'flex-1 md:flex-none' added here taa-k mobile pe height zinda rahay aur scroll chalay! -->
+                    <div id="omr-bubbles-panel" class="max-md:hidden flex-1 md:flex-none w-full md:w-[320px] lg:w-[360px] bg-[#fffaf0] shadow-2xl border border-gray-400 flex flex-col overflow-hidden rounded-[16px] md:rounded-lg font-sans shrink-0">
+                        <div class="bg-[#fce4ec] border-b-[3px] border-[#f48fb1] p-4 text-center shrink-0">
+                            <h2 class="text-lg font-black tracking-widest text-[#c2185b] mb-0.5">OMR SHEET</h2>
+                            <p class="text-[9px] text-[#c2185b] uppercase font-bold tracking-wider">Use dark pen to fill bubbles</p>
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto p-5 flex flex-col space-y-4">
+                            ${appState.mcqSessionQuestions.map((q, i) => {
+                                const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                                let bubblesHtml = q.options.map((_, oIdx) => {
+                                    const isSel = appState.mcqHistory[i] && appState.mcqHistory[i].selected === oIdx;
+                                    const bg = isSel ? 'bg-black text-white border-black shadow-md' : 'bg-white text-black border-black hover:bg-gray-200';
+                                    return `<button id="omr-btn-${i}-${oIdx}" onclick="selectOmrOption(${i}, ${oIdx})" class="w-[28px] h-[28px] rounded-full border-[1.5px] font-bold text-[12px] flex items-center justify-center transition-colors shrink-0 ${bg}">${letters[oIdx]}</button>`;
+                                }).join('');
+
+                                return `
+                                <div class="flex items-center gap-3">
+                                    <span class="w-6 text-right font-black text-[15px] text-black shrink-0">${i + 1}.</span>
+                                    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                                        ${bubblesHtml}
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <div class="p-4 bg-white border-t-2 border-gray-300 shrink-0">
+                            <button onclick="submitOmrExam()" class="w-full bg-black hover:bg-gray-800 text-white font-black py-4 rounded-[12px] uppercase tracking-[0.2em] shadow-lg active:scale-[0.98] transition-all text-sm">Submit Exam</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            if(omrWrap) omrWrap.innerHTML = html;
+            lucide.createIcons();
+        }
+
         function renderMCQ() {
             try {
                 if (!appState.mcqSessionQuestions || appState.mcqSessionQuestions.length === 0) {
@@ -3871,47 +4514,95 @@
                     return;
                 }
 
+                const isTestMode = appState.sessionConfig.mode === 'Test';
+                const useBubble = isTestMode && appState.sessionConfig.useBubbleSheet;
+
+                if (useBubble) {
+                    renderOMRExamView();
+                    return;
+                }
+
+                const screen = document.getElementById('screen-mcq_screen');
+                const normalWrap = document.getElementById('mcq-normal-wrapper');
+                const omrWrap = document.getElementById('mcq-omr-wrapper');
+                
+                if (screen && normalWrap && omrWrap) {
+                    screen.classList.add('bg-zinc-50', 'dark:bg-black');
+                    screen.classList.remove('bg-gray-300');
+                    normalWrap.classList.remove('hidden');
+                    normalWrap.classList.add('flex');
+                    omrWrap.classList.add('hidden');
+                    omrWrap.classList.remove('flex');
+                    omrWrap.innerHTML = '';
+                }
+
                 const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
                 if (!question || !question.options) {
                     throw new Error("Invalid question format detected.");
                 }
 
+                // Timer Start Point
+                appState.mcqStartTime = Date.now();
+
+                // TUTOR MODE MAGIC 🪄: Auto Solve the MCQ!
+                if (appState.sessionConfig.mode === 'Tutor') {
+                    appState.mcqIsSubmitted = true;
+                    appState.mcqSelectedOptionIndex = question.correctOptionIndex;
+                }
+
+                const subjElem = document.getElementById('mcq-current-subject');
+                const loElem = document.getElementById('mcq-current-lo');
+                if (subjElem) subjElem.innerText = appState.context.subject || 'Practice';
+                if (loElem) loElem.innerText = question.tag || 'GENERAL';
+
                 const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
                 const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
 
-                document.getElementById('mcq-progress-text').innerText = `${appState.currentMcqIndex + 1} / ${appState.mcqSessionQuestions.length}`;
+                const progText = document.getElementById('mcq-progress-text');
+                if (progText) {
+                    progText.innerHTML = `${appState.currentMcqIndex + 1}/${appState.mcqSessionQuestions.length} <i data-lucide="layout-grid" class="w-3 h-3 ml-1"></i>`;
+                }
                 const progressPct = ((appState.currentMcqIndex) / appState.mcqSessionQuestions.length) * 100;
                 document.getElementById('mcq-progress-bar').style.width = `${progressPct}%`;
 
-                let html = `<p class="text-base md:text-lg text-zinc-900 dark:text-white font-bold leading-relaxed mb-6 select-none">${question.statement}</p>`;
-                html += `<div class="space-y-3 flex-1">`;
+                let html = `<p class="text-base md:text-lg text-zinc-900 dark:text-white font-bold leading-relaxed mb-3 select-none">${question.statement}</p>`;
                 
+                html += `<div class="space-y-3 flex-1">`;
                 question.options.forEach((optText, index) => {
                     let cls = 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-gray-300 hover:bg-zinc-50 dark:hover:bg-zinc-800';
                     const letter = letters[index] || '';
 
                     if (!appState.mcqIsSubmitted) {
-                        if (appState.mcqSelectedOptionIndex === index) {
-                            cls = 'border-brand-blue bg-brand-blue/10 text-brand-blue';
-                        }
+                        if (appState.mcqSelectedOptionIndex === index) cls = 'border-brand-blue bg-brand-blue/10 text-brand-blue';
                     } else {
-                        if (index === question.correctOptionIndex) {
-                            cls = 'border-[#477864] bg-[#477864]/10 text-[#477864]';
-                        } else if (appState.mcqSelectedOptionIndex === index) {
-                            cls = 'border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444]';
-                        } else {
-                            cls = 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black text-zinc-400 dark:text-zinc-600 opacity-50';
-                        }
+                        if (index === question.correctOptionIndex) cls = 'border-[#477864] bg-[#477864]/10 text-[#477864]';
+                        else if (appState.mcqSelectedOptionIndex === index) cls = 'border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444]';
+                        else cls = 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black text-zinc-400 dark:text-zinc-600 opacity-50';
                     }
 
-                    html += `
-                    <button ${appState.mcqIsSubmitted ? 'disabled' : ''} onclick="selectOption(${index})" class="w-full text-left py-3.5 px-5 rounded-[10px] border transition-all flex items-start card-press shadow-sm ${cls}">
+                    html += `<button ${appState.mcqIsSubmitted ? 'disabled' : ''} onclick="selectOption(${index})" class="w-full text-left py-3.5 px-5 rounded-[10px] border transition-all flex items-start card-press shadow-sm ${cls}">
                         <span class="font-bold mr-3 text-sm ${!appState.mcqIsSubmitted && appState.mcqSelectedOptionIndex === index ? 'text-brand-blue' : 'opacity-50'}">${letter}</span>
                         <span class="flex-1 text-sm leading-relaxed font-medium">${optText}</span>
-                    </button>
-                    `;
+                    </button>`;
                 });
                 html += `</div>`;
+                
+                // TUTOR MODE EXPLANATION INJECT 🪄
+                if (appState.sessionConfig.mode === 'Tutor') {
+                    html += `<div class="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4 animate-[fadeIn_0.3s_ease-out]">
+                                <h3 class="text-[11px] font-black text-brand-blue uppercase tracking-widest mb-3">Explanations</h3>`;
+                    question.options.forEach((opt, idx) => {
+                        const isCorrect = idx === question.correctOptionIndex;
+                        const exp = question.optionExplanations ? question.optionExplanations[idx] : '';
+                        if (exp) {
+                            html += `<div class="mb-3 p-3 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30' : 'bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800'}">
+                                        <p class="text-[12px] font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'} mb-1">${letters[idx]}. ${opt}</p>
+                                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 font-medium">${exp.replace(/the text explicitly states /gi, '').trim()}</p>
+                                     </div>`;
+                        }
+                    });
+                    html += `</div>`;
+                }
 
                 document.getElementById('mcq-content-area').innerHTML = html;
 
@@ -3926,25 +4617,25 @@
                     </div>
                 `;
 
-                if (!appState.mcqIsSubmitted) {
-                    const btnClass = appState.mcqSelectedOptionIndex !== null 
-                        ? "flex-1 ml-4 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press" 
-                        : "flex-1 ml-4 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm cursor-not-allowed";
-                    
+                if (isTestMode) {
+                    const btnClass = "flex-1 ml-4 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press";
                     bottomHtml += `
-                    <button id="btn-mcq-action" class="${btnClass}">
-                        Check Answer
+                    <button onclick="handleTestModeNext()" class="${btnClass}">
+                        ${isLast ? "Submit Exam" : "Next Question"}
                     </button>`;
                 } else {
-                    bottomHtml += `
-                    <div class="flex-1 flex items-center space-x-3 ml-4">
-                        <button onclick="showExplanation()" class="flex-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-sm">
-                            Explain
-                        </button>
-                        <button onclick="handleNextMCQ()" class="flex-1 bg-zinc-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-md">
-                            ${isLast ? "Finish" : "Next"}
-                        </button>
-                    </div>`;
+                    if (!appState.mcqIsSubmitted) {
+                        const btnClass = appState.mcqSelectedOptionIndex !== null 
+                            ? "flex-1 ml-4 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press" 
+                            : "flex-1 ml-4 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm cursor-not-allowed";
+                        bottomHtml += `<button id="btn-mcq-action" class="${btnClass}">Check Answer</button>`;
+                    } else {
+                        bottomHtml += `
+                        <div class="flex-1 flex items-center space-x-3 ml-4">
+                            <button onclick="showExplanation()" class="flex-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-sm">Explain</button>
+                            <button onclick="handleNextMCQ()" class="flex-1 bg-zinc-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-md">${isLast ? "Finish" : "Next"}</button>
+                        </div>`;
+                    }
                 }
 
                 document.getElementById('mcq-action-container').innerHTML = bottomHtml;
@@ -3956,7 +4647,7 @@
                         appState.currentQuestionIndex--;
                         const history = appState.mcqHistory[appState.currentMcqIndex];
                         if (history) {
-                            appState.mcqIsSubmitted = true;
+                            appState.mcqIsSubmitted = !isTestMode;
                             appState.mcqSelectedOptionIndex = history.selected;
                         } else {
                             appState.mcqIsSubmitted = false;
@@ -3970,15 +4661,10 @@
                 if (btnBookmark) {
                     btnBookmark.onclick = async () => {
                         const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
-                        if (appState.bookmarkedMCQs.includes(qId)) {
-                            appState.bookmarkedMCQs = appState.bookmarkedMCQs.filter(id => id !== qId);
-                        } else {
-                            appState.bookmarkedMCQs.push(qId);
-                        }
+                        if (appState.bookmarkedMCQs.includes(qId)) appState.bookmarkedMCQs = appState.bookmarkedMCQs.filter(id => id !== qId);
+                        else appState.bookmarkedMCQs.push(qId);
                         renderMCQ();
-                        await db.collection("users").doc(appState.currentUser.uid).update({
-                            bookmarkedMCQs: appState.bookmarkedMCQs
-                        });
+                        await db.collection("users").doc(appState.currentUser.uid).update({ bookmarkedMCQs: appState.bookmarkedMCQs });
                     };
                 }
 
@@ -4025,9 +4711,274 @@
             goBack();
         }
 
+        // Safe check to see if an MCQ ID is in the saved list (Handles both strings and objects)
+        function isMCQBookmarked(qId) {
+            return (appState.bookmarkedMCQs || []).some(b => {
+                if (typeof b === 'string') return b === qId;
+                if (b && typeof b === 'object') return b.id === qId;
+                return false;
+            });
+        }
+
+        // Universal Bookmark Toggle Function (Uses only safe string ID for binding! 🚀)
+        async function toggleAdvancedBookmark(btnElement, qId) {
+            if (!appState.bookmarkedMCQs) appState.bookmarkedMCQs = [];
+
+            const findIndex = appState.bookmarkedMCQs.findIndex(item => {
+                const itemId = typeof item === 'string' ? item : item.id;
+                return itemId === qId;
+            });
+
+            const alreadySaved = findIndex !== -1;
+
+            if (alreadySaved) {
+                // Delete Bookmark
+                appState.bookmarkedMCQs.splice(findIndex, 1);
+                btnElement.innerHTML = `<i data-lucide="bookmark" class="w-5 h-5 text-zinc-400"></i>`;
+                btnElement.classList.remove('bg-brand-gradient', 'text-white', 'shadow-md');
+                btnElement.classList.add('bg-zinc-100', 'dark:bg-zinc-800');
+            } else {
+                // Find the LO tag to store alongside ID
+                let question = (appState.mcqSessionQuestions || []).find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                if (!question) {
+                    question = (APP_DATA.allMCQs || []).find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                }
+                const qTag = question && question.tag ? String(question.tag).trim() : "General";
+
+                // Save ultra light structural payload
+                appState.bookmarkedMCQs.push({ id: qId, tag: qTag });
+                btnElement.innerHTML = `<i data-lucide="bookmark" class="w-5 h-5 text-white fill-current"></i>`;
+                btnElement.classList.remove('bg-zinc-100', 'dark:bg-zinc-800');
+                btnElement.classList.add('bg-brand-gradient', 'text-white', 'shadow-md');
+            }
+            
+            lucide.createIcons();
+            if(appState.currentUser) {
+                await db.collection("users").doc(appState.currentUser.uid).update({ 
+                    bookmarkedMCQs: appState.bookmarkedMCQs 
+                }).catch(e => console.error("Firestore bookmark save failed:", e));
+            }
+        }
+
+        // Render Exam Review Screen
+        function renderExamReview() {
+            const container = document.getElementById('exam-review-list');
+            const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+            
+            container.innerHTML = appState.mcqSessionQuestions.map((q, i) => {
+                const hist = appState.mcqHistory[i] || { selected: null, time: 0 };
+                const isCorrect = hist.selected === q.correctOptionIndex;
+                const timeTaken = hist.time || 0;
+                
+                const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                const isBookmarked = isMCQBookmarked(qId);
+
+                let optsHtml = q.options.map((opt, oIdx) => {
+                    const isRightOpt = oIdx === q.correctOptionIndex;
+                    const isSelOpt = oIdx === hist.selected;
+                    let cls = 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400';
+                    let icon = '';
+                    
+                    if (isRightOpt) {
+                        cls = 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-400';
+                        icon = `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 ml-auto"></i>`;
+                    } else if (isSelOpt) {
+                        cls = 'bg-rose-50 dark:bg-rose-500/10 border-rose-500 text-rose-700 dark:text-rose-400';
+                        icon = `<i data-lucide="x-circle" class="w-4 h-4 text-rose-500 ml-auto"></i>`;
+                    }
+                    
+                    const exp = q.optionExplanations && q.optionExplanations[oIdx] ? `<p class="text-[10px] mt-1.5 pt-1.5 border-t border-current opacity-80">${q.optionExplanations[oIdx].replace(/the text explicitly states /gi, '').trim()}</p>` : '';
+
+                    return `<div class="p-3 border rounded-xl mb-2 ${cls} flex flex-col">
+                                <div class="flex items-start">
+                                    <span class="font-black mr-2">${letters[oIdx]}.</span>
+                                    <span class="font-bold text-xs flex-1">${opt}</span>
+                                    ${icon}
+                                </div>
+                                ${exp}
+                            </div>`;
+                }).join('');
+
+                return `
+                <div class="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 shadow-sm">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black text-white px-2 py-1 rounded-md ${isCorrect ? 'bg-emerald-500' : hist.selected === null ? 'bg-zinc-400' : 'bg-rose-500'}">${isCorrect ? 'CORRECT' : hist.selected === null ? 'SKIPPED' : 'INCORRECT'}</span>
+                            <span class="text-[10px] font-bold text-zinc-500 flex items-center bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md"><i data-lucide="clock" class="w-3 h-3 mr-1"></i> ${timeTaken}s</span>
+                        </div>
+                        <!-- PASSED RAW ID INSTEAD OF OBJECT TO PREVENT QUOTES COLLISION! -->
+                        <button onclick="toggleAdvancedBookmark(this, '${qId}')" class="p-2 rounded-xl transition-all ${isBookmarked ? 'bg-brand-gradient text-white shadow-md' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-brand-blue'}">
+                            <i data-lucide="bookmark" class="w-4 h-4 ${isBookmarked ? 'fill-current' : ''}"></i>
+                        </button>
+                    </div>
+                    <p class="font-bold text-sm text-zinc-900 dark:text-white mb-4">${i+1}. ${q.statement}</p>
+                    <div>${optsHtml}</div>
+                </div>`;
+            }).join('');
+            
+            navigate('exam_review');
+            lucide.createIcons();
+        }
+
+        // Render Saved MCQs with real-time dynamic GitHub fetch engine for missing questions
+        async function renderSavedMCQs() {
+            const container = document.getElementById('saved-mcqs-list');
+            
+            if (!appState.bookmarkedMCQs || appState.bookmarkedMCQs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="bookmark-minus" class="w-8 h-8 text-zinc-400"></i>
+                        </div>
+                        <h3 class="font-black text-lg text-zinc-900 dark:text-white mb-2">No Saved MCQs</h3>
+                        <p class="text-xs text-zinc-500 font-medium px-8 leading-relaxed">Questions you bookmark during sessions will appear here dynamically synced to your cloud account.</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // Start Sync Loader UI
+            container.innerHTML = `
+                <div class="text-center py-24">
+                    <div class="w-10 h-10 border-4 border-brand-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-xs text-zinc-500 font-bold">Syncing saved questions database...</p>
+                </div>`;
+            lucide.createIcons();
+
+            // Find missing tags/LOs to pull from github
+            let missingTags = new Set();
+            let populatedMCQs = [];
+
+            appState.bookmarkedMCQs.forEach(item => {
+                const qId = typeof item === 'string' ? item : item.id;
+                const qTag = (item && typeof item === 'object') ? item.tag : null;
+
+                const fullQ = (APP_DATA.allMCQs || []).find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                if (fullQ) {
+                    populatedMCQs.push(fullQ);
+                } else if (qTag) {
+                    missingTags.add(qTag);
+                }
+            });
+
+            // If we have missing LO files, download them immediately on the fly!
+            if (missingTags.size > 0) {
+                try {
+                    await loadMCQsForSelectedLOs(Array.from(missingTags));
+                    
+                    // Repopulate again now that files are synchronized in cache
+                    populatedMCQs = [];
+                    appState.bookmarkedMCQs.forEach(item => {
+                        const qId = typeof item === 'string' ? item : item.id;
+                        const fullQ = (APP_DATA.allMCQs || []).find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                        if (fullQ) populatedMCQs.push(fullQ);
+                    });
+                } catch (e) {
+                    console.warn("Auto-sync background check failed: ", e);
+                }
+            }
+
+            // Fallback rendering
+            if (populatedMCQs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-20 px-6">
+                        <div class="w-14 h-14 bg-amber-50 dark:bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="cloud-off" class="w-7 h-7 text-amber-500"></i>
+                        </div>
+                        <h3 class="font-black text-sm text-zinc-900 dark:text-white mb-2">Local Syncing Required</h3>
+                        <p class="text-[11px] text-zinc-500 font-semibold leading-relaxed">To view saved bookmarks, please make sure you've downloaded the MCQ files by starting at least one test of this module block.</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // Group by LO Code (Tag) for structured view
+            const groups = {};
+            populatedMCQs.forEach(q => {
+                const tag = q.tag ? String(q.tag).trim() : "General";
+                if (!groups[tag]) groups[tag] = [];
+                groups[tag].push(q);
+            });
+
+            let html = '';
+            for (const tag in groups) {
+                html += `<div class="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 mb-4 shadow-sm animate-[fadeIn_0.3s_ease-out]">
+                            <h3 class="text-xs font-black text-brand-blue uppercase tracking-widest mb-4 flex items-center">
+                                <i data-lucide="tag" class="w-4 h-4 mr-2 stroke-[2.5px]"></i> OBJECTIVE: ${tag}
+                            </h3>
+                            <div class="space-y-4">`;
+                            
+                groups[tag].forEach((q) => {
+                    const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                    
+                    html += `
+                        <div class="bg-zinc-50 dark:bg-black p-4 rounded-[16px] border border-zinc-200 dark:border-zinc-800 relative group">
+                            <!-- Raw string ID binding removes HTML parse crash entirely! -->
+                            <button onclick="toggleAdvancedBookmark(this, '${qId}'); setTimeout(renderSavedMCQs, 400);" class="absolute top-3.5 right-3 p-2 bg-brand-gradient text-white rounded-xl shadow-md card-press">
+                                <i data-lucide="bookmark" class="w-3.5 h-3.5 fill-current"></i>
+                            </button>
+                            <p class="text-xs font-bold text-zinc-900 dark:text-white leading-relaxed pr-10">${q.statement}</p>
+                            <div class="mt-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 p-2.5 rounded-xl">
+                                <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Correct Answer:</span>
+                                <p class="text-xs font-bold text-emerald-700 dark:text-emerald-400">${q.options[q.correctOptionIndex]}</p>
+                            </div>
+                        </div>`;
+                });
+                html += `</div></div>`;
+            }
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // Dynamic interception system for timing & bookmarks binding
+        const originalSubmitMCQ = submitMCQAnswer;
+        submitMCQAnswer = async function() {
+            if (appState.mcqSelectedOptionIndex !== null) {
+                appState.mcqHistory[appState.currentMcqIndex] = appState.mcqHistory[appState.currentMcqIndex] || {};
+                appState.mcqHistory[appState.currentMcqIndex].time = Math.round((Date.now() - (appState.mcqStartTime || Date.now())) / 1000);
+            }
+            await originalSubmitMCQ();
+        };
+
+        const originalHandleTestNext = handleTestModeNext;
+        handleTestModeNext = function() {
+            appState.mcqHistory[appState.currentMcqIndex] = appState.mcqHistory[appState.currentMcqIndex] || {};
+            appState.mcqHistory[appState.currentMcqIndex].time = Math.round((Date.now() - (appState.mcqStartTime || Date.now())) / 1000);
+            originalHandleTestNext();
+        };
+
+        const originalRenderMCQBookmarks = renderMCQ;
+        renderMCQ = function() {
+            originalRenderMCQBookmarks();
+            // Dynamically override normal screen bookmark button with safe logic
+            const btnBookmark = document.getElementById('btn-bookmark');
+            if (btnBookmark && appState.mcqSessionQuestions[appState.currentMcqIndex]) {
+                const q = appState.mcqSessionQuestions[appState.currentMcqIndex];
+                const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                
+                const active = isMCQBookmarked(qId);
+                
+                if (active) {
+                    btnBookmark.className = "p-3.5 rounded-[16px] bg-brand-gradient border-transparent shadow-md text-white card-press transition-colors";
+                    btnBookmark.innerHTML = `<i data-lucide="bookmark" class="w-6 h-6 text-white fill-current"></i>`;
+                } else {
+                    btnBookmark.className = "p-3.5 rounded-[16px] bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white card-press transition-colors";
+                    btnBookmark.innerHTML = `<i data-lucide="bookmark" class="w-6 h-6"></i>`;
+                }
+                lucide.createIcons();
+
+                btnBookmark.onclick = function() {
+                    toggleAdvancedBookmark(this, qId);
+                };
+            }
+        };
+
         document.addEventListener("DOMContentLoaded", () => {
             initTheme(); 
             lucide.createIcons();
+            
+            // Map Drawer navigation for new screen
+            if (appState.currentScreen === 'saved_mcqs') renderSavedMCQs();
         });
 
     </script>
