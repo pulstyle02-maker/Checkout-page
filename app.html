@@ -2565,9 +2565,49 @@
 
                     const plans = appState.userData.purchasedBlocks || [];
                     if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
-                        const parts = plans[0].split('_');
-                        if(parts[0]) appState.academicYear = parts[0];
-                        if(parts[1]) appState.academicBlock = parts[1];
+                        const planStr = String(plans[0]).trim();
+                        let detectedYear = "";
+                        let detectedBlock = "";
+
+                        // Extract year if explicitly present, allowing underscore separation
+                        const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
+                        if (yearMatch) {
+                            detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
+                        }
+
+                        // Extract block number (Arabic 1-15 or Roman numeral I-XV), allowing underscore separation
+                        const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                        if (arabicMatch) {
+                            const numMap = {
+                                '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV'
+                            };
+                            detectedBlock = numMap[arabicMatch[1]];
+                        } else {
+                            const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                            if (romanMatch) {
+                                detectedBlock = romanMatch[1].toUpperCase();
+                            }
+                        }
+
+                        // Fallback: Deduce academic year based on block number if year is missing or generic
+                        if (!detectedYear || detectedYear.toLowerCase() === "block") {
+                            const localYearBlockMap = {
+                                '1st': ['I', 'II', 'III'],
+                                '2nd': ['IV', 'V', 'VI'],
+                                '3rd': ['VII', 'VIII', 'IX'],
+                                '4th': ['X', 'XI', 'XII'],
+                                '5th': ['XIII', 'XIV', 'XV']
+                            };
+                            for (const [yr, blks] of Object.entries(localYearBlockMap)) {
+                                if (blks.includes(detectedBlock)) {
+                                    detectedYear = yr;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (detectedYear) appState.academicYear = detectedYear;
+                        if (detectedBlock) appState.academicBlock = detectedBlock;
                     }
                     
                     const subT = document.getElementById('drawer-subtitle');
@@ -3418,11 +3458,38 @@
 
         function hasBlockAccess(year, block) {
             if (!appState.userData) return false;
-            if (appState.userData.role === "master" || (appState.userData.purchasedBlocks || []).includes("ALL")) {
+            const purchased = appState.userData.purchasedBlocks || [];
+            
+            if (appState.userData.role === "master" || purchased.includes("ALL")) {
                 return true;
             }
+            
+            // Direct strict match fallback (e.g. "1st_II")
             const targetId = `${year}_${block}`;
-            return (appState.userData.purchasedBlocks || []).includes(targetId);
+            if (purchased.includes(targetId)) return true;
+            
+            // Dynamic check for alternative database block formats
+            return purchased.some(plan => {
+                const planStr = String(plan).trim();
+                let detBlock = "";
+                
+                // Parse either Arabic or Roman numeral block codes, allowing underscore boundaries
+                const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                if (arabicMatch) {
+                    const numMap = {
+                        '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV'
+                    };
+                    detBlock = numMap[arabicMatch[1]];
+                } else {
+                    const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                    if (romanMatch) {
+                        detBlock = romanMatch[1].toUpperCase();
+                    }
+                }
+                
+                // Grant access if the resolved block identifiers match (e.g., both evaluate to "II")
+                return detBlock === block;
+            });
         }
 
         function hasYearAccess(year) {
