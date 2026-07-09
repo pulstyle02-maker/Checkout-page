@@ -382,10 +382,17 @@
 
             <div class="w-full max-w-4xl mx-auto px-3.5 md:px-8 pt-4 flex-1">
                 
-                <!-- Dynamic On-Background Greeting -->
-                <div class="pb-5 px-1">
-                    <p id="dashboard-greeting" class="text-xs font-bold text-zinc-500 dark:text-zinc-400">Good morning,</p>
-                    <h1 id="dashboard-username" class="text-[26px] font-black text-zinc-900 dark:text-white tracking-tight leading-tight">Dr. Student</h1>
+                <!-- Dynamic On-Background Greeting & Block Switcher -->
+                <div class="pb-5 px-1 flex items-end justify-between">
+                    <div>
+                        <p id="dashboard-greeting" class="text-xs font-bold text-zinc-500 dark:text-zinc-400">Good morning,</p>
+                        <h1 id="dashboard-username" class="text-[26px] font-black text-zinc-900 dark:text-white tracking-tight leading-tight">Dr. Student</h1>
+                    </div>
+                    <button id="dashboard-block-switcher" class="hidden items-center gap-1.5 bg-brand-blue/10 text-brand-blue border border-brand-blue/20 px-3 py-1.5 rounded-[10px] shadow-sm mb-1 transition-colors">
+                        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                        <span id="dashboard-block-badge" class="text-[10px] font-black uppercase tracking-widest pt-[1px]">Block II</span>
+                        <i id="dashboard-block-chevron" data-lucide="chevrons-up-down" class="w-3.5 h-3.5 ml-0.5"></i>
+                    </button>
                 </div>
 
                 <!-- Streak Card (Ultra-Compact Side-by-Side Model) -->
@@ -1147,6 +1154,17 @@
             </div>
         </div>
 
+        <!-- Block Selection Bottom Sheet -->
+        <div id="block-selection-overlay" class="mock-overlay" onclick="closeBlockSwitcher()"></div>
+        <div id="block-bottom-sheet" class="bg-white dark:bg-zinc-950 rounded-t-[32px] p-6 bottom-sheet shadow-[0_-10px_40px_rgba(0,0,0,0.3)] z-[105]">
+            <div class="w-12 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full mx-auto mb-6"></div>
+            <h2 class="text-lg font-[1000] text-zinc-900 dark:text-white text-center mb-1">Select Active Block</h2>
+            <p class="text-[11px] text-zinc-500 text-center mb-6 font-bold">Switch your current study curriculum</p>
+            <div id="block-switcher-list" class="space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar pb-6">
+                <!-- Generated via JS -->
+            </div>
+        </div>
+
         <!-- ================= NEW FEATURE STUB SCREENS ================= -->
         <!-- Global Mock Selection Overlay & Sheet (Outside any screen) -->
         <div id="mock-selection-overlay" class="mock-overlay"></div>
@@ -1883,6 +1901,87 @@
             '5th': ['XIII', 'XIV', 'XV']
         };
 
+        // Returns dynamic list of accessible blocks based on user's purchased plan
+        function getAvailableBlocks() {
+            if (!appState.userData) return [];
+            const role = appState.userData.role;
+            const purchased = appState.userData.purchasedBlocks || [];
+            let available = [];
+
+            const allBlocksMap = {
+                '1st': ['I', 'II', 'III'],
+                '2nd': ['IV', 'V', 'VI'],
+                '3rd': ['VII', 'VIII', 'IX'],
+                '4th': ['X', 'XI', 'XII'],
+                '5th': ['XIII', 'XIV', 'XV']
+            };
+
+            if (role === 'master' || purchased.includes('ALL')) {
+                for (let year in allBlocksMap) {
+                    allBlocksMap[year].forEach(b => available.push({ year: year, block: b }));
+                }
+                return available;
+            }
+
+            for (let year in allBlocksMap) {
+                if (purchased.includes(`${year}_ALL`)) {
+                    allBlocksMap[year].forEach(b => available.push({ year: year, block: b }));
+                } else {
+                    allBlocksMap[year].forEach(b => {
+                        if (purchased.includes(`${year}_${b}`)) available.push({ year: year, block: b });
+                    });
+                }
+            }
+            return available;
+        }
+
+        function openBlockSwitcher() {
+            const overlay = document.getElementById('block-selection-overlay');
+            const sheet = document.getElementById('block-bottom-sheet');
+            const list = document.getElementById('block-switcher-list');
+            
+            const available = getAvailableBlocks();
+            list.innerHTML = available.map(item => {
+                const isActive = (item.block === appState.academicBlock);
+                const bgCls = isActive ? 'bg-brand-blue/10 border-brand-blue/30 text-brand-blue' : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800';
+                const checkHtml = isActive ? `<i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue"></i>` : '';
+                
+                return `
+                <button onclick="selectNewBlock('${item.year}', '${item.block}')" class="w-full flex items-center justify-between p-4 border rounded-[16px] card-press transition-all ${bgCls}">
+                    <div class="flex flex-col items-start">
+                        <span class="text-[14px] font-black leading-none mb-1">Block ${item.block}</span>
+                        <span class="text-[10px] font-bold opacity-70 uppercase tracking-widest">${item.year} Year Curriculum</span>
+                    </div>
+                    ${checkHtml}
+                </button>`;
+            }).join('');
+            
+            lucide.createIcons();
+            overlay.classList.add('show');
+            setTimeout(() => { sheet.classList.add('active'); }, 50);
+        }
+
+        function closeBlockSwitcher() {
+            const overlay = document.getElementById('block-selection-overlay');
+            const sheet = document.getElementById('block-bottom-sheet');
+            sheet.classList.remove('active');
+            setTimeout(() => { overlay.classList.remove('show'); }, 300);
+        }
+
+        function selectNewBlock(year, block) {
+            closeBlockSwitcher();
+            if(appState.academicBlock === block) return;
+            
+            showLoader("Switching Curriculum...");
+            appState.academicYear = year;
+            
+            setTimeout(() => {
+                changeBlock(block);
+                updateDashboardStatisticsUI(); 
+                hideLoader();
+            }, 300);
+        }
+
         function updateDashboardStatisticsUI() {
             const accuracy = appState.totalMcqsDone > 0 ? Math.round((appState.totalCorrect / appState.totalMcqsDone) * 100) : 0;
             
@@ -1898,6 +1997,28 @@
             const nameEl = document.getElementById('dashboard-username');
             if(nameEl) {
                 nameEl.innerText = appState.userData ? (appState.userData.fullName || 'Student') : 'Student';
+            }
+
+            // Sync Block Switcher Badge on Dashboard
+            const switcherBtn = document.getElementById('dashboard-block-switcher');
+            const badgeText = document.getElementById('dashboard-block-badge');
+            const chevron = document.getElementById('dashboard-block-chevron');
+            
+            if (badgeText) badgeText.innerText = `Block ${appState.academicBlock}`;
+            
+            const available = getAvailableBlocks();
+            if (switcherBtn) {
+                switcherBtn.classList.remove('hidden');
+                switcherBtn.classList.add('flex');
+                if (available.length > 1) {
+                    switcherBtn.onclick = openBlockSwitcher;
+                    if(chevron) chevron.classList.remove('hidden');
+                    switcherBtn.classList.add('card-press', 'hover:bg-brand-blue/20', 'cursor-pointer');
+                } else {
+                    switcherBtn.onclick = null;
+                    if(chevron) chevron.classList.add('hidden');
+                    switcherBtn.classList.remove('card-press', 'hover:bg-brand-blue/20', 'cursor-pointer');
+                }
             }
 
             const uiAcc = document.getElementById('ui-dashboard-accuracy');
