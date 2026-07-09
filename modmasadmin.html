@@ -58,8 +58,11 @@
 </head>
 <body class="antialiased flex h-screen overflow-hidden selection:bg-brand-primary selection:text-white">
 
+    <!-- Mobile Overlay -->
+    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/80 z-20 hidden md:hidden transition-opacity"></div>
+    
     <!-- Sidebar -->
-    <aside class="w-72 bg-[#09090b] border-r border-zinc-900 flex flex-col flex-shrink-0 z-20">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 w-72 bg-[#09090b] border-r border-zinc-900 flex flex-col flex-shrink-0 z-30 transition-transform duration-300">
         <div class="h-20 flex items-center px-6 border-b border-zinc-900">
             <div class="w-8 h-8 bg-brand-gradient text-white flex items-center justify-center rounded-lg font-black text-sm mr-3">M</div>
             <span class="text-lg font-black tracking-tight text-white uppercase">Admin Portal</span>
@@ -76,7 +79,7 @@
                 <i data-lucide="bell" class="w-5 h-5 mr-3"></i> Send Notifications
             </button>
             <button onclick="switchTab('master')" id="tab-btn-master" class="w-full flex items-center px-4 py-3.5 rounded-2xl text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
-                <i data-lucide="key" class="w-5 h-5 mr-3"></i> Master Access
+                <i data-lucide="user-plus" class="w-5 h-5 mr-3"></i> Create User
             </button>
         </nav>
 
@@ -92,21 +95,26 @@
     <main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#000000]">
         
         <!-- Header -->
-        <header class="h-20 flex items-center justify-between px-8 border-b border-zinc-900 flex-shrink-0 bg-[#000000]">
-            <h2 id="page-title" class="text-2xl font-black uppercase tracking-tight">Student Database</h2>
-            <button onclick="fetchData()" class="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl font-bold flex items-center text-sm hover:bg-zinc-800 transition-colors card-press">
-                <i data-lucide="refresh-cw" class="w-4 h-4 mr-2 text-brand-secondary"></i> Refresh Sync
+        <header class="h-20 flex items-center justify-between px-4 md:px-8 border-b border-zinc-900 flex-shrink-0 bg-[#000000]">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="md:hidden p-2 bg-zinc-900 text-white rounded-lg border border-zinc-800">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+                <h2 id="page-title" class="text-xl md:text-2xl font-black uppercase tracking-tight">Student Database</h2>
+            </div>
+            <button onclick="fetchData()" class="px-4 md:px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl font-bold flex items-center text-xs md:text-sm hover:bg-zinc-800 transition-colors card-press">
+                <i data-lucide="refresh-cw" class="w-4 h-4 md:mr-2 text-brand-secondary"></i> <span class="hidden md:inline">Refresh Sync</span>
             </button>
         </header>
 
         <!-- Scrollable Area -->
-        <div class="flex-1 overflow-y-auto p-8">
+        <div class="flex-1 overflow-y-auto p-4 md:p-8">
 
             <!-- ================= STUDENTS DB TAB ================= -->
             <div id="tab-students" class="tab-content active">
                 
                 <!-- KPI Widgets -->
-                <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="solid-card p-6 flex items-center justify-between">
                         <div>
                             <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Users</p>
@@ -298,33 +306,61 @@
                 </div>
             </div>
 
-            <!-- ================= MASTER ACCESS TAB ================= -->
+            <!-- ================= CREATE USER TAB ================= -->
             <div id="tab-master" class="tab-content">
-                <div class="solid-card p-8 max-w-lg mx-auto mt-10">
+                <div class="solid-card p-6 md:p-8 max-w-2xl mx-auto md:mt-10 mt-4">
                     <div class="w-12 h-12 rounded-xl bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center mb-6">
-                        <i data-lucide="key" class="w-6 h-6 text-brand-primary"></i>
+                        <i data-lucide="user-plus" class="w-6 h-6 text-brand-primary"></i>
                     </div>
-                    <h3 class="font-black text-2xl uppercase tracking-tight mb-2">Create Master Key</h3>
+                    <h3 class="font-black text-2xl uppercase tracking-tight mb-2">Create New User</h3>
                     <p class="text-sm font-medium text-zinc-500 mb-8 leading-relaxed">
-                        Generate a credential that instantly bypasses payment gateways. This account secures unrestricted access to all current and future curriculum blocks.
+                        Manually create a user account. You can assign them full Master access or restrict them to a specific year and block(s).
                     </p>
                     
                     <form id="master-form" class="space-y-5">
-                        <div>
-                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Admin Username</label>
-                            <div class="flex">
-                                <input type="text" id="m-user" autocomplete="new-password" required class="flex-1 solid-input rounded-r-none border-r-0 px-4 py-3 font-bold" placeholder="e.g. faculty1">
-                                <div class="bg-zinc-900 border border-zinc-800 rounded-r-xl px-4 py-3 flex items-center">
-                                    <span class="text-sm font-bold text-zinc-500">@mod.admin</span>
-                                </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Username / Email</label>
+                                <input type="email" id="m-user" autocomplete="new-password" required class="w-full solid-input px-4 py-3 font-bold" placeholder="student@example.com">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Account Password</label>
+                                <input type="password" id="m-pass" autocomplete="new-password" required minlength="6" class="w-full solid-input px-4 py-3 font-bold" placeholder="••••••••••••">
                             </div>
                         </div>
+
                         <div>
-                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Secure Password</label>
-                            <input type="password" id="m-pass" autocomplete="new-password" required minlength="12" class="w-full solid-input px-4 py-3 font-bold" placeholder="••••••••••••">
+                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Access Role</label>
+                            <select id="m-role" onchange="toggleAccessFields()" class="w-full solid-input px-4 py-3 font-bold appearance-none">
+                                <option value="student">Student (Specific Year/Block Access)</option>
+                                <option value="master">Master Admin (All Content Unlocked)</option>
+                            </select>
                         </div>
+
+                        <div id="access-fields" class="grid grid-cols-1 md:grid-cols-2 gap-5 transition-all">
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Select Year</label>
+                                <select id="m-year" class="w-full solid-input px-4 py-3 font-bold appearance-none">
+                                    <option value="year1">1st Year</option>
+                                    <option value="year2">2nd Year</option>
+                                    <option value="year3">3rd Year</option>
+                                    <option value="year4">4th Year</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Select Block Access</label>
+                                <select id="m-block" class="w-full solid-input px-4 py-3 font-bold appearance-none">
+                                    <option value="ALL">All Blocks (Entire Year)</option>
+                                    <option value="block1">Block 1</option>
+                                    <option value="block2">Block 2</option>
+                                    <option value="block3">Block 3</option>
+                                    <option value="block4">Block 4</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <button type="submit" class="w-full bg-brand-gradient text-white font-black py-4 rounded-xl mt-2 transition-transform hover:scale-[0.98] uppercase tracking-wide">
-                            Authorize & Generate
+                            Generate Account
                         </button>
                     </form>
                     <div id="master-msg" class="hidden text-xs font-bold mt-4 p-3 rounded-lg text-center"></div>
@@ -359,16 +395,36 @@
         // Global State Cache
         let cachedUsers = [];
 
+        // Mobile Sidebar & Access Toggles
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        function toggleAccessFields() {
+            const role = document.getElementById('m-role').value;
+            const fields = document.getElementById('access-fields');
+            if (role === 'master') fields.classList.add('hidden');
+            else fields.classList.remove('hidden');
+        }
+
         // UI Routing
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
             
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('mobile-overlay').classList.add('hidden');
+            }
+            
             const titles = { 
                 'students': 'Student Database', 
                 'promos': 'Campaigns & Promos', 
                 'notifications': 'Dispatched Messages', 
-                'master': 'Security & Access' 
+                'master': 'Create User Access' 
             };
             document.getElementById('page-title').innerText = titles[tab];
 
@@ -676,29 +732,44 @@
             }
         });
 
-        // ================= 4. MASTER ACCESS =================
+        // ================= 4. CREATE USER ACCESS =================
         document.getElementById('master-form').addEventListener('submit', async(e) => {
             e.preventDefault();
             const msg = document.getElementById('master-msg');
             msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-zinc-900 text-zinc-400"; 
-            msg.innerText = "Generating Access..."; 
+            msg.innerText = "Generating Account in Database..."; 
             msg.classList.remove('hidden');
 
-            const email = document.getElementById('m-user').value.trim() + '@mod.admin';
+            const email = document.getElementById('m-user').value.trim();
             const pass = document.getElementById('m-pass').value;
+            const role = document.getElementById('m-role').value;
+            const year = document.getElementById('m-year').value;
+            const block = document.getElementById('m-block').value;
+
+            let purchasedBlocks = [];
+            let fullName = "Manual User";
+
+            if (role === 'master') {
+                purchasedBlocks = ["ALL"];
+                fullName = "Master Admin";
+            } else {
+                // Creates combinations like "year1_ALL" or "year2_block3"
+                purchasedBlocks = [`${year}_${block}`]; 
+            }
 
             try {
                 const userCred = await auth.createUserWithEmailAndPassword(email, pass);
                 await db.collection("users").doc(userCred.user.uid).set({
-                    fullName: "Master Key Admin", 
+                    fullName: fullName, 
                     email: email, 
-                    role: "master", 
-                    purchasedBlocks: ["ALL"], 
+                    role: role, 
+                    purchasedBlocks: purchasedBlocks, 
                     createdAt: new Date().toISOString()
                 });
                 msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"; 
-                msg.innerText = "Key Generated Successfully! Use this to log into the app.";
+                msg.innerText = "Account Created Successfully! Target can now log in.";
                 document.getElementById('master-form').reset();
+                toggleAccessFields();
                 fetchUsers();
             } catch(e) { 
                 msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-rose-500/20 text-rose-500 border border-rose-500/30"; 
