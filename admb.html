@@ -340,21 +340,21 @@
                         <div id="access-fields" class="grid grid-cols-1 md:grid-cols-2 gap-5 transition-all">
                             <div>
                                 <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Select Year</label>
-                                <select id="m-year" class="w-full solid-input px-4 py-3 font-bold appearance-none">
-                                    <option value="mbbs1">1st Year MBBS</option>
-                                    <option value="mbbs2">2nd Year MBBS</option>
-                                    <option value="mbbs3">3rd Year MBBS</option>
-                                    <option value="mbbs4">4th Year MBBS</option>
+                                <select id="m-year" onchange="updateBlockOptions()" class="w-full solid-input px-4 py-3 font-bold appearance-none">
+                                    <option value="1st">1st Year</option>
+                                    <option value="2nd">2nd Year</option>
+                                    <option value="3rd">3rd Year</option>
+                                    <option value="4th">4th Year</option>
+                                    <option value="5th">5th Year</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Select Block Access</label>
                                 <select id="m-block" class="w-full solid-input px-4 py-3 font-bold appearance-none">
                                     <option value="ALL">All Blocks (Entire Year)</option>
-                                    <option value="block1">Block 1</option>
-                                    <option value="block2">Block 2</option>
-                                    <option value="block3">Block 3</option>
-                                    <option value="block4">Block 4</option>
+                                    <option value="I">Block I</option>
+                                    <option value="II">Block II</option>
+                                    <option value="III">Block III</option>
                                 </select>
                             </div>
                         </div>
@@ -732,6 +732,27 @@
             }
         });
 
+        // Setup Map to dynamically change blocks when year changes
+        const yearBlockMap = {
+            '1st': ['I', 'II', 'III'],
+            '2nd': ['IV', 'V', 'VI'],
+            '3rd': ['VII', 'VIII', 'IX'],
+            '4th': ['X', 'XI', 'XII'],
+            '5th': ['XIII', 'XIV', 'XV']
+        };
+
+        function updateBlockOptions() {
+            const year = document.getElementById('m-year').value;
+            const blockSelect = document.getElementById('m-block');
+            const blocks = yearBlockMap[year];
+            
+            let html = '<option value="ALL">All Blocks (Entire Year)</option>';
+            blocks.forEach(b => {
+                html += `<option value="${b}">Block ${b}</option>`;
+            });
+            blockSelect.innerHTML = html;
+        }
+
         // ================= 4. CREATE USER ACCESS =================
         document.getElementById('master-form').addEventListener('submit', async(e) => {
             e.preventDefault();
@@ -741,8 +762,6 @@
             msg.classList.remove('hidden');
 
             const rawUsername = document.getElementById('m-user').value.trim();
-            
-            // Firebase requires an email. If you type a normal username without '@', it auto-appends '@mod.user'
             const email = rawUsername.includes('@') ? rawUsername : rawUsername.replace(/\s+/g, '').toLowerCase() + '@mod.user';
             
             const pass = document.getElementById('m-pass').value;
@@ -758,16 +777,11 @@
                 fullName = rawUsername + " (Master)";
             } else {
                 if (block === 'ALL') {
-                    // If you select "All Blocks", we safely push every block ID for that year so the app guarantees it unlocks
-                    purchasedBlocks = [
-                        `${year}_block1`, 
-                        `${year}_block2`, 
-                        `${year}_block3`, 
-                        `${year}_block4`,
-                        `${year}_ALL`
-                    ];
+                    // Automatically assign ALL blocks associated with that specific year
+                    const yearBlocks = yearBlockMap[year].map(b => `${year}_${b}`);
+                    purchasedBlocks = [...yearBlocks, `${year}_ALL`];
                 } else {
-                    // Saves exactly as the app expects it (e.g. "mbbs1_block2")
+                    // Saves exactly as the app expects it (e.g. "1st_II")
                     purchasedBlocks = [`${year}_${block}`]; 
                 }
             }
