@@ -2201,7 +2201,8 @@
 
         function selectNewBlock(year, block) {
             closeBlockSwitcher();
-            if(appState.academicBlock === block) return;
+            // Only exit early if BOTH block and year parameters match the active configuration
+            if (appState.academicBlock === block && appState.academicYear === year) return;
             
             showLoader("Switching Curriculum...");
             appState.academicYear = year;
@@ -3883,7 +3884,9 @@
         async function fetchSyllabus() {
             try {
                 const timestamp = new Date().getTime();
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/2ndyearsyllabus.json?nocache=${timestamp}`;
+                // Dynamically construct the filename based on the academic year (e.g., 1styearsyllabus.json)
+                const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}?nocache=${timestamp}`;
                 
                 const response = await fetch(url, { cache: 'no-store' });
                 if(!response.ok) throw new Error("Syllabus fetch failed");
@@ -5339,19 +5342,33 @@
             prefetchCurrentBlockVivacards();
         }
 
+        // Helper to guarantee year/block alignment across all curriculum transitions
+        function getYearForBlock(block) {
+            const blockToYearMap = {
+                'I': '1st', 'II': '1st', 'III': '1st',
+                'IV': '2nd', 'V': '2nd', 'VI': '2nd',
+                'VII': '3rd', 'VIII': '3rd', 'IX': '3rd',
+                'X': '4th', 'XI': '4th', 'XII': '4th',
+                'XIII': '5th', 'XIV': '5th', 'XV': '5th'
+            };
+            return blockToYearMap[block] || '1st';
+        }
+
         function changeBlock(block) {
             appState.academicBlock = block;
+            // Automatically synchronize the academic year relative to the active block
+            appState.academicYear = getYearForBlock(block);
+            
             APP_DATA.allMCQs = [];
             APP_DATA.allNotes = [];
             APP_DATA.allFlashcards = [];
             MCQ_INDEX_CACHE = {};
             window.LOADED_MCQ_FILES = {};
             loCountEstimateMap = {};
+            
             renderProfile();
-            buildSyllabusTree();
-            prefetchCurrentBlockMCQs();
-            prefetchCurrentBlockNotes();
-            prefetchCurrentBlockVivacards();
+            // Re-fetch the newly aligned syllabus dynamically
+            fetchSyllabus();
         }
 
         function startSessionFlow() {
