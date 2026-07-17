@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Modeck - Active Recall</title>
+    
+    <!-- Fonts: Using Nunito for that rounded, friendly, modern app feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <style>
+        :root {
+            /* Dribbble Inspiration Palette */
+            --bg-main: #F4F5F9;
+            --surface: #FFFFFF;
+            --text-dark: #121212;
+            --text-muted: #8E8E93;
+            
+            --nav-bg: #1C1C1E;
+            --primary: #7C3AED;
+            --primary-light: #E5D9F2;
+            
+            --pastel-blue: #DCE8FF;
+            --pastel-pink: #FCE7F3;
+            --pastel-yellow: #FEF3C7;
+            --pastel-green: #D1FAE5;
+            
+            --success: #10B981;
+            --danger: #EF4444;
+            
+            --radius-xl: 32px;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-pill: 999px;
+            
+            --shadow-soft: 0 8px 24px -8px rgba(0,0,0,0.06);
+            --shadow-float: 0 20px 40px -10px rgba(0,0,0,0.15);
+            
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none; /* Mobile app feel */
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-dark);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            position: relative;
+            background-color: var(--bg-main);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-bottom: 120px; /* Space for bottom nav */
+        }
+
+        /* --- Views Management --- */
+        .view {
+            display: none;
+            width: 100%;
+            min-height: 100%;
+            padding: 24px;
+            padding-top: max(24px, env(safe-area-inset-top));
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .view.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            animation: viewEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes viewEnter {
+            from { opacity: 0; transform: translateY(15px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* --- Headers --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .header-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-pink));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: var(--shadow-soft);
+            border: 2px solid var(--surface);
+        }
+
+        .header-text h1 {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-dark);
+            line-height: 1.2;
+        }
+
+        .header-text p {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-soft);
+            color: var(--text-dark);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .icon-btn:active { transform: scale(0.9); }
+
+        /* --- Floating Bottom Nav --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: max(24px, env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--nav-bg);
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            display: flex;
+            gap: 16px;
+            box-shadow: var(--shadow-float);
+            z-index: 100;
+        }
+
+        .nav-item {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8E8E93;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 8px 16px rgba(124, 58, 237, 0.4);
+        }
+
+        /* --- Deck Grid (Library) --- */
+        .section-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+
+        #deck-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .deck-item {
+            border-radius: var(--radius-lg);
+            padding: 20px 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 160px;
+        }
+
+        .deck-item:active { transform: scale(0.95); }
+
+        /* Dynamic Pastel Colors for Decks */
+        .deck-item:nth-child(4n+1) { background-color: var(--pastel-blue); }
+        .deck-item:nth-child(4n+2) { background-color: var(--pastel-pink); }
+        .deck-item:nth-child(4n+3) { background-color: var(--primary-light); }
+        .deck-item:nth-child(4n+4) { background-color: var(--pastel-green); }
+
+        .deck-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .deck-info h3 {
+            font-size: 16px;
+            font-weight: 800;
+            line-height: 1.3;
+            margin-bottom: 4px;
+            color: var(--text-dark);
+        }
+
+        .deck-info p {
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(0,0,0,0.5);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            border: none;
+            color: var(--danger);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+
+        /* --- Empty State --- */
+        .empty-state {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            padding: 40px 24px;
+            text-align: center;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .empty-illustration {
+            font-size: 64px;
+            margin-bottom: 16px;
+            display: inline-block;
+            background: var(--pastel-yellow);
+            width: 100px;
+            height: 100px;
+            line-height: 100px;
+            border-radius: 30px;
+            transform: rotate(-5deg);
+        }
+
+        /* --- Creation Suite --- */
+        .card-panel {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            padding: 24px;
+            box-shadow: var(--shadow-soft);
+            margin-bottom: 24px;
+        }
+
+        .file-upload-zone {
+            border: 2px dashed #E5E7EB;
+            border-radius: var(--radius-lg);
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            background: #FAFAFA;
+            transition: var(--transition);
+        }
+
+        .file-upload-zone:active { background: var(--pastel-blue); border-color: var(--primary); }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 20px;
+            background: var(--primary-light);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .input-group { margin-bottom: 20px; }
+        
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 16px;
+            border-radius: var(--radius-md);
+            border: 2px solid transparent;
+            background-color: var(--bg-main);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            outline: none;
+            transition: var(--transition);
+            appearance: none;
+        }
+
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23121212' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            background-color: var(--surface);
+            box-shadow: 0 0 0 4px var(--primary-light);
+        }
+
+        .row { display: flex; gap: 16px; }
+        .row .input-group { flex: 1; margin-bottom: 0; }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 18px 24px;
+            font-size: 16px;
+            font-weight: 800;
+            border-radius: var(--radius-pill);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: #FFFFFF;
+            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
+        }
+
+        .btn-primary:active { transform: scale(0.97); }
+
+        /* --- Study Mode --- */
+        #view-study {
+            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+        }
+
+        .study-top {
+            padding: 24px;
+            padding-top: max(24px, env(safe-area-inset-top));
+            background: var(--surface);
+            border-bottom-left-radius: var(--radius-xl);
+            border-bottom-right-radius: var(--radius-xl);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .study-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .study-deck-title {
+            background: var(--pastel-blue);
+            color: var(--text-dark);
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            font-weight: 800;
+            font-size: 14px;
+        }
+
+        .progress-wrapper {
+            background: var(--bg-main);
+            height: 12px;
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            border-radius: var(--radius-pill);
+            transition: width 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .flashcard-area {
+            flex-grow: 1;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .flashcard {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            min-height: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 32px;
+            box-shadow: var(--shadow-float);
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1.5;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Cloze Blank Styling */
+        .cloze-blank {
+            display: inline-block;
+            background-color: var(--primary);
+            color: #FFFFFF;
+            padding: 4px 16px;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: var(--transition);
+            margin: 0 4px;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+
+        .cloze-blank.hidden-cloze {
+            background-color: var(--primary-light);
+            color: transparent;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            padding: 4px 32px;
+            position: relative;
+        }
+
+        .cloze-blank.hidden-cloze::after {
+            content: "Tap";
+            color: var(--primary);
+            font-size: 14px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 800;
+        }
+        
+        .cloze-blank.hidden-cloze:active { transform: scale(0.95); }
+
+        .eval-section {
+            padding: 0 24px 40px;
+        }
+
+        .eval-tip {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .btn-correct { background-color: var(--success); }
+        .btn-incorrect { background-color: var(--danger); }
+
+        /* --- Loading & Modals --- */
+        .loader-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 24px;
+            text-align: center;
+        }
+
+        .spinner-wrapper {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+        }
+
+        .pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-light);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-out infinite;
+        }
+        
+        .pulse-core {
+            position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 32px; height: 32px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+
+        .hidden { display: none !important; }
+        
+        /* Custom Modal (Replacing Alert) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background: var(--surface);
+            width: 85%;
+            border-radius: var(--radius-xl);
+            padding: 32px 24px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 12px; }
+        .modal-msg { font-size: 15px; color: var(--text-muted); margin-bottom: 24px; font-weight: 600; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Custom Modal -->
+    <div id="app-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title" id="modal-title">Notice</h3>
+            <p class="modal-msg" id="modal-message">Message</p>
+            <button class="btn btn-primary" onclick="closeModal()">Got it</button>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title">Delete Deck?</h3>
+            <p class="modal-msg">This action cannot be undone.</p>
+            <div class="row">
+                <button class="btn" style="background: var(--bg-main); color: var(--text-dark);" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn btn-incorrect" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        
+        <!-- VIEW 1: HOME / LIBRARY -->
+        <div id="view-library" class="view active">
+            <header>
+                <div class="header-profile">
+                    <div class="avatar">👨‍🎓</div>
+                    <div class="header-text">
+                        <p>Hello, Learner</p>
+                        <h1>Ready to level up?</h1>
+                    </div>
+                </div>
+                <button class="icon-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </button>
+            </header>
+
+            <h2 class="section-title">Your Courses</h2>
+
+            <div id="empty-library-msg" class="empty-state hidden">
+                <div class="empty-illustration">📚</div>
+                <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">No Courses Yet</h3>
+                <p style="color: var(--text-muted); font-size: 15px; font-weight: 600; margin-bottom: 24px;">Upload a PDF to instantly generate bite-sized smart cards.</p>
+                <button class="btn btn-primary" onclick="switchTab('create')">Start Journey</button>
+            </div>
+
+            <div id="deck-list">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <!-- VIEW 2: CREATE SUITE -->
+        <div id="view-create" class="view">
+            <header>
+                <div class="header-profile">
+                    <div class="header-text">
+                        <p>Create Magic</p>
+                        <h1>New Journey</h1>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Step 1: Upload -->
+            <div class="card-panel" id="upload-step">
+                <div class="file-upload-zone" onclick="document.getElementById('pdf-file-input').click()">
+                    <div class="upload-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+                    </div>
+                    <h3 style="font-size: 18px; font-weight: 800; color: var(--text-dark); margin-bottom: 4px;">Upload Document</h3>
+                    <p style="font-size: 13px; font-weight: 600; color: var(--text-muted);">PDFs are processed securely on device</p>
+                    <input type="file" id="pdf-file-input" accept="application/pdf" class="hidden">
+                </div>
+            </div>
+
+            <!-- Step 2: Settings -->
+            <div id="settings-step" class="card-panel hidden">
+                <div class="input-group">
+                    <label>Detected Factor Frequency</label>
+                    <select id="chapter-dropdown"></select>
+                </div>
+
+                <div class="row">
+                    <div class="input-group">
+                        <label>From Page</label>
+                        <input type="number" id="start-page" min="1" value="1">
+                    </div>
+                    <div class="input-group">
+                        <label>To Page</label>
+                        <input type="number" id="end-page" min="1" value="1">
+                    </div>
+                </div>
+
+                <div class="input-group" style="margin-top: 16px;">
+                    <label>Course Title</label>
+                    <input type="text" id="deck-name-input" placeholder="e.g. Design Odyssey 001">
+                </div>
+
+                <div class="input-group">
+                    <label>Milestones (Cards)</label>
+                    <input type="number" id="card-count" min="1" max="30" value="8">
+                </div>
+
+                <button class="btn btn-primary" id="trigger-generation-btn" style="margin-top: 24px;">
+                    Generate Plan
+                </button>
+            </div>
+
+            <!-- Step 3: Loading -->
+            <div id="generation-loader" class="card-panel loader-card hidden">
+                <div class="spinner-wrapper">
+                    <div class="pulse-ring"></div>
+                    <div class="pulse-core"></div>
+                </div>
+                <h3 id="loader-status" style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">Processing Data...</h3>
+                <p id="loader-subtext" style="font-size: 14px; font-weight: 600; color: var(--text-muted);">Crafting your learning experience.</p>
+            </div>
+        </div>
+
+        <!-- VIEW 3: STUDY MODE -->
+        <div id="view-study" class="view">
+            <div class="study-top">
+                <div class="study-header">
+                    <button class="icon-btn" id="exit-study-btn" style="width: 40px; height: 40px; box-shadow: none; background: var(--bg-main);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                    <div class="study-deck-title" id="study-deck-title">Focus Mode</div>
+                    <div style="width: 40px;"></div> <!-- Spacer -->
+                </div>
+                <div class="progress-wrapper">
+                    <div class="progress-fill" id="study-progress"></div>
+                </div>
+            </div>
+
+            <div class="flashcard-area">
+                <div class="flashcard" id="flashcard-content">
+                    <!-- Cards Go Here -->
+                </div>
+            </div>
+
+            <div class="eval-section">
+                <p class="eval-tip" id="eval-tip">Tap the blanks above to check your knowledge</p>
+                
+                <div class="row hidden" id="assessment-row">
+                    <button class="btn btn-incorrect" id="btn-press-incorrect">
+                        Needs Work
+                    </button>
+                    <button class="btn btn-correct" id="btn-press-correct">
+                        Nailed It
+                    </button>
+                </div>
+                
+                <button class="btn" style="background: var(--nav-bg); color: white;" id="reveal-helper-btn">Reveal Answers</button>
+            </div>
+        </div>
+
+        <!-- Floating Bottom Navigation -->
+        <div class="bottom-nav" id="main-bottom-nav">
+            <div class="nav-item active" id="nav-home" onclick="switchTab('library')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            </div>
+            <div class="nav-item" id="nav-add" onclick="switchTab('create')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+            </div>
+            <div class="nav-item" id="nav-profile">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { OpenRouter } from "https://esm.sh/@openrouter/sdk?bundle";
+
+        // UI Helpers
+        window.showModal = (title, message) => {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('app-modal').classList.add('active');
+        };
+        window.closeModal = () => document.getElementById('app-modal').classList.remove('active');
+        
+        let deckToDelete = null;
+        window.closeConfirmModal = () => document.getElementById('confirm-modal').classList.remove('active');
+        document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+            if(deckToDelete !== null) {
+                state.decks.splice(deckToDelete, 1);
+                localStorage.setItem('modeck_saved_decks', JSON.stringify(state.decks));
+                renderLibrary();
+                closeConfirmModal();
+                deckToDelete = null;
+            }
+        });
+
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if(tab === 'library') {
+                document.getElementById('nav-home').classList.add('active');
+                switchView('view-library');
+            } else if (tab === 'create') {
+                document.getElementById('nav-add').classList.add('active');
+                resetCreationState();
+                switchView('view-create');
+            }
+        };
+
+        // Application State
+        const state = {
+            decks: JSON.parse(localStorage.getItem('modeck_saved_decks') || '[]'),
+            activePDF: null,
+            pdfFilename: '',
+            parsedChapters: [],
+            currentStudySession: null
+        };
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+            
+            // Hide bottom nav in study mode
+            const nav = document.getElementById('main-bottom-nav');
+            if(viewId === 'view-study') nav.classList.add('hidden');
+            else nav.classList.remove('hidden');
+
+            setTimeout(() => document.getElementById(viewId).classList.add('active'), 10);
+            if (viewId === 'view-library') renderLibrary();
+        }
+
+        function renderLibrary() {
+            const listContainer = document.getElementById('deck-list');
+            const emptyMsg = document.getElementById('empty-library-msg');
+            
+            listContainer.innerHTML = '';
+            
+            if (state.decks.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            state.decks.forEach((deck, index) => {
+                const el = document.createElement('div');
+                el.className = 'deck-item';
+                el.innerHTML = `
+                    <div>
+                        <div class="deck-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        </div>
+                        <div class="deck-info">
+                            <h3>${escapeHtml(deck.name)}</h3>
+                            <p>${deck.cards.length} Cards</p>
+                        </div>
+                    </div>
+                    <button class="delete-btn" data-index="${index}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                `;
+                
+                el.addEventListener('click', (e) => {
+                    if (e.target.closest('.delete-btn')) return;
+                    launchStudySession(deck);
+                });
+
+                el.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deckToDelete = index;
+                    document.getElementById('confirm-modal').classList.add('active');
+                });
+
+                listContainer.appendChild(el);
+            });
+        }
+
+        // --- Core PDF Logic (Preserved entirely) ---
+        async function analyzePDFStructure(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            state.activePDF = pdf;
+            
+            const numPages = pdf.numPages;
+            const chapters = [];
+            
+            const scanLimit = Math.min(10, numPages);
+            let rawTOCCollector = "";
+            for (let i = 1; i <= scanLimit; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                rawTOCCollector += content.items.map(item => item.str).join(" ") + "\n";
+            }
+
+            const lineCandidates = rawTOCCollector.split(/(?=\d+\.\s+|Chapter\s+\d+|UNIT\s+\d+)/i);
+            lineCandidates.forEach(line => {
+                const match = line.match(/^(?:chapter|unit|ch\.)\s+([0-9a-zA-Z]+)[:\s]+([^\.\n]{3,45})|([0-9]+)\.\s+([A-Za-z\s]{3,45})/i);
+                if (match) {
+                    const chapterTitle = (match[2] || match[4] || "").trim();
+                    const pageNumberMatch = line.match(/\s+(\d+)\s*$/);
+                    const pageNum = pageNumberMatch ? parseInt(pageNumberMatch[1]) : null;
+                    if (chapterTitle.length > 3 && !chapterTitle.toLowerCase().includes("contents")) {
+                        chapters.push({ title: chapterTitle, startPage: pageNum || 1 });
+                    }
+                }
+            });
+
+            if (chapters.length < 2) {
+                chapters.length = 0;
+                const interval = Math.max(5, Math.ceil(numPages / 8));
+                for (let i = 1; i <= numPages; i += interval) {
+                    const endRange = Math.min(i + interval - 1, numPages);
+                    chapters.push({ title: `Section (Pages ${i}-${endRange})`, startPage: i, endPage: endRange });
+                }
+            } else {
+                for (let j = 0; j < chapters.length; j++) {
+                    const next = chapters[j + 1];
+                    chapters[j].endPage = next ? Math.min(next.startPage - 1, numPages) : numPages;
+                    if (chapters[j].endPage < chapters[j].startPage) chapters[j].endPage = chapters[j].startPage;
+                }
+            }
+            state.parsedChapters = chapters;
+            return chapters;
+        }
+
+        async function fetchLocalPageText(start, end) {
+            if (!state.activePDF) return "";
+            let textOutput = "";
+            const lastPage = Math.min(end, state.activePDF.numPages);
+            for (let i = start; i <= lastPage; i++) {
+                const page = await state.activePDF.getPage(i);
+                const content = await page.getTextContent();
+                textOutput += content.items.map(item => item.str).join(" ") + "\n";
+            }
+            return textOutput;
+        }
+
+        function resetCreationState() {
+            document.getElementById('pdf-file-input').value = '';
+            document.getElementById('upload-step').classList.remove('hidden');
+            document.getElementById('settings-step').classList.add('hidden');
+            document.getElementById('generation-loader').classList.add('hidden');
+        }
+
+        document.getElementById('pdf-file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            state.pdfFilename = file.name.replace(/\.[^/.]+$/, "");
+
+            const loader = document.getElementById('generation-loader');
+            const uploadStep = document.getElementById('upload-step');
+            
+            uploadStep.classList.add('hidden');
+            loader.classList.remove('hidden');
+            document.getElementById('loader-status').innerText = "Analyzing PDF...";
+            document.getElementById('loader-subtext').innerText = "Mapping sections and factors.";
+
+            try {
+                const chapters = await analyzePDFStructure(file);
+                const dropdown = document.getElementById('chapter-dropdown');
+                dropdown.innerHTML = '';
+                chapters.forEach((ch, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.innerText = ch.title;
+                    dropdown.appendChild(opt);
+                });
+
+                if (chapters.length > 0) {
+                    document.getElementById('start-page').value = chapters[0].startPage;
+                    document.getElementById('end-page').value = chapters[0].endPage;
+                    document.getElementById('deck-name-input').value = `${state.pdfFilename}`;
+                }
+
+                dropdown.onchange = (evt) => {
+                    const selected = chapters[evt.target.value];
+                    document.getElementById('start-page').value = selected.startPage;
+                    document.getElementById('end-page').value = selected.endPage;
+                };
+
+                loader.classList.add('hidden');
+                document.getElementById('settings-step').classList.remove('hidden');
+            } catch (err) {
+                showModal("Read Error", "Failed to structure layout: " + err.message);
+                resetCreationState();
+            }
+        });
+
+        document.getElementById('trigger-generation-btn').addEventListener('click', async () => {
+            const start = parseInt(document.getElementById('start-page').value) || 1;
+            const end = parseInt(document.getElementById('end-page').value) || 1;
+            const cardLimit = parseInt(document.getElementById('card-count').value) || 8;
+            const deckName = document.getElementById('deck-name-input').value.trim() || "New Journey";
+
+            const settingsStep = document.getElementById('settings-step');
+            const loader = document.getElementById('generation-loader');
+            
+            settingsStep.classList.add('hidden');
+            loader.classList.remove('hidden');
+            document.getElementById('loader-status').innerText = "Connecting...";
+            document.getElementById('loader-subtext').innerText = "Gathering text data securely.";
+
+            try {
+                const contextBlock = await fetchLocalPageText(start, end);
+                if (!contextBlock.trim()) throw new Error("No readable text found on these pages.");
+
+                document.getElementById('loader-status').innerText = "AI Magic ✨";
+                document.getElementById('loader-subtext').innerText = "Crafting your learning plan.";
+
+                const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
+                const apiData = await res.json();
+                const key = apiData.part1 + apiData.part2;
+                const openrouter = new OpenRouter({ apiKey: key });
+
+                const structuredPrompt = `You are an educational assistant preparing critical flashcards. 
+Based on the text block below, create exactly ${cardLimit} factual statements that contain high-yield educational facts.
+For each statement, wrap the most important target keyword, definition, concept, or variable to be hidden inside double curly braces {{like this}}.
+Ensure only one target per sentence.
+Separate each complete flashcard statement with a line containing exact delimiter "---". Do not write any introduction, preambles or chat metadata.
+
+Text block:
+${contextBlock.substring(0, 11000)}`;
+
+                const responseStream = await openrouter.chat.send({
+                    chatRequest: {
+                        model: "google/gemma-4-26b-a4b-it:free",
+                        messages: [{ role: "user", content: structuredPrompt }],
+                        stream: false
+                    }
+                });
+
+                const rawModelOutput = responseStream.choices[0]?.message?.content || "";
+                const rawStatements = rawModelOutput.split(/\n---\n|---/);
+                const cards = [];
+
+                rawStatements.forEach(statement => {
+                    const clean = statement.trim();
+                    if (clean && clean.includes('{{') && clean.includes('}}')) {
+                        cards.push({ text: clean });
+                    }
+                });
+
+                if (cards.length === 0) throw new Error("AI couldn't format the flashcards. Try different pages.");
+
+                const newDeck = {
+                    id: Date.now().toString(),
+                    name: deckName,
+                    cards: cards,
+                    createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                };
+
+                state.decks.unshift(newDeck);
+                localStorage.setItem('modeck_saved_decks', JSON.stringify(state.decks));
+                launchStudySession(newDeck);
+
+            } catch (err) {
+                showModal("Error", err.message);
+                loader.classList.add('hidden');
+                settingsStep.classList.remove('hidden');
+            }
+        });
+
+        // --- STUDY ENGINE ---
+        function launchStudySession(deck) {
+            state.currentStudySession = {
+                deck: deck,
+                currentIndex: 0,
+                correctCount: 0,
+                incorrectCount: 0,
+                clozeRevealed: false
+            };
+
+            document.getElementById('study-deck-title').innerText = deck.name;
+            switchView('view-study');
+            renderCurrentCard();
+        }
+
+        function renderCurrentCard() {
+            const session = state.currentStudySession;
+            const currentCard = session.deck.cards[session.currentIndex];
+            const contentBox = document.getElementById('flashcard-content');
+            const evalTip = document.getElementById('eval-tip');
+            const assessmentRow = document.getElementById('assessment-row');
+            const revealHelper = document.getElementById('reveal-helper-btn');
+
+            session.clozeRevealed = false;
+            
+            const percent = ((session.currentIndex) / session.deck.cards.length) * 100;
+            document.getElementById('study-progress').style.width = `${percent}%`;
+
+            let transformedHtml = escapeHtml(currentCard.text)
+                .replace(/\{\{([^}]+)\}\}/g, '<span class="cloze-blank hidden-cloze">$1</span>');
+
+            contentBox.style.transform = "rotateX(10deg) scale(0.9)";
+            contentBox.style.opacity = "0";
+            
+            setTimeout(() => {
+                contentBox.innerHTML = `<div>${transformedHtml}</div>`;
+                contentBox.style.transform = "rotateX(0deg) scale(1)";
+                contentBox.style.opacity = "1";
+                
+                contentBox.querySelectorAll('.cloze-blank').forEach(blank => {
+                    blank.addEventListener('click', revealAnswers);
+                });
+            }, 200);
+
+            evalTip.innerText = "Tap the hidden blanks to check your knowledge";
+            assessmentRow.classList.add('hidden');
+            revealHelper.classList.remove('hidden');
+        }
+
+        function revealAnswers() {
+            const session = state.currentStudySession;
+            if (session.clozeRevealed) return;
+
+            const contentBox = document.getElementById('flashcard-content');
+            contentBox.querySelectorAll('.cloze-blank').forEach(blank => {
+                blank.classList.remove('hidden-cloze');
+            });
+
+            session.clozeRevealed = true;
+            document.getElementById('eval-tip').innerText = "How did you do?";
+            document.getElementById('assessment-row').classList.remove('hidden');
+            document.getElementById('reveal-helper-btn').classList.add('hidden');
+        }
+
+        document.getElementById('reveal-helper-btn').addEventListener('click', revealAnswers);
+
+        document.getElementById('btn-press-correct').addEventListener('click', () => {
+            state.currentStudySession.correctCount++;
+            handleNextCardStep();
+        });
+
+        document.getElementById('btn-press-incorrect').addEventListener('click', () => {
+            state.currentStudySession.incorrectCount++;
+            handleNextCardStep();
+        });
+
+        function handleNextCardStep() {
+            const session = state.currentStudySession;
+            session.currentIndex++;
+
+            if (session.currentIndex < session.deck.cards.length) {
+                renderCurrentCard();
+            } else {
+                document.getElementById('study-progress').style.width = `100%`;
+                const contentBox = document.getElementById('flashcard-content');
+                
+                contentBox.style.transform = "scale(0.9)";
+                contentBox.style.opacity = "0";
+
+                setTimeout(() => {
+                    contentBox.innerHTML = `
+                        <div>
+                            <div style="font-size: 64px; margin-bottom: 16px;">🔥</div>
+                            <h2 style="font-size: 28px; font-weight: 900; margin-bottom: 8px;">Journey Complete!</h2>
+                            
+                            <div style="background: var(--bg-main); border-radius: var(--radius-lg); padding: 24px; margin-top: 32px; display: flex; gap: 32px; justify-content: center;">
+                                <div>
+                                    <div style="font-size: 32px; font-weight:900; color: var(--success);">${session.correctCount}</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Nailed It</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 32px; font-weight:900; color: var(--danger);">${session.incorrectCount}</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Needs Work</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    contentBox.style.transform = "scale(1)";
+                    contentBox.style.opacity = "1";
+                }, 200);
+                
+                document.getElementById('eval-tip').innerText = "Session Overview";
+                document.getElementById('assessment-row').innerHTML = `
+                    <button class="btn btn-primary" onclick="switchTab('library')">Finish</button>
+                `;
+                document.getElementById('assessment-row').classList.remove('hidden');
+                document.getElementById('reveal-helper-btn').classList.add('hidden');
+            }
+        }
+
+        document.getElementById('exit-study-btn').addEventListener('click', () => {
+            // Restore eval section buttons if returning early
+            document.getElementById('assessment-row').innerHTML = `
+                <button class="btn btn-incorrect" id="btn-press-incorrect">Needs Work</button>
+                <button class="btn btn-correct" id="btn-press-correct">Nailed It</button>
+            `;
+            // Re-bind just in case
+            document.getElementById('btn-press-correct').addEventListener('click', () => { state.currentStudySession.correctCount++; handleNextCardStep(); });
+            document.getElementById('btn-press-incorrect').addEventListener('click', () => { state.currentStudySession.incorrectCount++; handleNextCardStep(); });
+            
+            window.switchTab('library');
+        });
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Initialize app on library tab
+        window.switchTab('library');
+
+    </script>
+</body>
+</html>
+
+
