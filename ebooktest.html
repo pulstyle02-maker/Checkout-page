@@ -29,6 +29,11 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     
+    html, body {
+      overscroll-behavior: none;
+      touch-action: pan-x pan-y; /* Disables native browser pinch zoom to protect top menu */
+    }
+
     .grid-bg {
       background-size: 24px 24px;
       background-image: linear-gradient(to right, rgba(0, 82, 204, 0.04) 1px, transparent 1px),
@@ -55,15 +60,21 @@
     .textLayer { mix-blend-mode: multiply; opacity: 1.0 !important; z-index: 10; }
     .textLayer ::selection { background: rgba(59, 130, 246, 0.3) !important; }
     
-    /* Dual Canvas Stacking contexts */
     .annotation-layer-pen { z-index: 25; }
     .annotation-layer-highlighter { z-index: 20; transition: opacity 0.1s ease; }
     
+    /* CSS Variables based Zooming for Hardware Acceleration */
+    #pdf-pages-viewport {
+      --zoom: 1;
+      --base-width: 760px;
+    }
+    
     .page-wrapper {
-      transition: width 0.1s ease-out, height 0.1s ease-out;
+      /* Scales via GPU/CSS engine avoiding Main-Thread Javascript Reflows */
+      width: calc(var(--base-width) * var(--zoom));
+      will-change: width;
     }
 
-    /* Horizontal, highly visible watermark with reduced font size */
     .watermark-text {
       font-size: 5.5px;
       font-weight: 900;
@@ -105,8 +116,8 @@
       <div id="login-container" class="w-full max-w-sm">
         <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
           <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email</label>
-            <input type="email" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Account Email / Username</label>
+            <input type="text" id="login-email" required class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base md:text-sm outline-none placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all">
           </div>
           <div>
             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Password</label>
@@ -145,7 +156,15 @@
     </section>
 
     <!-- ==================== VIEW 2: DASHBOARD ==================== -->
-    <section id="view-dashboard" class="view-transition hidden flex-col h-full max-w-[1020px] mx-auto w-full px-6 py-8 justify-between overflow-y-auto no-scrollbar">
+    <section id="view-dashboard" class="view-transition hidden flex-col h-full w-full overflow-y-auto no-scrollbar relative">
+      <!-- DASHBOARD MARQUEE -->
+      <div class="bg-blue-600 text-white text-[11px] font-bold py-1.5 px-4 shadow-sm flex items-center justify-between shrink-0 w-full sticky top-0 z-50">
+        <marquee scrollamount="5" class="w-full tracking-wider uppercase">
+          MCQs for Mind Your Minors Block 4 have been updated for Pathology & Pharmacology! Experience them today! ⚠️ NOTE: MCQs for Community Medicine & Behavioural Sciences will be added shortly today.
+        </marquee>
+      </div>
+
+      <div class="max-w-[1020px] mx-auto w-full px-6 py-8 flex-1 flex flex-col justify-between">
       <div>
         <div class="mb-8 border-b border-slate-200 pb-6 flex justify-between items-center gap-4">
           <div class="flex items-center gap-4">
@@ -170,20 +189,28 @@
       <footer class="mt-12 py-6 border-t border-slate-200 text-center select-none text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">
         Copyright ©️ 2026 modmedicalis-modebooks
       </footer>
+      </div>
     </section>
 
     <!-- ==================== VIEW 3: INTERACTIVE READER ==================== -->
     <section id="view-reader" class="view-transition hidden flex flex-col h-full bg-[#F2F2F7] overflow-hidden relative">
       
       <!-- Collapsible Page Jump & Bookmarks Sidebar Menu -->
-      <div id="left-jump-menu" class="hidden fixed left-0 top-16 bottom-0 w-52 bg-white border-r border-slate-200 z-40 overflow-y-auto no-scrollbar p-3 shadow-lg flex flex-col">
-        <div class="flex border-b border-slate-100 mb-3 text-[10px] font-black uppercase tracking-widest text-center">
-          <button id="tab-pages-toggle" onclick="switchSidebarTab('pages')" class="flex-1 pb-2 border-b-2 border-blue-600 text-slate-800 transition-colors">Pages</button>
-          <button id="tab-bookmarks-toggle" onclick="switchSidebarTab('bookmarks')" class="flex-1 pb-2 border-b-2 border-transparent text-slate-400 transition-colors">Bookmarks</button>
+      <div id="left-jump-menu" class="hidden fixed left-0 top-16 bottom-0 w-52 bg-white border-r border-slate-200 z-[100] overflow-y-auto no-scrollbar p-3 shadow-lg flex flex-col">
+        <div class="flex border-b border-slate-100 mb-3 text-[9px] font-black uppercase tracking-widest text-center">
+          <button id="tab-sections-toggle" onclick="switchSidebarTab('sections')" class="flex-1 pb-2 border-b-2 border-blue-600 text-slate-800 transition-colors">Sections</button>
+          <button id="tab-pages-toggle" onclick="switchSidebarTab('pages')" class="flex-1 pb-2 border-b-2 border-transparent text-slate-400 transition-colors">Pages</button>
+          <button id="tab-bookmarks-toggle" onclick="switchSidebarTab('bookmarks')" class="flex-1 pb-2 border-b-2 border-transparent text-slate-400 transition-colors">Saved</button>
         </div>
-        <div id="sidebar-pages-container" class="space-y-1 flex-1 overflow-y-auto no-scrollbar">
+        
+        <div id="sidebar-sections-container" class="space-y-1 flex-1 overflow-y-auto no-scrollbar">
+          <div id="jump-sections-list" class="space-y-1 flex flex-col gap-1"></div>
+        </div>
+
+        <div id="sidebar-pages-container" class="hidden space-y-1 flex-1 overflow-y-auto no-scrollbar">
           <div id="jump-pages-list" class="space-y-1"></div>
         </div>
+
         <div id="sidebar-bookmarks-container" class="hidden space-y-1 flex-1 overflow-y-auto no-scrollbar">
           <div id="jump-bookmarks-list" class="space-y-1 flex flex-col gap-1">
             <div class="text-center py-6 text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">No saved bookmarks.</div>
@@ -191,8 +218,8 @@
         </div>
       </div>
 
-      <!-- Floating Frame Page Counter (Dynamic Page 12 Offset Map) -->
-      <div class="fixed bottom-4 right-4 z-40 bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg">
+      <!-- Floating Page Counter Indicator -->
+      <div class="fixed bottom-4 right-4 z-[100] bg-white/95 px-3 py-1.5 border border-slate-200 text-[10px] font-black tracking-widest text-slate-600 shadow-lg uppercase select-none rounded-lg pointer-events-none">
         Page <span id="page-indicator-current">1</span> of <span id="page-indicator-total">--</span>
       </div>
 
@@ -208,8 +235,8 @@
         </div>
       </div>
 
-      <!-- Responsive Toolbar (Tightly packed, minimal gaps) -->
-      <div class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-30 select-none w-full shadow-sm overflow-x-auto no-scrollbar">
+      <!-- Responsive Toolbar -->
+      <div id="reader-toolbar" class="px-2 py-2 bg-white border-b border-slate-200 shrink-0 z-[100] select-none w-full shadow-sm overflow-x-auto no-scrollbar relative">
         <div class="flex items-center justify-between gap-2 max-w-7xl mx-auto">
           
           <!-- Left Elements: Exit, Menu, Search -->
@@ -231,10 +258,10 @@
             </div>
           </div>
 
-          <!-- Zoom Controls (Buttons always visible on mobile, slider visible on desktop) -->
+          <!-- Zoom Controls -->
           <div class="flex items-center gap-1.5 bg-slate-50 px-2 sm:px-3 py-1.5 rounded-full border border-slate-200 shrink-0">
             <button onclick="zoomReader(-0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="minus" class="w-4 h-4"></i></button>
-            <input type="range" min="0.5" max="2.5" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="hidden md:block w-28 sm:w-36 mx-1">
+            <input type="range" min="0.5" max="3.0" step="0.1" value="1.0" id="zoom-slider" oninput="handleZoomSlider(this.value)" class="hidden md:block w-28 sm:w-36 mx-1">
             <button onclick="zoomReader(0.1)" class="text-slate-400 hover:text-slate-700 px-1"><i data-lucide="plus" class="w-4 h-4"></i></button>
           </div>
 
@@ -249,7 +276,6 @@
 
             <button onclick="toggleBookmark()" id="tool-bookmark" title="Bookmark page" class="p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white"><i data-lucide="bookmark" class="w-4 h-4"></i></button>
             <div class="w-px h-5 bg-slate-300 mx-0.5"></div>
-            <!-- Toggle-based tools (Pan/Pointer removed) -->
             <button onclick="setReaderTool('pen')" id="tool-pen" title="Drawing Pen" class="p-2 rounded-lg text-slate-400 hover:bg-white"><i data-lucide="pen-tool" class="w-4 h-4"></i></button>
             <button onclick="setReaderTool('highlighter')" id="tool-highlighter" title="Highlight Tool" class="p-2 rounded-lg text-slate-400 hover:bg-white"><i data-lucide="highlighter" class="w-4 h-4"></i></button>
             <button onclick="setReaderTool('eraser')" id="tool-eraser" title="Eraser" class="p-2 rounded-lg text-slate-400 hover:bg-white"><i data-lucide="eraser" class="w-4 h-4"></i></button>
@@ -260,18 +286,23 @@
       </div>
       
       <!-- Detached High Z-Index Search Dropdown -->
-      <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[250] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
+      <div id="search-dropdown" class="hidden fixed top-16 left-4 sm:left-24 w-[300px] bg-white border border-slate-200 shadow-2xl rounded-xl z-[150] max-h-48 overflow-y-auto no-scrollbar p-1"></div>
 
-      <!-- Viewport -->
-      <div class="flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative" id="pdf-scroll-container">
+      <!-- Viewport (Vertically Streams Pages as they are scrolled into view) -->
+      <!-- Strict z-0 applied here so it creates a localized stacking context below dropdowns -->
+      <div class="flex-1 w-full h-full overflow-y-auto overflow-x-auto no-scrollbar scroll-smooth relative z-0" id="pdf-scroll-container">
+        <!-- Skeleton Loading Bar Overlay -->
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
-          <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p class="text-xs font-bold tracking-wider text-slate-500 uppercase">Compiling rendering layout...</p>
+          <div class="w-64 h-2 bg-slate-200 rounded-full overflow-hidden mb-4 shadow-inner">
+             <div id="pdf-download-progress" class="h-full bg-blue-600 transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting securely...</p>
         </div>
-        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start w-full min-h-full py-6 space-y-6"></div>
+        <!-- Vertical Scroll Viewport -->
+        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start h-max min-w-full py-6 px-6 space-y-6 relative z-0"></div>
       </div>
       
-      <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-50 transition-all">
+      <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-[250] transition-all">
         <i data-lucide="shield-alert" id="toast-icon" class="w-4 h-4 text-blue-400 shrink-0"></i>
         <span id="toast-text" class="font-medium tracking-wide"></span>
       </div>
@@ -279,23 +310,170 @@
 
     <!-- ==================== VIEW 4: EMBEDDED MCQ PORTAL ==================== -->
     <section id="view-mcq" class="view-transition hidden flex-col h-full bg-[#FAF9F6] overflow-hidden">
-      <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-30 shrink-0">
+      <div class="bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between shadow-sm z-30 shrink-0">
         <div class="flex items-center gap-3">
           <button onclick="closeMCQPortal()" class="p-2 bg-slate-50 text-slate-500 hover:text-red-500 rounded-xl border border-slate-200 transition-all">
-            <i data-lucide="arrow-left" class="w-4.5 h-4.5"></i>
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
           </button>
           <div>
-            <span class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest">Self Assessment Hub</span>
-            <h1 id="mcq-book-title" class="text-lg font-black text-slate-900 leading-tight">Interactive Study Portal</h1>
+            <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest">Mind Your Minors Block 4</span>
+            <h1 id="mcq-book-title" class="text-base sm:text-lg font-black text-slate-900 leading-tight">MCQ Assessment Portal</h1>
           </div>
         </div>
-      </div>
-      <div class="flex-1 w-full h-full relative">
-        <div id="mcq-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10">
-           <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-           <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Loading Portal...</p>
+        <div class="text-[9px] font-bold text-slate-400 text-right uppercase tracking-widest hidden sm:block">
+          Support: 03096554421<br>modmedicalis@gmail.com
         </div>
-        <iframe id="mcq-iframe" src="" class="w-full h-full border-none relative z-20" onload="document.getElementById('mcq-loading').classList.add('hidden')"></iframe>
+      </div>
+      
+      <div class="flex-1 w-full h-full overflow-y-auto no-scrollbar relative flex flex-col">
+        <!-- Dashboard Configuration Screen -->
+        <div id="mcq-config-screen" class="p-6 max-w-4xl mx-auto w-full flex-1">
+          <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
+            <h3 class="text-sm font-bold text-blue-800 mb-1 flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i> Any issues? We are here to help!</h3>
+            <p class="text-xs text-blue-700">Contact us at <strong>03096554421</strong> or email <strong>modmedicalis@gmail.com</strong>.</p>
+          </div>
+
+          <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm mb-6">
+            <h2 class="text-lg font-black text-slate-900 mb-4 border-b border-slate-100 pb-2">1. Select Syllabus Filter</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Subject</label>
+                <select id="mcq-select-subject" onchange="mcqFilterChanged()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none">
+                  <option value="">All Supported Subjects</option>
+                  <option value="Pathology">Pathology</option>
+                  <option value="Pharmacology">Pharmacology</option>
+                  <option value="Community Medicine">Community Medicine</option>
+                  <option value="Behavioral Sciences">Behavioral Sciences</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Module</label>
+                <select id="mcq-select-module" onchange="mcqFilterChanged()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none">
+                  <option value="">All Modules</option>
+                </select>
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Learning Objective (Topics)</label>
+                <select id="mcq-select-lo" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none">
+                  <option value="">All Topics</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analytics & Mistakes Banner -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-indigo-900 text-white p-5 rounded-2xl shadow-md flex items-center justify-between">
+              <div>
+                <div class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Total Solved</div>
+                <div class="text-3xl font-black" id="mcq-stat-total">0</div>
+              </div>
+              <i data-lucide="bar-chart-2" class="w-8 h-8 text-indigo-400 opacity-50"></i>
+            </div>
+            <div class="bg-emerald-900 text-white p-5 rounded-2xl shadow-md flex items-center justify-between">
+              <div>
+                <div class="text-[10px] font-black uppercase tracking-widest text-emerald-300">Avg Accuracy</div>
+                <div class="text-3xl font-black" id="mcq-stat-acc">0%</div>
+              </div>
+              <i data-lucide="target" class="w-8 h-8 text-emerald-400 opacity-50"></i>
+            </div>
+            <div class="bg-red-900 text-white p-5 rounded-2xl shadow-md flex items-center justify-between cursor-pointer hover:bg-red-800 transition-colors" onclick="startMistakesSession()">
+              <div>
+                <div class="text-[10px] font-black uppercase tracking-widest text-red-300">Mistakes Bank</div>
+                <div class="text-3xl font-black" id="mcq-stat-mistakes">0</div>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <i data-lucide="alert-triangle" class="w-6 h-6 text-red-400"></i>
+                <span class="text-[9px] font-bold bg-red-950 px-2 py-0.5 rounded-full text-red-200">PRACTICE NOW</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm mb-6">
+             <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                <h2 class="text-lg font-black text-slate-900">2. Select a Set to Start</h2>
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                   <button onclick="setMcqMode('practice')" id="mode-btn-practice" class="px-3 py-1.5 text-[10px] font-black uppercase rounded bg-white text-blue-600 shadow-sm transition-all">Practice</button>
+                   <button onclick="setMcqMode('test')" id="mode-btn-test" class="px-3 py-1.5 text-[10px] font-black uppercase rounded text-slate-400 hover:text-slate-600 transition-all">Test Mode</button>
+                </div>
+             </div>
+             <p class="text-xs text-slate-500 font-bold mb-4">Questions are divided into unique sets of 20 to prevent repetition.</p>
+             <div id="mcq-sets-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto no-scrollbar p-1">
+                <div class="col-span-full text-center py-8 text-slate-400 text-xs font-bold uppercase">Select syllabus filters above to load sets.</div>
+             </div>
+          </div>
+
+          <!-- Reviews System -->
+          <div class="bg-slate-900 text-white border border-slate-800 rounded-3xl p-6 shadow-xl mb-6">
+             <h2 class="text-lg font-black mb-1">Leave a Review</h2>
+             <p class="text-xs text-slate-400 mb-4">Help us improve by leaving a review for this book/module.</p>
+             <form id="mcq-review-form" onsubmit="submitReview(event)">
+                <div class="flex items-center gap-2 mb-4" id="star-rating-container">
+                  <i data-lucide="star" data-val="1" class="w-6 h-6 text-slate-600 cursor-pointer hover:text-amber-400 transition-colors star-icon"></i>
+                  <i data-lucide="star" data-val="2" class="w-6 h-6 text-slate-600 cursor-pointer hover:text-amber-400 transition-colors star-icon"></i>
+                  <i data-lucide="star" data-val="3" class="w-6 h-6 text-slate-600 cursor-pointer hover:text-amber-400 transition-colors star-icon"></i>
+                  <i data-lucide="star" data-val="4" class="w-6 h-6 text-slate-600 cursor-pointer hover:text-amber-400 transition-colors star-icon"></i>
+                  <i data-lucide="star" data-val="5" class="w-6 h-6 text-slate-600 cursor-pointer hover:text-amber-400 transition-colors star-icon"></i>
+                  <input type="hidden" id="review-stars" value="0" required>
+                </div>
+                <textarea id="review-text" required placeholder="Write your feedback here..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none mb-4 h-24 focus:border-blue-500"></textarea>
+                <button type="submit" id="btn-submit-review" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-lg text-xs transition-all">Submit Review</button>
+             </form>
+          </div>
+        </div>
+
+        <!-- Active MCQ Execution Screen -->
+        <div id="mcq-active-screen" class="hidden p-4 sm:p-6 max-w-3xl mx-auto w-full flex-col flex-1 h-full">
+           <div class="flex justify-between items-center mb-6 bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-slate-200">
+             <div>
+               <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Question <span id="mcq-curr-num">1</span> of <span id="mcq-total-num">20</span></span>
+               <span id="mcq-active-mode-label" class="text-xs font-bold text-blue-600">Practice Mode</span>
+             </div>
+             <div id="mcq-timer-display" class="hidden text-xl font-black text-slate-800 flex items-center gap-2">
+               <i data-lucide="clock" class="w-5 h-5 text-red-500"></i> <span id="mcq-time">00:00</span>
+             </div>
+             <button onclick="endMcqSession()" class="px-3 py-1.5 bg-red-50 text-red-600 font-bold text-xs rounded-lg hover:bg-red-100 border border-red-200">End Session</button>
+           </div>
+           
+           <div id="mcq-question-container" class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-md mb-4 flex-1">
+             <div id="mcq-tags" class="flex gap-2 mb-4 flex-wrap"></div>
+             <h3 id="mcq-statement" class="text-lg sm:text-xl font-black text-slate-900 leading-snug mb-6">Loading question...</h3>
+             <div id="mcq-options-container" class="space-y-3"></div>
+           </div>
+
+           <div id="mcq-explanation-box" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-4 shadow-sm">
+             <h4 class="text-emerald-800 font-black text-sm mb-2 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Explanation</h4>
+             <p id="mcq-explanation-text" class="text-emerald-900 text-sm leading-relaxed mb-3"></p>
+             <div class="bg-white/60 p-3 rounded-lg border border-emerald-100 text-xs text-emerald-800 italic" id="mcq-citation-text"></div>
+           </div>
+
+           <div class="flex justify-between items-center mt-auto pt-4 pb-8">
+             <button id="mcq-btn-prev" onclick="navMcq(-1)" class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 disabled:opacity-50"><i data-lucide="chevron-left" class="w-5 h-5 inline"></i> Prev</button>
+             <button id="mcq-btn-next" onclick="navMcq(1)" class="px-5 py-3 bg-blue-600 border border-blue-700 text-white font-bold rounded-xl shadow-sm hover:bg-blue-700 disabled:opacity-50">Next <i data-lucide="chevron-right" class="w-5 h-5 inline"></i></button>
+             <button id="mcq-btn-submit" onclick="submitMcqTest()" class="hidden px-6 py-3 bg-emerald-600 border border-emerald-700 text-white font-black rounded-xl shadow-sm hover:bg-emerald-700">Submit Test</button>
+           </div>
+        </div>
+
+        <!-- MCQ Results Screen -->
+        <div id="mcq-results-screen" class="hidden p-6 max-w-2xl mx-auto w-full flex-col flex-1 h-full items-center justify-center text-center">
+           <i data-lucide="award" class="w-20 h-20 text-yellow-400 mb-4"></i>
+           <h2 class="text-3xl font-black text-slate-900 mb-2">Session Complete!</h2>
+           <p class="text-sm font-bold text-slate-500 mb-8 uppercase tracking-widest">Analytics Saved Successfully</p>
+           
+           <div class="grid grid-cols-2 gap-4 w-full mb-8">
+             <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+               <div class="text-[10px] font-black uppercase text-slate-400 mb-1">Total Score</div>
+               <div id="mcq-res-score" class="text-4xl font-black text-blue-600">0/20</div>
+             </div>
+             <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+               <div class="text-[10px] font-black uppercase text-slate-400 mb-1">Accuracy</div>
+               <div id="mcq-res-accuracy" class="text-4xl font-black text-emerald-500">0%</div>
+             </div>
+           </div>
+           
+           <button onclick="closeMCQPortal()" class="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-lg">Return to Dashboard</button>
+        </div>
+
       </div>
     </section>
 
@@ -314,9 +492,6 @@
   </div>
 
   <script>
-    // Set standard PDF.js worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
     // ===== SYSTEM CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
@@ -340,14 +515,20 @@
       };
     })();
 
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const isSlowConnection = connection && ['slow-2g', '2g', '3g'].includes(connection.effectiveType);
+
     const readerState = {
-      tool: null, // Null defaults to pan
+      tool: null, 
       zoom: 1.0,
       activePdf: null,
       activeBookId: null,
+      activeSections: [],
+      activeSectionIndex: 0,
       currentPage: 1,
       baseWidth: 760, 
-      renderScale: window.innerWidth < 768 ? 1.6 : 2.2, // Improved crispness, no crash
+      // Optimized scale to save huge amounts of Canvas RAM while keeping text sharp. Reduces further on 2G/3G to prevent blank pages.
+      renderScale: isSlowConnection ? 1.0 : (window.innerWidth < 768 ? 1.3 : 1.8), 
       currentColor: '#2563EB',
       searchQuery: "",
       textIndex: {},
@@ -357,6 +538,15 @@
     };
 
     let progressTimeout;
+    let zoomTimeout;
+    let userLibrary = {}; // Stores library metadata for user's active database documents
+
+    // Securely Chunked Cloudflare R2 Section Files
+    const PDF_SECTIONS = [
+      { title: "COVER & INTRO", file: ["In", "tro%20", "%26%20", "cover.pdf"].join("") },
+      { title: "GIT & NUTRITION", file: ["GIT%", "20%26", "%20NU", "TRITI", "ON.pdf"].join("") },
+      { title: "RENAL", file: ["Re", "nal", ".pdf"].join("") }
+    ];
 
     function showView(viewId) {
       ['view-login', 'view-dashboard', 'view-reader', 'view-mcq'].forEach(id => {
@@ -368,7 +558,20 @@
 
     // ===== AUTH GATEWAY =====
     auth.onAuthStateChanged((user) => {
-      if (user) {
+      const masterSession = localStorage.getItem('master_access_session');
+      if (masterSession) {
+        try {
+          const sessionData = JSON.parse(masterSession);
+          userLibrary = {};
+          document.getElementById('dashboard-user').textContent = sessionData.name || sessionData.username;
+          readerState.userTransactionId = "UNIVERSAL_ACCESS";
+          showView('view-dashboard');
+          mockUniversalLibraryAccess();
+        } catch(e) {
+          localStorage.removeItem('master_access_session');
+          showView('view-login');
+        }
+      } else if (user) {
         db.collection('mod_users').doc(user.uid).get().then(doc => {
           if (!doc.exists) {
             showSecToast("Access restricted: store-purchased accounts only.", "shield-alert");
@@ -390,6 +593,7 @@
       const container = document.getElementById('library-container');
       db.collection("mod_users").doc(uid).collection("library").onSnapshot((snapshot) => {
         container.innerHTML = ''; _secureState.flush();
+        userLibrary = {};
         if (snapshot.empty) {
           container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">No active E-Books purchased. Purchase on our store to unlock.</div>`;
           return;
@@ -397,19 +601,11 @@
 
         snapshot.forEach((doc) => {
           const data = doc.data(); const bookId = doc.id;
+          userLibrary[bookId] = data;
           const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
           let coverUrl = data.imageUrl || "https://i.imgur.com/zFDh5b3.jpeg"; 
           
-          // Secure, Chunked, & Proxied Base64 Link Compilation to prevent code inspection and enforce non-iframe PDF rendering
-          const _getSafePdf = () => {
-            const _x1 = atob("aHR0cHM6Ly9jb3JzcHJveHkuaW8vPw==");
-            const _x2 = atob("aHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL3VjP2V4cG9ydD1kb3dubG9hZCZpZD0=");
-            const _x3 = atob("MWJGd1lDc25WdE83ZWdRMnp6RGdYMXh3S3l5RFVmZFVx");
-            return _x1 + encodeURIComponent(_x2 + _x3);
-          };
-          let targetBookUrl = data.url || _getSafePdf();
-          
-          _secureState.save(bookId, targetBookUrl);
+          _secureState.save(bookId, 'R2_SPLIT_PDF');
 
           const cardId = `book-card-${bookId}`; const progressId = `progress-text-${bookId}`;
           const progressBarId = `progress-bar-${bookId}`; const imgCoverId = `img-cover-${bookId}`;
@@ -427,8 +623,8 @@
                     <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
                   </div>
                 </div>
-                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Loading progress...</p>
-                <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden"><div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 0%"></div></div>
+                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Reading Cover & Intro...</p>
+                <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden"><div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 30%"></div></div>
               </div>
               <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
                 <button onclick="openBookViewer('${bookId}')" class="w-full inline-flex justify-center items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all"><span>Read E-Book</span><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
@@ -445,13 +641,15 @@
             });
           }).catch(()=>{});
 
-          db.collection('mod_users').doc(uid).collection('progress').doc(bookId).get().then(progDoc => {
+          db.collection('mod_users').doc(uid).collection('progress').doc(bookId + "_sec0").get().then(progDoc => {
             const pTextEl = document.getElementById(progressId); const pBarEl = document.getElementById(progressBarId);
             if (pTextEl && pBarEl) {
               if (progDoc.exists && progDoc.data().lastPage) {
                 const lastPage = progDoc.data().lastPage;
-                pTextEl.textContent = getPageLabelText(lastPage);
-                const percent = Math.min(Math.round((lastPage / 14) * 100), 100); 
+                pTextEl.textContent = getPageLabelText(lastPage, 0, bookId);
+                const isHistology = bookId.toLowerCase().includes('histology') || cleanName.toLowerCase().includes('histology') || cleanName.toLowerCase().includes('night');
+                const totalEstPages = isHistology ? 80 : 14;
+                const percent = Math.min(Math.round((lastPage / totalEstPages) * 100), 100); 
                 pBarEl.style.width = `${percent}%`;
               } else { pTextEl.textContent = "Not started yet"; pBarEl.style.width = "0%"; }
             }
@@ -461,45 +659,224 @@
       });
     }
 
-    function getPageLabelText(pageNum) {
-      if (pageNum < 12) return `Reading Intro ${pageNum}`;
-      return `Last read on Page ${pageNum - 11}`;
+    function mockUniversalLibraryAccess() {
+      const container = document.getElementById('library-container');
+      container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">Syncing Universal Library...</div>`;
+      _secureState.flush();
+      userLibrary = {};
+
+      db.collection("products").get().then((snapshot) => {
+        if (snapshot.empty) {
+          container.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 font-bold">No storefront books found to display.</div>`;
+          return;
+        }
+        container.innerHTML = '';
+        snapshot.forEach((doc) => {
+          const data = doc.data(); const bookId = doc.id;
+          userLibrary[bookId] = data;
+          const cleanName = data.name ? data.name.replace(' (E-Book)', '') : "Study Module";
+          let coverUrl = (data.images && data.images.length > 0) ? data.images[0] : (data.image || "https://i.imgur.com/zFDh5b3.jpeg");
+          
+          _secureState.save(bookId, 'R2_SPLIT_PDF');
+
+          const cardId = `book-card-${bookId}`; const progressId = `progress-text-${bookId}`;
+          const progressBarId = `progress-bar-${bookId}`; const imgCoverId = `img-cover-${bookId}`;
+
+          container.innerHTML += `
+            <div id="${cardId}" class="bg-white border border-slate-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300 rounded-3xl">
+              <div>
+                <div class="flex gap-4 mb-4">
+                  <img id="${imgCoverId}" src="${coverUrl}" class="w-16 h-24 object-cover border border-slate-200 shadow-sm rounded-lg" alt="Book Cover" />
+                  <div class="flex-1">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="book-open" class="w-4 h-4"></i></div>
+                      <button onclick="openMCQPortal('${bookId}', '${cleanName.replace(/'/g, "\\'")}')" class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all text-[9px] font-extrabold uppercase rounded-lg tracking-wider">MCQ Portal</button>
+                    </div>
+                    <h3 class="text-base font-black text-slate-950 line-clamp-2">${cleanName}</h3>
+                  </div>
+                </div>
+                <p id="${progressId}" class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Master Access Activated</p>
+                <div class="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden"><div id="${progressBarId}" class="bg-blue-600 h-full rounded-full transition-all" style="width: 100%"></div></div>
+              </div>
+              <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                <button onclick="openBookViewer('${bookId}')" class="w-full inline-flex justify-center items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl shadow-md transition-all"><span>Read E-Book</span><i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+              </div>
+            </div>`;
+        });
+        lucide.createIcons();
+      }).catch(err => {
+        container.innerHTML = `<div class="col-span-full text-center py-16 text-red-500 font-bold">Failed to load library: ${err.message}</div>`;
+      });
     }
 
-    async function openBookViewer(bookId) {
+    function getPageLabelText(pageNum, secIndex = readerState.activeSectionIndex, bookId = readerState.activeBookId) {
+      const activeId = bookId || readerState.activeBookId || "";
+      const bookData = userLibrary[activeId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+      
+      if (activeId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night')) {
+        return `Page ${pageNum}`;
+      }
+      
+      if (secIndex === 0) {
+        if (pageNum < 12) return `Intro ${pageNum}`;
+        return `Page ${pageNum - 11}`;
+      }
+      return `Page ${pageNum}`;
+    }
+
+    function renderSectionsList() {
+      const container = document.getElementById('jump-sections-list');
+      container.innerHTML = "";
+      const sections = readerState.activeSections || PDF_SECTIONS;
+      sections.forEach((sec, idx) => {
+        const isActive = readerState.activeSectionIndex === idx;
+        const bgClass = isActive ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700";
+        container.innerHTML += `
+          <button onclick="loadSpecificSection(${idx})" class="w-full text-left px-3 py-2 border rounded-lg text-xs font-bold transition-all flex justify-between items-center ${bgClass}">
+            <span>${sec.title}</span>
+            ${isActive ? '<i data-lucide="check-circle" class="w-3.5 h-3.5 text-blue-600"></i>' : '<i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-50"></i>'}
+          </button>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function openBookViewer(bookId) {
       readerState.activeBookId = bookId;
-      document.getElementById('pdf-search-input').value = "";
-      document.getElementById('search-dropdown').classList.add('hidden');
-      document.getElementById('reader-loading').classList.remove('hidden');
+      
+      const bookData = userLibrary[bookId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '');
+      const cleanNameLower = cleanName.toLowerCase();
+      
+      if (bookId.toLowerCase().includes('histology') || cleanNameLower.includes('histology') || cleanNameLower.includes('night')) {
+        readerState.activeSections = [
+          { title: "HISTOLOGY BY NIGHT", file: "Histology_by_Night.pdf" }
+        ];
+      } else {
+        readerState.activeSections = PDF_SECTIONS;
+      }
+      
       showView('view-reader');
       setReaderTool(null); 
+      switchSidebarTab('sections');
+      document.getElementById('left-jump-menu').classList.remove('hidden');
+      loadSpecificSection(0);
+    }
+
+    // Secure memory-safe caching loader
+    async function loadSpecificSection(index) {
+      if(readerState.activePdf && readerState.activeSectionIndex === index && document.getElementById('pdf-pages-viewport').innerHTML !== "") {
+        switchSidebarTab('pages'); 
+        return;
+      }
+
+      readerState.activeSectionIndex = index;
+      readerState.currentPage = 1;
+      document.getElementById('pdf-search-input').value = "";
+      document.getElementById('search-dropdown').classList.add('hidden');
       
-      let targetUrl = _secureState.retrieve(bookId);
+      const loadingScreen = document.getElementById('reader-loading');
+      loadingScreen.classList.remove('hidden');
+      const statusText = document.getElementById('loading-status-text');
+      const progressBar = document.getElementById('pdf-download-progress');
+      progressBar.style.width = '0%';
+      
+      document.getElementById('pdf-pages-viewport').innerHTML = ''; 
+      renderSectionsList();
+
+      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
+      const sections = readerState.activeSections || PDF_SECTIONS;
+      const targetFileName = sections[index] ? sections[index].file : "";
+      const targetUrl = R2_BASE + targetFileName;
+      
       try {
-        const loadingTask = pdfjsLib.getDocument({ url: targetUrl, withCredentials: false });
-        const pdf = await loadingTask.promise;
+        statusText.textContent = "Checking local memory...";
+        let loadingTask;
+        
+        try {
+            const cache = await caches.open('modmedicalis-pdf-cache-v2');
+            const cachedRes = await cache.match(targetUrl);
+            
+            if (cachedRes) {
+                statusText.textContent = "Loading from local memory...";
+                progressBar.style.width = '100%';
+                const buffer = await cachedRes.arrayBuffer();
+                loadingTask = pdfjsLib.getDocument({ data: buffer });
+            } else {
+                loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+                loadingTask.onProgress = (p) => {
+                    if (p.total) {
+                        const percent = Math.min(100, Math.round((p.loaded / p.total) * 100));
+                        progressBar.style.width = `${percent}%`;
+                        statusText.textContent = `Downloading securely... ${percent}%`;
+                    }
+                };
+            }
+        } catch (cacheErr) {
+            loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+        }
+        
+        let pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
+        
+        try {
+            caches.open('modmedicalis-pdf-cache-v2').then(async (cache) => {
+                const isCached = await cache.match(targetUrl);
+                if (!isCached) {
+                    const data = await pdf.getData();
+                    const res = new Response(data, { headers: { 'Content-Type': 'application/pdf' } });
+                    cache.put(targetUrl, res);
+                }
+            });
+        } catch(e) {}
+        
         loadSidebarBookmarks();
 
-        const uid = auth.currentUser.uid;
-        const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(bookId).get();
-        if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+        const masterSession = localStorage.getItem('master_access_session');
+        if (masterSession) {
+            const savedProg = localStorage.getItem(`master_progress_${readerState.activeBookId}_sec${index}`);
+            if (savedProg) { readerState.currentPage = parseInt(savedProg); }
+        } else {
+            const uid = auth.currentUser ? auth.currentUser.uid : 'DEMO';
+            if (auth.currentUser) {
+                const progDoc = await db.collection('mod_users').doc(uid).collection('progress').doc(readerState.activeBookId + "_sec" + index).get();
+                if(progDoc.exists && progDoc.data().lastPage) { readerState.currentPage = progDoc.data().lastPage; }
+            }
+        }
 
         renderLazyViewport(pdf);
       } catch (error) {
-        showSecToast("Failed to compile layout parameters.", "alert-triangle");
+        statusText.textContent = "CORS redirect fallback active...";
+        try {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+          const loadingTask = pdfjsLib.getDocument({ url: proxyUrl, disableRange: true });
+          let pdf = await loadingTask.promise;
+          readerState.activePdf = pdf;
+          loadSidebarBookmarks();
+          renderLazyViewport(pdf);
+        } catch (fallbackError) {
+          showSecToast("Failed to compile layout parameters.", "alert-triangle");
+          loadingScreen.classList.add('hidden');
+        }
       }
     }
 
-    // Delayed Background Indexer (No Lag)
+    // Delayed Background Indexer
     function preIndexDocumentText(pdf) {
       readerState.textIndex = {};
       const jumpList = document.getElementById('jump-pages-list');
       jumpList.innerHTML = "";
-      document.getElementById('page-indicator-total').textContent = pdf.numPages - 11;
+      
+      const bookData = userLibrary[readerState.activeBookId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+      const isHistology = readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night');
+
+      const totalDisplayPages = (readerState.activeSectionIndex === 0 && !isHistology) ? pdf.numPages - 11 : pdf.numPages;
+      document.getElementById('page-indicator-total').textContent = totalDisplayPages;
 
       for (let i = 1; i <= pdf.numPages; i++) {
-        let label = i < 12 ? `Intro ${i}` : `Page ${i - 11}`;
+        let label = getPageLabelText(i);
         jumpList.innerHTML += `
           <button onclick="jumpToSearchResultPage(${i}, '')" class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-lg transition-all flex justify-between">
             <span>${label}</span><i data-lucide="chevron-right" class="w-3.5 h-3.5 opacity-50"></i>
@@ -507,7 +884,6 @@
       }
       lucide.createIcons();
 
-      // Start fetching text quietly after PDF is visually loaded
       setTimeout(async () => {
         for (let i = 1; i <= pdf.numPages; i++) {
           if (readerState.activePdf !== pdf) break; 
@@ -523,28 +899,43 @@
     async function renderLazyViewport(pdf) {
       const viewportContainer = document.getElementById('pdf-pages-viewport');
       viewportContainer.innerHTML = '';
+      
+      // Inject CSS Variable for scaling
+      viewportContainer.style.setProperty('--zoom', readerState.zoom);
+
       const firstPage = await pdf.getPage(1);
       const originalViewport = firstPage.getViewport({ scale: 1.0 });
       const aspectRatio = originalViewport.width / originalViewport.height;
+      
       const containerW = document.getElementById('pdf-scroll-container').clientWidth;
-      readerState.baseWidth = containerW > 850 ? 760 : containerW * 0.92;
+      
+      // Optimized width calculation for vertical layout flow
+      if (window.innerWidth < 768) {
+          readerState.baseWidth = containerW * 0.95;
+      } else {
+          readerState.baseWidth = Math.min(containerW * 0.8, 800);
+      }
+      
+      viewportContainer.style.setProperty('--base-width', `${readerState.baseWidth}px`);
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const pageWrapper = document.createElement('div');
         pageWrapper.id = `page-wrapper-${pageNum}`;
-        pageWrapper.className = "page-wrapper relative bg-white shadow-xl border border-slate-300 transition-all flex-shrink-0 flex items-center justify-center overflow-hidden";
-        const currentWidth = readerState.baseWidth * readerState.zoom;
-        pageWrapper.style.width = `${currentWidth}px`;
+        // Elegant loading setup instead of pulse skeleton
+        pageWrapper.className = "page-wrapper relative z-10 bg-white shadow-xl border border-slate-300 transition-none flex-shrink-0 flex items-center justify-center overflow-hidden";
+        pageWrapper.innerHTML = `<div class="absolute flex flex-col items-center gap-3"><div class="w-8 h-8 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rendering...</span></div>`;
+        
         pageWrapper.style.height = 'auto'; 
         pageWrapper.style.aspectRatio = `${aspectRatio}`;
-        pageWrapper.style.setProperty('--aspect-ratio', aspectRatio);
         pageWrapper.dataset.pageNum = pageNum;
         pageWrapper.dataset.rendered = "false";
+        pageWrapper.dataset.rendering = "false";
         viewportContainer.appendChild(pageWrapper);
       }
 
       preIndexDocumentText(pdf);
 
+      // Safe Memory Management - Limits bounding box to 1000px preventing Zoom rendering crash from overload
       const observer = new IntersectionObserver((entries) => {
         if (readerState.isZooming) return; 
         entries.forEach(entry => {
@@ -552,29 +943,52 @@
           if (entry.isIntersecting) {
             renderPageOnDemand(pdf, pageNum, entry.target);
             readerState.currentPage = pageNum;
-            document.getElementById('page-indicator-current').textContent = pageNum < 12 ? `Intro ${pageNum}` : pageNum - 11;
+            document.getElementById('page-indicator-current').textContent = getPageLabelText(pageNum);
             clearTimeout(progressTimeout);
             progressTimeout = setTimeout(() => saveProgressToFirebase(pageNum), 1200);
           } else {
-            clearPageFromMemory(entry.target);
+             // Freeing memory of far-away pages avoiding rendering race condition loops
+             clearPageFromMemory(entry.target);
           }
         });
-      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.35, rootMargin: '0px' });
+      }, { root: document.getElementById('pdf-scroll-container'), threshold: 0.05, rootMargin: '1000px 1000px 1000px 1000px' });
 
+      window.pdfObserver = observer; // Stored globally to force re-evaluation during heavy zoom transforms
       document.querySelectorAll('.page-wrapper').forEach(wrapper => observer.observe(wrapper));
 
       setTimeout(() => {
         document.getElementById('reader-loading').classList.add('hidden');
         if(readerState.currentPage > 1) {
           const target = document.getElementById(`page-wrapper-${readerState.currentPage}`);
-          if(target) target.scrollIntoView({ block: 'start' });
+          if(target) target.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
         }
       }, 400);
     }
+    
+    function clearPageFromMemory(container) {
+      if (container.dataset.rendered !== "true" && container.dataset.rendering !== "true") return;
+      
+      // Safely cancels internal PDF canvas painting to prevent WebGL/Context Crashes on unmount
+      if (container.dataset.rendering === "true" && container._renderTask) {
+          try { container._renderTask.cancel(); } catch(e) {}
+      }
+
+      // Empty the contents (Canvases) to heavily save RAM, container size is maintained via pure CSS calculations.
+      container.innerHTML = `<div class="absolute flex flex-col items-center gap-3"><div class="w-8 h-8 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rendering...</span></div>`;
+      container.dataset.rendered = "false";
+      container.dataset.rendering = "false";
+    }
 
     function saveProgressToFirebase(pageNum) {
+      const masterSession = localStorage.getItem('master_access_session');
+      if (masterSession) {
+        localStorage.setItem(`master_progress_${readerState.activeBookId}_sec${readerState.activeSectionIndex}`, pageNum);
+        return;
+      }
       if(!auth.currentUser || !readerState.activeBookId) return;
-      db.collection('mod_users').doc(auth.currentUser.uid).collection('progress').doc(readerState.activeBookId).set({ lastPage: pageNum }, { merge: true });
+      db.collection('mod_users').doc(auth.currentUser.uid)
+        .collection('progress').doc(readerState.activeBookId + "_sec" + readerState.activeSectionIndex)
+        .set({ lastPage: pageNum }, { merge: true });
     }
 
     function triggerViewportObserverEvaluation() {
@@ -583,11 +997,14 @@
     }
 
     async function renderPageOnDemand(pdf, pageNum, container) {
-      if (container.dataset.rendered === "true") return;
-      container.dataset.rendered = "true";
+      // Prevents memory leak rendering race conditions where clear memory attempts failed mid-promise
+      if (container.dataset.rendered === "true" || container.dataset.rendering === "true") return;
+      container.dataset.rendering = "true";
 
       try {
         const page = await pdf.getPage(pageNum);
+        if (container.dataset.rendering === "false") return; // Safely aborts if cleared during fetch promise
+
         const highResViewport = page.getViewport({ scale: readerState.renderScale });
 
         const canvas = document.createElement('canvas');
@@ -596,11 +1013,21 @@
         container.appendChild(canvas);
 
         const ctx = canvas.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport: highResViewport }).promise;
+        const renderTask = page.render({ canvasContext: ctx, viewport: highResViewport });
+        container._renderTask = renderTask; // Bind to DOM to enable manual cancellation 
+
+        await renderTask.promise;
+
+        if (container.dataset.rendering === "false") {
+            container.innerHTML = `<div class="absolute flex flex-col items-center gap-3"><div class="w-8 h-8 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rendering...</span></div>`;
+            return;
+        }
+
+        container.innerHTML = ''; // Remove spinner before painting canvas
 
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = "textLayer absolute inset-0 overflow-hidden";
-        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; // Null means pan
+        textLayerDiv.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; 
         textLayerDiv.style.zIndex = (!readerState.tool) ? '30' : '10';
         container.appendChild(textLayerDiv);
 
@@ -609,7 +1036,6 @@
           await pdfjsLib.renderTextLayer({ textContent: textContent, container: textLayerDiv, viewport: highResViewport, textDivs: [] }).promise;
         } catch(e) {}
 
-        // DUAL CANVAS (Highlighter is locked to 15% opacity to avoid dark muddying)
         const hlCanvas = document.createElement('canvas');
         hlCanvas.className = "annotation-layer-highlighter absolute inset-0";
         hlCanvas.style.opacity = '0.15'; 
@@ -624,8 +1050,7 @@
         penCanvas.width = highResViewport.width; penCanvas.height = highResViewport.height;
         container.appendChild(penCanvas);
 
-        // HORIZONTAL FORENSIC WATERMARK (20% Opacity Solid Black)
-        const email = auth.currentUser.email || 'USER';
+        const email = auth.currentUser ? auth.currentUser.email : 'USER';
         const maskedPass = readerState.userPasswordMask;
         const maskedTID = readerState.userTransactionId;
         const wmText = `LICENSED TO: ${email.toUpperCase()} / TRANS ID: ${maskedTID} / PASS: ${maskedPass}`;
@@ -643,16 +1068,15 @@
 
         container.appendChild(watermarkDiv);
 
-        initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
-      } catch (err) {}
-    }
+        container.dataset.rendered = "true";
+        container.dataset.rendering = "false";
+        container.classList.remove('animate-pulse', 'bg-slate-100');
+        container.classList.add('bg-white');
 
-    function clearPageFromMemory(container) {
-      if (container.dataset.rendered !== "true") return;
-      container.innerHTML = '';
-      const canvases = container.querySelectorAll('canvas');
-      canvases.forEach(c => { c.width = 0; c.height = 0; });
-      container.dataset.rendered = "false";
+        initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum);
+      } catch (err) {
+          container.dataset.rendering = "false";
+      }
     }
 
     function toggleSearchBarInput() {
@@ -679,7 +1103,7 @@
           dropdown.innerHTML += `
             <div onclick="jumpToSearchResultPage(${i}, '${q}')" class="px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer text-slate-700 border-b border-slate-100 last:border-none flex flex-col gap-1 leading-normal">
               <span class="font-medium">${contextSnippet}</span>
-              <span class="text-blue-600 uppercase text-[9px] font-bold">Page ${i < 12 ? `Intro ${i}` : i - 11} &rarr;</span>
+              <span class="text-blue-600 uppercase text-[9px] font-bold">${getPageLabelText(i)} &rarr;</span>
             </div>`;
         }
       }
@@ -689,7 +1113,7 @@
     function jumpToSearchResultPage(pageNum, query) {
       document.getElementById('search-dropdown').classList.add('hidden');
       const targetWrap = document.getElementById(`page-wrapper-${pageNum}`);
-      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (targetWrap) targetWrap.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     }
 
     function getEventCoordinates(e, canvas) {
@@ -702,8 +1126,9 @@
 
     function initializeCanvasPenTracker(penCanvas, hlCanvas, pageNum) {
       const penCtx = penCanvas.getContext('2d'); const hlCtx = hlCanvas.getContext('2d');
-      const penSaveKey = `annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
-      const hlSaveKey = `annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${pageNum}`;
+      const authUser = auth.currentUser ? auth.currentUser.uid : 'DEMO';
+      const penSaveKey = `annotations_pen_${authUser}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${pageNum}`;
+      const hlSaveKey = `annotations_hl_${authUser}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${pageNum}`;
 
       const savedPen = localStorage.getItem(penSaveKey);
       if (savedPen) { const img = new Image(); img.onload = () => penCtx.drawImage(img, 0, 0); img.src = savedPen; }
@@ -753,15 +1178,27 @@
 
     function toggleLeftJumpMenu() { document.getElementById('left-jump-menu').classList.toggle('hidden'); }
     function switchSidebarTab(tabName) {
-      const pTab = document.getElementById('tab-pages-toggle'); const bTab = document.getElementById('tab-bookmarks-toggle');
-      const pCont = document.getElementById('sidebar-pages-container'); const bCont = document.getElementById('sidebar-bookmarks-container');
+      const sTab = document.getElementById('tab-sections-toggle');
+      const pTab = document.getElementById('tab-pages-toggle'); 
+      const bTab = document.getElementById('tab-bookmarks-toggle');
+      
+      const sCont = document.getElementById('sidebar-sections-container');
+      const pCont = document.getElementById('sidebar-pages-container'); 
+      const bCont = document.getElementById('sidebar-bookmarks-container');
 
-      if (tabName === 'pages') {
-        pTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800"; bTab.className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400";
-        pCont.classList.remove('hidden'); bCont.classList.add('hidden');
+      [sTab, pTab, bTab].forEach(t => t.className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400");
+      [sCont, pCont, bCont].forEach(c => c.classList.add('hidden'));
+
+      if (tabName === 'sections') {
+        sTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800";
+        sCont.classList.remove('hidden');
+      } else if (tabName === 'pages') {
+        pTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800";
+        pCont.classList.remove('hidden');
       } else {
-        bTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800"; pTab.className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400";
-        pCont.classList.add('hidden'); bCont.classList.remove('hidden'); loadSidebarBookmarks();
+        bTab.className = "flex-1 pb-2 border-b-2 border-blue-600 text-slate-800";
+        bCont.classList.remove('hidden'); 
+        loadSidebarBookmarks();
       }
     }
 
@@ -771,13 +1208,14 @@
       container.innerHTML = `<div class="text-center py-6 text-[10px] text-slate-400 font-extrabold uppercase tracking-widest animate-pulse">Syncing...</div>`;
       if(!auth.currentUser || !readerState.activeBookId) return;
 
-      db.collection('mod_users').doc(auth.currentUser.uid).collection('bookmarks').doc(readerState.activeBookId).get().then(doc => {
+      db.collection('mod_users').doc(auth.currentUser.uid).collection('bookmarks')
+        .doc(readerState.activeBookId + "_sec" + readerState.activeSectionIndex).get().then(doc => {
         container.innerHTML = "";
         if (!doc.exists || !doc.data().pages || doc.data().pages.length === 0) {
           container.innerHTML = `<div class="text-center py-6 text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">No saved bookmarks.</div>`; return;
         }
         doc.data().pages.forEach(item => {
-          let label = item.label || (item.pageNum < 12 ? `Intro ${item.pageNum}` : `Page ${item.pageNum - 11}`);
+          let label = item.label || getPageLabelText(item.pageNum);
           container.innerHTML += `<button onclick="jumpToSearchResultPage(${item.pageNum}, '')" class="w-full text-left px-3 py-2 bg-slate-50 border border-slate-100 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-700 transition-all flex justify-between items-center"><span>${label}</span><i data-lucide="bookmark" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i></button>`;
         });
         lucide.createIcons();
@@ -791,9 +1229,12 @@
       document.getElementById('bookmark-dialog').classList.add('hidden');
       if (!save || !auth.currentUser || !readerState.activeBookId) return;
       const activeBookmarkPage = readerState.currentPage;
-      const docRef = db.collection('mod_users').doc(auth.currentUser.uid).collection('bookmarks').doc(readerState.activeBookId);
+      
+      const docRef = db.collection('mod_users').doc(auth.currentUser.uid).collection('bookmarks')
+                     .doc(readerState.activeBookId + "_sec" + readerState.activeSectionIndex);
+                     
       const customName = document.getElementById('bookmark-name-input').value.trim();
-      let labelString = customName || (activeBookmarkPage < 12 ? `Intro ${activeBookmarkPage}` : `Page ${activeBookmarkPage - 11}`);
+      let labelString = customName || getPageLabelText(activeBookmarkPage);
 
       docRef.get().then(doc => {
         let pages = doc.exists && doc.data().pages ? doc.data().pages : [];
@@ -805,9 +1246,8 @@
 
     function setInkColor(hex) { readerState.currentColor = hex; }
     
-    // Toggle Mode
     function setReaderTool(toolName) {
-      if (readerState.tool === toolName) readerState.tool = null; // Toggle OFF
+      if (readerState.tool === toolName) readerState.tool = null;
       else readerState.tool = toolName;
       
       ['pen', 'highlighter', 'eraser'].forEach(t => {
@@ -827,16 +1267,390 @@
       document.querySelectorAll('.textLayer').forEach(layer => { layer.style.pointerEvents = (!readerState.tool) ? 'auto' : 'none'; layer.style.zIndex = (!readerState.tool) ? '30' : '10'; });
     }
 
-    // Embed MCQ Iframe directly
-    function openMCQPortal(bookId, bookTitle) {
-      document.getElementById('mcq-book-title').textContent = `${bookTitle} Self Assessment`;
-      document.getElementById('mcq-iframe').src = "https://www.modmedicalis.online/mindyourminorsblock4";
-      document.getElementById('mcq-loading').classList.remove('hidden');
+    // ===== MCQ PORTAL LOGIC =====
+    let mcqEngine = {
+      syllabus: [], allMcqs: [], filteredMcqs: [], sets: [],
+      mistakes: {}, // Tracks wrong MCQs by ID
+      userStats: { total: 0, correct: 0 },
+      currentSet: [], currentIndex: 0,
+      mode: 'practice', // 'practice' or 'test'
+      isReviewingMistakes: false,
+      answers: {}, timer: null, timeLeft: 0, score: 0
+    };
+
+    async function openMCQPortal(bookId, bookTitle) {
+      document.getElementById('mcq-book-title').textContent = `${bookTitle} Module`;
       showView('view-mcq');
+      document.getElementById('mcq-config-screen').classList.remove('hidden');
+      document.getElementById('mcq-active-screen').classList.add('hidden');
+      document.getElementById('mcq-results-screen').classList.add('hidden');
+
+      loadUserAnalytics();
+
+      if(mcqEngine.syllabus.length === 0) {
+        try {
+          let res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/2ndyearsyllabus.json");
+          let data = await res.json();
+          mcqEngine.syllabus = data.syllabus || [];
+          populateSyllabusFilters();
+        } catch(e) { console.error("Failed to load syllabus"); }
+      }
+      if(mcqEngine.allMcqs.length === 0) {
+        try {
+          let fetchUrls = ['a','b','c','d','e','f','g'].map(x => `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/mymb4${x}.json`);
+          let responses = await Promise.allSettled(fetchUrls.map(url => fetch(url)));
+          for(let res of responses) {
+            if(res.status === 'fulfilled' && res.value.ok) {
+              let chunk = await res.value.json();
+              mcqEngine.allMcqs = mcqEngine.allMcqs.concat(chunk);
+            }
+          }
+          mcqFilterChanged(); // Init sets once loaded
+        } catch(e) { console.error("Failed to load MCQs"); }
+      } else {
+        mcqFilterChanged();
+      }
     }
+
+    function loadUserAnalytics() {
+      if(!auth.currentUser) return;
+      let uid = auth.currentUser.uid;
+      
+      // Load mistakes
+      db.collection('mod_users').doc(uid).collection('mcq_mistakes').get().then(snap => {
+        mcqEngine.mistakes = {};
+        snap.forEach(doc => { mcqEngine.mistakes[doc.id] = doc.data(); });
+        document.getElementById('mcq-stat-mistakes').textContent = Object.keys(mcqEngine.mistakes).length;
+      });
+
+      // Load analytics
+      db.collection('mod_users').doc(uid).collection('mcq_analytics').get().then(snap => {
+        mcqEngine.userStats = { total: 0, correct: 0 };
+        snap.forEach(doc => {
+          let d = doc.data();
+          mcqEngine.userStats.total += d.total || 0;
+          mcqEngine.userStats.correct += d.score || 0;
+        });
+        document.getElementById('mcq-stat-total').textContent = mcqEngine.userStats.total;
+        let acc = mcqEngine.userStats.total > 0 ? Math.round((mcqEngine.userStats.correct / mcqEngine.userStats.total) * 100) : 0;
+        document.getElementById('mcq-stat-acc').textContent = acc + '%';
+      });
+    }
+
+    function populateSyllabusFilters() {
+      const subSel = document.getElementById('mcq-select-subject');
+      const modSel = document.getElementById('mcq-select-module');
+      const loSel = document.getElementById('mcq-select-lo');
+      
+      let subject = subSel.value;
+      modSel.innerHTML = '<option value="">All Modules</option>';
+      loSel.innerHTML = '<option value="">All Topics</option>';
+      
+      let relevantSyllabus = mcqEngine.syllabus;
+      if(subject) relevantSyllabus = relevantSyllabus.filter(s => s.subject === subject);
+      
+      let modules = [...new Set(relevantSyllabus.map(s => s.moduleName))];
+      modules.forEach(m => modSel.innerHTML += `<option value="${m}">${m}</option>`);
+    }
+
+    function mcqFilterChanged() {
+      const subSel = document.getElementById('mcq-select-subject');
+      const modSel = document.getElementById('mcq-select-module');
+      const loSel = document.getElementById('mcq-select-lo');
+      
+      let subject = subSel.value;
+      let module = modSel.value;
+      
+      loSel.innerHTML = '<option value="">All Topics</option>';
+      let relevantSyllabus = mcqEngine.syllabus;
+      if(subject) relevantSyllabus = relevantSyllabus.filter(s => s.subject === subject);
+      if(module) relevantSyllabus = relevantSyllabus.filter(s => s.moduleName === module);
+      
+      relevantSyllabus.forEach(s => {
+        if(s.learningObjectives) {
+          s.learningObjectives.forEach(lo => {
+            loSel.innerHTML += `<option value="${lo.objective.split('.')[0]}">${lo.objective}</option>`;
+          });
+        }
+      });
+
+      // Generate Chunked Sets based on filter
+      let filterTag = loSel.value;
+      let availableQs = mcqEngine.allMcqs;
+      
+      if(subject || filterTag) {
+        availableQs = availableQs.filter(q => {
+          let match = true;
+          if(subject) {
+             let sbjMap = {"Pathology": "Pa", "Pharmacology": "Ph", "Community Medicine": "CM", "Behavioral Sciences": "BhS"};
+             if(!q.tag.includes(`-${sbjMap[subject]}-`)) match = false;
+          }
+          if(filterTag && !q.tag.includes(filterTag)) match = false;
+          return match;
+        });
+      }
+
+      mcqEngine.filteredMcqs = availableQs;
+      mcqEngine.sets = [];
+      for (let i = 0; i < mcqEngine.filteredMcqs.length; i += 20) {
+          mcqEngine.sets.push(mcqEngine.filteredMcqs.slice(i, i + 20));
+      }
+
+      const grid = document.getElementById('mcq-sets-grid');
+      grid.innerHTML = "";
+      if(mcqEngine.sets.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-xs font-bold uppercase">No MCQs found for this filter.</div>`;
+        return;
+      }
+
+      mcqEngine.sets.forEach((set, idx) => {
+         grid.innerHTML += `
+           <button onclick="startMcqSession(${idx})" class="p-4 bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md rounded-2xl flex flex-col items-center justify-center gap-2 transition-all group">
+             <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-black group-hover:bg-blue-600 group-hover:text-white transition-colors">${idx + 1}</div>
+             <span class="text-[10px] font-black uppercase text-slate-500">Set ${idx + 1}</span>
+             <span class="text-[9px] font-bold text-slate-400">${set.length} Qs</span>
+           </button>
+         `;
+      });
+    }
+
+    function setMcqMode(mode) {
+      mcqEngine.mode = mode;
+      document.getElementById('mode-btn-practice').className = mode === 'practice' ? "px-3 py-1.5 text-[10px] font-black uppercase rounded bg-white text-blue-600 shadow-sm transition-all" : "px-3 py-1.5 text-[10px] font-black uppercase rounded text-slate-400 hover:text-slate-600 transition-all";
+      document.getElementById('mode-btn-test').className = mode === 'test' ? "px-3 py-1.5 text-[10px] font-black uppercase rounded bg-white text-blue-600 shadow-sm transition-all" : "px-3 py-1.5 text-[10px] font-black uppercase rounded text-slate-400 hover:text-slate-600 transition-all";
+    }
+
+    function startMistakesSession() {
+      let mistakesKeys = Object.keys(mcqEngine.mistakes);
+      if(mistakesKeys.length === 0) {
+        return showSecToast("Your mistakes bank is empty. Great job!", "check-circle");
+      }
+      // Load max 20 mistakes for review
+      let reviewIds = mistakesKeys.sort(() => 0.5 - Math.random()).slice(0, 20);
+      let reviewQs = reviewIds.map(id => mcqEngine.mistakes[id]);
+      
+      mcqEngine.isReviewingMistakes = true;
+      executeSession(reviewQs);
+    }
+
+    function startMcqSession(setIndex) {
+      mcqEngine.isReviewingMistakes = false;
+      executeSession(mcqEngine.sets[setIndex]);
+    }
+
+    function executeSession(questionArray) {
+      mcqEngine.currentSet = questionArray;
+      mcqEngine.currentIndex = 0;
+      mcqEngine.answers = {};
+      mcqEngine.score = 0;
+      
+      document.getElementById('mcq-config-screen').classList.add('hidden');
+      document.getElementById('mcq-active-screen').classList.remove('hidden');
+      document.getElementById('mcq-results-screen').classList.add('hidden');
+      
+      document.getElementById('mcq-total-num').textContent = mcqEngine.currentSet.length;
+      document.getElementById('mcq-active-mode-label').textContent = mcqEngine.isReviewingMistakes ? "Mistakes Review" : (mcqEngine.mode === 'practice' ? "Practice Mode" : "Test Mode");
+      
+      if(mcqEngine.mode === 'test' && !mcqEngine.isReviewingMistakes) {
+        document.getElementById('mcq-timer-display').classList.remove('hidden');
+        document.getElementById('mcq-btn-submit').classList.remove('hidden');
+        mcqEngine.timeLeft = mcqEngine.currentSet.length * 60; // 1 min per q
+        updateTimerDisplay();
+        mcqEngine.timer = setInterval(() => {
+          mcqEngine.timeLeft--;
+          updateTimerDisplay();
+          if(mcqEngine.timeLeft <= 0) submitMcqTest();
+        }, 1000);
+      } else {
+        document.getElementById('mcq-timer-display').classList.add('hidden');
+        document.getElementById('mcq-btn-submit').classList.add('hidden');
+      }
+      
+      renderCurrentMcq();
+    }
+
+    function updateTimerDisplay() {
+      let m = Math.floor(mcqEngine.timeLeft / 60).toString().padStart(2, '0');
+      let s = (mcqEngine.timeLeft % 60).toString().padStart(2, '0');
+      document.getElementById('mcq-time').textContent = `${m}:${s}`;
+    }
+
+    function renderCurrentMcq() {
+      let q = mcqEngine.currentSet[mcqEngine.currentIndex];
+      document.getElementById('mcq-curr-num').textContent = mcqEngine.currentIndex + 1;
+      
+      let tagsHtml = `<span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-[9px] font-black uppercase tracking-wider">${q.tag || 'GENERAL'}</span>`;
+      if(q.difficulty) tagsHtml += `<span class="px-2 py-1 bg-amber-50 text-amber-600 rounded-md text-[9px] font-black uppercase tracking-wider">${q.difficulty}</span>`;
+      document.getElementById('mcq-tags').innerHTML = tagsHtml;
+      
+      document.getElementById('mcq-statement').textContent = q.statement;
+      
+      let optsHtml = "";
+      q.options.forEach((opt, idx) => {
+        let isSelected = mcqEngine.answers[mcqEngine.currentIndex] === idx;
+        let btnClass = "w-full text-left p-4 rounded-xl border-2 transition-all font-medium text-sm ";
+        
+        if (mcqEngine.mode === 'practice' && mcqEngine.answers[mcqEngine.currentIndex] !== undefined) {
+          if (idx === q.correctOptionIndex) btnClass += "bg-emerald-50 border-emerald-500 text-emerald-800";
+          else if (isSelected) btnClass += "bg-red-50 border-red-500 text-red-800";
+          else btnClass += "bg-white border-slate-200 text-slate-500 opacity-50";
+        } else {
+          btnClass += isSelected ? "bg-blue-50 border-blue-500 text-blue-800" : "bg-white border-slate-200 hover:border-blue-300 text-slate-700";
+        }
+        
+        optsHtml += `<button onclick="selectMcqOption(${idx})" class="${btnClass}" ${mcqEngine.mode==='practice' && mcqEngine.answers[mcqEngine.currentIndex]!==undefined ? 'disabled' : ''}>
+           <span class="inline-block w-6 h-6 rounded-full bg-white border border-slate-300 text-center text-xs font-bold leading-5 mr-3 align-middle shadow-sm">${String.fromCharCode(65+idx)}</span>
+           ${opt}
+        </button>`;
+      });
+      document.getElementById('mcq-options-container').innerHTML = optsHtml;
+      
+      document.getElementById('mcq-btn-prev').disabled = mcqEngine.currentIndex === 0;
+      
+      // Auto-submit logic for practice mode on the last question
+      if (mcqEngine.currentIndex === mcqEngine.currentSet.length - 1) {
+          if (mcqEngine.mode === 'practice' && mcqEngine.answers[mcqEngine.currentIndex] !== undefined) {
+              document.getElementById('mcq-btn-next').classList.add('hidden');
+              document.getElementById('mcq-btn-submit').classList.remove('hidden');
+          } else {
+              document.getElementById('mcq-btn-next').disabled = true;
+          }
+      } else {
+          document.getElementById('mcq-btn-next').classList.remove('hidden');
+          document.getElementById('mcq-btn-next').disabled = false;
+          if (mcqEngine.mode === 'practice') document.getElementById('mcq-btn-submit').classList.add('hidden');
+      }
+      
+      let expBox = document.getElementById('mcq-explanation-box');
+      if(mcqEngine.mode === 'practice' && mcqEngine.answers[mcqEngine.currentIndex] !== undefined) {
+        expBox.classList.remove('hidden');
+        document.getElementById('mcq-explanation-text').textContent = q.optionExplanations ? q.optionExplanations[q.correctOptionIndex] : "No explanation available.";
+        document.getElementById('mcq-citation-text').textContent = q.citation || "";
+      } else {
+        expBox.classList.add('hidden');
+      }
+    }
+
+    function selectMcqOption(idx) {
+      if(mcqEngine.mode === 'practice' && mcqEngine.answers[mcqEngine.currentIndex] !== undefined) return;
+      mcqEngine.answers[mcqEngine.currentIndex] = idx;
+      renderCurrentMcq();
+    }
+
+    function navMcq(dir) {
+      let newIdx = mcqEngine.currentIndex + dir;
+      if(newIdx >= 0 && newIdx < mcqEngine.currentSet.length) {
+        mcqEngine.currentIndex = newIdx;
+        renderCurrentMcq();
+      }
+    }
+
+    function endMcqSession() {
+      if(mcqEngine.timer) clearInterval(mcqEngine.timer);
+      document.getElementById('mcq-active-screen').classList.add('hidden');
+      document.getElementById('mcq-config-screen').classList.remove('hidden');
+      loadUserAnalytics(); // refresh stats
+    }
+
+    function submitMcqTest() {
+      if(mcqEngine.timer) clearInterval(mcqEngine.timer);
+      mcqEngine.score = 0;
+      
+      let batchMistakesAdd = [];
+      let batchMistakesRemove = [];
+
+      mcqEngine.currentSet.forEach((q, i) => {
+        let isCorrect = mcqEngine.answers[i] === q.correctOptionIndex;
+        if(isCorrect) {
+          mcqEngine.score++;
+          if(mcqEngine.isReviewingMistakes) batchMistakesRemove.push(q.id); // Fixed mistake
+        } else {
+          if(!mcqEngine.isReviewingMistakes && q.id) batchMistakesAdd.push(q); // New mistake
+        }
+      });
+      
+      document.getElementById('mcq-active-screen').classList.add('hidden');
+      document.getElementById('mcq-results-screen').classList.remove('hidden');
+      
+      document.getElementById('mcq-res-score').textContent = `${mcqEngine.score}/${mcqEngine.currentSet.length}`;
+      let acc = Math.round((mcqEngine.score / mcqEngine.currentSet.length) * 100);
+      document.getElementById('mcq-res-accuracy').textContent = `${acc}%`;
+      
+      // Save Analytics to Firebase
+      if(auth.currentUser) {
+        let uid = auth.currentUser.uid;
+        
+        // Save Session Stats
+        if(!mcqEngine.isReviewingMistakes) {
+            db.collection('mod_users').doc(uid).collection('mcq_analytics').add({
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+              score: mcqEngine.score,
+              total: mcqEngine.currentSet.length,
+              accuracy: acc,
+              mode: mcqEngine.mode
+            });
+        }
+        
+        // Process Mistakes additions
+        let mistakesRef = db.collection('mod_users').doc(uid).collection('mcq_mistakes');
+        batchMistakesAdd.forEach(q => { mistakesRef.doc(q.id).set(q); });
+        
+        // Process Mistakes removals (user learned and got it right)
+        batchMistakesRemove.forEach(qId => { mistakesRef.doc(qId).delete(); });
+      }
+    }
+
     function closeMCQPortal() { 
-      document.getElementById('mcq-iframe').src = "";
+      if(mcqEngine.timer) clearInterval(mcqEngine.timer);
+      loadUserAnalytics(); // Refresh the stats before closing just in case
       showView('view-dashboard'); 
+    }
+
+    // Stars review logic
+    document.querySelectorAll('.star-icon').forEach(star => {
+      star.addEventListener('click', function() {
+        let val = parseInt(this.getAttribute('data-val'));
+        document.getElementById('review-stars').value = val;
+        document.querySelectorAll('.star-icon').forEach(s => {
+          if(parseInt(s.getAttribute('data-val')) <= val) {
+            s.classList.remove('text-slate-600'); s.classList.add('text-amber-400', 'fill-amber-400');
+          } else {
+            s.classList.add('text-slate-600'); s.classList.remove('text-amber-400', 'fill-amber-400');
+          }
+        });
+      });
+    });
+
+    function submitReview(e) {
+      e.preventDefault();
+      let stars = document.getElementById('review-stars').value;
+      if(stars == "0") return showSecToast("Please select a star rating", "alert-circle");
+      
+      let text = document.getElementById('review-text').value;
+      let btn = document.getElementById('btn-submit-review');
+      btn.textContent = "Sending..."; btn.disabled = true;
+      
+      let userEmail = auth.currentUser ? auth.currentUser.email : "anonymous@user.com";
+      
+      fetch("https://formsubmit.co/ajax/modmedicalis@gmail.com", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          _subject: "New App Review Submission",
+          email: userEmail,
+          rating: `${stars} Stars`,
+          review: text
+        })
+      }).then(res => res.json()).then(data => {
+        showSecToast("Thank you for your feedback!", "check-circle");
+        document.getElementById('mcq-review-form').reset();
+        document.querySelectorAll('.star-icon').forEach(s => { s.classList.add('text-slate-600'); s.classList.remove('text-amber-400', 'fill-amber-400'); });
+        document.getElementById('review-stars').value = "0";
+      }).catch(err => {
+        showSecToast("Failed to send review.", "alert-triangle");
+      }).finally(() => {
+        btn.textContent = "Submit Review"; btn.disabled = false;
+      });
     }
 
     function togglePurchaseHistory(show) {
@@ -865,33 +1679,93 @@
       });
     }
 
+    // High Performance Hardware-Accelerated CSS Variable Zooming
     function applyDynamicSizing() {
-      readerState.isZooming = true; // Lock intersecting updates to prevent mobile crashes
-      const currentWidth = readerState.baseWidth * readerState.zoom;
-      document.querySelectorAll('.page-wrapper').forEach(wrapper => {
-        wrapper.style.width = `${currentWidth}px`;
-        wrapper.style.height = 'auto'; 
-      });
-      document.getElementById('zoom-slider').value = readerState.zoom;
+      readerState.isZooming = true;
+      const viewport = document.getElementById('pdf-pages-viewport');
+      if (viewport) {
+         viewport.style.setProperty('--zoom', readerState.zoom);
+      }
+      
+      const slider = document.getElementById('zoom-slider');
+      if(slider) slider.value = readerState.zoom;
+
       clearTimeout(zoomTimeout);
-      zoomTimeout = setTimeout(() => { readerState.isZooming = false; triggerViewportObserverEvaluation(); }, 500);
+      zoomTimeout = setTimeout(() => { 
+          readerState.isZooming = false;
+          // Forces observer to wake up and catch rendering missed during heavy layout shifts avoiding crashes
+          if (window.pdfObserver) {
+              document.querySelectorAll('.page-wrapper').forEach(wrapper => {
+                  window.pdfObserver.unobserve(wrapper);
+                  window.pdfObserver.observe(wrapper);
+              });
+          }
+          triggerViewportObserverEvaluation(); 
+      }, 350);
     }
-    function handleZoomSlider(val) { readerState.zoom = parseFloat(val); applyDynamicSizing(); }
+    
+    function handleZoomSlider(val) { 
+        readerState.zoom = parseFloat(val); 
+        applyDynamicSizing(); 
+    }
+    
     function zoomReader(modifier) {
       let newZoom = readerState.zoom + modifier;
-      if (newZoom < 0.5 || newZoom > 2.5) return;
+      if (newZoom < 0.5 || newZoom > 3.0) return;
       readerState.zoom = parseFloat(newZoom.toFixed(1));
       applyDynamicSizing();
     }
 
+    // Highly optimized Pinch-To-Zoom Touch Event override powered by requestAnimationFrame
+    let pinchInitialDist = 0;
+    let pinchInitialZoom = 1;
+    let isPinching = false;
+    let pinchTicking = false;
+    const scrollContainerEl = document.getElementById('pdf-scroll-container');
+    
+    scrollContainerEl.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            isPinching = true;
+            pinchInitialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            pinchInitialZoom = readerState.zoom;
+        }
+    }, { passive: false });
+
+    scrollContainerEl.addEventListener('touchmove', (e) => {
+        if (isPinching && e.touches.length === 2) {
+            e.preventDefault(); 
+            if (!pinchTicking) {
+                window.requestAnimationFrame(() => {
+                    const currentDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                    const scale = currentDist / pinchInitialDist;
+                    let newZ = pinchInitialZoom * scale;
+                    if (newZ < 0.5) newZ = 0.5;
+                    if (newZ > 3.0) newZ = 3.0;
+                    
+                    if (Math.abs(newZ - readerState.zoom) > 0.02) {
+                        readerState.zoom = parseFloat(newZ.toFixed(2));
+                        applyDynamicSizing();
+                    }
+                    pinchTicking = false;
+                });
+                pinchTicking = true;
+            }
+        }
+    }, { passive: false });
+
+    scrollContainerEl.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) { isPinching = false; }
+    });
+
     function clearAllAnnotations() {
       document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
         const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
-        localStorage.removeItem(`annotations_pen_${auth.currentUser.uid}_${readerState.activeBookId}_${canvas.parentElement.dataset.pageNum}`);
+        localStorage.removeItem(`annotations_pen_${auth.currentUser ? auth.currentUser.uid : 'DEMO'}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${canvas.parentElement.dataset.pageNum}`);
       });
       document.querySelectorAll('.annotation-layer-highlighter').forEach(canvas => {
         const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
-        localStorage.removeItem(`annotations_hl_${auth.currentUser.uid}_${readerState.activeBookId}_${canvas.parentElement.dataset.pageNum}`);
+        localStorage.removeItem(`annotations_hl_${auth.currentUser ? auth.currentUser.uid : 'DEMO'}_${readerState.activeBookId}_sec${readerState.activeSectionIndex}_${canvas.parentElement.dataset.pageNum}`);
       });
       showSecToast("Cleared workspace drawing layers.", "trash");
     }
@@ -942,31 +1816,49 @@
     function handleLogin(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-login'); btn.innerHTML = `Verifying...`; btn.disabled = true;
-      const email = document.getElementById('login-email').value.trim();
+      const emailOrUsername = document.getElementById('login-email').value.trim().toLowerCase();
       const pass = document.getElementById('login-password').value;
 
-      auth.signInWithEmailAndPassword(email, pass).then(() => {
-        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
-      }).catch(err => {
-        document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
-        document.getElementById('login-alert').classList.remove('hidden');
-        btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
-        lucide.createIcons();
+      // Master Universal Accounts bypass configuration
+      db.collection('special_users').doc(emailOrUsername).get().then(doc => {
+        if (doc.exists && doc.data().password === pass) {
+          const sessionData = { username: emailOrUsername, name: doc.data().name || emailOrUsername };
+          localStorage.setItem('master_access_session', JSON.stringify(sessionData));
+          
+          showSecToast("Universal Master Access Activated", "shield");
+          document.getElementById('dashboard-user').textContent = sessionData.name;
+          readerState.userTransactionId = "UNIVERSAL_ACCESS";
+          showView('view-dashboard');
+          mockUniversalLibraryAccess();
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        } else {
+          // Fall back to standard account sign in
+          auth.signInWithEmailAndPassword(emailOrUsername, pass).then(() => {
+            btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+          }).catch(err => {
+            document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+            document.getElementById('login-alert').classList.remove('hidden');
+            btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+            lucide.createIcons();
+          });
+        }
+      }).catch(() => {
+        // Fallback error flow if database configuration collection rejects
+        auth.signInWithEmailAndPassword(emailOrUsername, pass).then(() => {
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+        }).catch(err => {
+          document.getElementById('login-alert-text').textContent = "Incorrect credentials.";
+          document.getElementById('login-alert').classList.remove('hidden');
+          btn.innerHTML = `<span>Secure Sign In</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`; btn.disabled = false;
+          lucide.createIcons();
+        });
       });
     }
 
-    function handleLogout() { auth.signOut(); document.getElementById('login-form').reset(); }
-
-    function updateWatermarks(email) {
-      if(!email) return;
-      const idx = email.indexOf('@');
-      const prefix = email.substring(0, Math.min(3, idx));
-      const maskedEmail = prefix + "****" + email.substring(idx);
-      
-      const watermarkString = `LICENSED TO ${maskedEmail.toUpperCase()} / DO NOT DISTRIBUTE`;
-      document.querySelectorAll('.watermark-text').forEach(el => {
-        el.textContent = watermarkString;
-      });
+    function handleLogout() { 
+      localStorage.removeItem('master_access_session');
+      auth.signOut(); 
+      document.getElementById('login-form').reset(); 
     }
 
     function showSecToast(msg, iconName = "shield-alert") {
