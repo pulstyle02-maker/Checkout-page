@@ -654,20 +654,22 @@
         progressBar.style.width = '100%';
         statusText.textContent = "Loading secure document...";
         
+        const scrollContainer = document.getElementById('pdf-scroll-container');
+        if (scrollContainer) {
+          scrollContainer.style.overflow = 'hidden';
+        }
+        
         const viewportContainer = document.getElementById('pdf-pages-viewport');
-        // Rendered inside an elegant mock digital slate / tablet to visually integrate Google's margins as a device bezel
+        // Rendered as full width and height with zero margin padding to simulate direct presentation
+        viewportContainer.className = "w-full h-full absolute inset-0 overflow-hidden bg-[#202124] z-0";
         viewportContainer.innerHTML = `
-          <div class="w-full max-w-[820px] mx-auto my-2 rounded-[28px] border-[10px] border-slate-900 bg-slate-900 shadow-2xl overflow-hidden relative" style="height: calc(100vh - 130px);">
-            <!-- Mock tablet top notch detail -->
-            <div class="absolute top-1 left-1/2 -translate-x-1/2 w-16 h-1 bg-slate-800 rounded-full z-50"></div>
-            <!-- Sub-container to clip Google Drive preview toolbar exactly -->
-            <div class="w-full h-full relative overflow-hidden rounded-[18px] bg-slate-900">
-              <div class="absolute top-0 left-0 right-0 h-2 bg-slate-900 z-40"></div>
-              <iframe id="histology-drive-frame" 
-                      src="https://drive.google.com/file/d/1ltRw9AS0ouh857VTf_2jrEB6WBu_otkQ/preview" 
-                      class="absolute w-full h-[calc(100%+60px)] -top-[60px] left-0 border-none z-10"
-                      allow="autoplay"></iframe>
-            </div>
+          <div class="absolute inset-0 w-full h-full overflow-hidden bg-[#202124]">
+            <!-- Border strip matching drive canvas palette to mask top menu line -->
+            <div class="absolute top-0 left-0 right-0 h-[8px] bg-[#202124] z-50"></div>
+            <iframe id="histology-drive-frame" 
+                    src="https://drive.google.com/file/d/1ltRw9AS0ouh857VTf_2jrEB6WBu_otkQ/preview" 
+                    class="absolute w-full h-[calc(100%+60px)] -top-[60px] left-0 border-none z-10"
+                    allow="autoplay"></iframe>
           </div>
         `;
         
@@ -1051,7 +1053,7 @@
         if (readerState.tool === 'highlighter') {
           const coords = getEventCoordinates(e, hlCanvas); hlCtx.lineTo(coords.x, coords.y);
           hlCtx.strokeStyle = readerState.currentColor; hlCtx.lineWidth = 26; 
-          hlCtx.globalCompositeOperation = 'source-over'; hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round'; hlCtx.stroke();
+          hlCtx.lineCap = 'round'; hlCtx.lineJoin = 'round'; hlCtx.stroke();
         } else {
           const coords = getEventCoordinates(e, penCanvas);
           if (readerState.tool === 'pen') {
@@ -1204,6 +1206,11 @@
 
     // High Performance Hardware-Accelerated CSS Variable Zooming
     function applyDynamicSizing() {
+      const bookData = userLibrary[readerState.activeBookId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+      const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
+      if (isHistology) return; // Skip parent dynamic transformations for Histology to prevent crashes
+      
       readerState.isZooming = true;
       const viewport = document.getElementById('pdf-pages-viewport');
       if (viewport) {
@@ -1233,6 +1240,11 @@
     }
     
     function zoomReader(modifier) {
+      const bookData = userLibrary[readerState.activeBookId] || {};
+      const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+      const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
+      if (isHistology) return; // Completely bypass custom zoom calculations for Histology to avoid iframe crashes
+
       let newZoom = readerState.zoom + modifier;
       if (newZoom < 0.5 || newZoom > 3.0) return;
       readerState.zoom = parseFloat(newZoom.toFixed(1));
@@ -1247,6 +1259,11 @@
     const scrollContainerEl = document.getElementById('pdf-scroll-container');
     
     scrollContainerEl.addEventListener('touchstart', (e) => {
+        const bookData = userLibrary[readerState.activeBookId] || {};
+        const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+        const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
+        if (isHistology) return; // Skip parent pinch interception for Histology so iframe handles scaling natively
+
         if (e.touches.length === 2) {
             e.preventDefault();
             isPinching = true;
@@ -1256,6 +1273,11 @@
     }, { passive: false });
 
     scrollContainerEl.addEventListener('touchmove', (e) => {
+        const bookData = userLibrary[readerState.activeBookId] || {};
+        const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
+        const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
+        if (isHistology) return; // Skip parent pinch scale calculation loops for Histology to prevent crashes
+
         if (isPinching && e.touches.length === 2) {
             e.preventDefault(); 
             if (!pinchTicking) {
@@ -1294,7 +1316,19 @@
     }
 
     function closeBookViewer() {
-      document.getElementById('pdf-pages-viewport').innerHTML = "";
+      const viewportContainer = document.getElementById('pdf-pages-viewport');
+      if (viewportContainer) {
+        // Restore standard non-embed viewport class definitions
+        viewportContainer.className = "flex flex-col items-center justify-start h-max min-w-full py-6 px-6 space-y-6 relative z-0";
+        viewportContainer.style.setProperty('--zoom', 1.0);
+        viewportContainer.innerHTML = "";
+      }
+      
+      const scrollContainer = document.getElementById('pdf-scroll-container');
+      if (scrollContainer) {
+        scrollContainer.style.overflow = 'auto';
+      }
+      
       document.getElementById('left-jump-menu').classList.add('hidden');
       readerState.activePdf = null; readerState.activeBookId = null;
       showView('view-dashboard');
