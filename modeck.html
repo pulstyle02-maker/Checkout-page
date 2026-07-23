@@ -1038,76 +1038,94 @@
             }
         });
 
-        // DYNAMICALLY FETCHES API KEY FROM GITHUB AND ADDS DOT SEPARATOR IF NEEDED
-        async function getGeminiKey() {
+        // DYNAMICALLY READS ALL KEY FORMATS FROM GITHUB JSON (first_half/second_half OR part1/part2)
+        async function getApiKeyVariants() {
+            var keyVariants = [];
             try {
                 var res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json?t=" + new Date().getTime());
                 if (res.ok) {
                     var apiData = await res.json();
-                    if (apiData && apiData.part1 && apiData.part2) {
-                        var p1 = apiData.part1.trim();
-                        var p2 = apiData.part2.trim();
-                        // Guarantees exact AQ.Ab8RN6... structure matching your Google AI Studio screenshot
+                    
+                    var h1 = apiData.first_half || apiData.part1 || "";
+                    var h2 = apiData.second_half || apiData.part2 || "";
+                    
+                    if (h1 && h2) {
+                        var p1 = String(h1).trim();
+                        var p2 = String(h2).trim();
+                        
+                        // Handles direct concatenation (AQ.Ab8RN6...)
+                        keyVariants.push(p1 + p2);
+                        
+                        // Handles missing dot if applicable
                         if (!p1.endsWith('.') && !p2.startsWith('.')) {
-                            return p1 + "." + p2;
+                            keyVariants.push(p1 + "." + p2);
                         }
-                        return p1 + p2;
                     }
                 }
             } catch(e) {}
-            throw new Error("Could not retrieve API key from GitHub JSON.");
+
+            return keyVariants;
         }
 
-        // GOOGLE GEMINI 1.5 FLASH NATIVE REST CONNECTOR
-        async function generateWithGemini(apiKey, prompt, isJsonMode) {
-            var models = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-exp", "gemini-1.5-pro"];
-            var cleanKey = apiKey.trim();
+        // GOOGLE GEMINI NATIVE REST CONNECTOR (CORS-SAFE, NO CUSTOM HEADERS, NO SECRET STRINGS)
+        async function generateWithGemini(prompt) {
+            var keys = await getApiKeyVariants();
+            var models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-flash-latest"];
+            var apiVersions = ["v1beta", "v1"];
             var lastErr = null;
 
-            for (var m = 0; m < models.length; m++) {
-                var model = models[m];
-                var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(cleanKey);
+            if (keys.length === 0) {
+                throw new Error("Unable to retrieve API key from GitHub JSON.");
+            }
 
-                var bodyPayload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.2
+            for (var k = 0; k < keys.length; k++) {
+                var apiKey = keys[k];
+
+                for (var v = 0; v < apiVersions.length; v++) {
+                    var ver = apiVersions[v];
+
+                    for (var m = 0; m < models.length; m++) {
+                        var model = models[m];
+                        var endpoint = "https://generativelanguage.googleapis.com/" + ver + "/models/" + model + ":generateContent?key=" + encodeURIComponent(apiKey);
+
+                        try {
+                            var res = await fetch(endpoint, {
+                                method: "POST",
+                                headers: { 
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: prompt }] }],
+                                    generationConfig: {
+                                        temperature: 0.2
+                                    }
+                                })
+                            });
+
+                            if (res.status === 429) {
+                                console.warn("Gemini 429 Rate Limit on " + model);
+                                await new Promise(function(r){ setTimeout(r, 1200); });
+                                continue;
+                            }
+
+                            if (!res.ok) {
+                                var errData = await res.json().catch(function(){ return {}; });
+                                var msg = (errData.error && errData.error.message) ? errData.error.message : ("HTTP " + res.status);
+                                throw new Error(msg);
+                            }
+
+                            var data = await res.json();
+                            if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+                                var text = data.candidates[0].content.parts[0].text;
+                                if (text && text.trim().length > 0) {
+                                    return text;
+                                }
+                            }
+                        } catch(e) {
+                            console.warn("Gemini query error (" + model + " / ver " + ver + "):", e.message);
+                            lastErr = e;
+                        }
                     }
-                };
-
-                if (isJsonMode) {
-                    bodyPayload.generationConfig.responseMimeType = "application/json";
-                }
-
-                try {
-                    var res = await fetch(endpoint, {
-                        method: "POST",
-                        headers: { 
-                            "Content-Type": "application/json",
-                            "X-goog-api-key": cleanKey
-                        },
-                        body: JSON.stringify(bodyPayload)
-                    });
-
-                    if (res.status === 429) {
-                        console.warn("429 Rate Limit on model " + model);
-                        await new Promise(function(r){ setTimeout(r, 1500); });
-                        continue;
-                    }
-
-                    if (!res.ok) {
-                        var errData = await res.json().catch(function(){ return {}; });
-                        var msg = (errData.error && errData.error.message) ? errData.error.message : ("HTTP " + res.status);
-                        throw new Error(msg);
-                    }
-
-                    var data = await res.json();
-                    if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-                        return data.candidates[0].content.parts[0].text || "";
-                    }
-                } catch(e) {
-                    console.warn("Gemini query error:", e.message);
-                    lastErr = e;
                 }
             }
 
@@ -1149,7 +1167,6 @@
 
             try {
                 var contextBlock = await fetchLocalPageText(start, end);
-                var token = await getGeminiKey();
 
                 var focusInstruction = "";
                 if (configFocus === "factual") {
@@ -1181,9 +1198,6 @@
 
                 var makePrompt = `You are an elite USMLE/Anki Medical & Scientific Flashcard Designer. Create exactly ${cardLimit} active recall cards based STRICTLY on the text provided below.
 
-STRICT PAGE ISOLATION MANDATE:
-You MUST ONLY extract information present in the source text below.
-
 ${strictObjectiveDirective}
 ${focusInstruction}
 ${diffInstruction}
@@ -1192,7 +1206,7 @@ HIGH-YIELD CLOZE RULES:
 1. ONLY hide HIGH-YIELD, EXAM-CRITICAL TECHNICAL ENTITIES (Drug names, symptoms, enzymes, receptors, pathogen names, diagnostic cutoffs).
 2. Do NOT hide generic words like "cell", "protein", "disease", "level", "patient", "treatment", "system".
 3. Wrap key targets in {{double braces}}.
-4. Return strictly a JSON array of objects.
+4. Return strictly a JSON array of objects without markdown formatting.
 
 [
   {
@@ -1206,16 +1220,20 @@ HIGH-YIELD CLOZE RULES:
 Text:
 ${contextBlock.substring(0, 30000)}`;
 
-                var rawOutput = await generateWithGemini(token, makePrompt, true);
+                var rawOutput = await generateWithGemini(makePrompt);
                 clearInterval(countdownInterval);
 
                 var parsedCards = [];
                 try {
-                    parsedCards = JSON.parse(rawOutput);
-                } catch(e) {
                     var cleanedText = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();
                     var match = cleanedText.match(/\[[\s\S]*\]/);
-                    if (match) parsedCards = JSON.parse(match[0]);
+                    if (match) {
+                        parsedCards = JSON.parse(match[0]);
+                    } else {
+                        parsedCards = JSON.parse(cleanedText);
+                    }
+                } catch(e) {
+                    throw new Error("AI returned unparseable response data. Try again.");
                 }
 
                 var seenTexts = new Set();
@@ -1376,10 +1394,9 @@ ${contextBlock.substring(0, 30000)}`;
             showToast("Generating mnemonic with AI...");
 
             try {
-                var token = await getGeminiKey();
                 var prompt = `Create a clean, memorable medical/scientific mnemonic for this fact:\n"${factText}"\nProvide plain text only. Do not use markdown syntax, hashtags, or code symbols.`;
 
-                var rawOutput = await generateWithGemini(token, prompt, false);
+                var rawOutput = await generateWithGemini(prompt);
                 var rawMnemonic = rawOutput.replace(/[\#\$\*\%\^\&\_]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
                 if (!rawMnemonic) throw new Error("Empty AI response");
@@ -1447,18 +1464,16 @@ ${contextBlock.substring(0, 30000)}`;
             showToast("Recalculating blanks with AI...");
 
             try {
-                var token = await getGeminiKey();
                 var sentences = session.deck.cards.map(function(c) { return c.clean || c.text.replace(/\{\{|\}\}/g, ''); });
-                var prompt = `You are an elite USMLE Anki card designer.\nFor each medical/scientific sentence below, pick an ALTERNATE HIGH-YIELD KEYWORD (drug, sign, enzyme, diagnostic cutoff, or organism) to hide. Wrap in {{double curly braces}}.\n\nCRITICAL: NEVER hide generic words like "protein", "cell", "disease", "level", "system". Hide ONLY exam-grade entities!\n\nReturn strictly a JSON array of strings.\n\nSentences:\n${JSON.stringify(sentences, null, 2)}`;
+                var prompt = `You are an elite USMLE Anki card designer.\nFor each medical/scientific sentence below, pick an ALTERNATE HIGH-YIELD KEYWORD (drug, sign, enzyme, diagnostic cutoff, or organism) to hide. Wrap in {{double curly braces}}.\n\nCRITICAL: NEVER hide generic words like "protein", "cell", "disease", "level", "system". Hide ONLY exam-grade entities!\n\nReturn strictly a JSON array of strings without markdown formatting.\n\nSentences:\n${JSON.stringify(sentences, null, 2)}`;
 
-                var rawOutput = await generateWithGemini(token, prompt, true);
+                var rawOutput = await generateWithGemini(prompt);
                 var newTexts = [];
                 try {
-                    newTexts = JSON.parse(rawOutput);
-                } catch(e) {
-                    var match = rawOutput.match(/\[[\s\S]*\]/);
+                    var cleanedText = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    var match = cleanedText.match(/\[[\s\S]*\]/);
                     if (match) newTexts = JSON.parse(match[0]);
-                }
+                } catch(e) {}
 
                 if (Array.isArray(newTexts) && newTexts.length > 0) {
                     session.deck.cards.forEach(function(card, idx) {
