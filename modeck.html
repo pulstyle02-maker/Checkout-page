@@ -3,634 +3,470 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Modeck - Active Recall Pro</title>
+    <title>MODECK by MODMEDICALIS</title>
     
-    <!-- Fonts: Nunito customized for clean, professional weights and high legibility -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- PDF.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
     <style>
         :root {
-            /* Minimalist Professional Palette */
-            --bg-main: #FAFAFB;
-            --surface: #FFFFFF;
-            --text-dark: #111827;
-            --text-muted: #6B7280;
-            --border-color: #E5E7EB;
-            
-            --nav-bg: #111827;
-            --primary: #4F46E5;
-            --primary-light: #EEF2F6;
-            --primary-glow: rgba(79, 70, 229, 0.1);
-            
-            --success: #10B981;
-            --success-dark: #059669;
-            --danger: #EF4444;
-            --danger-dark: #DC2626;
-            
-            --radius-xl: 16px;
-            --radius-lg: 12px;
-            --radius-md: 8px;
-            --radius-pill: 6px;
-            
-            --shadow-soft: 0 4px 20px -2px rgba(0,0,0,0.05);
-            --shadow-float: 0 12px 30px -4px rgba(0,0,0,0.08);
-            
-            --transition: all 0.2s ease;
+            --bg-main: #0A0A0A;
+            --surface: #121212;
+            --text-dark: #FFFFFF;
+            --text-muted: #888888;
+            --border-color: #262626;
+            --nav-bg: #0A0A0A;
+            --primary: #FFFFFF;
+            --primary-light: #1A1A1A;
+            --success: #FFFFFF;
+            --success-dark: #E5E5E5;
+            --danger: #121212;
+            --transition: all 0.25s ease;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Nunito', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
 
-        body {
+        /* ABSOLUTELY NO PAGE SCROLLING - Native App Feel */
+        html, body {
             background-color: var(--bg-main);
             color: var(--text-dark);
-            height: 100vh;
-            height: 100dvh;
-            overflow: hidden;
+            height: 100%;
+            width: 100%;
+            overflow: hidden !important; 
+            position: fixed;
             display: flex;
             justify-content: center;
         }
 
+        /* Fixed App Container */
         .app-container {
             width: 100%;
-            max-width: 480px;
+            max-width: 1200px;
             height: 100%;
             position: relative;
             background-color: var(--bg-main);
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding-bottom: 120px;
+            overflow: hidden !important;
             border-left: 1px solid var(--border-color);
             border-right: 1px solid var(--border-color);
+            margin: 0 auto;
         }
 
-        /* --- Views Management --- */
+        /* Internal View Scrolling Only */
         .view {
             display: none;
-            width: 100%;
-            min-height: 100%;
-            padding: 24px;
-            padding-top: max(24px, env(safe-area-inset-top));
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 32px 24px 120px 24px; /* Bottom padding for nav clearance */
+            padding-top: max(32px, env(safe-area-inset-top));
             opacity: 0;
             transform: translateY(8px);
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
-        .view.active {
-            display: block;
-            opacity: 1;
-            transform: translateY(0);
-        }
+        .view.active { display: block; opacity: 1; transform: translateY(0); }
 
-        /* --- Headers --- */
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 32px;
             padding-bottom: 16px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .header-profile {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            border-bottom: 2px solid var(--border-color);
         }
 
         .header-text h1 {
-            font-size: 20px;
-            font-weight: 800;
+            font-size: 24px;
+            font-weight: 900;
             color: var(--text-dark);
-            line-height: 1.2;
-            letter-spacing: -0.3px;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
         }
 
         .header-text p {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
-            font-weight: 700;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 2px;
         }
 
-        /* --- Floating Bottom Nav --- */
+        /* Bottom Nav without User Profile */
         .bottom-nav {
-            position: fixed;
-            bottom: max(24px, env(safe-area-inset-bottom));
-            left: 50%;
-            transform: translateX(-50%);
+            position: absolute; /* Kept inside container */
+            bottom: 0;
+            left: 0;
+            width: 100%;
             background: var(--nav-bg);
-            padding: 6px;
-            border-radius: var(--radius-lg);
+            padding: 14px 40px calc(14px + env(safe-area-inset-bottom));
+            border-top: 2px solid var(--border-color);
             display: flex;
-            gap: 8px;
-            box-shadow: var(--shadow-float);
+            justify-content: space-around;
             z-index: 100;
         }
 
         .nav-item {
-            width: 50px;
-            height: 50px;
-            border-radius: var(--radius-md);
+            width: 60px;
+            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #9CA3AF;
+            color: var(--text-muted);
             cursor: pointer;
             transition: var(--transition);
         }
 
         .nav-item.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
+            color: var(--text-dark);
+            border-bottom: 3px solid var(--text-dark);
         }
 
-        /* --- Deck Grid (Library) --- */
         .section-title {
             font-size: 18px;
-            font-weight: 800;
+            font-weight: 900;
             margin-bottom: 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             color: var(--text-dark);
+            text-transform: uppercase;
         }
 
+        /* Responsive Grid for Decks */
         #deck-list {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
         }
 
         .deck-item {
             background: var(--surface);
-            border-radius: var(--radius-lg);
-            padding: 18px;
+            padding: 20px;
             cursor: pointer;
             transition: var(--transition);
             position: relative;
-            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-soft);
+            border: 2px solid var(--border-color);
         }
 
-        .deck-item:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
+        .deck-item:hover { border-color: var(--text-dark); transform: translateY(-2px); }
 
-        .deck-main-info {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            max-width: 80%;
-        }
+        .deck-main-info { display: flex; align-items: center; gap: 16px; max-width: 80%; }
 
         .deck-icon {
             width: 40px;
             height: 40px;
-            border-radius: var(--radius-md);
             background: var(--primary-light);
-            color: var(--primary);
+            color: var(--text-dark);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            border: 1px solid var(--border-color);
         }
 
         .deck-info h3 {
             font-size: 15px;
-            font-weight: 700;
-            line-height: 1.3;
+            font-weight: 800;
             margin-bottom: 4px;
             color: var(--text-dark);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            text-transform: uppercase;
         }
 
-        .deck-info p {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
+        .deck-info p { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
 
         .delete-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-md);
+            width: 34px;
+            height: 34px;
             background: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--danger);
+            border: 2px solid var(--border-color);
+            color: var(--text-muted);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: var(--transition);
         }
-        
-        .delete-btn:hover { background: rgba(239, 68, 68, 0.05); border-color: var(--danger); }
+        .delete-btn:hover { background: var(--text-dark); color: var(--bg-main); border-color: var(--text-dark); }
 
-        /* --- Empty State --- */
-        .empty-state {
-            background: var(--surface);
-            border-radius: var(--radius-xl);
-            padding: 48px 24px;
-            text-align: center;
-            border: 1px dashed var(--border-color);
-        }
+        .empty-state { background: var(--surface); padding: 48px 24px; text-align: center; border: 2px dashed var(--border-color); grid-column: 1 / -1; }
 
-        /* --- Creation Suite --- */
-        .card-panel {
-            background: var(--surface);
-            border-radius: var(--radius-xl);
-            padding: 24px;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-soft);
-            margin-bottom: 24px;
-        }
+        .card-panel { background: var(--surface); padding: 24px; border: 2px solid var(--border-color); margin-bottom: 24px; }
 
         .file-upload-zone {
             border: 2px dashed var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 40px 24px;
+            padding: 48px 24px;
             text-align: center;
             cursor: pointer;
-            background: #FAFAFC;
+            background: var(--surface);
             transition: var(--transition);
         }
-
-        .file-upload-zone:hover { 
-            border-color: var(--primary);
-            background: #F5F3FF;
-        }
+        .file-upload-zone:hover { border-color: var(--text-dark); background: var(--primary-light); }
 
         .upload-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: var(--radius-lg);
-            background: var(--primary-light);
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px;
+            width: 56px; height: 56px; background: var(--primary-light); color: var(--text-dark);
+            display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; border: 1px solid var(--border-color);
         }
 
         .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+        input, textarea {
+            width: 100%; padding: 14px; border: 2px solid var(--border-color); background-color: var(--bg-main);
+            font-size: 15px; font-weight: 700; color: var(--text-dark); outline: none; transition: var(--transition);
+        }
+        textarea { resize: vertical; min-height: 80px; line-height: 1.4; }
+        input:focus, textarea:focus { border-color: var(--text-dark); background: var(--surface); }
+
+        /* Custom Dropdown */
+        .custom-select-wrapper { position: relative; user-select: none; margin-bottom: 20px; }
+        .custom-select-wrapper label { display: block; font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .custom-select { position: relative; width: 100%; border: 2px solid var(--border-color); background-color: var(--bg-main); padding: 14px; font-size: 15px; font-weight: 700; color: var(--text-dark); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .custom-select.active { border-color: var(--text-dark); }
+        .custom-select-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
+        .custom-options { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-main); border: 2px solid var(--text-dark); border-top: none; z-index: 100; max-height: 250px; overflow-y: auto; display: none; }
+        .custom-select.active + .custom-options { display: block; }
+        .custom-search { width: 100%; padding: 14px; border: none; border-bottom: 2px solid var(--border-color); background: var(--surface); color: var(--text-dark); font-size: 14px; outline: none; font-weight: 700; }
+        .custom-option { padding: 14px; font-size: 14px; font-weight: 700; color: var(--text-dark); cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .custom-option:hover { background: var(--primary-light); }
+        .custom-option.hidden { display: none; }
         
-        .input-group label {
-            display: block;
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text-dark);
-            margin-bottom: 6px;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 14px;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-            background-color: #FAFAFC;
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-dark);
-            outline: none;
-            transition: var(--transition);
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-            line-height: 1.4;
-        }
-
-        select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 14px center;
-            appearance: none;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            border-color: var(--primary);
-            background-color: var(--surface);
-            box-shadow: 0 0 0 3px var(--primary-light);
-        }
-        
-        /* Segmented Controls */
-        .segment-control {
-            display: flex;
-            background: #FAFAFC;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            padding: 3px;
-            gap: 2px;
-        }
-
-        .segment-btn {
-            flex: 1;
-            text-align: center;
-            padding: 10px 4px;
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-muted);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .segment-btn.active {
-            background: var(--surface);
-            color: var(--primary);
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-soft);
-        }
+        .segment-control { display: flex; background: var(--bg-main); border: 2px solid var(--border-color); overflow: hidden; }
+        .segment-btn { flex: 1; text-align: center; padding: 12px 4px; font-size: 12px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); cursor: pointer; transition: var(--transition); border-right: 2px solid var(--border-color); }
+        .segment-btn:last-child { border-right: none; }
+        .segment-btn.active { background: var(--text-dark); color: var(--bg-main); }
 
         .row { display: flex; gap: 12px; }
-        .row .input-group { flex: 1; margin-bottom: 0; }
+        .row .input-group, .row .custom-select-wrapper { flex: 1; margin-bottom: 0; }
 
-        /* Flat Professional Buttons */
         .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            padding: 15px 20px;
-            font-size: 16px;
-            font-weight: 700;
-            border-radius: var(--radius-md);
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: var(--transition);
-            gap: 8px;
+            display: flex; align-items: center; justify-content: center; width: 100%; padding: 18px 20px;
+            font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; border: 2px solid transparent; cursor: pointer; transition: var(--transition); gap: 8px;
         }
+        .btn-primary { background-color: var(--text-dark); color: var(--bg-main); }
+        .btn-primary:hover { background-color: #CCCCCC; }
+        .btn-primary:disabled { opacity: 0.6; pointer-events: none; }
+        .btn-correct { background-color: var(--text-dark); color: var(--bg-main); }
+        .btn-incorrect { background-color: transparent; border-color: var(--text-muted); color: var(--text-muted); }
 
-        .btn-primary {
-            background-color: var(--primary);
-            color: #FFFFFF;
-        }
-        .btn-primary:hover { background-color: #4338CA; }
-
-        .btn-correct { background-color: var(--success); color: white; }
-        .btn-correct:hover { background-color: var(--success-dark); }
-        
-        .btn-incorrect { background-color: var(--danger); color: white; }
-        .btn-incorrect:hover { background-color: var(--danger-dark); }
-
-        /* Subtle Actions (Shuffle, Recloze) */
         .btn-subtle {
-            background: var(--surface);
-            border: 1px solid var(--border-color);
-            color: var(--text-dark);
-            padding: 8px 14px;
-            border-radius: var(--radius-md);
-            font-size: 13px;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            transition: var(--transition);
+            background: transparent; border: 2px solid var(--border-color); color: var(--text-dark);
+            padding: 10px 14px; font-size: 12px; font-weight: 800; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: var(--transition);
         }
-        .btn-subtle:hover { background: #F3F4F6; border-color: var(--text-muted); }
+        .btn-subtle:hover { background: var(--primary-light); border-color: var(--text-dark); }
 
-        /* --- Study Mode --- */
-        #view-study {
-            padding: 0;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-main);
-        }
+        /* Study View */
+        #view-study { padding: 0; min-height: 100%; display: flex; flex-direction: column; background: var(--bg-main); }
+        .study-top { padding: 24px; background: var(--surface); border-bottom: 2px solid var(--border-color); z-index: 10; }
+        .study-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .study-deck-title { background: var(--primary-light); color: var(--text-dark); padding: 8px 16px; font-weight: 900; font-size: 13px; text-transform: uppercase; border: 1px solid var(--border-color); }
+        .icon-btn { width: 40px; height: 40px; background: transparent; display: flex; align-items: center; justify-content: center; color: var(--text-dark); border: 2px solid var(--border-color); cursor: pointer; transition: var(--transition); }
 
-        .study-top {
-            padding: 24px;
-            padding-top: max(24px, env(safe-area-inset-top));
-            background: var(--surface);
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: var(--shadow-soft);
-            position: relative;
-            z-index: 10;
-        }
+        .progress-wrapper { background: var(--border-color); height: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--text-dark); width: 0%; transition: width 0.3s ease; }
 
-        .study-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        
-        .study-deck-title {
-            background: var(--primary-light);
-            color: var(--primary);
-            padding: 6px 14px;
-            border-radius: var(--radius-md);
-            font-weight: 700;
-            font-size: 14px;
-            border: 1px solid rgba(79, 70, 229, 0.15);
-        }
-        
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: var(--radius-md);
-            background: #FAFAFC;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-dark);
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .icon-btn:hover { background: #F3F4F6; }
-
-        .progress-wrapper {
-            background: #E5E7EB;
-            height: 8px;
-            border-radius: var(--radius-pill);
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            border-radius: var(--radius-pill);
-            transition: width 0.3s ease;
-        }
-
-        .flashcard-area {
-            flex-grow: 1;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
+        .flashcard-area { flex-grow: 1; padding: 24px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
         .flashcard {
-            background: var(--surface);
-            border-radius: var(--radius-xl);
-            min-height: 300px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 32px 24px;
-            box-shadow: var(--shadow-soft);
-            border: 1px solid var(--border-color);
-            text-align: center;
-            font-size: 20px;
-            font-weight: 700;
-            line-height: 1.5;
-            position: relative;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            background: var(--surface); min-height: 320px; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 36px 28px; border: 2px solid var(--border-color); text-align: center;
+            font-size: 22px; font-weight: 800; line-height: 1.5; position: relative; transition: opacity 0.2s ease;
         }
 
-        /* Cloze Blank Styling */
-        .cloze-blank {
-            display: inline-block;
-            background-color: var(--primary-light);
-            color: var(--primary);
-            padding: 2px 10px;
-            border-radius: var(--radius-md);
-            font-weight: 800;
-            cursor: pointer;
-            transition: var(--transition);
-            margin: 0 4px;
-            border-bottom: 2px solid var(--primary);
-        }
+        .cloze-blank { display: inline-block; background-color: var(--primary-light); color: var(--text-dark); padding: 2px 10px; font-weight: 900; cursor: pointer; border-bottom: 3px solid var(--text-dark); }
+        .cloze-blank.hidden-cloze { background: var(--bg-main); color: transparent; border-bottom: 3px dashed var(--text-muted); padding: 2px 24px; position: relative; }
+        .cloze-blank.hidden-cloze::after { content: "..."; color: var(--text-muted); font-size: 16px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 900; }
 
-        .cloze-blank.hidden-cloze {
-            background: #FAFAFC;
-            color: transparent;
-            border-bottom: 2px dashed #9CA3AF;
-            padding: 2px 24px;
-            position: relative;
-        }
-        
-        .cloze-blank.hidden-cloze::after {
-            content: "...";
-            color: var(--text-muted);
-            font-size: 14px;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: 900;
-        }
-        
-        .cloze-blank.hidden-cloze:hover { background: #F3F4F6; }
+        .eval-section { padding: 0 24px 40px; }
+        .eval-tip { text-align: center; font-size: 12px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; }
 
-        .eval-section {
-            padding: 0 24px 40px;
-        }
+        .loader-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; text-align: center; }
+        .spinner { width: 48px; height: 48px; border: 4px solid var(--primary-light); border-top-color: var(--text-dark); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 24px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .eval-tip {
-            text-align: center;
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 16px;
-        }
-
-        /* --- Loading & Modals --- */
-        .loader-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 60px 24px;
-            text-align: center;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--primary-light);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 24px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        .pulse-text { animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
         .hidden { display: none !important; }
-        
-        /* Glassmorphic Modal */
+
+        /* Modal Base */
         .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(17, 24, 39, 0.3);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.9); z-index: 1000; display: flex;
+            align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: var(--surface); width: 90%; max-width: 520px; padding: 36px 28px; text-align: center;
+            border: 2px solid var(--border-color); transform: scale(0.96); transition: transform 0.25s ease;
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+
+        /* Review 5 Stars System */
+        .star-rating {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+        .star {
+            width: 40px;
+            height: 40px;
+            color: var(--border-color);
+            cursor: pointer;
+            transition: transform 0.2s, color 0.3s;
+        }
+        .star.active {
+            color: #f59e0b;
+        }
+        .star:active { transform: scale(0.85); }
+
+        /* Full Screen Animated SaaS Welcome Screens */
+        .welcome-fullscreen {
+            position: fixed; inset: 0; background: var(--bg-main); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.8s cubic-bezier(0.7, 0, 0.3, 1), transform 0.8s cubic-bezier(0.7, 0, 0.3, 1), filter 0.8s ease;
+        }
+        .welcome-fullscreen.hidden-screen {
+            opacity: 0; transform: scale(1.15); filter: blur(8px); pointer-events: none;
+        }
+        .welcome-slide {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 40px 32px; text-align: center;
+            opacity: 0; transform: translateX(50px) scale(0.95);
+            transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
+        }
+        .welcome-slide.active {
+            opacity: 1; transform: translateX(0) scale(1); pointer-events: auto;
+        }
+        .welcome-slide.exit-left {
+            opacity: 0; transform: translateX(-50px) scale(0.95);
+        }
+
+        .welcome-graphic {
+            width: 100px; height: 100px; margin-bottom: 32px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .welcome-graphic svg { width: 80px; height: 80px; color: #fff; }
+
+        .welcome-badge {
+            background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+            color: #fff; font-size: 11px; font-weight: 900; text-transform: uppercase;
+            letter-spacing: 2px; padding: 8px 16px; border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(168,85,247,0.3); margin-bottom: 12px;
+        }
+        .welcome-title {
+            font-size: 36px; font-weight: 900; text-transform: uppercase; line-height: 1.1; margin-top: 12px;
+            background: linear-gradient(to right, #ffffff, #a3a3a3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .welcome-desc { font-size: 15px; color: var(--text-muted); font-weight: 700; line-height: 1.6; max-width: 400px; margin-top: 16px; }
+        
+        .welcome-dots { display: flex; gap: 8px; margin: 32px 0; }
+        .dot { width: 8px; height: 8px; background: var(--border-color); border-radius: 50%; transition: var(--transition); }
+        .dot.active { background: #fff; width: 32px; border-radius: 4px; }
+
+        .btn-welcome {
+            background: #fff; color: #000; border-radius: 16px; font-weight: 900; padding: 20px 40px;
+            width: 100%; max-width: 320px; border: none; text-transform: uppercase; letter-spacing: 1px;
+            font-size: 15px; box-shadow: 0 8px 32px rgba(255,255,255,0.15); transition: all 0.3s ease; cursor: pointer;
+        }
+        .btn-welcome:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(255,255,255,0.25); }
+
+        /* SaaS Staggered Slide-In Steps */
+        .saas-step {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 800;
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
             display: flex;
             align-items: center;
-            justify-content: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease;
         }
-        
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .modal-content {
-            background: var(--surface);
-            width: 85%;
-            border-radius: var(--radius-xl);
-            padding: 32px 24px;
-            text-align: center;
-            transform: scale(0.95);
-            transition: transform 0.2s ease;
-            box-shadow: var(--shadow-float);
-            border: 1px solid var(--border-color);
-        }
-        
-        .modal-overlay.active .modal-content { transform: scale(1); }
-        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
-        .modal-msg { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; font-weight: 600; line-height: 1.4; }
+        .welcome-slide.active .saas-step:nth-child(1) { transition-delay: 0.1s; opacity: 1; transform: translateX(0); }
+        .welcome-slide.active .saas-step:nth-child(2) { transition-delay: 0.2s; opacity: 1; transform: translateX(0); }
+        .welcome-slide.active .saas-step:nth-child(3) { transition-delay: 0.3s; opacity: 1; transform: translateX(0); }
+        .welcome-slide.active .saas-step:nth-child(4) { transition-delay: 0.4s; opacity: 1; transform: translateX(0); }
 
+        .card-nav-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 16px; gap: 12px; }
     </style>
 </head>
 <body>
 
-    <!-- Custom Modal -->
+    <!-- App Modal -->
     <div id="app-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3 class="modal-title" id="modal-title">Notice</h3>
-            <p class="modal-msg" id="modal-message">Message</p>
-            <button class="btn btn-primary" onclick="closeModal()">Got it</button>
+            <h3 class="modal-title" id="modal-title" style="font-size:20px; font-weight:900; text-transform:uppercase; margin-bottom:12px;">Notice</h3>
+            <p class="modal-msg" id="modal-message" style="font-size:14px; color:var(--text-muted); font-weight:700; margin-bottom:24px;"></p>
+            <button class="btn btn-primary" onclick="window.closeModal()">Got it</button>
+        </div>
+    </div>
+
+    <!-- Full Screen Animated SaaS Welcome -->
+    <div id="welcome-screen" class="welcome-fullscreen">
+        <!-- Step 1 -->
+        <div class="welcome-slide active" id="welcome-step-1">
+            <div class="welcome-graphic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            </div>
+            <span class="welcome-badge">Official Release</span>
+            <h2 class="welcome-title">MODECK Beta</h2>
+            <p class="welcome-desc">By <strong style="color:#FFF;">MODMEDICALIS</strong>.<br>The ultimate active recall engine built for high-yield medical & scientific learning.</p>
+            <div class="welcome-dots">
+                <div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+            <button class="btn-welcome" onclick="window.nextWelcomeStep(2)">Continue →</button>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="welcome-slide" id="welcome-step-2">
+            <div class="welcome-graphic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </div>
+            <h2 class="welcome-title">4 Simple Steps</h2>
+            <div class="steps-wrapper" style="margin-top: 24px; text-align: left; display: flex; flex-direction: column; gap: 12px;">
+                <div class="saas-step"><span style="color: #3b82f6; margin-right: 12px;">1.</span> Add your PDF</div>
+                <div class="saas-step"><span style="color: #3b82f6; margin-right: 12px;">2.</span> Select page range</div>
+                <div class="saas-step"><span style="color: #3b82f6; margin-right: 12px;">3.</span> Get your deck</div>
+                <div class="saas-step"><span style="color: #3b82f6; margin-right: 12px;">4.</span> Enjoy active recall</div>
+            </div>
+            <div class="welcome-dots">
+                <div class="dot"></div><div class="dot active"></div><div class="dot"></div>
+            </div>
+            <button class="btn-welcome" onclick="window.nextWelcomeStep(3)">Continue →</button>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="welcome-slide" id="welcome-step-3">
+            <div class="welcome-graphic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <h2 class="welcome-title">Created By</h2>
+            <p class="welcome-desc"><strong style="color:#FFF; font-size:18px;">Muhammad Hasnain<br>& Mahrukh Nadeem</strong></p>
+            <div class="welcome-dots">
+                <div class="dot"></div><div class="dot"></div><div class="dot active"></div>
+            </div>
+            <button class="btn-welcome" onclick="window.finishWelcome()">Get Started</button>
         </div>
     </div>
 
     <!-- Mnemonics Library Modal -->
     <div id="mnemonics-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 90%; max-height: 80%; overflow-y: auto; text-align: left;">
-            <h3 class="modal-title" style="text-align: center; margin-bottom: 16px;">🧠 Saved Mnemonics</h3>
-            <div id="mnemonics-list-container" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
-                <!-- Mnemonics dynamic content -->
-            </div>
+        <div class="modal-content" style="text-align: left;">
+            <h3 style="text-align: center; margin-bottom: 20px; font-size:20px; font-weight:900; text-transform:uppercase;">Saved Mnemonics</h3>
+            <div id="mnemonics-list-container" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; max-height: 350px; overflow-y: auto;"></div>
             <button class="btn btn-primary" onclick="document.getElementById('mnemonics-modal').classList.remove('active')">Close</button>
         </div>
     </div>
@@ -638,75 +474,76 @@
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="modal-overlay">
         <div class="modal-content">
-            <h3 class="modal-title">Delete Deck?</h3>
-            <p class="modal-msg">This action cannot be undone. All your progress will be lost.</p>
+            <h3 style="font-size:20px; font-weight:900; text-transform:uppercase; margin-bottom:12px;">Delete Deck?</h3>
+            <p style="font-size:14px; color:var(--text-muted); font-weight:700; margin-bottom:24px;">This action cannot be undone. Progress will be lost.</p>
             <div class="row">
-                <button class="btn" style="background: #FAFAFC; border: 1px solid var(--border-color); color: var(--text-dark);" onclick="closeConfirmModal()">Cancel</button>
-                <button class="btn btn-incorrect" id="confirm-delete-btn">Delete</button>
+                <button class="btn" style="background: transparent; border: 2px solid var(--border-color); color: var(--text-dark);" onclick="window.closeConfirmModal()">Cancel</button>
+                <button class="btn btn-incorrect" style="border-color: var(--text-dark); color: var(--text-dark);" id="confirm-delete-btn">Delete</button>
             </div>
         </div>
     </div>
 
     <div class="app-container">
         
-        <!-- VIEW 1: HOME / LIBRARY -->
+        <!-- VIEW 1: LIBRARY -->
         <div id="view-library" class="view active">
             <header>
                 <div class="header-profile">
                     <div class="header-text">
-                        <p>PRO STUDY ROOM</p>
-                        <h1>Active Recall Suite</h1>
+                        <p>MODMEDICALIS</p>
+                        <h1>MODECK</h1>
                     </div>
                 </div>
-                <button class="btn-subtle" onclick="openMnemonicsLibrary()">
-                    🧠 Mnemonics
-                </button>
+                <button class="btn-subtle" onclick="window.openMnemonicsLibrary()">Mnemonics</button>
             </header>
 
             <h2 class="section-title">
                 Your Library
-                <span style="font-size: 13px; color: var(--text-muted); font-weight: 700; background: var(--primary-light); padding: 4px 10px; border-radius: var(--radius-md);" id="deck-count-badge">0 Decks</span>
+                <span style="font-size: 11px; color: var(--text-dark); font-weight: 900; background: var(--primary-light); padding: 6px 10px; border: 1px solid var(--border-color);" id="deck-count-badge">0 Decks</span>
             </h2>
 
             <div id="empty-library-msg" class="empty-state hidden">
-                <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 8px;">No Decks Extracted</h3>
-                <p style="color: var(--text-muted); font-size: 14px; font-weight: 600; margin-bottom: 24px; padding: 0 16px;">Upload a medical/scientific PDF to generate target-rich active recall cards.</p>
-                <button class="btn btn-primary" onclick="switchTab('create')">Create New Deck</button>
+                <h3 style="font-size: 18px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px;">No Decks Extracted</h3>
+                <p style="color: var(--text-muted); font-size: 14px; font-weight: 700; margin-bottom: 24px; padding: 0 16px;">Upload a medical/scientific PDF to generate target-rich active recall cards.</p>
+                <button class="btn btn-primary" onclick="window.switchTab('create')">Create New Deck</button>
             </div>
 
-            <div id="deck-list">
-                <!-- Injected via JS -->
-            </div>
+            <div id="deck-list"></div>
         </div>
 
-        <!-- VIEW 2: CREATE SUITE -->
+        <!-- VIEW 2: CREATE -->
         <div id="view-create" class="view">
             <header>
                 <div class="header-profile">
                     <div class="header-text">
-                        <p>GENERATION ENGINE</p>
-                        <h1>Extract New Intel</h1>
+                        <p>Settings</p>
+                        <h1>CUSTOMIZE YOUR SESSION</h1>
                     </div>
                 </div>
             </header>
 
-            <!-- Step 1: Upload -->
             <div class="card-panel" id="upload-step">
                 <div class="file-upload-zone" onclick="document.getElementById('pdf-file-input').click()">
                     <div class="upload-icon">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
                     </div>
-                    <h3 style="font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 4px;">Upload Study Document</h3>
-                    <p style="font-size: 13px; font-weight: 600; color: var(--text-muted);">PDFs are structured and targets extracted locally</p>
+                    <h3 style="font-size: 16px; font-weight: 900; color: var(--text-dark); text-transform: uppercase; margin-bottom: 6px;">Upload Study Document</h3>
+                    <p style="font-size: 13px; font-weight: 700; color: var(--text-muted);">PDFs are structured and targets extracted locally</p>
                     <input type="file" id="pdf-file-input" accept="application/pdf" class="hidden">
                 </div>
             </div>
 
-            <!-- Step 2: Settings -->
             <div id="settings-step" class="card-panel hidden">
-                <div class="input-group">
+                <div class="custom-select-wrapper">
                     <label>Detected Sections & Subtopics</label>
-                    <select id="chapter-dropdown"></select>
+                    <div class="custom-select" id="custom-select-box">
+                        <span class="custom-select-text" id="custom-select-text">Select Chapter...</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="custom-options" id="custom-options-container">
+                        <input type="text" id="custom-select-search" class="custom-search" placeholder="Search topics..." autocomplete="off">
+                        <div id="custom-options-list"></div>
+                    </div>
                 </div>
 
                 <div class="row">
@@ -715,7 +552,7 @@
                         <input type="number" id="start-page" min="1" value="1">
                     </div>
                     <div class="input-group">
-                        <label>To Page</label>
+                        <label>To Page (Max 10)</label>
                         <input type="number" id="end-page" min="1" value="1">
                     </div>
                 </div>
@@ -738,14 +575,14 @@
                     </div>
                 </div>
 
-                <div class="input-group" style="display: flex; justify-content: space-between; align-items: center; background: #FAFAFC; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 24px;">
+                <div class="input-group" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-main); padding: 12px; border: 2px solid var(--border-color); margin-bottom: 24px;">
                     <label style="margin-bottom: 0;">Attempt cards with Hints</label>
                     <input type="checkbox" id="hint-toggle" style="width: auto; height: auto; transform: scale(1.2); cursor: pointer;">
                 </div>
 
                 <div class="input-group">
                     <label>Targeted Learning Objectives (Strict Filter)</label>
-                    <textarea id="learning-objectives" placeholder="e.g. Focus ONLY on uses/indications. Completely ignore pharmacology mechanisms, structural pathways, or side effects."></textarea>
+                    <textarea id="learning-objectives" placeholder="e.g. Specific Topic (Only cards from this topic will be generated)"></textarea>
                 </div>
 
                 <div class="input-group">
@@ -763,11 +600,10 @@
                 </button>
             </div>
 
-            <!-- Step 3: Loading -->
             <div id="generation-loader" class="card-panel loader-card hidden">
                 <div class="spinner"></div>
-                <h3 id="loader-status" style="font-size: 18px; font-weight: 800; margin-bottom: 8px;">Extracting Intel...</h3>
-                <p id="loader-subtext" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Mapping targeted clozes to your constraints.</p>
+                <h3 id="loader-status" class="pulse-text" style="font-size: 18px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px;">Creating your deck...</h3>
+                <p id="loader-subtext" style="font-size: 13px; font-weight: 700; color: var(--text-muted);">Estimated time remaining: 10s</p>
             </div>
         </div>
 
@@ -779,61 +615,95 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                     <div class="study-deck-title" id="study-deck-title">Focus Session</div>
-                    <div style="width: 36px;"></div> <!-- Spacer -->
+                    <div style="width: 40px;"></div>
                 </div>
                 <div class="progress-wrapper">
                     <div class="progress-fill" id="study-progress"></div>
                 </div>
                 
-                <!-- Action Row for Shuffle & Re-Cloze inside Session -->
                 <div style="display: flex; gap: 8px; justify-content: center; margin-top: 16px;">
-                    <button class="btn-subtle" id="shuffle-session-btn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-                        Shuffle Deck
-                    </button>
-                    <button class="btn-subtle" id="recloze-session-btn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
-                        Alternate Blanks
-                    </button>
+                    <button class="btn-subtle" id="shuffle-session-btn">Shuffle Deck</button>
+                    <button class="btn-subtle" id="recloze-session-btn">Alternate Blanks</button>
                 </div>
             </div>
 
-            <div class="flashcard-area">
-                <div class="flashcard" id="flashcard-content">
-                    <!-- Cards Go Here -->
-                </div>
-                <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
-                    <button class="btn-subtle hidden" id="study-card-hint-btn">Show Hint 💡</button>
-                    <button class="btn-subtle" id="study-card-mnemonic-btn">Generate Mnemonic 🧠</button>
+            <div class="flashcard-area" id="flashcard-area-trigger">
+                <div class="flashcard" id="flashcard-content"></div>
+                
+                <div class="card-nav-controls">
+                    <button class="btn-subtle" id="prev-card-btn">← Prev</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-subtle hidden" id="study-card-hint-btn">Hint 💡</button>
+                        <button class="btn-subtle" id="study-card-mnemonic-btn">Mnemonic 🧠</button>
+                    </div>
+                    <button class="btn-subtle" id="next-card-btn">Next →</button>
                 </div>
             </div>
 
             <div class="eval-section">
-                <p class="eval-tip" id="eval-tip">Tap the blank space to check knowledge</p>
-                
+                <p class="eval-tip" id="eval-tip">Tap anywhere on the card to reveal</p>
                 <div class="row hidden" id="assessment-row">
-                    <button class="btn btn-incorrect" id="btn-press-incorrect">
-                        Needs Work
-                    </button>
-                    <button class="btn btn-correct" id="btn-press-correct">
-                        Nailed It
-                    </button>
+                    <button class="btn btn-incorrect" id="btn-press-incorrect">Needs Work</button>
+                    <button class="btn btn-correct" id="btn-press-correct">Nailed It</button>
                 </div>
-                
-                <button class="btn" style="background: var(--nav-bg); color: white;" id="reveal-helper-btn">Reveal Answers</button>
+                <button class="btn" style="background: var(--surface); color: var(--text-dark); border: 2px solid var(--border-color);" id="reveal-helper-btn">Reveal Answers</button>
             </div>
         </div>
 
-        <!-- Floating Navigation -->
+        <!-- VIEW 4: REVIEWS -->
+        <div id="view-reviews" class="view">
+            <header>
+                <div class="header-profile">
+                    <div class="header-text">
+                        <p>MODMEDICALIS</p>
+                        <h1>User Reviews</h1>
+                    </div>
+                </div>
+            </header>
+
+            <div class="card-panel" id="review-panel-form">
+                <h3 style="font-size: 18px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px;">Rate MODECK</h3>
+                <p style="color: var(--text-muted); font-size: 13px; font-weight: 700; margin-bottom: 32px; text-align: center;">How is your experience?</p>
+                
+                <!-- 5 Stars Component -->
+                <div class="star-rating" id="review-stars-container">
+                    <svg class="star active" data-val="1" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <svg class="star active" data-val="2" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <svg class="star active" data-val="3" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <svg class="star active" data-val="4" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <svg class="star active" data-val="5" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+
+                <form id="review-submit-form">
+                    <input type="hidden" id="review-rating-value" name="rating" value="5">
+                    <div class="input-group">
+                        <label>Your Name</label>
+                        <input type="text" name="name" id="review-user-name" placeholder="e.g. Dr. Alex" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Leave a Review</label>
+                        <textarea name="message" id="review-user-message" placeholder="Tell us what you love or how we can improve..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top: 16px;">Submit Review</button>
+                </form>
+            </div>
+
+            <div class="card-panel hidden" id="review-panel-thanks" style="text-align: center; padding: 48px 24px;">
+                <h3 style="font-size: 20px; font-weight: 900; text-transform: uppercase; margin-bottom: 12px;">Review Submitted!</h3>
+                <p style="color: var(--text-muted); font-size: 14px; font-weight: 700;">Thank you for your valuable feedback. You have already submitted a review.</p>
+            </div>
+        </div>
+
+        <!-- Floating Navigation without User Profile -->
         <div class="bottom-nav" id="main-bottom-nav">
-            <div class="nav-item active" id="nav-home" onclick="switchTab('library')">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <div class="nav-item active" id="nav-home" onclick="window.switchTab('library')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
             </div>
-            <div class="nav-item" id="nav-add" onclick="switchTab('create')">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+            <div class="nav-item" id="nav-add" onclick="window.switchTab('create')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
             </div>
-            <div class="nav-item" id="nav-profile">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <div class="nav-item" id="nav-reviews" onclick="window.switchTab('reviews')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
             </div>
         </div>
 
@@ -842,40 +712,67 @@
     <script type="module">
         import { OpenRouter } from "https://esm.sh/@openrouter/sdk?bundle";
 
-        // Toast Helper
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        const primaryModels = [
+            "google/gemma-4-31b-it:free",
+            "google/gemma-4-26b-a4b-it:free"
+        ];
+        const guaranteedModels = [
+            "google/gemma-2-9b-it:free",
+            "meta-llama/llama-3.1-8b-instruct:free"
+        ];
+
+        function getRandomModel() {
+            return primaryModels[Math.floor(Math.random() * primaryModels.length)];
+        }
+
         function showToast(msg) {
             const toast = document.createElement('div');
             toast.innerText = msg;
-            toast.style.position = 'fixed';
-            toast.style.bottom = '100px';
-            toast.style.left = '50%';
-            toast.style.transform = 'translateX(-50%)';
-            toast.style.background = 'rgba(17, 24, 39, 0.9)';
-            toast.style.color = '#fff';
-            toast.style.padding = '10px 20px';
-            toast.style.borderRadius = '8px';
-            toast.style.fontSize = '13px';
-            toast.style.fontWeight = '700';
-            toast.style.zIndex = '9999';
-            toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.2s ease';
+            toast.style.cssText = 'position:fixed; bottom:120px; left:50%; transform:translateX(-50%); background:var(--text-dark); color:var(--bg-main); padding:12px 24px; text-transform:uppercase; letter-spacing:1px; font-size:12px; font-weight:900; z-index:9999; opacity:0; transition:opacity 0.2s ease;';
             document.body.appendChild(toast);
             setTimeout(() => toast.style.opacity = '1', 50);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 200);
-            }, 1800);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 200); }, 3000);
         }
 
-        // UI Helpers
         window.showModal = (title, message) => {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-message').innerText = message;
             document.getElementById('app-modal').classList.add('active');
         };
         window.closeModal = () => document.getElementById('app-modal').classList.remove('active');
-        
+
+        // SaaS Full Screen Welcome Handlers
+        window.nextWelcomeStep = (stepNum) => {
+            const currentStep = document.querySelector('.welcome-slide.active');
+            if (currentStep) {
+                currentStep.classList.remove('active');
+                currentStep.classList.add('exit-left');
+            }
+            const nextStep = document.getElementById(`welcome-step-${stepNum}`);
+            if (nextStep) {
+                nextStep.classList.remove('exit-left');
+                nextStep.classList.add('active');
+            }
+        };
+
+        window.finishWelcome = () => {
+            localStorage.setItem('modeck_welcome_seen', 'true');
+            const screen = document.getElementById('welcome-screen');
+            screen.classList.add('hidden-screen');
+            setTimeout(() => screen.remove(), 800); // Fully clear DOM after elegant splash transition
+        };
+
+        // Check if user is visiting for the first time
+        if (!localStorage.getItem('modeck_welcome_seen')) {
+            // Leave it visible
+        } else {
+            document.getElementById('welcome-screen').style.display = 'none';
+        }
+
         let deckToDelete = null;
         window.closeConfirmModal = () => document.getElementById('confirm-modal').classList.remove('active');
         document.getElementById('confirm-delete-btn').addEventListener('click', () => {
@@ -898,10 +795,108 @@
                 document.getElementById('nav-add').classList.add('active');
                 resetCreationState();
                 switchView('view-create');
+            } else if (tab === 'reviews') {
+                document.getElementById('nav-reviews').classList.add('active');
+                checkReviewStatus();
+                switchView('view-reviews');
             }
         };
 
-        // UI Segment Controls State Grabbers
+        // 5 Star Rating Logic
+        let currentRating = 5;
+        document.querySelectorAll('.star').forEach(star => {
+            star.addEventListener('click', (e) => {
+                currentRating = parseInt(e.currentTarget.dataset.val);
+                document.getElementById('review-rating-value').value = currentRating;
+                
+                document.querySelectorAll('.star').forEach(s => {
+                    if (parseInt(s.dataset.val) <= currentRating) {
+                        s.classList.add('active');
+                    } else {
+                        s.classList.remove('active');
+                    }
+                });
+            });
+        });
+
+        function checkReviewStatus() {
+            if (localStorage.getItem('modeck_review_submitted')) {
+                document.getElementById('review-panel-form').classList.add('hidden');
+                document.getElementById('review-panel-thanks').classList.remove('hidden');
+            } else {
+                document.getElementById('review-panel-form').classList.remove('hidden');
+                document.getElementById('review-panel-thanks').classList.add('hidden');
+            }
+        }
+
+        // Send Review logic to requested email
+        document.getElementById('review-submit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('review-user-name').value.trim();
+            const message = document.getElementById('review-user-message').value.trim();
+            const ratingValue = document.getElementById('review-rating-value').value;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            if (!name || !message) {
+                showToast("Please complete all fields.");
+                return;
+            }
+
+            const originalBtnText = submitBtn.innerText;
+            submitBtn.innerText = "Sending...";
+            submitBtn.disabled = true;
+
+            try {
+                // Sent to requested backend email
+                await fetch("https://formsubmit.co/ajax/modmedicalis@gmail.com", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ 
+                        name: name, 
+                        rating: `${ratingValue} Stars`,
+                        review: message,
+                        _subject: `New ${ratingValue}-Star MODECK Review`,
+                        _captcha: "false"
+                    })
+                });
+            } catch (err) {
+                console.warn("FormSubmit fetch error encountered, proceeding with fallback UX.");
+            } finally {
+                localStorage.setItem('modeck_review_submitted', 'true');
+                checkReviewStatus();
+                showToast("Thank you for your review!");
+                submitBtn.innerText = originalBtnText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        window.openMnemonicsLibrary = () => {
+            const container = document.getElementById('mnemonics-list-container');
+            container.innerHTML = '';
+            if(savedMnemonics.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 14px; text-align: center; padding: 20px 0; font-weight: 700;">No saved mnemonics yet.</p>`;
+            } else {
+                savedMnemonics.forEach((m, idx) => {
+                    const card = document.createElement('div');
+                    card.style.cssText = 'background: var(--surface); border: 2px solid var(--border-color); padding: 16px; display: flex; flex-direction: column; gap: 8px;';
+                    card.innerHTML = `
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800; text-transform: uppercase;">Fact: ${escapeHtml(m.fact)}</p>
+                        <p style="font-size: 15px; color: var(--text-dark); font-weight: 900;">🧠 ${escapeHtml(m.mnemonic)}</p>
+                        <button class="btn-subtle" style="align-self: flex-end; padding: 6px 12px; font-size:11px;" onclick="window.deleteMnemonic(${idx})">Delete</button>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+            document.getElementById('mnemonics-modal').classList.add('active');
+        };
+
+        window.deleteMnemonic = (idx) => {
+            savedMnemonics.splice(idx, 1);
+            localStorage.setItem('modeck_saved_mnemonics', JSON.stringify(savedMnemonics));
+            window.openMnemonicsLibrary();
+            showToast("Mnemonic removed.");
+        };
+
         let configFocus = 'factual';
         let configDiff = 'easy';
 
@@ -921,44 +916,8 @@
             });
         });
 
-        // Persistent Mnemonics List Global
         let savedMnemonics = JSON.parse(localStorage.getItem('modeck_saved_mnemonics') || '[]');
 
-        window.openMnemonicsLibrary = () => {
-            const container = document.getElementById('mnemonics-list-container');
-            container.innerHTML = '';
-            
-            if(savedMnemonics.length === 0) {
-                container.innerHTML = `<p style="color: var(--text-muted); font-size: 14px; text-align: center; padding: 20px 0;">No saved mnemonics yet. Generate one during card review.</p>`;
-            } else {
-                savedMnemonics.forEach((m, idx) => {
-                    const card = document.createElement('div');
-                    card.style.background = '#FAFAFC';
-                    card.style.border = '1px solid var(--border-color)';
-                    card.style.padding = '14px';
-                    card.style.borderRadius = '8px';
-                    card.style.display = 'flex';
-                    card.style.flexDirection = 'column';
-                    card.style.gap = '8px';
-                    card.innerHTML = `
-                        <p style="font-size: 13px; color: var(--text-muted); font-weight: 700;">FACT: ${escapeHtml(m.fact)}</p>
-                        <p style="font-size: 15px; color: var(--primary); font-weight: 800;">🧠 ${escapeHtml(m.mnemonic)}</p>
-                        <button class="btn-subtle" style="align-self: flex-end; padding: 4px 10px; font-size:11px; color: var(--danger);" onclick="deleteMnemonic(${idx})">Delete</button>
-                    `;
-                    container.appendChild(card);
-                });
-            }
-            document.getElementById('mnemonics-modal').classList.add('active');
-        };
-
-        window.deleteMnemonic = (idx) => {
-            savedMnemonics.splice(idx, 1);
-            localStorage.setItem('modeck_saved_mnemonics', JSON.stringify(savedMnemonics));
-            openMnemonicsLibrary();
-            showToast("Mnemonic removed.");
-        };
-
-        // Application State
         const state = {
             decks: JSON.parse(localStorage.getItem('modeck_saved_decks') || '[]'),
             activePDF: null,
@@ -969,11 +928,9 @@
 
         function switchView(viewId) {
             document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-            
             const nav = document.getElementById('main-bottom-nav');
             if(viewId === 'view-study') nav.classList.add('hidden');
             else nav.classList.remove('hidden');
-
             setTimeout(() => document.getElementById(viewId).classList.add('active'), 10);
             if (viewId === 'view-library') renderLibrary();
         }
@@ -1025,7 +982,56 @@
             });
         }
 
-        // --- Core PDF Logic ---
+        const selectBox = document.getElementById('custom-select-box');
+        const customOptionsContainer = document.getElementById('custom-options-container');
+        const customSelectSearch = document.getElementById('custom-select-search');
+        
+        selectBox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectBox.classList.toggle('active');
+            if (selectBox.classList.contains('active')) {
+                customSelectSearch.focus();
+            }
+        });
+
+        document.addEventListener('click', () => {
+            if (selectBox.classList.contains('active')) {
+                selectBox.classList.remove('active');
+            }
+        });
+
+        customOptionsContainer.addEventListener('click', (e) => e.stopPropagation());
+        
+        customSelectSearch.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('.custom-option').forEach(opt => {
+                if (opt.innerText.toLowerCase().includes(query)) {
+                    opt.classList.remove('hidden');
+                } else {
+                    opt.classList.add('hidden');
+                }
+            });
+        });
+
+        document.getElementById('end-page').addEventListener('change', () => {
+            const start = parseInt(document.getElementById('start-page').value) || 1;
+            let end = parseInt(document.getElementById('end-page').value) || start;
+            if (end - start + 1 > 10) {
+                end = start + 9;
+                document.getElementById('end-page').value = end;
+                showToast("Limit: Max 10 pages per deck.");
+            }
+        });
+
+        document.getElementById('start-page').addEventListener('change', () => {
+            const start = parseInt(document.getElementById('start-page').value) || 1;
+            let end = parseInt(document.getElementById('end-page').value) || start;
+            if (end - start + 1 > 10) {
+                end = start + 9;
+                document.getElementById('end-page').value = end;
+            }
+        });
+
         async function resolveOutline(pdf, outline, depth = 0) {
             let results = [];
             for (let item of outline) {
@@ -1040,16 +1046,13 @@
                     if (pageNum !== null && item.title) {
                         const indentStr = "\u00A0\u00A0".repeat(depth * 2);
                         const prefix = depth > 0 ? "└ " : "";
-                        results.push({ 
-                            title: indentStr + prefix + item.title, 
-                            startPage: pageNum 
-                        });
+                        results.push({ title: indentStr + prefix + item.title, startPage: pageNum });
                     }
                     if (item.items && item.items.length > 0) {
                         const subItems = await resolveOutline(pdf, item.items, depth + 1);
                         results = results.concat(subItems);
                     }
-                } catch(e) { console.warn("Skipping outline item", e); }
+                } catch(e) { }
             }
             return results;
         }
@@ -1064,10 +1067,8 @@
 
             try {
                 const outline = await pdf.getOutline();
-                if (outline && outline.length > 0) {
-                    chapters = await resolveOutline(pdf, outline);
-                }
-            } catch (e) { console.log("Outline extraction failed, falling back to regex."); }
+                if (outline && outline.length > 0) chapters = await resolveOutline(pdf, outline);
+            } catch (e) { }
 
             if (chapters.length < 2) {
                 chapters = [];
@@ -1114,7 +1115,9 @@
             chapters.sort((a, b) => a.startPage - b.startPage);
             for (let j = 0; j < chapters.length; j++) {
                 const next = chapters[j + 1];
-                chapters[j].endPage = next ? Math.min(next.startPage - 1, numPages) : numPages;
+                let calcEnd = next ? Math.min(next.startPage - 1, numPages) : numPages;
+                if (calcEnd - chapters[j].startPage + 1 > 10) calcEnd = chapters[j].startPage + 9;
+                chapters[j].endPage = calcEnd;
                 if (chapters[j].endPage < chapters[j].startPage) chapters[j].endPage = chapters[j].startPage;
             }
             
@@ -1126,17 +1129,35 @@
             if (!state.activePDF) return "";
             let textOutput = "";
             const lastPage = Math.min(end, state.activePDF.numPages);
+            
             for (let i = start; i <= lastPage; i++) {
                 const page = await state.activePDF.getPage(i);
                 const content = await page.getTextContent();
-                textOutput += content.items.map(item => item.str).join(" ") + "\n";
+                let pageText = content.items.map(item => item.str).join(" ");
+                
+                if (pageText.trim().length < 50) {
+                    try {
+                        const viewport = page.getViewport({ scale: 1.5 });
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                        
+                        const imgData = canvas.toDataURL('image/jpeg');
+                        if (window.Tesseract) {
+                            const result = await Tesseract.recognize(imgData, 'eng');
+                            pageText += " " + (result?.data?.text || "");
+                        }
+                    } catch(e) { }
+                }
+                textOutput += pageText + "\n";
             }
             return textOutput;
         }
 
         function resetCreationState() {
             document.getElementById('pdf-file-input').value = '';
-            document.getElementById('learning-objectives').value = '';
             document.getElementById('upload-step').classList.remove('hidden');
             document.getElementById('settings-step').classList.add('hidden');
             document.getElementById('generation-loader').classList.add('hidden');
@@ -1153,187 +1174,199 @@
             uploadStep.classList.add('hidden');
             loader.classList.remove('hidden');
             document.getElementById('loader-status').innerText = "Analyzing PDF...";
-            document.getElementById('loader-subtext').innerText = "Mapping sections and subtopics.";
+            document.getElementById('loader-subtext').innerText = "Structuring data.";
 
             try {
                 const chapters = await analyzePDFStructure(file);
-                const dropdown = document.getElementById('chapter-dropdown');
-                dropdown.innerHTML = '';
+                const listContainer = document.getElementById('custom-options-list');
+                listContainer.innerHTML = '';
                 
                 chapters.forEach((ch, idx) => {
-                    const opt = document.createElement('option');
-                    opt.value = idx;
-                    opt.innerHTML = ch.title.replace(/ /g, '&nbsp;');
-                    dropdown.appendChild(opt);
+                    const opt = document.createElement('div');
+                    opt.className = 'custom-option';
+                    opt.innerText = ch.title;
+                    opt.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        document.getElementById('custom-select-text').innerText = ch.title;
+                        document.getElementById('start-page').value = ch.startPage;
+                        document.getElementById('end-page').value = ch.endPage;
+                        selectBox.classList.remove('active');
+                    });
+                    listContainer.appendChild(opt);
                 });
 
                 if (chapters.length > 0) {
+                    document.getElementById('custom-select-text').innerText = chapters[0].title;
                     document.getElementById('start-page').value = chapters[0].startPage;
                     document.getElementById('end-page').value = chapters[0].endPage;
                     document.getElementById('deck-name-input').value = `${state.pdfFilename}`;
                 }
 
-                dropdown.onchange = (evt) => {
-                    const selected = chapters[evt.target.value];
-                    document.getElementById('start-page').value = selected.startPage;
-                    document.getElementById('end-page').value = selected.endPage;
-                };
-
                 loader.classList.add('hidden');
                 document.getElementById('settings-step').classList.remove('hidden');
             } catch (err) {
-                showModal("Read Error", "Failed to structure layout: " + err.message);
                 resetCreationState();
+                showToast("Notice: Could not parse document structure.");
             }
         });
 
+        function splitTextIntoChunks(text, numChunks) {
+            const lines = text.split('\n');
+            const chunks = Array.from({ length: numChunks }, () => '');
+            lines.forEach((line, idx) => { chunks[idx % numChunks] += line + '\n'; });
+            return chunks.filter(c => c.trim().length > 0);
+        }
+
+        async function fetchModelStream(openrouter, targetModelName, prompt) {
+            const candidateModels = [
+                targetModelName,
+                ...guaranteedModels
+            ];
+
+            for (const modelName of candidateModels) {
+                try {
+                    const stream = await openrouter.chat.send({
+                        chatRequest: {
+                            model: modelName,
+                            messages: [{ role: "user", content: prompt }],
+                            stream: true
+                        }
+                    });
+
+                    let raw = "";
+                    for await (const chunk of stream) {
+                        const content = chunk?.choices?.[0]?.delta?.content;
+                        if (content) raw += content;
+                    }
+                    if (raw.trim().length > 0) return raw;
+                } catch (err) {
+                    console.warn(`Retry model failover for ${modelName}`);
+                }
+            }
+            return "";
+        }
+
         document.getElementById('trigger-generation-btn').addEventListener('click', async () => {
-            const start = parseInt(document.getElementById('start-page').value) || 1;
-            const end = parseInt(document.getElementById('end-page').value) || 1;
+            let start = parseInt(document.getElementById('start-page').value) || 1;
+            let end = parseInt(document.getElementById('end-page').value) || 1;
+
+            if (end - start + 1 > 10) {
+                end = start + 9;
+                document.getElementById('end-page').value = end;
+            }
+
             const cardLimit = Math.min(100, Math.max(1, parseInt(document.getElementById('card-count').value) || 15));
             const deckName = document.getElementById('deck-name-input').value.trim() || "New Journey";
-            const userObjectives = document.getElementById('learning-objectives').value.trim();
             const enableHints = document.getElementById('hint-toggle').checked;
+            const userObjectives = document.getElementById('learning-objectives').value.trim();
 
             const settingsStep = document.getElementById('settings-step');
             const loader = document.getElementById('generation-loader');
             
             settingsStep.classList.add('hidden');
             loader.classList.remove('hidden');
-            document.getElementById('loader-status').innerText = "Connecting...";
-            document.getElementById('loader-subtext').innerText = "Gathering text data securely.";
+            
+            let estimatedSeconds = Math.max(5, Math.ceil((end - start + 1) * 1.5));
+            document.getElementById('loader-status').innerText = "Creating your deck...";
+            document.getElementById('loader-subtext').innerText = `Estimated time remaining: ${estimatedSeconds}s`;
+
+            const countdownInterval = setInterval(() => {
+                estimatedSeconds--;
+                if (estimatedSeconds > 0) {
+                    document.getElementById('loader-subtext').innerText = `Estimated time remaining: ${estimatedSeconds}s`;
+                } else {
+                    document.getElementById('loader-subtext').innerText = `Finalizing flashcard deck...`;
+                }
+            }, 1000);
 
             try {
                 const contextBlock = await fetchLocalPageText(start, end);
-                if (!contextBlock.trim()) throw new Error("No readable text found on these pages.");
-
-                document.getElementById('loader-status').innerText = "AI Processing ✨";
-                document.getElementById('loader-subtext').innerText = "Applying Medical Objectives & Constraints.";
+                if (!contextBlock.trim()) throw new Error("Empty pages.");
 
                 const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
                 const apiData = await res.json();
-                const key = apiData.part1 + apiData.part2;
-                const openrouter = new OpenRouter({ apiKey: key });
+                const openrouter = new OpenRouter({ apiKey: apiData.part1 + apiData.part2 });
 
-                // Focus Type dynamic prompt segment
                 let focusInstruction = "";
-                if (configFocus === "factual") {
-                    focusInstruction = "Focus Type: FACTUAL. Extract precise molecular structures, names of biochemical entities, drug names, and anatomical variables.";
-                } else if (configFocus === "clinical") {
-                    focusInstruction = "Focus Type: CLINICAL. Extract specific indications, hallmark clinical side effects, diagnostic criteria, and first-line emergency guidelines.";
-                } else if (configFocus === "conceptual") {
-                    focusInstruction = "Focus Type: CONCEPTUAL. Extract physiological pathways, molecular mechanisms, pathophysiology processes, and receptor subtype dynamics.";
-                }
+                if (configFocus === "factual") focusInstruction = "Focus Type: FACTUAL. Extract molecular structures, biochemical entity names, drug names.";
+                else if (configFocus === "clinical") focusInstruction = "Focus Type: CLINICAL. Extract indications, hallmark clinical side effects, diagnostic criteria.";
+                else if (configFocus === "conceptual") focusInstruction = "Focus Type: CONCEPTUAL. Extract physiological pathways, molecular mechanisms, pathophysiology.";
 
-                // Difficulty dynamic prompt segment
                 let diffInstruction = "";
-                if (configDiff === "easy") {
-                    diffInstruction = "Difficulty: EASY. Hide exactly ONE obvious high-yield key term. Do not hide complex pathways.";
-                } else if (configDiff === "medium") {
-                    diffInstruction = "Difficulty: MEDIUM. Hide 1-2 key terms requiring clinical logic to successfully match.";
-                } else if (configDiff === "hard") {
-                    diffInstruction = "Difficulty: HARD. Place multiple cloze targets or hide advanced multi-word diagnostic criteria/enzymatic configurations.";
-                }
+                if (configDiff === "easy") diffInstruction = "Difficulty: EASY. Hide exactly ONE obvious high-yield key term.";
+                else if (configDiff === "medium") diffInstruction = "Difficulty: MEDIUM. Hide 1-2 key terms requiring clinical logic.";
+                else if (configDiff === "hard") diffInstruction = "Difficulty: HARD. Place multiple cloze targets or hide advanced multi-word terms.";
 
-                // Critical objective override logic
                 let strictObjectiveDirective = "";
                 if (userObjectives) {
-                    strictObjectiveDirective = `
-                    !!! CRITICAL MANDATE !!!
-                    The user has strictly requested to focus ONLY on: "${userObjectives}".
-                    You MUST completely ignore all other information in the text that does not pertain to this objective. 
-                    For example, if they specify 'uses/indications', do NOT generate any cards about biochemical mechanisms, structural chemistry, or other pathways unless they directly determine the indication. 
-                    Filter out everything else. If you violate this directive, the deck is invalid.
-                    `;
+                    strictObjectiveDirective = `!!! ABSOLUTE DIRECTIVE: TOPIC ISOLATION !!!\nONLY generate flashcards specifically about: "${userObjectives}". Ignore all other unrelated topics in text.`;
                 }
 
-                const structuredPrompt = `You are an elite academic/medical Anki card designer who constructs high-yield, premium-quality active recall cards at an MBBS/MD level.
+                const textChunks = splitTextIntoChunks(contextBlock, 2);
+                const cardsPerChunk = Math.max(2, Math.ceil(cardLimit / textChunks.length));
+
+                const makePromptForChunk = (chunkText) => `You are an elite academic/medical Anki card designer. Create ${cardsPerChunk} active recall cards.
 
 ${strictObjectiveDirective}
-
-FOCUS FILTER:
 ${focusInstruction}
-
-DIFFICULTY CONSTRAINTS:
 ${diffInstruction}
 
-CRITICAL COGNITIVE SELECTION RULES:
-1. THE COGNITIVE DELETION HIERARCHY (Deciding what to hide):
-   - Evaluate sentences based on high-yield clinical value. Never hide low-level terms.
-   - CATEGORY A (Highest Yield): Specific Molecular Targets, Receptor Subtypes, or Specific Enzymes (e.g., "30S ribosomal subunit", "COX-1", "HMG-CoA reductase"). Always hide these.
-   - CATEGORY B (Highest Yield): Hallmark Clinical Adverse Effects or Pathological signs (e.g., "gray baby syndrome", "tendon rupture", "lactic acidosis"). Always hide these.
-   - CATEGORY C (High Yield): Specific Drug/Pathogen of choice (e.g., "Penicillin G", "Lyme disease"). Always hide these.
-   - CATEGORY D (Zero Yield - NEVER HIDE): Downstream obvious physiology (e.g., "protein synthesis", "cell wall", "liver", "death"). An MBBS student already knows that binding a ribosome stops protein synthesis or that cell wall disruption lyses bacteria. Testing this is trivial and a waste of time.
-2. THE DEDUCTIBILITY RULE (Unique Contextual Clues):
-   - NEVER create contextless, impossible-to-guess clozes.
-   - BAD: "Penicillin G is used to treat {{syphilis}}." (Penicillin treats many things; this is a blind guess).
-   - GOOD: "The drug of choice for treating primary syphilis, typically presenting with a {{painless chancre}}, is {{Penicillin G}}."
-3. NO DIRECT TEXTBOOK COPIES: Do not copy and paste sentences directly from the textbook. Rewrite facts into active, structured, question-prompt-style statements.
-4. ALTERNATING TARGETS: 
-   - Alternate what you hide to build robust memory networks.
-5. STRICT SEQUENCE: Extract facts sequentially from the text as you read from start to end.
+RULES:
+1. Wrap high-yield clinical clozes in {{double braces}}. NEVER hide simple downstream words like "protein" or "cell".
+2. No direct textbook copies.
+3. OUTPUT STRICT JSON ARRAY OF OBJECTS ONLY. NO MARKDOWN. NO CONVERSATION.
 
-OUTPUT FORMAT:
-You MUST output a valid JSON array of objects. Do not include markdown formatting outside the JSON. Just the JSON array.
 [
   {
-    "concept": "Name of the target drug or mechanism",
-    "clean_text": "The sentence written as a context-rich active prompt without braces.",
-    "card_text": "The sentence with the EXACT, uniquely identifiable target wrapped in {{double braces}}.",
-    "hint": "A subtle clinical/pharmacological clue that helps deduce the hidden blank (e.g. 'Presents with painless chancre')"
+    "concept": "Topic",
+    "clean_text": "Sentence without braces.",
+    "card_text": "Sentence with EXACT target wrapped in {{double braces}}.",
+    "hint": "Subtle clue"
   }
 ]
 
-Generate exactly ${cardLimit} top-tier cards based ONLY on the following text:
+Text:
+${chunkText.substring(0, 5000)}`;
 
-${contextBlock.substring(0, 15000)}`;
+                const parallelPromises = textChunks.map((chunk, idx) => {
+                    const targetModel = getRandomModel();
+                    return fetchModelStream(openrouter, targetModel, makePromptForChunk(chunk));
+                });
 
-                const responseStream = await openrouter.chat.send({
-                    chatRequest: {
-                        model: "google/gemma-4-26b-a4b-it:free",
-                        messages: [{ role: "user", content: structuredPrompt }],
-                        stream: false
+                const chunkResults = await Promise.all(parallelPromises);
+                clearInterval(countdownInterval);
+
+                let parsedCards = [];
+                
+                chunkResults.forEach(rawOutput => {
+                    if (!rawOutput) return;
+                    const jsonMatch = rawOutput.match(/\[[\s\S]*\]/);
+                    if (jsonMatch) {
+                        try {
+                            const arr = JSON.parse(jsonMatch[0]);
+                            arr.forEach(item => {
+                                if(item.card_text && item.card_text.includes('{{') && item.card_text.includes('}}')) {
+                                    parsedCards.push({ 
+                                        text: item.card_text,
+                                        clean: item.clean_text || item.card_text.replace(/\{\{|\}\}/g, ''),
+                                        hint: item.hint || ""
+                                    });
+                                }
+                            });
+                        } catch (e) {}
                     }
                 });
 
-                const rawModelOutput = responseStream.choices[0]?.message?.content || "";
-                
-                let parsedCards = [];
-                const jsonMatch = rawModelOutput.match(/\[[\s\S]*\]/);
-                
-                if (jsonMatch) {
-                    try {
-                        const arr = JSON.parse(jsonMatch[0]);
-                        arr.forEach(item => {
-                            if(item.card_text && item.card_text.includes('{{') && item.card_text.includes('}}')) {
-                                parsedCards.push({ 
-                                    text: item.card_text,
-                                    clean: item.clean_text || item.card_text.replace(/\{\{|\}\}/g, ''),
-                                    hint: item.hint || ""
-                                });
-                            }
-                        });
-                    } catch (parseError) {
-                        console.error("JSON parse failed", parseError);
-                    }
-                } 
-                
-                if (parsedCards.length === 0) {
-                    const rawStatements = rawModelOutput.split(/\n/);
-                    rawStatements.forEach(statement => {
-                        const clean = statement.trim();
-                        if (clean.includes('{{') && clean.includes('}}') && clean.length > 15) {
-                            let textOnly = clean.replace(/"card_text":\s*"/g, '').replace(/",?$/g, '');
-                            parsedCards.push({ 
-                                text: textOnly,
-                                clean: textOnly.replace(/\{\{|\}\}/g, ''),
-                                hint: ""
-                            });
-                        }
-                    });
-                }
+                // Deduplicate repetitive flashcards
+                const seenTexts = new Set();
+                parsedCards = parsedCards.filter(card => {
+                    const normalized = card.clean.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (seenTexts.has(normalized)) return false;
+                    seenTexts.add(normalized);
+                    return true;
+                });
 
-                if (parsedCards.length === 0) throw new Error("AI couldn't format the flashcards. Try again with a different range.");
+                if (parsedCards.length === 0) throw new Error("Zero cards extracted.");
 
                 parsedCards = parsedCards.slice(0, cardLimit);
 
@@ -1350,14 +1383,42 @@ ${contextBlock.substring(0, 15000)}`;
                 launchStudySession(newDeck);
 
             } catch (err) {
-                showModal("Error", err.message);
+                clearInterval(countdownInterval);
                 loader.classList.add('hidden');
                 settingsStep.classList.remove('hidden');
+                showToast("Notice: Generation paused. Try adjusting selected page range.");
             }
         });
 
-        // --- STUDY ENGINE ---
+        document.getElementById('flashcard-area-trigger').addEventListener('click', (e) => {
+            if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('.btn-subtle') || e.target.closest('.icon-btn')) return;
+            const session = state.currentStudySession;
+            if (session && !session.clozeRevealed && document.getElementById('view-study').classList.contains('active')) {
+                revealAnswers();
+            }
+        });
+
+        document.getElementById('prev-card-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const session = state.currentStudySession;
+            if (session && session.currentIndex > 0) {
+                session.currentIndex--;
+                renderCurrentCard();
+            }
+        });
+
+        document.getElementById('next-card-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const session = state.currentStudySession;
+            if (session && session.currentIndex < session.deck.cards.length - 1) {
+                session.currentIndex++;
+                renderCurrentCard();
+            }
+        });
+
         function launchStudySession(deck) {
+            if (!deck || !deck.cards || deck.cards.length === 0) return;
+            
             state.currentStudySession = {
                 deck: deck,
                 currentIndex: 0,
@@ -1368,6 +1429,24 @@ ${contextBlock.substring(0, 15000)}`;
             };
 
             document.getElementById('study-deck-title').innerText = deck.name;
+            document.querySelector('.card-nav-controls').classList.remove('hidden');
+            document.getElementById('assessment-row').innerHTML = `
+                <button class="btn btn-incorrect" id="btn-press-incorrect">Needs Work</button>
+                <button class="btn btn-correct" id="btn-press-correct">Nailed It</button>
+            `;
+            
+            document.getElementById('btn-press-correct').onclick = () => {
+                state.currentStudySession.correctCount++;
+                handleNextCardStep();
+            };
+            
+            document.getElementById('btn-press-incorrect').onclick = () => {
+                const session = state.currentStudySession;
+                session.incorrectCount++;
+                session.failedCards.push(session.deck.cards[session.currentIndex]);
+                handleNextCardStep();
+            };
+
             switchView('view-study');
             renderCurrentCard();
         }
@@ -1380,10 +1459,18 @@ ${contextBlock.substring(0, 15000)}`;
             const assessmentRow = document.getElementById('assessment-row');
             const revealHelper = document.getElementById('reveal-helper-btn');
             const hintBtn = document.getElementById('study-card-hint-btn');
+            const prevBtn = document.getElementById('prev-card-btn');
+            const nextBtn = document.getElementById('next-card-btn');
 
             session.clozeRevealed = false;
             
-            const percent = ((session.currentIndex) / session.deck.cards.length) * 100;
+            prevBtn.style.opacity = session.currentIndex === 0 ? "0.3" : "1";
+            prevBtn.style.pointerEvents = session.currentIndex === 0 ? "none" : "auto";
+            
+            nextBtn.style.opacity = session.currentIndex === session.deck.cards.length - 1 ? "0.3" : "1";
+            nextBtn.style.pointerEvents = session.currentIndex === session.deck.cards.length - 1 ? "none" : "auto";
+
+            const percent = ((session.currentIndex + 1) / session.deck.cards.length) * 100;
             document.getElementById('study-progress').style.width = `${percent}%`;
 
             let transformedHtml = escapeHtml(currentCard.text)
@@ -1402,22 +1489,22 @@ ${contextBlock.substring(0, 15000)}`;
                 });
             }, 150);
 
-            // Handle Hint System Visibility
             if(session.deck.hintsEnabled && currentCard.hint) {
                 hintBtn.classList.remove('hidden');
-                hintBtn.onclick = () => {
+                hintBtn.onclick = (e) => {
+                    e.stopPropagation();
                     showToast(`Clue: ${currentCard.hint}`);
                 };
             } else {
                 hintBtn.classList.add('hidden');
             }
 
-            // Bind Mnemonic AI Event
-            document.getElementById('study-card-mnemonic-btn').onclick = () => {
+            document.getElementById('study-card-mnemonic-btn').onclick = (e) => {
+                e.stopPropagation();
                 triggerMnemonicGeneration(currentCard);
             };
 
-            evalTip.innerText = "Tap the blank spaces to check your knowledge";
+            evalTip.innerText = "Tap anywhere on the card to reveal";
             assessmentRow.classList.add('hidden');
             revealHelper.classList.remove('hidden');
         }
@@ -1429,49 +1516,35 @@ ${contextBlock.substring(0, 15000)}`;
             try {
                 const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
                 const apiData = await res.json();
-                const key = apiData.part1 + apiData.part2;
-                const openrouter = new OpenRouter({ apiKey: key });
+                const openrouter = new OpenRouter({ apiKey: apiData.part1 + apiData.part2 });
 
-                const prompt = `Create a highly memorable, creative, and academically structured mnemonic to remember the following medical/scientific fact:
-"${factText}"
+                const prompt = `Create a clean, memorable, and academically structured mnemonic to remember this medical/scientific fact:\n"${factText}"\n\nCRITICAL INSTRUCTION:\nDo NOT output any markdown syntax, no hashtags, no dollar signs, no asterisks, and no special code symbols. Provide plain text only.`;
 
-Provide ONLY the mnemonic and a brief 1-sentence layout of how to apply it. Do not write filler introduction, chat preambles, or metadata. Make it highly clear and effective.`;
-
-                const responseStream = await openrouter.chat.send({
-                    chatRequest: {
-                        model: "google/gemma-4-26b-a4b-it:free",
-                        messages: [{ role: "user", content: prompt }],
-                        stream: false
-                    }
-                });
-
-                const rawMnemonic = responseStream.choices[0]?.message?.content || "";
+                const selectedModel = getRandomModel();
+                const rawOutput = await fetchModelStream(openrouter, selectedModel, prompt);
                 
-                // Show in a beautiful custom modal
+                let rawMnemonic = rawOutput.replace(/[\#\$\*\%\^\&\_]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
                 const modal = document.getElementById('app-modal');
-                document.getElementById('modal-title').innerText = "🧠 AI Generated Mnemonic";
+                document.getElementById('modal-title').innerText = "AI Generated Mnemonic";
                 document.getElementById('modal-message').innerHTML = `
-                    <div style="text-align: left; background: #FAFAFC; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 15px; margin-bottom: 20px;">
+                    <div style="text-align: left; background: var(--bg-main); padding: 16px; border: 2px solid var(--border-color); font-size: 15px; margin-bottom: 20px;">
                         ${escapeHtml(rawMnemonic).replace(/\n/g, '<br>')}
                     </div>
-                    <button class="btn btn-primary" id="save-mnemonic-action-btn" style="background: var(--success); box-shadow:none; font-size: 14px; padding: 12px;">Save to Mnemonic Library</button>
+                    <button class="btn btn-primary" id="save-mnemonic-action-btn" style="background: var(--text-dark); color: var(--bg-main); box-shadow:none; font-size: 14px; padding: 16px; border: none; text-transform: uppercase; letter-spacing: 1px; font-weight: 900;">Save to Library</button>
                 `;
                 
                 modal.classList.add('active');
 
-                // Overwrite the normal modal close button handler for Mnemonics
                 document.getElementById('save-mnemonic-action-btn').onclick = () => {
-                    savedMnemonics.push({
-                        fact: factText,
-                        mnemonic: rawMnemonic
-                    });
+                    savedMnemonics.push({ fact: factText, mnemonic: rawMnemonic });
                     localStorage.setItem('modeck_saved_mnemonics', JSON.stringify(savedMnemonics));
                     modal.classList.remove('active');
                     showToast("Saved to your Mnemonic Library!");
                 };
 
             } catch (e) {
-                showModal("Generation Failed", "Could not create mnemonic: " + e.message);
+                showToast("Notice: Server busy. Please try again later.");
             }
         }
 
@@ -1492,19 +1565,6 @@ Provide ONLY the mnemonic and a brief 1-sentence layout of how to apply it. Do n
 
         document.getElementById('reveal-helper-btn').addEventListener('click', revealAnswers);
 
-        document.getElementById('btn-press-correct').addEventListener('click', () => {
-            state.currentStudySession.correctCount++;
-            handleNextCardStep();
-        });
-
-        document.getElementById('btn-press-incorrect').addEventListener('click', () => {
-            const session = state.currentStudySession;
-            session.incorrectCount++;
-            session.failedCards.push(session.deck.cards[session.currentIndex]);
-            handleNextCardStep();
-        });
-
-        // --- Shuffle Active Deck Logic ---
         document.getElementById('shuffle-session-btn').addEventListener('click', () => {
             const session = state.currentStudySession;
             if (!session || session.deck.cards.length <= 1) return;
@@ -1519,7 +1579,6 @@ Provide ONLY the mnemonic and a brief 1-sentence layout of how to apply it. Do n
             showToast("Shuffled active deck sequentially.");
         });
 
-        // --- Re-Cloze (Alternate Blanks) Logic ---
         document.getElementById('recloze-session-btn').addEventListener('click', async () => {
             const session = state.currentStudySession;
             if (!session) return;
@@ -1539,59 +1598,31 @@ Provide ONLY the mnemonic and a brief 1-sentence layout of how to apply it. Do n
             try {
                 const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
                 const apiData = await res.json();
-                const key = apiData.part1 + apiData.part2;
-                const openrouter = new OpenRouter({ apiKey: key });
+                const openrouter = new OpenRouter({ apiKey: apiData.part1 + apiData.part2 });
 
                 const sentences = session.deck.cards.map(c => c.clean || c.text.replace(/\{\{|\}\}/g, ''));
+                const prompt = `You are an elite Anki card designer.\nFor each sentence, select an ALTERNATE completely different high-yield keyword to hide. Wrap in {{double curly braces}}.\n\nOUTPUT ONLY JSON ARRAY OF STRINGS:\n[\n  "Sentence with {{new alternate target}}",\n  ...\n]\n\nSentences:\n${JSON.stringify(sentences, null, 2)}`;
 
-                const prompt = `You are an elite Anki card designer.
-You are given a list of high-yield medical/pharmacological sentences. For each sentence, select an ALTERNATE, completely different high-yield target keyword/phrase to hide than what is currently hidden, and wrap it in double curly braces {{like this}}.
-
-CRITICAL COGNITIVE SELECTION RULES:
-1. Always prioritize hiding high-yield items:
-   - Specific Molecular Targets/Enzymes (e.g. {{30S ribosomal subunit}}).
-   - Hallmark Side Effects (e.g. {{tendon rupture}}).
-   - First-Line Indications/Pathogens (e.g. {{syphilis}}).
-2. NEVER hide generic, downstream outcomes like {{protein synthesis}} or {{cell wall synthesis}}. It is trivial and a waste of MBBS study time.
-3. The remaining context MUST clearly isolate the answer so the user does not have to guess blindly.
-
-Output MUST be a valid JSON array of strings in the exact same order:
-[
-  "Sentence with {{new alternate target}}",
-  ...
-]
-
-Sentences:
-${JSON.stringify(sentences, null, 2)}`;
-
-                const responseStream = await openrouter.chat.send({
-                    chatRequest: {
-                        model: "google/gemma-4-26b-a4b-it:free",
-                        messages: [{ role: "user", content: prompt }],
-                        stream: false
-                    }
-                });
-
-                const raw = responseStream.choices[0]?.message?.content || "";
+                const selectedModel = getRandomModel();
+                const raw = await fetchModelStream(openrouter, selectedModel, prompt);
+                
                 const jsonMatch = raw.match(/\[[\s\S]*\]/);
                 if (jsonMatch) {
                     const newTexts = JSON.parse(jsonMatch[0]);
                     session.deck.cards.forEach((card, idx) => {
-                        if (newTexts[idx]) {
-                            card.text = newTexts[idx];
-                        }
+                        if (newTexts[idx]) card.text = newTexts[idx];
                     });
                     
                     localStorage.setItem('modeck_saved_decks', JSON.stringify(state.decks));
                     launchStudySession(session.deck);
                     showToast("Alternate blanks locked in.");
                 } else {
-                    throw new Error("Target swap calculation failed. Try again.");
+                    throw new Error("Target swap failed");
                 }
 
             } catch (e) {
-                showModal("Recalculate Failed", e.message);
                 launchStudySession(session.deck);
+                showToast("Notice: Could not recalculate at this time.");
             }
         });
 
@@ -1610,16 +1641,16 @@ ${JSON.stringify(sentences, null, 2)}`;
                 setTimeout(() => {
                     contentBox.innerHTML = `
                         <div style="width:100%;">
-                            <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 8px;">Deck Complete</h2>
+                            <h2 style="font-size: 24px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px;">Deck Complete</h2>
                             
-                            <div style="background: #FAFAFC; border-radius: var(--radius-lg); padding: 20px; margin-top: 24px; display: flex; gap: 24px; justify-content: center; border: 1px solid var(--border-color);">
+                            <div style="background: var(--surface); border: 2px solid var(--border-color); padding: 24px; margin-top: 24px; display: flex; gap: 32px; justify-content: center;">
                                 <div>
-                                    <div style="font-size: 28px; font-weight:800; color: var(--success);">${session.correctCount}</div>
-                                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Nailed It</div>
+                                    <div style="font-size: 32px; font-weight:900; color: var(--text-dark);">${session.correctCount}</div>
+                                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Nailed It</div>
                                 </div>
                                 <div>
-                                    <div style="font-size: 28px; font-weight:800; color: var(--danger);">${session.incorrectCount}</div>
-                                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Needs Work</div>
+                                    <div style="font-size: 32px; font-weight:900; color: var(--text-muted);">${session.incorrectCount}</div>
+                                    <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Needs Work</div>
                                 </div>
                             </div>
                         </div>
@@ -1628,13 +1659,14 @@ ${JSON.stringify(sentences, null, 2)}`;
                 }, 150);
                 
                 document.getElementById('eval-tip').innerText = "Session Overview";
+                document.querySelector('.card-nav-controls').classList.add('hidden');
                 
-                let actionsHtml = `<button class="btn btn-primary" onclick="switchTab('library')">Finish Session</button>`;
+                let actionsHtml = `<button class="btn btn-primary" onclick="window.switchTab('library')">Finish Session</button>`;
                 if(session.failedCards.length > 0) {
                     actionsHtml = `
                         <div class="row" style="width: 100%;">
-                            <button class="btn" style="background: #FAFAFC; border: 1px solid var(--border-color); color: var(--text-dark);" onclick="switchTab('library')">Exit</button>
-                            <button class="btn btn-primary" id="review-wrongs-subset-btn">Review Wrongs (${session.failedCards.length})</button>
+                            <button class="btn" style="background: transparent; border: 2px solid var(--border-color); color: var(--text-dark);" onclick="window.switchTab('library')">Exit</button>
+                            <button class="btn btn-primary" id="create-mistakes-deck-btn">Save Mistakes Deck (${session.failedCards.length})</button>
                         </div>
                     `;
                 }
@@ -1644,30 +1676,25 @@ ${JSON.stringify(sentences, null, 2)}`;
                 document.getElementById('reveal-helper-btn').classList.add('hidden');
 
                 if(session.failedCards.length > 0) {
-                    document.getElementById('review-wrongs-subset-btn').addEventListener('click', () => {
-                        const failedSubsetDeck = {
-                            name: `Wrongs Review - ${session.deck.name}`,
+                    document.getElementById('create-mistakes-deck-btn').addEventListener('click', () => {
+                        const mistakeDeck = {
+                            id: Date.now().toString(),
+                            name: `Mistakes - ${session.deck.name}`,
                             cards: [...session.failedCards],
+                            createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                             hintsEnabled: session.deck.hintsEnabled
                         };
-                        launchStudySession(failedSubsetDeck);
+                        
+                        state.decks.unshift(mistakeDeck);
+                        localStorage.setItem('modeck_saved_decks', JSON.stringify(state.decks));
+                        showToast("Saved Mistakes Deck to Library!");
+                        launchStudySession(mistakeDeck);
                     });
                 }
             }
         }
 
         document.getElementById('exit-study-btn').addEventListener('click', () => {
-            document.getElementById('assessment-row').innerHTML = `
-                <button class="btn btn-incorrect" id="btn-press-incorrect">Needs Work</button>
-                <button class="btn btn-correct" id="btn-press-correct">Nailed It</button>
-            `;
-            document.getElementById('btn-press-correct').addEventListener('click', () => { state.currentStudySession.correctCount++; handleNextCardStep(); });
-            document.getElementById('btn-press-incorrect').addEventListener('click', () => { 
-                state.currentStudySession.incorrectCount++; 
-                state.currentStudySession.failedCards.push(state.currentStudySession.deck.cards[state.currentStudySession.currentIndex]);
-                handleNextCardStep(); 
-            });
-            
             window.switchTab('library');
         });
 
@@ -1676,7 +1703,6 @@ ${JSON.stringify(sentences, null, 2)}`;
         }
 
         window.switchTab('library');
-
     </script>
 </body>
 </html>
