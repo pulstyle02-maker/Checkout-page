@@ -570,10 +570,8 @@
         </div>
     </div>
 
-    <!-- OpenRouter SDK with High-Yield Reasoning Prompt Engine -->
-    <script type="module">
-        import { OpenRouter } from "https://esm.sh/@openrouter/sdk?bundle";
-
+    <script>
+    (function() {
         try {
             if (window.pdfjsLib) {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -599,7 +597,6 @@
             }
         };
 
-        // TAB SWITCHING PREVENTS VIEW BLEED & OVERLAPS
         window.switchTab = function(tab) {
             var allViews = document.querySelectorAll('.view');
             for (var i = 0; i < allViews.length; i++) {
@@ -945,9 +942,11 @@
             return chapters;
         }
 
-        // STRICT EXACT PAGE RANGE TEXT EXTRACTOR
         async function fetchLocalPageText(start, end) {
-            if (!state.activePDF) return "";
+            if (!state.activePDF) {
+                throw new Error("No PDF loaded. Please upload a PDF file first.");
+            }
+            
             var textOutput = "";
             var maxPages = state.activePDF.numPages;
             var actualStart = Math.max(1, Math.min(start, maxPages));
@@ -959,7 +958,7 @@
                     var content = await page.getTextContent();
                     var pageText = content.items.map(function(item) { return item.str; }).join(" ");
                     
-                    if (pageText.trim().length < 30) {
+                    if (pageText.trim().length < 20) {
                         try {
                             var viewport = page.getViewport({ scale: 1.5 });
                             var canvas = document.createElement('canvas');
@@ -974,9 +973,14 @@
                             }
                         } catch(e) {}
                     }
-                    textOutput += "\n[SOURCE PAGE " + i + "]\n" + pageText + "\n";
+                    textOutput += "\n--- PAGE " + i + " ---\n" + pageText + "\n";
                 } catch(e) {}
             }
+
+            if (!textOutput.trim()) {
+                throw new Error(`Could not extract text from pages ${actualStart}-${actualEnd}. Try selecting different pages.`);
+            }
+
             return textOutput.trim();
         }
 
@@ -1034,53 +1038,80 @@
             }
         });
 
-        // SEQUENTIAL BLOCK CHUNKING PRESERVES CONTEXT & PAGE CONTINUITY
-        function splitTextIntoChunks(text, numChunks) {
-            if (!text) return [];
-            var totalLength = text.length;
-            if (totalLength < 1500 || numChunks <= 1) return [text];
-            
-            var chunkSize = Math.ceil(totalLength / numChunks);
-            var chunks = [];
-            for (var i = 0; i < totalLength; i += chunkSize) {
-                chunks.push(text.substring(i, i + chunkSize));
-            }
-            return chunks;
+        // DYNAMICALLY FETCHES API KEY FROM GITHUB AND ADDS DOT SEPARATOR IF NEEDED
+        async function getGeminiKey() {
+            try {
+                var res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json?t=" + new Date().getTime());
+                if (res.ok) {
+                    var apiData = await res.json();
+                    if (apiData && apiData.part1 && apiData.part2) {
+                        var p1 = apiData.part1.trim();
+                        var p2 = apiData.part2.trim();
+                        // Guarantees exact AQ.Ab8RN6... structure matching your Google AI Studio screenshot
+                        if (!p1.endsWith('.') && !p2.startsWith('.')) {
+                            return p1 + "." + p2;
+                        }
+                        return p1 + p2;
+                    }
+                }
+            } catch(e) {}
+            throw new Error("Could not retrieve API key from GitHub JSON.");
         }
 
-        const candidateModels = [
-            "google/gemma-4-26b-a4b-it:free",
-            "cohere/north-mini-code:free",
-            "poolside/laguna-xs-2.1:free",
-            "google/gemma-2-9b-it:free",
-            "meta-llama/llama-3.1-8b-instruct:free"
-        ];
+        // GOOGLE GEMINI 1.5 FLASH NATIVE REST CONNECTOR
+        async function generateWithGemini(apiKey, prompt, isJsonMode) {
+            var models = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-exp", "gemini-1.5-pro"];
+            var cleanKey = apiKey.trim();
+            var lastErr = null;
 
-        async function fetchModelStream(openrouter, targetModelName, prompt) {
-            const modelsToTry = [targetModelName, ...candidateModels.filter(m => m !== targetModelName)];
+            for (var m = 0; m < models.length; m++) {
+                var model = models[m];
+                var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(cleanKey);
 
-            for (const modelName of modelsToTry) {
+                var bodyPayload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.2
+                    }
+                };
+
+                if (isJsonMode) {
+                    bodyPayload.generationConfig.responseMimeType = "application/json";
+                }
+
                 try {
-                    const stream = await openrouter.chat.send({
-                        chatRequest: {
-                            model: modelName,
-                            messages: [{ role: "user", content: prompt }],
-                            reasoning: { enabled: true },
-                            stream: true
-                        }
+                    var res = await fetch(endpoint, {
+                        method: "POST",
+                        headers: { 
+                            "Content-Type": "application/json",
+                            "X-goog-api-key": cleanKey
+                        },
+                        body: JSON.stringify(bodyPayload)
                     });
 
-                    let raw = "";
-                    for await (const chunk of stream) {
-                        const content = chunk?.choices?.[0]?.delta?.content;
-                        if (content) raw += content;
+                    if (res.status === 429) {
+                        console.warn("429 Rate Limit on model " + model);
+                        await new Promise(function(r){ setTimeout(r, 1500); });
+                        continue;
                     }
-                    if (raw && raw.trim().length > 0) return raw;
-                } catch (err) {
-                    console.warn(`Model failover for ${modelName}`);
+
+                    if (!res.ok) {
+                        var errData = await res.json().catch(function(){ return {}; });
+                        var msg = (errData.error && errData.error.message) ? errData.error.message : ("HTTP " + res.status);
+                        throw new Error(msg);
+                    }
+
+                    var data = await res.json();
+                    if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+                        return data.candidates[0].content.parts[0].text || "";
+                    }
+                } catch(e) {
+                    console.warn("Gemini query error:", e.message);
+                    lastErr = e;
                 }
             }
-            return "";
+
+            throw new Error(lastErr ? lastErr.message : "Gemini API request failed.");
         }
 
         document.getElementById('trigger-generation-btn').addEventListener('click', async function() {
@@ -1118,41 +1149,29 @@
 
             try {
                 var contextBlock = await fetchLocalPageText(start, end);
-                if (!contextBlock.trim()) throw new Error("Empty text.");
+                var token = await getGeminiKey();
 
-                var res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
-                var apiData = await res.json();
-                var openrouter = new OpenRouter({ apiKey: apiData.part1 + apiData.part2 });
-
-                // DYNAMIC REAL FOCUS MODE PROMPT TRANSFORMATIONS
                 var focusInstruction = "";
                 if (configFocus === "factual") {
                     focusInstruction = `FOCUS MODE: FACTUAL RECALL
-- Style: Direct, precise, rapid-fire scientific & medical facts.
-- Targets: Exact drug names, precise laboratory numbers/cutoffs, specific enzyme names, anatomical structures, genetic mutations, and organism names.
-- Example Card: "The primary first-line therapy for type 2 diabetes mellitus is {{Metformin}}."`;
+- Style: Direct, rapid-fire scientific & medical facts.
+- Targets: Exact drug names, laboratory cutoffs, enzyme names, anatomical structures, genetic mutations, and organism names.`;
                 } else if (configFocus === "clinical") {
                     focusInstruction = `FOCUS MODE: CLINICAL VIGNETTE & CASE SCENARIOS
 - Style: USMLE-style mini clinical scenarios and patient presentations.
-- Structure: "A [age/gender] patient presents with [symptoms/labs]. The diagnosis/treatment is {{target}}."
-- Targets: Pathognomonic physical exam signs, hallmark symptoms, first-line diagnostic tests, and drug indications.
-- Example Card: "A 45-year-old male with a history of alcohol abuse presents with severe epigastric pain radiating to the back and elevated lipase. The most likely diagnosis is {{Acute pancreatitis}}."`;
+- Structure: "A [age/gender] patient presents with [symptoms]. The diagnosis/treatment is {{target}}."`;
                 } else if (configFocus === "conceptual") {
                     focusInstruction = `FOCUS MODE: CONCEPTUAL & MECHANISM OF ACTION
-- Style: Physiological pathways, pathophysiology, cause-and-effect relationships, and molecular mechanisms.
-- Structure: Focus on WHY and HOW biological systems function or fail.
-- Targets: Mechanism steps, upstream/downstream effects, biochemical pathways, and receptor dynamics.
-- Example Card: "Inhibition of acetylcholinesterase leads to increased synaptic availability of acetylcholine, causing overstimulation of {{muscarinic and nicotinic}} receptors."`;
+- Style: Physiological pathways, pathophysiology, cause-and-effect relationships, and molecular mechanisms.`;
                 }
 
-                // STRICT DIFFICULTY LEVEL RULES
                 var diffInstruction = "";
                 if (configDiff === "easy") {
-                    diffInstruction = "DIFFICULTY: EASY - Hide exactly 1 primary high-yield technical term per card.";
+                    diffInstruction = "DIFFICULTY: EASY - Hide exactly 1 primary technical term per card.";
                 } else if (configDiff === "medium") {
-                    diffInstruction = "DIFFICULTY: MEDIUM - Hide 1 to 2 core technical entities requiring clinical mechanism comprehension.";
+                    diffInstruction = "DIFFICULTY: MEDIUM - Hide 1 to 2 core technical entities per card.";
                 } else if (configDiff === "hard") {
-                    diffInstruction = "DIFFICULTY: HARD - Place multiple cloze targets (2-3) or hide complex multi-word clinical entities.";
+                    diffInstruction = "DIFFICULTY: HARD - Hide 2 to 3 advanced technical terms per card.";
                 }
 
                 var strictObjectiveDirective = "";
@@ -1160,24 +1179,20 @@
                     strictObjectiveDirective = `!!! ABSOLUTE DIRECTIVE: TOPIC ISOLATION !!!\nONLY generate flashcards specifically about: "${userObjectives}". Ignore all other unrelated topics in text.`;
                 }
 
-                var textChunks = splitTextIntoChunks(contextBlock, 2);
-                var cardsPerChunk = Math.max(2, Math.ceil(cardLimit / textChunks.length));
-
-                var makePromptForChunk = function(chunkText) {
-                    return `You are an elite USMLE/Anki Medical & Scientific Flashcard Designer. Create ${cardsPerChunk} active recall cards.
+                var makePrompt = `You are an elite USMLE/Anki Medical & Scientific Flashcard Designer. Create exactly ${cardLimit} active recall cards based STRICTLY on the text provided below.
 
 STRICT PAGE ISOLATION MANDATE:
-You MUST ONLY extract information present in the source text below. Do NOT generate information from outside pages.
+You MUST ONLY extract information present in the source text below.
 
 ${strictObjectiveDirective}
 ${focusInstruction}
 ${diffInstruction}
 
 HIGH-YIELD CLOZE RULES:
-1. ONLY hide HIGH-YIELD, EXAM-CRITICAL TECHNICAL ENTITIES (Drug names, pathognomonic symptoms, enzymes, receptors, pathogen names, diagnostic cutoffs).
+1. ONLY hide HIGH-YIELD, EXAM-CRITICAL TECHNICAL ENTITIES (Drug names, symptoms, enzymes, receptors, pathogen names, diagnostic cutoffs).
 2. Do NOT hide generic words like "cell", "protein", "disease", "level", "patient", "treatment", "system".
 3. Wrap key targets in {{double braces}}.
-4. Output STRICT JSON ARRAY OF OBJECTS ONLY. NO MARKDOWN, NO CONVERSATION.
+4. Return strictly a JSON array of objects.
 
 [
   {
@@ -1189,47 +1204,38 @@ HIGH-YIELD CLOZE RULES:
 ]
 
 Text:
-${chunkText.substring(0, 5000)}`;
-                };
+${contextBlock.substring(0, 30000)}`;
 
-                var parallelPromises = textChunks.map(function(chunk) {
-                    var targetModel = candidateModels[Math.floor(Math.random() * candidateModels.length)];
-                    return fetchModelStream(openrouter, targetModel, makePromptForChunk(chunk));
-                });
-
-                var chunkResults = await Promise.all(parallelPromises);
+                var rawOutput = await generateWithGemini(token, makePrompt, true);
                 clearInterval(countdownInterval);
 
                 var parsedCards = [];
-                chunkResults.forEach(function(rawOutput) {
-                    if (!rawOutput) return;
+                try {
+                    parsedCards = JSON.parse(rawOutput);
+                } catch(e) {
                     var cleanedText = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();
-                    var jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
-                    if (jsonMatch) {
-                        try {
-                            var arr = JSON.parse(jsonMatch[0]);
-                            arr.forEach(function(item) {
-                                if(item && item.card_text && item.card_text.includes('{{') && item.card_text.includes('}}')) {
-                                    parsedCards.push({ 
-                                        text: item.card_text,
-                                        clean: item.clean_text || item.card_text.replace(/\{\{|\}\}/g, ''),
-                                        hint: item.hint || ""
-                                    });
-                                }
-                            });
-                        } catch (e) {}
-                    }
-                });
+                    var match = cleanedText.match(/\[[\s\S]*\]/);
+                    if (match) parsedCards = JSON.parse(match[0]);
+                }
 
                 var seenTexts = new Set();
                 parsedCards = parsedCards.filter(function(card) {
-                    var normalized = card.clean.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (!card.card_text || !card.card_text.includes('{{')) return false;
+                    var normalized = (card.clean_text || card.card_text).toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (seenTexts.has(normalized)) return false;
                     seenTexts.add(normalized);
                     return true;
+                }).map(function(card) {
+                    return {
+                        text: card.card_text,
+                        clean: card.clean_text || card.card_text.replace(/\{\{|\}\}/g, ''),
+                        hint: card.hint || ""
+                    };
                 });
 
-                if (parsedCards.length === 0) throw new Error("Zero cards extracted.");
+                if (parsedCards.length === 0) {
+                    throw new Error("No readable facts found on selected pages. Try selecting a different page range.");
+                }
 
                 parsedCards = parsedCards.slice(0, cardLimit);
 
@@ -1249,7 +1255,7 @@ ${chunkText.substring(0, 5000)}`;
                 clearInterval(countdownInterval);
                 loader.classList.add('hidden');
                 settingsStep.classList.remove('hidden');
-                showToast("Notice: Generation paused. Try adjusting selected page range.");
+                showToast("Error: " + (err.message || err));
             }
         });
 
@@ -1365,25 +1371,20 @@ ${chunkText.substring(0, 5000)}`;
             revealHelper.classList.remove('hidden');
         }
 
-        // PURE AI MNEMONIC GENERATOR
         async function triggerMnemonicGeneration(card) {
-            const factText = card.clean || card.text.replace(/\{\{|\}\}/g, '');
+            var factText = card.clean || card.text.replace(/\{\{|\}\}/g, '');
             showToast("Generating mnemonic with AI...");
 
             try {
-                const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
-                const apiData = await res.json();
-                const openrouter = new OpenRouter({ apiKey: apiData.part1 + apiData.part2 });
+                var token = await getGeminiKey();
+                var prompt = `Create a clean, memorable medical/scientific mnemonic for this fact:\n"${factText}"\nProvide plain text only. Do not use markdown syntax, hashtags, or code symbols.`;
 
-                const prompt = `Create a clean, memorable medical/scientific mnemonic for this fact:\n"${factText}"\nProvide plain text only. Do not use markdown formatting, code symbols, hashtags, or asterisks.`;
-
-                const selectedModel = candidateModels[Math.floor(Math.random() * candidateModels.length)];
-                const rawOutput = await fetchModelStream(openrouter, selectedModel, prompt);
-                const rawMnemonic = rawOutput.replace(/[\#\$\*\%\^\&\_]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                var rawOutput = await generateWithGemini(token, prompt, false);
+                var rawMnemonic = rawOutput.replace(/[\#\$\*\%\^\&\_]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
                 if (!rawMnemonic) throw new Error("Empty AI response");
 
-                const modal = document.getElementById('app-modal');
+                var modal = document.getElementById('app-modal');
                 document.getElementById('modal-title').innerText = "AI Generated Mnemonic";
                 document.getElementById('modal-message').innerHTML = `
                     <div style="text-align: left; background: var(--bg-main); padding: 14px; border: 2px solid var(--border-color); font-size: 14px; margin-bottom: 16px; line-height: 1.5;">
@@ -1394,7 +1395,7 @@ ${chunkText.substring(0, 5000)}`;
                 
                 modal.classList.add('active');
 
-                document.getElementById('save-mnemonic-action-btn').onclick = () => {
+                document.getElementById('save-mnemonic-action-btn').onclick = function() {
                     savedMnemonics.push({ fact: factText, mnemonic: rawMnemonic });
                     try { localStorage.setItem('modeck_saved_mnemonics', JSON.stringify(savedMnemonics)); } catch(e){}
                     modal.classList.remove('active');
@@ -1402,7 +1403,7 @@ ${chunkText.substring(0, 5000)}`;
                 };
 
             } catch (e) {
-                showToast("AI network busy. Please try again.");
+                showToast("Error generating mnemonic: " + (e.message || e));
             }
         }
 
@@ -1439,29 +1440,28 @@ ${chunkText.substring(0, 5000)}`;
             showToast("Shuffled active deck.");
         });
 
-        // PURE AI ALTERNATE BLANKS RE-CLOZE GENERATOR
-        document.getElementById('recloze-session-btn').addEventListener('click', async () => {
-            const session = state.currentStudySession;
+        document.getElementById('recloze-session-btn').addEventListener('click', async function() {
+            var session = state.currentStudySession;
             if (!session || !session.deck || !session.deck.cards) return;
 
             showToast("Recalculating blanks with AI...");
 
             try {
-                const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/Api.json");
-                const apiData = await res.json();
-                const openrouter = new OpenRouter({ apiKey: apiData.part1 + apiData.part2 });
+                var token = await getGeminiKey();
+                var sentences = session.deck.cards.map(function(c) { return c.clean || c.text.replace(/\{\{|\}\}/g, ''); });
+                var prompt = `You are an elite USMLE Anki card designer.\nFor each medical/scientific sentence below, pick an ALTERNATE HIGH-YIELD KEYWORD (drug, sign, enzyme, diagnostic cutoff, or organism) to hide. Wrap in {{double curly braces}}.\n\nCRITICAL: NEVER hide generic words like "protein", "cell", "disease", "level", "system". Hide ONLY exam-grade entities!\n\nReturn strictly a JSON array of strings.\n\nSentences:\n${JSON.stringify(sentences, null, 2)}`;
 
-                const sentences = session.deck.cards.map(c => c.clean || c.text.replace(/\{\{|\}\}/g, ''));
-                const prompt = `You are an elite USMLE Anki card designer.\nFor each medical/scientific sentence below, pick an ALTERNATE HIGH-YIELD KEYWORD (drug, sign, enzyme, diagnostic cutoff, or organism) to hide. Wrap in {{double curly braces}}.\n\nCRITICAL: NEVER hide generic words like "protein", "cell", "disease", "level", "system". Hide ONLY exam-grade entities!\n\nOUTPUT ONLY STRICT JSON ARRAY OF STRINGS:\n[\n  "Sentence with {{new high-yield target}}",\n  ...\n]\n\nSentences:\n${JSON.stringify(sentences, null, 2)}`;
+                var rawOutput = await generateWithGemini(token, prompt, true);
+                var newTexts = [];
+                try {
+                    newTexts = JSON.parse(rawOutput);
+                } catch(e) {
+                    var match = rawOutput.match(/\[[\s\S]*\]/);
+                    if (match) newTexts = JSON.parse(match[0]);
+                }
 
-                const selectedModel = candidateModels[Math.floor(Math.random() * candidateModels.length)];
-                const raw = await fetchModelStream(openrouter, selectedModel, prompt);
-                const cleanedText = raw ? raw.replace(/```json/gi, '').replace(/```/g, '').trim() : "";
-                const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
-
-                if (jsonMatch) {
-                    const newTexts = JSON.parse(jsonMatch[0]);
-                    session.deck.cards.forEach((card, idx) => {
+                if (Array.isArray(newTexts) && newTexts.length > 0) {
+                    session.deck.cards.forEach(function(card, idx) {
                         if (newTexts[idx] && newTexts[idx].includes('{{')) {
                             card.text = newTexts[idx];
                         }
@@ -1471,10 +1471,10 @@ ${chunkText.substring(0, 5000)}`;
                     renderCurrentCard();
                     showToast("Alternate blanks locked in!");
                 } else {
-                    throw new Error("Invalid AI output format");
+                    throw new Error("Invalid response format from AI");
                 }
             } catch (e) {
-                showToast("AI busy. Tap Alternate Blanks again.");
+                showToast("Error: " + (e.message || e));
             }
         });
 
@@ -1534,6 +1534,7 @@ ${chunkText.substring(0, 5000)}`;
 
         // Launch first tab safely
         window.switchTab('library');
+    })();
     </script>
 </body>
 </html>
