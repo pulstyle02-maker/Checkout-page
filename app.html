@@ -41,9 +41,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
     <style>
-        /* Global Thin Font-Weight for Low Opacity / Muted Text */
+        /* Normal Font-Weight for Low Opacity / Muted Text */
         .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-zinc-450, .opacity-70, .opacity-60, .opacity-50, .text-white\/50, .text-white\/60, .text-white\/70, .text-white\/80 {
-            font-weight: 300 !important;
+            font-weight: 400;
         }
 
         /* iOS-Grade Viewport Lock */
@@ -864,30 +864,32 @@
             <!-- Normal MCQ Wrapper -->
             <div id="mcq-normal-wrapper" class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col h-full justify-between">
                 <!-- Header -->
-                <div class="safe-pt pb-3 bg-zinc-50 dark:bg-black flex flex-col sticky top-0 z-20 transition-colors duration-300">
+                <div class="safe-pt pb-2 bg-zinc-50 dark:bg-black flex flex-col sticky top-0 z-20 transition-colors duration-300">
                     <!-- Info Row -->
-                    <div class="flex justify-between items-start mb-2.5">
-                        <div class="flex items-center space-x-2.5">
-                            <button onclick="endSessionConfirm()" class="p-1.5 -ml-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="endSessionConfirm()" class="p-1.5 -ml-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
                             <div class="flex flex-col">
-                                <span id="mcq-current-subject" class="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none mb-1">Subject</span>
-                                <span id="mcq-current-lo" class="text-[10px] font-black text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded uppercase tracking-wider leading-none self-start">LO CODE</span>
+                                <span id="mcq-current-subject" class="text-[10px] font-medium text-zinc-500 uppercase tracking-widest leading-none mb-0.5">Subject</span>
+                                <span id="mcq-current-lo" class="text-[13px] font-semibold text-brand-blue tracking-wide leading-none self-start">LO CODE</span>
                             </div>
                         </div>
                         
                         <!-- Timer -->
-                        <div id="mcq-timer-box" class="flex items-center space-x-1.5 text-brand-blue bg-brand-blue/10 px-2 py-1 rounded-md transition-colors">
+                        <div id="mcq-timer-box" class="flex items-center space-x-1.5 text-brand-blue bg-brand-blue/10 px-2.5 py-1 rounded-md transition-colors">
                             <i data-lucide="timer" class="w-3.5 h-3.5"></i>
-                            <span id="mcq-time-text" class="text-[11px] font-bold font-mono tracking-wider">00:00</span>
+                            <span id="mcq-time-text" class="text-[12px] font-semibold font-mono tracking-wider">00:00</span>
                         </div>
                     </div>
                     
                     <!-- Progress Row -->
                     <div class="flex items-center space-x-3 mb-1 cursor-pointer group" onclick="toggleQuestionJumpModal()">
-                        <div class="h-1.5 flex-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                            <div id="mcq-progress-bar" class="h-full bg-brand-gradient rounded-full transition-all duration-300" style="width: 0%"></div>
+                        <div class="h-[7px] flex-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden opacity-100">
+                            <div id="mcq-progress-bar" class="h-full bg-brand-gradient rounded-full transition-all duration-300 opacity-100" style="width: 0%"></div>
                         </div>
-                        <span id="mcq-progress-text" class="text-[10px] font-black text-zinc-500 group-hover:text-brand-blue transition-colors flex items-center gap-1 shrink-0">1/20 <i data-lucide="layout-grid" class="w-3 h-3"></i></span>
+                        <div id="mcq-progress-text" class="flex items-center transition-colors shrink-0 cursor-pointer">
+                            <!-- JS Injected Metrics -->
+                        </div>
                     </div>
                 </div>
                 
@@ -908,7 +910,7 @@
                 </div>
 
                 <!-- Scroll Content -->
-                <div class="flex-1 overflow-y-auto no-scrollbar py-6 flex flex-col" id="mcq-content-area"></div>
+                <div class="flex-1 overflow-y-auto no-scrollbar pt-1 pb-6 flex flex-col" id="mcq-content-area"></div>
 
                 <!-- Solid Bottom Bar -->
                 <div class="py-4 bg-zinc-50 dark:bg-black flex justify-between items-center z-20 pb-8 space-x-3 transition-colors duration-300" id="mcq-action-container">
@@ -3365,14 +3367,51 @@
                         lastSessionId: currentSessionId 
                     });
 
+                    // Real-time Multi-Device Protection Listener
                     db.collection("users").doc(user.uid).onSnapshot(snapshot => {
                         if (snapshot.exists) {
                             const data = snapshot.data();
                             if (data.lastSessionId && data.lastSessionId !== currentSessionId) {
-                                alert("This account was logged in on another device. Dynamic session protection has locked this connection.");
-                                auth.signOut().then(() => {
-                                    window.location.reload();
-                                });
+                                
+                                // 1. Silently sign them out in the background immediately
+                                auth.signOut();
+
+                                // 2. Show Smooth Premium Overlay
+                                const overlay = document.getElementById('inapp-notification-overlay');
+                                const card = document.getElementById('inapp-notification-card');
+                                const title = document.getElementById('inapp-notif-title');
+                                const msg = document.getElementById('inapp-notif-message');
+                                const btn = document.getElementById('inapp-notif-dismiss');
+                                const iconBox = document.getElementById('inapp-notif-icon-box');
+
+                                if (overlay && title && msg) {
+                                    // Softened to a friendly Amber/Orange color
+                                    iconBox.innerHTML = '<i data-lucide="smartphone" class="w-7 h-7 text-amber-500"></i>';
+                                    iconBox.className = 'w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-amber-500/10 border border-amber-500/20';
+                                    
+                                    // Friendly, non-technical copy
+                                    title.innerText = "You're logged in elsewhere";
+                                    title.className = 'text-xl font-black text-white mb-2 leading-tight';
+                                    
+                                    msg.innerText = "It looks like your account was just opened on another device. We've safely logged you out here to protect your progress.";
+                                    btn.innerText = 'Log In Again';
+                                    
+                                    lucide.createIcons();
+                                    
+                                    overlay.classList.remove('hidden');
+                                    setTimeout(() => {
+                                        overlay.classList.remove('opacity-0');
+                                        card.classList.remove('scale-95');
+                                    }, 10);
+
+                                    // 3. Reload cleanly only when they acknowledge
+                                    btn.onclick = () => {
+                                        window.location.reload(true);
+                                    };
+                                } else {
+                                    // Fallback if elements are missing
+                                    window.location.reload(true);
+                                }
                             }
                         }
                     });
@@ -6089,6 +6128,47 @@
             renderMCQ();
         }
 
+        async function handleSkipMCQ() {
+            appState.mcqSelectedOptionIndex = null;
+            
+            if (appState.sessionConfig.mode === 'Test') {
+                handleTestModeNext();
+                return;
+            }
+
+            appState.mcqIsSubmitted = true;
+            const question = appState.mcqSessionQuestions[appState.currentMcqIndex];
+            const qTag = String(question.tag).trim();
+            
+            appState.sessionStats.incorrect++;
+            const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+            const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+            if (!exists) {
+                appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
+            }
+            
+            appState.totalMcqsDone++;
+
+            if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
+            appState.loStats[qTag].attempted += 1;
+            
+            appState.mcqHistory[appState.currentMcqIndex] = {
+                selected: null,
+                correct: false
+            };
+
+            if (appState.currentUser) {
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    totalMcqsDone: appState.totalMcqsDone,
+                    incorrectMCQs: appState.incorrectMCQs,
+                    loStats: appState.loStats
+                });
+                syncSessionProgress();
+            }
+
+            renderMCQ();
+        }
+
         async function submitMCQAnswer() {
             if (appState.mcqSelectedOptionIndex === null) return;
             appState.mcqIsSubmitted = true;
@@ -6564,6 +6644,10 @@
 
         function renderMCQ() {
             try {
+                // Instantly reset scroll to top for new questions
+                const contentArea = document.getElementById('mcq-content-area');
+                if (contentArea) contentArea.scrollTop = 0;
+
                 if (!appState.mcqSessionQuestions || appState.mcqSessionQuestions.length === 0) {
                     document.getElementById('mcq-content-area').innerHTML = `
                         <div class="text-center p-8 text-zinc-500">
@@ -6671,83 +6755,150 @@
                     `;
                 }
 
+                // Calculate Live Session Stats
+                let curCor = 0, curInc = 0, curSkp = 0;
+                for (let i = 0; i < appState.mcqSessionQuestions.length; i++) {
+                    const h = appState.mcqHistory[i];
+                    if (h) {
+                        if (h.selected === null) curSkp++;
+                        else if (h.correct) curCor++;
+                        else curInc++;
+                    }
+                }
+
                 const progText = document.getElementById('mcq-progress-text');
                 if (progText) {
-                    progText.innerHTML = `${appState.currentMcqIndex + 1}/${appState.mcqSessionQuestions.length} <i data-lucide="layout-grid" class="w-3 h-3 ml-1"></i>`;
+                    progText.innerHTML = `
+                        <div class="flex items-center gap-2.5 mr-3">
+                            <span class="flex items-center text-[11px] text-emerald-600 dark:text-emerald-500 font-bold"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></div>${curCor}</span>
+                            <span class="flex items-center text-[11px] text-rose-600 dark:text-rose-500 font-bold"><div class="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></div>${curInc}</span>
+                            <span class="flex items-center text-[11px] text-zinc-400 font-bold"><div class="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600 mr-1.5"></div>${curSkp}</span>
+                        </div>
+                        <span class="text-[13px] font-bold text-zinc-800 dark:text-zinc-200">${appState.currentMcqIndex + 1}/${appState.mcqSessionQuestions.length}</span>
+                        <i data-lucide="layout-grid" class="w-4 h-4 ml-1.5 text-zinc-400"></i>
+                    `;
                 }
                 const progressPct = ((appState.currentMcqIndex) / appState.mcqSessionQuestions.length) * 100;
                 document.getElementById('mcq-progress-bar').style.width = `${progressPct}%`;
 
                 const sanitizedStatement = cleanMCQStatement(question.statement);
-                let html = `<p class="text-base md:text-lg text-zinc-900 dark:text-white font-bold leading-relaxed mb-3 select-none">${sanitizedStatement}</p>`;
+                
+                // Seamless Text Flow - No borders or dividers under the stem
+                let html = `
+                    <div class="mb-5 pb-1 px-1">
+                        <p class="text-[16px] text-zinc-900 dark:text-zinc-50 font-medium leading-[1.6] select-none tracking-tight break-words">${sanitizedStatement}</p>
+                    </div>
+                `;
                 
                 html += `<div class="space-y-3 flex-1">`;
                 question.options.forEach((optText, index) => {
-                    let cls = 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-gray-300 hover:bg-zinc-50 dark:hover:bg-zinc-800';
+                    let boxCls = 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b]';
+                    let textCls = 'text-zinc-800 dark:text-zinc-200 font-medium';
+                    let letterCls = 'text-zinc-400 dark:text-zinc-500 font-bold';
+                    let iconHtml = '';
                     const letter = letters[index] || '';
 
                     if (!appState.mcqIsSubmitted) {
-                        if (appState.mcqSelectedOptionIndex === index) cls = 'border-brand-blue bg-brand-blue/10 text-brand-blue';
+                        if (appState.mcqSelectedOptionIndex === index) {
+                            // User's current selection
+                            boxCls = 'border-brand-blue bg-brand-blue/[0.04]';
+                            textCls = 'text-brand-blue font-semibold';
+                            letterCls = 'text-brand-blue font-bold';
+                        } else {
+                            // Hover effect for unselected options pre-submit
+                            boxCls += ' hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors cursor-pointer';
+                        }
                     } else {
-                        if (index === question.correctOptionIndex) cls = 'border-[#477864] bg-[#477864]/10 text-[#477864]';
-                        else if (appState.mcqSelectedOptionIndex === index) cls = 'border-[#ef4444] bg-[#ef4444]/10 text-[#ef4444]';
-                        else cls = 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black text-zinc-400 dark:text-zinc-600 opacity-50';
+                        if (index === question.correctOptionIndex) {
+                            // This is the correct answer
+                            boxCls = 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-sm';
+                            textCls = 'text-emerald-700 dark:text-emerald-400 font-semibold';
+                            letterCls = 'text-emerald-600 dark:text-emerald-500 font-bold';
+                            iconHtml = `<i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-500 shrink-0 ml-3"></i>`;
+                        } 
+                        else if (appState.mcqSelectedOptionIndex === index) {
+                            // User's incorrect choice
+                            boxCls = 'border-rose-500 bg-rose-50/50 dark:bg-rose-500/10 shadow-sm';
+                            textCls = 'text-rose-700 dark:text-rose-400 font-semibold';
+                            letterCls = 'text-rose-600 dark:text-rose-500 font-bold';
+                            iconHtml = `<i data-lucide="x-circle" class="w-5 h-5 text-rose-500 shrink-0 ml-3"></i>`;
+                        } 
+                        else {
+                            // FULLY VISIBLE Unselected wrong options (NO OPACITY DROPS)
+                            boxCls = 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b]';
+                            textCls = 'text-zinc-700 dark:text-zinc-300 font-medium';
+                            letterCls = 'text-zinc-400 dark:text-zinc-500 font-bold';
+                        }
                     }
 
-                    html += `<button ${appState.mcqIsSubmitted ? 'disabled' : ''} onclick="selectOption(${index})" class="w-full text-left py-3.5 px-5 rounded-[10px] border transition-all flex items-start card-press shadow-sm ${cls}">
-                        <span class="font-bold mr-3 text-sm ${!appState.mcqIsSubmitted && appState.mcqSelectedOptionIndex === index ? 'text-brand-blue' : 'opacity-50'}">${letter}</span>
-                        <span class="flex-1 text-sm leading-relaxed font-medium">${optText}</span>
+                    // A. B. C. styling (no circles) with items-start to handle long options beautifully
+                    html += `<button ${appState.mcqIsSubmitted ? 'disabled' : ''} onclick="selectOption(${index})" class="w-full text-left p-4 rounded-[16px] border-[1.5px] flex items-start card-press ${boxCls}">
+                        <span class="text-[15px] mt-[1px] mr-3 w-5 shrink-0 ${letterCls}">${letter}.</span>
+                        <span class="flex-1 text-[15px] leading-[1.45] ${textCls}">${optText}</span>
+                        ${iconHtml}
                     </button>`;
                 });
                 html += `</div>`;
                 
                 // TUTOR MODE EXPLANATION INJECT 🪄
                 if (appState.sessionConfig.mode === 'Tutor') {
-                    html += `<div class="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4 animate-[fadeIn_0.3s_ease-out]">
-                                <h3 class="text-[11px] font-black text-brand-blue uppercase tracking-widest mb-3">Explanations</h3>`;
+                    html += `<div class="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800/60 animate-[fadeIn_0.3s_ease-out]">
+                                <h3 class="text-[12px] font-black text-brand-blue uppercase tracking-widest mb-4 flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i> Rationale</h3>
+                                <div class="space-y-3">`;
                     question.options.forEach((opt, idx) => {
                         const isCorrect = idx === question.correctOptionIndex;
                         const exp = question.optionExplanations ? question.optionExplanations[idx] : '';
                         if (exp) {
-                            html += `<div class="mb-3 p-3 rounded-xl ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30' : 'bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800'}">
-                                        <p class="text-[12px] font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'} mb-1">${letters[idx]}. ${opt}</p>
-                                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 font-medium">${exp.replace(/the text explicitly states /gi, '').trim()}</p>
+                            html += `<div class="p-4 rounded-[16px] bg-zinc-50 dark:bg-[#1c1c1e] border border-zinc-100 dark:border-zinc-800/80">
+                                        <div class="flex items-start gap-2 mb-2">
+                                            ${isCorrect ? `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 mt-0.5 shrink-0"></i>` : `<i data-lucide="x-circle" class="w-4 h-4 text-rose-500 mt-0.5 shrink-0"></i>`}
+                                            <p class="text-[13px] font-bold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-200'} leading-snug">${letters[idx]}. ${opt}</p>
+                                        </div>
+                                        <p class="text-[12px] text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed ml-6">${exp.replace(/the text explicitly states /gi, '').trim()}</p>
                                      </div>`;
                         }
                     });
-                    html += `</div>`;
+                    html += `</div></div>`;
                 }
 
                 document.getElementById('mcq-content-area').innerHTML = subjectNavHtml + html;
 
                 let bottomHtml = `
-                    <div class="flex items-center space-x-3">
-                        <button id="btn-prev" class="p-3.5 rounded-[16px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white card-press shadow-sm ${appState.currentMcqIndex === 0 ? 'opacity-30 cursor-not-allowed' : ''}">
-                            <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    <div class="flex items-center space-x-2.5">
+                        <button id="btn-prev" class="p-4 rounded-[16px] bg-white dark:bg-[#1c1c1e] border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-white card-press shadow-sm ${appState.currentMcqIndex === 0 ? 'opacity-30 cursor-not-allowed' : ''}">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
                         </button>
-                        <button id="btn-bookmark" class="p-3.5 rounded-[16px] ${appState.bookmarkedMCQs.includes(question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) ? 'bg-brand-gradient border-transparent shadow-md' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'} text-zinc-900 dark:text-white card-press transition-colors">
-                            <i data-lucide="bookmark" class="w-6 h-6 ${appState.bookmarkedMCQs.includes(question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) ? 'text-white fill-current' : ''}"></i>
+                        <button id="btn-bookmark" class="p-4 rounded-[16px] ${appState.bookmarkedMCQs.includes(question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) ? 'bg-brand-blue/10 border-brand-blue/30 text-brand-blue shadow-sm' : 'bg-white dark:bg-[#1c1c1e] border-zinc-200/80 dark:border-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-white'} border card-press transition-colors">
+                            <i data-lucide="bookmark" class="w-5 h-5 ${appState.bookmarkedMCQs.includes(question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) ? 'fill-current' : ''}"></i>
                         </button>
                     </div>
                 `;
 
                 if (isTestMode) {
-                    const btnClass = "flex-1 ml-4 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press";
+                    const btnClass = "bg-zinc-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-[16px] shadow-sm transition-all text-[15px] card-press";
                     bottomHtml += `
-                    <button onclick="handleTestModeNext()" class="${btnClass}">
-                        ${isLast ? "Submit Exam" : "Next Question"}
-                    </button>`;
+                    <div class="flex-1 flex items-center space-x-2.5 ml-2.5">
+                        ${!isLast ? `<button onclick="handleSkipMCQ()" class="flex-1 bg-zinc-100 dark:bg-[#2c2c2e] text-zinc-600 dark:text-zinc-300 font-bold py-4 rounded-[16px] transition-all text-sm card-press">Skip</button>` : ''}
+                        <button onclick="handleTestModeNext()" class="${btnClass} ${isLast ? 'w-full' : 'flex-[2]'}">
+                            ${isLast ? "Submit Exam" : "Next"}
+                        </button>
+                    </div>`;
                 } else {
                     if (!appState.mcqIsSubmitted) {
                         const btnClass = appState.mcqSelectedOptionIndex !== null 
-                            ? "flex-1 ml-4 bg-brand-gradient text-white font-bold py-4 rounded-[20px] shadow-md transition-all text-sm card-press" 
-                            : "flex-1 ml-4 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm cursor-not-allowed";
-                        bottomHtml += `<button id="btn-mcq-action" class="${btnClass}">Check Answer</button>`;
+                            ? "bg-zinc-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-[16px] shadow-md transition-all text-[15px] card-press" 
+                            : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 font-bold py-4 rounded-[16px] transition-all text-[15px] cursor-not-allowed";
+                        
+                        bottomHtml += `
+                        <div class="flex-1 flex items-center space-x-2.5 ml-2.5">
+                            <button onclick="handleSkipMCQ()" class="flex-1 bg-zinc-100 dark:bg-[#2c2c2e] text-zinc-600 dark:text-zinc-300 font-bold py-4 rounded-[16px] transition-all text-sm card-press">Skip</button>
+                            <button id="btn-mcq-action" class="${btnClass} flex-[2]">Check</button>
+                        </div>`;
                     } else {
                         bottomHtml += `
-                        <div class="flex-1 flex items-center space-x-3 ml-4">
-                            <button onclick="showExplanation()" class="flex-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-sm">Explain</button>
-                            <button onclick="handleNextMCQ()" class="flex-1 bg-zinc-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-[20px] transition-all text-sm card-press shadow-md">${isLast ? "Finish" : "Next"}</button>
+                        <div class="flex-1 flex items-center space-x-2.5 ml-2.5">
+                            <button onclick="showExplanation()" class="flex-1 bg-zinc-100 dark:bg-[#2c2c2e] text-zinc-700 dark:text-zinc-300 font-bold py-4 rounded-[16px] transition-all text-[14px] card-press shadow-sm flex items-center justify-center gap-1.5"><i data-lucide="help-circle" class="w-4 h-4"></i> Explain</button>
+                            <button onclick="handleNextMCQ()" class="flex-[1.5] bg-brand-gradient text-white font-bold py-4 rounded-[16px] transition-all text-[15px] card-press shadow-md">${isLast ? "Finish" : "Next"}</button>
                         </div>`;
                     }
                 }
