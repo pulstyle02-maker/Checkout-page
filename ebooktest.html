@@ -281,7 +281,7 @@
 
       <!-- Viewport (Vertically Streams Pages as they are scrolled into view) -->
       <!-- Strict z-0 applied here so it creates a localized stacking context below dropdowns -->
-      <div class="flex-1 w-full h-full overflow-y-auto overflow-x-auto no-scrollbar scroll-smooth relative z-0" id="pdf-scroll-container">
+      <div class="flex-1 w-full h-full overflow-y-auto overflow-x-auto no-scrollbar relative z-0 touch-pan-x touch-pan-y" id="pdf-scroll-container">
         <!-- Skeleton Loading Bar Overlay -->
         <div id="reader-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-[#F2F2F7] z-40 transition-opacity duration-300">
           <div class="w-64 h-2 bg-slate-200 rounded-full overflow-hidden mb-4 shadow-inner">
@@ -290,7 +290,7 @@
           <p id="loading-status-text" class="text-xs font-bold tracking-wider text-slate-500 uppercase">Connecting securely...</p>
         </div>
         <!-- Vertical Scroll Viewport -->
-        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start h-max min-w-full py-6 px-6 space-y-6 relative z-0"></div>
+        <div id="pdf-pages-viewport" class="flex flex-col items-center justify-start h-max w-max min-w-full mx-auto py-6 px-6 space-y-6 relative z-0 touch-pan-x touch-pan-y"></div>
       </div>
       
       <div id="toast-notify" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-5 py-3 rounded-full hidden items-center gap-2.5 shadow-2xl z-[250] transition-all">
@@ -1247,14 +1247,13 @@
       });
     }
 
-    // High Performance Hardware-Accelerated CSS Variable Zooming
+    // High Performance Hardware-Accelerated Instant CSS Zooming
     function applyDynamicSizing() {
       const bookData = userLibrary[readerState.activeBookId] || {};
       const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
       const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
-      if (isHistology) return; // Skip parent dynamic transformations for Histology to prevent crashes
+      if (isHistology) return;
       
-      readerState.isZooming = true;
       const viewport = document.getElementById('pdf-pages-viewport');
       if (viewport) {
          viewport.style.setProperty('--zoom', readerState.zoom);
@@ -1262,19 +1261,6 @@
       
       const slider = document.getElementById('zoom-slider');
       if(slider) slider.value = readerState.zoom;
-
-      clearTimeout(zoomTimeout);
-      zoomTimeout = setTimeout(() => { 
-          readerState.isZooming = false;
-          // Forces observer to wake up and catch rendering missed during heavy layout shifts avoiding crashes
-          if (window.pdfObserver) {
-              document.querySelectorAll('.page-wrapper').forEach(wrapper => {
-                  window.pdfObserver.unobserve(wrapper);
-                  window.pdfObserver.observe(wrapper);
-              });
-          }
-          triggerViewportObserverEvaluation(); 
-      }, 350);
     }
     
     function handleZoomSlider(val) { 
@@ -1286,7 +1272,7 @@
       const bookData = userLibrary[readerState.activeBookId] || {};
       const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
       const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
-      if (isHistology) return; // Completely bypass custom zoom calculations for Histology to avoid iframe crashes
+      if (isHistology) return;
 
       let newZoom = readerState.zoom + modifier;
       if (newZoom < 0.5 || newZoom > 3.0) return;
@@ -1294,7 +1280,7 @@
       applyDynamicSizing();
     }
 
-    // Highly optimized Pinch-To-Zoom Touch Event override powered by requestAnimationFrame
+    // Fluid Touch Pinch-To-Zoom Override without scroll locking
     let pinchInitialDist = 0;
     let pinchInitialZoom = 1;
     let isPinching = false;
@@ -1305,13 +1291,15 @@
         const bookData = userLibrary[readerState.activeBookId] || {};
         const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
         const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
-        if (isHistology) return; // Skip parent pinch interception for Histology so iframe handles scaling natively
+        if (isHistology) return;
 
         if (e.touches.length === 2) {
             e.preventDefault();
             isPinching = true;
             pinchInitialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
             pinchInitialZoom = readerState.zoom;
+        } else {
+            isPinching = false;
         }
     }, { passive: false });
 
@@ -1319,21 +1307,23 @@
         const bookData = userLibrary[readerState.activeBookId] || {};
         const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
         const isHistology = readerState.activeBookId && (readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night'));
-        if (isHistology) return; // Skip parent pinch scale calculation loops for Histology to prevent crashes
+        if (isHistology) return;
 
         if (isPinching && e.touches.length === 2) {
             e.preventDefault(); 
             if (!pinchTicking) {
                 window.requestAnimationFrame(() => {
                     const currentDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                    const scale = currentDist / pinchInitialDist;
-                    let newZ = pinchInitialZoom * scale;
-                    if (newZ < 0.5) newZ = 0.5;
-                    if (newZ > 3.0) newZ = 3.0;
-                    
-                    if (Math.abs(newZ - readerState.zoom) > 0.02) {
-                        readerState.zoom = parseFloat(newZ.toFixed(2));
-                        applyDynamicSizing();
+                    if (pinchInitialDist > 0) {
+                        const scale = currentDist / pinchInitialDist;
+                        let newZ = pinchInitialZoom * scale;
+                        if (newZ < 0.5) newZ = 0.5;
+                        if (newZ > 3.0) newZ = 3.0;
+                        
+                        if (Math.abs(newZ - readerState.zoom) > 0.01) {
+                            readerState.zoom = parseFloat(newZ.toFixed(2));
+                            applyDynamicSizing();
+                        }
                     }
                     pinchTicking = false;
                 });
@@ -1342,9 +1332,9 @@
         }
     }, { passive: false });
 
-    scrollContainerEl.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) { isPinching = false; }
-    });
+    const resetPinchState = () => { isPinching = false; pinchInitialDist = 0; };
+    scrollContainerEl.addEventListener('touchend', resetPinchState);
+    scrollContainerEl.addEventListener('touchcancel', resetPinchState);
 
     function clearAllAnnotations() {
       document.querySelectorAll('.annotation-layer-pen').forEach(canvas => {
