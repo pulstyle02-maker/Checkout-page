@@ -378,6 +378,11 @@
       userPasswordMask: "PASS****"
     };
 
+    // Enable PDF.js Background Web Worker for multi-threaded decoding (Fixes UI freezing & lag)
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    }
+
     let progressTimeout;
     let zoomTimeout;
     let userLibrary = {}; // Stores library metadata for user's active database documents
@@ -596,7 +601,6 @@
         readerState.activeSections = [
           { title: "HISTOLOGY BY NIGHT", file: "DRIVE_EMBED" }
         ];
-        // Hide standard features on toolbar for the embedded content
         document.getElementById('zoom-slider')?.parentElement?.classList.add('hidden');
         document.getElementById('search-bar-wrap')?.classList.add('hidden');
         document.getElementById('left-jump-menu')?.classList.add('hidden');
@@ -606,7 +610,6 @@
         if (pageIndicator) pageIndicator.classList.add('hidden');
       } else {
         readerState.activeSections = PDF_SECTIONS;
-        // Restore standard reader controls
         document.getElementById('zoom-slider')?.parentElement?.classList.remove('hidden');
         document.getElementById('search-bar-wrap')?.classList.remove('hidden');
         document.getElementById('left-jump-menu')?.classList.remove('hidden');
@@ -614,6 +617,9 @@
         
         const pageIndicator = document.getElementById('page-indicator-current')?.parentElement;
         if (pageIndicator) pageIndicator.classList.remove('hidden');
+
+        // Parallel background pre-fetch for ALL sections for 0ms section switching
+        prefetchAllSections();
       }
       
       showView('view-reader');
@@ -623,6 +629,24 @@
         document.getElementById('left-jump-menu').classList.remove('hidden');
       }
       loadSpecificSection(0);
+    }
+
+    // Prefetches all Cloudflare R2 files asynchronously into Cache Storage
+    async function prefetchAllSections() {
+      const R2_BASE = ["http", "s://pu", "b-96e", "e4edd", "c3094", "d2b96", "96353", "3777c", "ea90.", "r2.de", "v/"].join("");
+      try {
+        const cache = await caches.open('modmedicalis-pdf-cache-v2');
+        PDF_SECTIONS.forEach(async (sec) => {
+          if (!sec.file || sec.file === "DRIVE_EMBED") return;
+          const url = R2_BASE + sec.file;
+          const match = await cache.match(url);
+          if (!match) {
+            fetch(url).then(res => {
+              if (res.ok) cache.put(url, res);
+            }).catch(() => {});
+          }
+        });
+      } catch(e) {}
     }
 
     // Secure memory-safe caching loader
@@ -649,22 +673,17 @@
       const sections = readerState.activeSections || PDF_SECTIONS;
       const targetFileName = sections[index] ? sections[index].file : "";
 
-      // Handle custom Google Drive integration for Histology
       if (targetFileName === "DRIVE_EMBED") {
         progressBar.style.width = '100%';
         statusText.textContent = "Loading secure document...";
         
         const scrollContainer = document.getElementById('pdf-scroll-container');
-        if (scrollContainer) {
-          scrollContainer.style.overflow = 'hidden';
-        }
+        if (scrollContainer) scrollContainer.style.overflow = 'hidden';
         
         const viewportContainer = document.getElementById('pdf-pages-viewport');
-        // Rendered as full width and height with zero margin padding to simulate direct presentation
         viewportContainer.className = "w-full h-full absolute inset-0 overflow-hidden bg-[#202124] z-0";
         viewportContainer.innerHTML = `
           <div class="absolute inset-0 w-full h-full overflow-hidden bg-[#202124]">
-            <!-- Border strip matching drive canvas palette to mask top menu line -->
             <div class="absolute top-0 left-0 right-0 h-[8px] bg-[#202124] z-50"></div>
             <iframe id="histology-drive-frame" 
                     src="https://drive.google.com/file/d/1ltRw9AS0ouh857VTf_2jrEB6WBu_otkQ/preview" 
@@ -675,12 +694,8 @@
         
         const frame = document.getElementById('histology-drive-frame');
         if (frame) {
-          frame.onload = () => {
-            loadingScreen.classList.add('hidden');
-          };
-          setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-          }, 1500);
+          frame.onload = () => loadingScreen.classList.add('hidden');
+          setTimeout(() => loadingScreen.classList.add('hidden'), 1500);
         } else {
           loadingScreen.classList.add('hidden');
         }
@@ -692,7 +707,7 @@
       
       try {
         statusText.textContent = "Checking local memory...";
-        let loadingTask;
+        let pdf;
         
         try {
             const cache = await caches.open('modmedicalis-pdf-cache-v2');
@@ -702,35 +717,63 @@
                 statusText.textContent = "Loading from local memory...";
                 progressBar.style.width = '100%';
                 const buffer = await cachedRes.arrayBuffer();
-                loadingTask = pdfjsLib.getDocument({ data: buffer });
+                pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
             } else {
-                loadingTask = pdfjsLib.getDocument({ url: targetUrl });
-                loadingTask.onProgress = (p) => {
-                    if (p.total) {
-                        const percent = Math.min(100, Math.round((p.loaded / p.total) * 100));
+                statusText.textContent = "Establishing high-speed stream...";
+                
+                // Single-pass high-throughput HTTP stream bypassing chunked range overhead
+                const response = await fetch(targetUrl);
+                if (!response.ok) throw new Error("HTTP " + response.status);
+                
+                const contentLength = response.headers.get('content-length');
+                const total = contentLength ? parseInt(contentLength, 10) : 0;
+                let loaded = 0;
+                
+                const reader = response.body.getReader();
+                const chunks = [];
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    loaded += value.length;
+                    
+                    if (total) {
+                        const percent = Math.min(100, Math.round((loaded / total) * 100));
                         progressBar.style.width = `${percent}%`;
-                        statusText.textContent = `Downloading securely... ${percent}%`;
+                        statusText.textContent = `Downloading securely (High-Speed)... ${percent}%`;
+                    } else {
+                        statusText.textContent = `Downloading securely (High-Speed)... ${(loaded / (1024 * 1024)).toFixed(1)} MB`;
                     }
-                };
+                }
+                
+                const chunksAll = new Uint8Array(loaded);
+                let position = 0;
+                for (let chunk of chunks) {
+                    chunksAll.set(chunk, position);
+                    position += chunk.length;
+                }
+                
+                // Cache array copy safely without worker buffer detachment errors
+                cache.put(targetUrl, new Response(chunksAll.slice(), { headers: { 'Content-Type': 'application/pdf' } })).catch(()=>{});
+                
+                statusText.textContent = "Compiling document layout...";
+                pdf = await pdfjsLib.getDocument({ data: chunksAll.buffer }).promise;
             }
-        } catch (cacheErr) {
-            loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+        } catch (fetchErr) {
+            // Standard fallback
+            const loadingTask = pdfjsLib.getDocument({ url: targetUrl });
+            loadingTask.onProgress = (p) => {
+                if (p.total) {
+                    const percent = Math.min(100, Math.round((p.loaded / p.total) * 100));
+                    progressBar.style.width = `${percent}%`;
+                    statusText.textContent = `Downloading securely... ${percent}%`;
+                }
+            };
+            pdf = await loadingTask.promise;
         }
         
-        let pdf = await loadingTask.promise;
         readerState.activePdf = pdf;
-        
-        try {
-            caches.open('modmedicalis-pdf-cache-v2').then(async (cache) => {
-                const isCached = await cache.match(targetUrl);
-                if (!isCached) {
-                    const data = await pdf.getData();
-                    const res = new Response(data, { headers: { 'Content-Type': 'application/pdf' } });
-                    cache.put(targetUrl, res);
-                }
-            });
-        } catch(e) {}
-        
         loadSidebarBookmarks();
 
         const masterSession = localStorage.getItem('master_access_session');
