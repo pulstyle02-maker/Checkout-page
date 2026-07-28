@@ -140,8 +140,13 @@
 
                 <!-- Database Table -->
                 <div class="solid-card overflow-hidden">
-                    <div class="px-6 py-4 border-b border-zinc-900 bg-[#050505]">
+                    <div class="px-6 py-4 border-b border-zinc-900 bg-[#050505] flex flex-wrap items-center justify-between gap-4">
                         <h3 class="font-black text-sm uppercase tracking-wide">Registered Accounts</h3>
+                        
+                        <!-- Purge AIMC 29 & Block IV Users Button -->
+                        <button onclick="deleteTargetedUsers()" class="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all card-press">
+                            <i data-lucide="user-x" class="w-4 h-4"></i> Purge AIMC 29 / Block IV Users
+                        </button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left">
@@ -550,6 +555,63 @@
         async function deleteUser(id) {
             if(confirm("Permanently delete this student's profile data?")) {
                 await db.collection("users").doc(id).delete();
+                fetchUsers();
+            }
+        }
+
+        // Bulk delete users matching 'AIMC 29' promo OR Block IV access
+        async function deleteTargetedUsers() {
+            const confirm1 = confirm("⚠️ DANGER: BATCH DELETION ⚠️\n\nAre you sure you want to permanently delete ALL users who:\n1. Used promo code 'AIMC 29'\nOR\n2. Have access to Block IV?\n\nThis action CANNOT be undone!");
+            if (!confirm1) return;
+
+            const confirm2 = prompt("To confirm this deletion, type 'PURGE' in capital letters below:");
+            if (confirm2 !== "PURGE") {
+                alert("Operation cancelled. Confirmation keyword did not match.");
+                return;
+            }
+
+            const tbody = document.getElementById('users-tbody');
+            tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-rose-500 font-bold"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2"></i> Executing Batch Deletion... Please wait.</td></tr>`;
+            lucide.createIcons();
+
+            try {
+                const snapshot = await db.collection("users").get();
+                let deletePromises = [];
+                let deletedCount = 0;
+
+                snapshot.forEach(doc => {
+                    const u = doc.data();
+                    
+                    // Check Promo (matches 'aimc 29' or 'aimc29')
+                    const promo = (u.promoUsed || '').toString().toLowerCase().replace(/\s+/g, '');
+                    const isAimc29 = promo === 'aimc29';
+
+                    // Check Block IV (matches '2nd_IV', 'Block IV', 'IV', '4th_IV', etc.)
+                    const blocks = Array.isArray(u.purchasedBlocks) ? u.purchasedBlocks : [];
+                    const isBlockIV = blocks.some(b => {
+                        if (typeof b !== 'string') return false;
+                        const cleanB = b.toUpperCase();
+                        return cleanB.includes('_IV') || cleanB.includes('BLOCK IV') || cleanB === 'IV';
+                    });
+
+                    if (isAimc29 || isBlockIV) {
+                        deletePromises.push(db.collection("users").doc(doc.id).delete());
+                        deletedCount++;
+                    }
+                });
+
+                if (deletedCount === 0) {
+                    alert("No matching users found for 'AIMC 29' promo code or Block IV access.");
+                    fetchUsers();
+                    return;
+                }
+
+                await Promise.all(deletePromises);
+                alert(`SUCCESS: Cleaned up and deleted ${deletedCount} user account(s).`);
+                fetchUsers();
+
+            } catch (error) {
+                alert("Error deleting targeted users: " + error.message);
                 fetchUsers();
             }
         }
