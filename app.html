@@ -249,6 +249,7 @@
             height: 100%;
             transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
             transform-style: preserve-3d;
+            -webkit-transform-style: preserve-3d; /* Safari Fix */
         }
         
         /* Shimmer Skeleton Loading */
@@ -1757,30 +1758,42 @@
                     <div class="bg-white dark:bg-[#18181b] p-6 rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-sm">
                         <h3 class="text-lg font-black text-zinc-900 dark:text-white mb-1">Exam Preferences</h3>
                         <p class="text-xs text-zinc-500 font-bold mb-6">Configure timing and interface before starting.</p>
-                        
-                        <!-- OMR Toggle -->
-                        <div class="flex items-center justify-between mb-6 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-[16px] border border-zinc-100 dark:border-zinc-800">
-                            <div>
-                                <h4 class="text-[12px] font-black text-zinc-900 dark:text-white">OMR Bubble Sheet</h4>
-                                <p class="text-[10px] text-zinc-500 font-bold mt-1">Simulate real paper exam</p>
-                            </div>
-                            <div id="config-omr-bg" onclick="toggleConfigOMR()" class="w-[44px] h-[24px] rounded-full bg-zinc-300 dark:bg-zinc-700 relative cursor-pointer flex items-center px-[3px] transition-colors">
-                                <div id="config-omr-thumb" class="w-[18px] h-[18px] bg-white rounded-full shadow-sm transform translate-x-0 transition-transform duration-300"></div>
+
+                        <!-- Mock Session Mode -->
+                        <div class="mb-6">
+                            <h4 class="text-[12px] font-black text-zinc-900 dark:text-white mb-2">Session Mode</h4>
+                            <div class="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
+                                <button onclick="setMockConfigMode('Practice')" id="mock-mode-Practice" class="flex-1 py-2 rounded-[8px] text-[11px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press">Practice Mode</button>
+                                <button onclick="setMockConfigMode('Test')" id="mock-mode-Test" class="flex-1 py-2 rounded-[8px] text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press">Test Mode</button>
                             </div>
                         </div>
                         
-                        <!-- Time Slider -->
-                        <div class="mb-8 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-[16px] border border-zinc-100 dark:border-zinc-800">
-                            <div class="flex justify-between items-end mb-4">
+                        <!-- Configuration wrapper for Test specific settings -->
+                        <div id="mock-test-settings-wrapper">
+                            <!-- OMR Toggle -->
+                            <div class="flex items-center justify-between mb-6 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-[16px] border border-zinc-100 dark:border-zinc-800">
                                 <div>
-                                    <h4 class="text-[12px] font-black text-zinc-900 dark:text-white">Time Per Question</h4>
+                                    <h4 class="text-[12px] font-black text-zinc-900 dark:text-white">OMR Bubble Sheet</h4>
+                                    <p class="text-[10px] text-zinc-500 font-bold mt-1">Simulate real paper exam</p>
                                 </div>
-                                <span id="config-time-display" class="bg-brand-blue/10 text-brand-blue px-3 py-1 rounded-md font-black text-xs">60s</span>
+                                <div id="config-omr-bg" onclick="toggleConfigOMR()" class="w-[44px] h-[24px] rounded-full bg-zinc-300 dark:bg-zinc-700 relative cursor-pointer flex items-center px-[3px] transition-colors">
+                                    <div id="config-omr-thumb" class="w-[18px] h-[18px] bg-white rounded-full shadow-sm transform translate-x-0 transition-transform duration-300"></div>
+                                </div>
                             </div>
-                            <input type="range" id="config-time-slider" min="30" max="120" step="10" value="60" oninput="document.getElementById('config-time-display').innerText = this.value + 's'" class="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-brand-blue">
-                            <div class="flex justify-between mt-2 text-[10px] font-bold text-zinc-400">
-                                <span>Fast (30s)</span>
-                                <span>Relaxed (120s)</span>
+                            
+                            <!-- Time Slider -->
+                            <div class="mb-8 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-[16px] border border-zinc-100 dark:border-zinc-800">
+                                <div class="flex justify-between items-end mb-4">
+                                    <div>
+                                        <h4 class="text-[12px] font-black text-zinc-900 dark:text-white">Time Per Question</h4>
+                                    </div>
+                                    <span id="config-time-display" class="bg-brand-blue/10 text-brand-blue px-3 py-1 rounded-md font-black text-xs">60s</span>
+                                </div>
+                                <input type="range" id="config-time-slider" min="30" max="120" step="10" value="60" oninput="document.getElementById('config-time-display').innerText = this.value + 's'" class="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-brand-blue">
+                                <div class="flex justify-between mt-2 text-[10px] font-bold text-zinc-400">
+                                    <span>Fast (30s)</span>
+                                    <span>Relaxed (120s)</span>
+                                </div>
                             </div>
                         </div>
 
@@ -3783,50 +3796,7 @@
             }
         }
 
-        document.getElementById('signup-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('signup-name').value.trim();
-            const email = document.getElementById('signup-email').value.trim();
-            const password = document.getElementById('signup-password').value;
-
-            showLoader("Creating Account...");
-            
-            try {
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                const user = userCredential.user;
-
-                // Native database provisioning logic for Block IV
-                await db.collection("users").doc(user.uid).set({
-                    fullName: name,
-                    email: email,
-                    role: "student",
-                    purchasedBlocks: ["2nd_IV"], 
-                    inviteCode: "AIMC29", // Marks user for AIMC29 specific restrictions
-                    academicYear: "2nd",
-                    academicBlock: "IV",
-                    totalMcqsDone: 0,
-                    totalCorrect: 0,
-                    streak: 0,
-                    lastActiveDate: new Date().toDateString(),
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                hideLoader();
-                
-                // Show native success prompt before reloading to log them in normally
-                alert("Account created successfully! Welcome to the curriculum.");
-                
-                await auth.signOut();
-                location.reload(); 
-            } catch (error) {
-                hideLoader();
-                // Clean up Firebase error messages for the user
-                let msg = error.message;
-                if (error.code === 'auth/email-already-in-use') msg = "This email is already registered.";
-                if (error.code === 'auth/weak-password') msg = "Password must be at least 6 characters.";
-                showAuthError(msg);
-            }
-        });
+        // Sign-up logic removed as requested
 
         document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -5263,6 +5233,12 @@
             const total = appState.sessionQuestions.length;
             
             container.classList.remove('flipped');
+            const inner = container.querySelector('.flip-card-inner');
+            
+            // MAGIC FIX: Clear lingering GSAP inline styles so the next card isn't stuck backwards!
+            if (typeof gsap !== 'undefined' && inner) {
+                gsap.set(inner, { clearProps: "all" }); 
+            }
             
             setTimeout(() => {
                 document.getElementById('vivacard-progress-text').innerText = `${appState.currentQuestionIndex + 1} of ${total}`;
@@ -5298,11 +5274,22 @@
         window.toggleVivacardFlip = function() {
             const container = document.getElementById('vivacard-flip-container');
             const inner = container.querySelector('.flip-card-inner');
+            const isFlipped = container.classList.contains('flipped');
             
             if (typeof gsap !== 'undefined') {
-                gsap.fromTo(inner, { scale: 0.95 }, { scale: 1, duration: 0.4, ease: 'back.out(1.5)' });
+                // Use GSAP directly for the rotation so it never clashes with CSS
+                if (isFlipped) {
+                    gsap.to(inner, { rotationY: 0, duration: 0.5, ease: 'power2.inOut' });
+                    container.classList.remove('flipped');
+                } else {
+                    gsap.to(inner, { rotationY: 180, duration: 0.5, ease: 'power2.inOut' });
+                    container.classList.add('flipped');
+                }
+                // Apply the pop animation to the outer container instead
+                gsap.fromTo(container, { scale: 0.95 }, { scale: 1, duration: 0.4, ease: 'back.out(1.5)' });
+            } else {
+                container.classList.toggle('flipped');
             }
-            container.classList.toggle('flipped');
         };
 
         function nextVivacard() {
@@ -6611,20 +6598,39 @@
             }
             
             try {
-                // Hardcoded TOS specific to Block II Structure
-                mockTosData = {
-                    subjects: [
-                        { subject: "Gross Anatomy", mcqs: 35 },
-                        { subject: "Medical Embryology", mcqs: 12 },
-                        { subject: "Histology", mcqs: 8 },
-                        { subject: "Medical Physiology", mcqs: 27 },
-                        { subject: "Medical Biochemistry", mcqs: 23 },
-                        { subject: "Pathology", mcqs: 15 },
-                        { subject: "Pharmacology", mcqs: 10 },
-                        { subject: "Community Medicine", mcqs: 6 },
-                        { subject: "Behavioural Sciences", mcqs: 4 }
-                    ]
-                };
+                const currentBlock = String(appState.academicBlock).trim().toUpperCase();
+                
+                // CRITICAL FIX: Robust Dynamic TOS Specifications
+                if (currentBlock === 'IV' || currentBlock === '4') {
+                    mockTosData = {
+                        subjects: [
+                            { subject: "Gross Anatomy", mcqs: 20 },
+                            { subject: "Medical Embryology", mcqs: 9 },
+                            { subject: "Histology", mcqs: 9 },
+                            { subject: "Medical Physiology", mcqs: 28 },
+                            { subject: "Medical Biochemistry", mcqs: 37 },
+                            { subject: "Community Medicine", mcqs: 6 },
+                            { subject: "Pharmacology", mcqs: 10 },
+                            { subject: "Pathology", mcqs: 16 },
+                            { subject: "Behavioural Sciences", mcqs: 5 }
+                        ]
+                    };
+                } else {
+                    // Default to Block II TOS
+                    mockTosData = {
+                        subjects: [
+                            { subject: "Gross Anatomy", mcqs: 35 },
+                            { subject: "Medical Embryology", mcqs: 12 },
+                            { subject: "Histology", mcqs: 8 },
+                            { subject: "Medical Physiology", mcqs: 27 },
+                            { subject: "Medical Biochemistry", mcqs: 23 },
+                            { subject: "Pathology", mcqs: 15 },
+                            { subject: "Pharmacology", mcqs: 10 },
+                            { subject: "Community Medicine", mcqs: 6 },
+                            { subject: "Behavioural Sciences", mcqs: 4 }
+                        ]
+                    };
+                }
                 
                 const tableBody = document.getElementById('tos-table-body-block');
                 tableBody.innerHTML = mockTosData.subjects.map(s => `
@@ -6635,26 +6641,29 @@
 
                 // Fetch index to get absolute true count of ALL MCQs in the GitHub database
                 const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-                const bNum = blockToNum[appState.academicBlock] || 1;
+                const bNum = blockToNum[currentBlock] || 1;
                 
                 let totalDatabaseMcqs = 0;
                 const indexData = await fetchMCQIndexForBlock(bNum);
                 
                 if (indexData) {
-                    const blockKey = "b" + appState.academicBlock;
-                    const blockData = indexData[blockKey] || Object.values(indexData)[0];
-                    Object.values(blockData).forEach(fileInfo => {
-                        totalDatabaseMcqs += (fileInfo.mcq_count || 0);
-                    });
+                    const blockKey = "b" + currentBlock;
+                    // Safely grab the block data structure
+                    const blockData = indexData[blockKey] || indexData["b" + bNum] || Object.values(indexData)[0];
+                    if (blockData) {
+                        Object.values(blockData).forEach(fileInfo => {
+                            totalDatabaseMcqs += (fileInfo.mcq_count || 0);
+                        });
+                    }
                 }
                 
                 // Fallback if index fails
                 if (totalDatabaseMcqs === 0) {
-                    totalDatabaseMcqs = APP_DATA.allMCQs ? APP_DATA.allMCQs.length : 1400; 
+                    totalDatabaseMcqs = APP_DATA.allMCQs ? APP_DATA.allMCQs.length : 2800; 
                 }
 
-                // Removed the arbitrary 25 max limit. It now generates dynamically based on TRUE total MCQs!
-                const computedSetsCount = Math.max(5, Math.floor(totalDatabaseMcqs / 140));
+                // CRITICAL FIX: Force at least 20 mocks, or more if database is massive!
+                const computedSetsCount = Math.max(20, Math.ceil(totalDatabaseMcqs / 140));
                 
                 let setsArray = [];
                 for (let i = 1; i <= computedSetsCount; i++) {
@@ -6895,40 +6904,60 @@
                 let subjectNavHtml = '';
                 if (appState.isBlockMock) {
                     const uniqueSubjects = [...new Set(appState.mcqSessionQuestions.map(q => q.subject || 'Other'))];
+                    
+                    let subjectBadgesHtml = uniqueSubjects.map(subName => {
+                        const firstIdx = appState.mcqSessionQuestions.findIndex(q => (q.subject || 'Other') === subName);
+                        const subjectQs = appState.mcqSessionQuestions.filter(q => (q.subject || 'Other') === subName);
+                        const subTotal = subjectQs.length;
+                        let subAnswered = 0;
+                        
+                        appState.mcqSessionQuestions.forEach((q, idx) => {
+                            if ((q.subject || 'Other') === subName && appState.mcqHistory[idx] !== undefined && appState.mcqHistory[idx].selected !== null) {
+                                subAnswered++;
+                            }
+                        });
+
+                        const currentSubject = appState.mcqSessionQuestions[appState.currentMcqIndex].subject || 'Other';
+                        const isCurrentSub = currentSubject === subName;
+                        const subIcon = getSubjectIcon(subName);
+                        
+                        const badgeClass = isCurrentSub 
+                            ? 'bg-white/20 text-white border-white/10' 
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-transparent';
+                        
+                        const tabClass = isCurrentSub 
+                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-black font-extrabold shadow-sm' 
+                            : 'bg-transparent text-zinc-600 dark:text-zinc-400 border border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800/50';
+
+                        return `
+                            <button onclick="jumpToSubjectFirstQuestion(${firstIdx})" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 card-press ${tabClass}">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="${subIcon}" class="w-3.5 h-3.5"></i>
+                                    <span>${subName}</span>
+                                </div>
+                                <span class="px-1.5 py-0.5 rounded-md border text-[9px] font-black ${badgeClass}">${subAnswered}/${subTotal}</span>
+                            </button>
+                        `;
+                    }).join('');
+
                     subjectNavHtml = `
-                        <div class="flex overflow-x-auto no-scrollbar gap-2 p-1.5 border border-zinc-200/60 dark:border-zinc-800 bg-zinc-100/90 dark:bg-zinc-950/90 backdrop-blur-md rounded-2xl mb-5 shadow-sm sticky top-0 z-30 snap-x">
-                            ${uniqueSubjects.map(subName => {
-                                const firstIdx = appState.mcqSessionQuestions.findIndex(q => (q.subject || 'Other') === subName);
-                                const subjectQs = appState.mcqSessionQuestions.filter(q => (q.subject || 'Other') === subName);
-                                const subTotal = subjectQs.length;
-                                let subAnswered = 0;
-                                
-                                appState.mcqSessionQuestions.forEach((q, idx) => {
-                                    if ((q.subject || 'Other') === subName && appState.mcqHistory[idx] !== undefined) {
-                                        subAnswered++;
-                                    }
-                                });
-
-                                const currentSubject = appState.mcqSessionQuestions[appState.currentMcqIndex].subject || 'Other';
-                                const isCurrentSub = currentSubject === subName;
-                                const subIcon = getSubjectIcon(subName);
-                                
-                                const badgeClass = isCurrentSub 
-                                    ? 'bg-white/20 text-white border-white/10' 
-                                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-transparent';
-                                
-                                const tabClass = isCurrentSub 
-                                    ? 'bg-zinc-900 dark:bg-zinc-900 text-white border-zinc-800 dark:border-zinc-700 font-extrabold shadow-sm scale-[1.01]' 
-                                    : 'bg-transparent text-zinc-600 dark:text-zinc-400 border-transparent hover:text-zinc-900 dark:hover:text-zinc-100';
-
-                                return `
-                                    <button onclick="jumpToSubjectFirstQuestion(${firstIdx})" class="snap-center flex items-center gap-2 px-3 py-1.5 border rounded-xl text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all duration-200 card-press ${tabClass}">
-                                        <i data-lucide="${subIcon}" class="w-3.5 h-3.5"></i>
-                                        <span>${subName}</span>
-                                        <span class="px-1.5 py-0.5 rounded-md border text-[8px] font-black ${badgeClass}">${subAnswered}/${subTotal}</span>
-                                    </button>
-                                `;
-                            }).join('')}
+                        <div class="mb-4 relative z-40">
+                            <button onclick="document.getElementById('mock-subject-dropdown').classList.toggle('hidden');" class="flex items-center justify-between w-full bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 rounded-xl px-4 py-2.5 shadow-sm card-press">
+                                <div class="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                                    <i data-lucide="compass" class="w-4 h-4 text-brand-blue"></i>
+                                    <span class="text-[11px] font-black uppercase tracking-widest">Skip to Subject</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-zinc-500">${appState.mcqSessionQuestions[appState.currentMcqIndex].subject || 'Current'}</span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-zinc-400"></i>
+                                </div>
+                            </button>
+                            
+                            <div id="mock-subject-dropdown" class="hidden absolute top-[110%] left-0 right-0 bg-white dark:bg-[#1c1c1e] border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] p-2 max-h-[300px] overflow-y-auto no-scrollbar animate-[fadeIn_0.15s_ease-out]">
+                                <div class="flex flex-col gap-0.5">
+                                    ${subjectBadgesHtml}
+                                </div>
+                            </div>
                         </div>
                     `;
                 }
@@ -7734,7 +7763,7 @@
             // STRICTLY RESET AND BIND EXAM TYPE
             currentMockContext = { type: type, subject: null, module: null, selectedLOs: [] };
 
-            navigate('mock_exam');
+            await navigate('mock_exam');
 
             const isAIMC29 = appState.userData && appState.userData.inviteCode === "AIMC29";
             if (type === 'class') {
@@ -8246,8 +8275,11 @@
             const sysLower = syllabusSubject.toLowerCase().trim();
             const tosLower = tosSubject.toLowerCase().trim();
 
-            if (tosLower === "gross anatomy") return sysLower.includes("gross");
-            if (tosLower === "medical embryology") return sysLower.includes("embryology");
+            // CRITICAL FIX: Match "Human Anatomy", "Anatomy", or "Gross Anatomy" perfectly
+            if (tosLower.includes("anatomy") && !tosLower.includes("embryology") && !tosLower.includes("histology")) {
+                return sysLower.includes("anatomy") || sysLower.includes("gross");
+            }
+            if (tosLower.includes("embryology") || tosLower === "medical embryology") return sysLower.includes("embryology");
             if (tosLower === "histology") return sysLower.includes("histology");
             if (tosLower.includes("physiology")) return sysLower.includes("physiology");
             if (tosLower.includes("biochemistry")) return sysLower.includes("biochemistry");
@@ -8412,6 +8444,25 @@
         }
 
         // --- NEW: UNIVERSAL CONFIGURATOR BEFORE STARTING MOCKS ---
+        let activeMockConfigMode = 'Test';
+
+        window.setMockConfigMode = function(mode) {
+            activeMockConfigMode = mode;
+            const btnPractice = document.getElementById('mock-mode-Practice');
+            const btnTest = document.getElementById('mock-mode-Test');
+            const testSettings = document.getElementById('mock-test-settings-wrapper');
+            
+            if (mode === 'Practice') {
+                if(btnPractice) btnPractice.className = "flex-1 py-2 rounded-[8px] text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press";
+                if(btnTest) btnTest.className = "flex-1 py-2 rounded-[8px] text-[11px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press";
+                if(testSettings) testSettings.classList.add('hidden');
+            } else {
+                if(btnTest) btnTest.className = "flex-1 py-2 rounded-[8px] text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press";
+                if(btnPractice) btnPractice.className = "flex-1 py-2 rounded-[8px] text-[11px] font-bold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all card-press";
+                if(testSettings) testSettings.classList.remove('hidden');
+            }
+        };
+
         function openMockExamConfigurator(pool) {
             pendingMockPool = pool;
             ['mock-state-class-selection','mock-state-mode-selection','mock-state-custom-builder','mock-state-block-exam'].forEach(id => {
@@ -8426,6 +8477,7 @@
             document.getElementById('config-time-slider').value = 60;
             document.getElementById('config-time-display').innerText = "60s";
             
+            setMockConfigMode('Test');
             updateConfigOmrUI();
         }
 
@@ -8448,10 +8500,23 @@
             }
         }
 
+        window.jumpToSubjectFirstQuestion = function(index) {
+            appState.currentMcqIndex = index;
+            appState.currentQuestionIndex = index;
+            const history = appState.mcqHistory[index];
+            if (history) {
+                appState.mcqIsSubmitted = (appState.sessionConfig.mode !== 'Test');
+                appState.mcqSelectedOptionIndex = history.selected;
+            } else {
+                appState.mcqIsSubmitted = false;
+                appState.mcqSelectedOptionIndex = null;
+            }
+            renderMCQ();
+        };
+
         function startConfiguredMockSession() {
             const timePerQ = parseInt(document.getElementById('config-time-slider').value) || 60;
             
-            // BULLETPROOF CONTEXT ASSIGNMENT WITH EXACT EXAM NUMBERS
             if (currentMockContext.type === 'block') {
                 appState.context.module = "Comprehensive Exam";
                 appState.context.subject = currentMockContext.mockTitle || "Block Mock Exam";
@@ -8463,10 +8528,10 @@
                 appState.context.subject = currentMockContext.mockTitle || "Block Mock Exam";
             }
 
-            appState.isBlockMock = true; // Enforces Mock UI (Hides LO codes during exam)
+            appState.isBlockMock = true; 
             appState.mode = 'mcqs';
-            appState.sessionConfig.mode = 'Test';
-            appState.sessionConfig.useBubbleSheet = isMockOmrEnabled; 
+            appState.sessionConfig.mode = activeMockConfigMode; // 'Test' or 'Practice' dynamically set
+            appState.sessionConfig.useBubbleSheet = activeMockConfigMode === 'Test' ? isMockOmrEnabled : false; 
             appState.sessionConfig.timePerMcq = timePerQ; 
             appState.timeRemaining = pendingMockPool.length * timePerQ;
             appState.mcqSessionQuestions = pendingMockPool;
@@ -8483,31 +8548,35 @@
             const timerBox = document.getElementById('mcq-timer-box');
             
             if(timerBox) {
-                timerBox.classList.remove('hidden');
-                document.getElementById('mcq-time-text').innerText = formatTime(appState.timeRemaining);
-                const omrTime = document.getElementById('omr-timer');
-                if (omrTime) omrTime.innerText = formatTime(appState.timeRemaining);
+                if (activeMockConfigMode === 'Test') {
+                    timerBox.classList.remove('hidden');
+                    document.getElementById('mcq-time-text').innerText = formatTime(appState.timeRemaining);
+                    const omrTime = document.getElementById('omr-timer');
+                    if (omrTime) omrTime.innerText = formatTime(appState.timeRemaining);
 
-                appState.timerInterval = setInterval(() => {
-                    appState.timeRemaining--;
-                    
-                    const tText = document.getElementById('mcq-time-text');
-                    const oTime = document.getElementById('omr-timer');
-                    if(tText) tText.innerText = formatTime(appState.timeRemaining);
-                    if(oTime) oTime.innerText = formatTime(appState.timeRemaining);
+                    appState.timerInterval = setInterval(() => {
+                        appState.timeRemaining--;
+                        
+                        const tText = document.getElementById('mcq-time-text');
+                        const oTime = document.getElementById('omr-timer');
+                        if(tText) tText.innerText = formatTime(appState.timeRemaining);
+                        if(oTime) oTime.innerText = formatTime(appState.timeRemaining);
 
-                    if(appState.timeRemaining <= 60) {
-                        timerBox.classList.replace('text-brand-blue', 'text-rose-500');
-                        timerBox.classList.replace('bg-brand-blue/10', 'bg-rose-500/10');
-                        if(oTime) oTime.parentElement.classList.add('animate-pulse');
-                    }
-                    if(appState.timeRemaining <= 0) {
-                        clearInterval(appState.timerInterval);
-                        alert("Time is up! Submitting exam.");
-                        if(appState.sessionConfig.useBubbleSheet) submitOmrExam();
-                        else navigate('result_screen');
-                    }
-                }, 1000);
+                        if(appState.timeRemaining <= 60) {
+                            timerBox.classList.replace('text-brand-blue', 'text-rose-500');
+                            timerBox.classList.replace('bg-brand-blue/10', 'bg-rose-500/10');
+                            if(oTime) oTime.parentElement.classList.add('animate-pulse');
+                        }
+                        if(appState.timeRemaining <= 0) {
+                            clearInterval(appState.timerInterval);
+                            alert("Time is up! Submitting exam.");
+                            if(appState.sessionConfig.useBubbleSheet) submitOmrExam();
+                            else navigate('result_screen');
+                        }
+                    }, 1000);
+                } else {
+                    timerBox.classList.add('hidden'); // Fully hides timer in practice mode
+                }
             }
             
             syncSessionProgress();
@@ -8622,8 +8691,9 @@
                 return;
             }
             
-            if (appState.academicBlock !== 'II') {
-                alert("Past papers are currently only available for Block II.");
+            const block = String(appState.academicBlock).toUpperCase().trim();
+            if (block !== 'II' && block !== 'IV' && block !== '4') {
+                alert("Past papers are currently only available for Block II and Block IV.");
                 return;
             }
             
@@ -8631,11 +8701,27 @@
             showLoader("Fetching Past Papers...");
             
             try {
-                if (!PAST_PAPERS_CACHE['II']) {
-                    const res = await fetch("https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb2.json");
+                if (!PAST_PAPERS_CACHE[block]) {
+                    const url = (block === 'IV' || block === '4') 
+                        ? "https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb4.json"
+                        : "https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb2.json";
+                        
+                    const res = await fetch(url, { cache: 'no-store' });
                     if (!res.ok) throw new Error("Failed to fetch past papers");
                     const data = await res.json();
-                    PAST_PAPERS_CACHE['II'] = data;
+                    
+                    let flattenedPapers = [];
+                    // Handle flat arrays (legacy Block 2) or nested Annual/Supply JSON (Block 4)
+                    if (Array.isArray(data)) {
+                        flattenedPapers = data;
+                    } else {
+                        for (const [examSession, years] of Object.entries(data)) {
+                            for (const [year, questions] of Object.entries(years)) {
+                                flattenedPapers = flattenedPapers.concat(questions);
+                            }
+                        }
+                    }
+                    PAST_PAPERS_CACHE[block] = flattenedPapers;
                 }
                 
                 renderPastPapers();
@@ -8643,7 +8729,7 @@
                 console.error(err);
                 document.getElementById('past-papers-list').innerHTML = `
                     <div class="text-center p-8 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-[20px] shadow-sm mt-4">
-                        <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto text-rose-500 mb-3"></i>
+                        <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto text-rose-500 mb-3 animate-pulse"></i>
                         <p class="text-rose-500 font-bold">Failed to load past papers. Check your internet connection.</p>
                     </div>
                 `;
@@ -8654,8 +8740,9 @@
         }
 
         function renderPastPapers() {
+            const block = String(appState.academicBlock).toUpperCase().trim();
             const container = document.getElementById('past-papers-list');
-            const papers = PAST_PAPERS_CACHE['II'] || [];
+            const papers = PAST_PAPERS_CACHE[block] || [];
             
             if (papers.length === 0) {
                  container.innerHTML = '<p class="text-center text-zinc-500 font-bold py-10">No past papers found.</p>';
@@ -8665,7 +8752,8 @@
             const groups = {};
             papers.forEach(q => {
                 const year = q.year || "Unknown";
-                const type = q.examType || "Unknown";
+                // Capitalize first letter of exam type nicely
+                const type = (q.examType || "Unknown").charAt(0).toUpperCase() + String(q.examType || "Unknown").slice(1);
                 const key = `${year}_${type}`;
                 if (!groups[key]) {
                     groups[key] = { year, type, questions: [] };
@@ -8680,17 +8768,27 @@
             sortedKeys.forEach(key => {
                 const group = groups[key];
                 html += `
-                    <div onclick="startPastPaperSession('${key}')" class="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 shadow-sm card-press cursor-pointer hover:border-brand-blue transition-colors flex justify-between items-center group">
-                        <div class="flex items-center space-x-4">
-                            <div class="w-12 h-12 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-md">
-                                <i data-lucide="file-check" class="w-6 h-6 text-white"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-[1000] text-zinc-900 dark:text-white leading-tight mb-1">${group.year} ${group.type}</h3>
-                                <p class="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">${group.questions.length} MCQs • Block II</p>
+                    <div class="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 shadow-sm mb-4 animate-[fadeIn_0.3s_ease-out]">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 rounded-[12px] bg-brand-gradient flex items-center justify-center shadow-md shrink-0">
+                                    <i data-lucide="file-check" class="w-6 h-6 text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-[17px] font-black text-zinc-900 dark:text-white leading-tight mb-1">${group.year} ${group.type}</h3>
+                                    <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">${group.questions.length} MCQs • Block ${block}</p>
+                                </div>
                             </div>
                         </div>
-                        <i data-lucide="chevron-right" class="w-5 h-5 text-zinc-300 group-hover:text-brand-blue"></i>
+                        
+                        <div class="flex items-center gap-2.5 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                            <button onclick="startPastPaperSession('${key}', 'Practice')" class="flex-1 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[14px] text-[11px] font-black card-press transition-colors hover:bg-brand-blue hover:text-white flex justify-center items-center gap-1.5 shadow-sm">
+                                <i data-lucide="book-open" class="w-4 h-4"></i> Practice
+                            </button>
+                            <button onclick="startPastPaperSession('${key}', 'Test')" class="flex-1 py-3 bg-brand-gradient text-white rounded-[14px] text-[11px] font-black card-press shadow-[0_4px_15px_rgba(75,184,214,0.25)] flex justify-center items-center gap-1.5">
+                                <i data-lucide="timer" class="w-4 h-4"></i> Take Test
+                            </button>
+                        </div>
                     </div>
                 `;
             });
@@ -8699,23 +8797,30 @@
             lucide.createIcons();
         }
 
-        function startPastPaperSession(groupKey) {
-            const papers = PAST_PAPERS_CACHE['II'] || [];
-            const filtered = papers.filter(q => `${q.year || 'Unknown'}_${q.examType || 'Unknown'}` === groupKey);
+        function startPastPaperSession(groupKey, selectedMode) {
+            const block = String(appState.academicBlock).toUpperCase().trim();
+            const papers = PAST_PAPERS_CACHE[block] || [];
+            
+            // Format match strictly to handle nested structure extraction
+            const filtered = papers.filter(q => {
+                const type = (q.examType || "Unknown").charAt(0).toUpperCase() + String(q.examType || "Unknown").slice(1);
+                return `${q.year || 'Unknown'}_${type}` === groupKey;
+            });
             
             if (filtered.length === 0) return;
             
-            // Ensure Past Papers save correctly to the Continue Card
             appState.context.module = "Past Papers";
             appState.context.subject = groupKey.replace('_', ' '); 
             appState.isBlockMock = false;
             
             appState.mode = 'mcqs';
-            appState.sessionConfig.mode = 'Test';
-            appState.sessionConfig.useBubbleSheet = false; // Default Test View UI
+            appState.sessionConfig.mode = selectedMode; // 'Practice' or 'Test'
+            
+            // If Test Mode is clicked, we activate the OMR Bubble sheet.
+            appState.sessionConfig.useBubbleSheet = (selectedMode === 'Test'); 
             appState.sessionConfig.timePerMcq = 60;
             
-            // Do NOT Randomize Past Papers - Keep exact exam numbering order
+            // STRICTLY keep exact numerical order for past papers
             filtered.sort((a, b) => (a.sourceQuestionNumber || 0) - (b.sourceQuestionNumber || 0));
             
             appState.sessionQuestions = filtered;
@@ -8726,39 +8831,45 @@
             appState.mcqSelectedOptionIndex = null;
             appState.mcqIsSubmitted = false;
             appState.sessionStats = { correct: 0, incorrect: 0 };
-            appState.timeRemaining = filtered.length * 60;
             
             clearInterval(appState.timerInterval);
             const timerBox = document.getElementById('mcq-timer-box');
-            if (timerBox) {
-                timerBox.classList.remove('hidden');
-                document.getElementById('mcq-time-text').innerText = formatTime(appState.timeRemaining);
-                const omrTime = document.getElementById('omr-timer');
-                if (omrTime) omrTime.innerText = formatTime(appState.timeRemaining);
+            
+            // Only mount countdown timer if they clicked "Take Test"
+            if (selectedMode === 'Test') {
+                appState.timeRemaining = filtered.length * 60;
+                if (timerBox) {
+                    timerBox.classList.remove('hidden');
+                    document.getElementById('mcq-time-text').innerText = formatTime(appState.timeRemaining);
+                    const omrTime = document.getElementById('omr-timer');
+                    if (omrTime) omrTime.innerText = formatTime(appState.timeRemaining);
 
-                appState.timerInterval = setInterval(() => {
-                    appState.timeRemaining--;
-                    
-                    const tText = document.getElementById('mcq-time-text');
-                    const oTime = document.getElementById('omr-timer');
-                    if(tText) tText.innerText = formatTime(appState.timeRemaining);
-                    if(oTime) oTime.innerText = formatTime(appState.timeRemaining);
+                    appState.timerInterval = setInterval(() => {
+                        appState.timeRemaining--;
+                        
+                        const tText = document.getElementById('mcq-time-text');
+                        const oTime = document.getElementById('omr-timer');
+                        if(tText) tText.innerText = formatTime(appState.timeRemaining);
+                        if(oTime) oTime.innerText = formatTime(appState.timeRemaining);
 
-                    if(appState.timeRemaining <= 60) {
-                        timerBox.classList.replace('text-brand-blue', 'text-rose-500');
-                        timerBox.classList.replace('bg-brand-blue/10', 'bg-rose-500/10');
-                        if(oTime) oTime.parentElement.classList.add('animate-pulse');
-                    }
-                    if(appState.timeRemaining <= 0) {
-                        clearInterval(appState.timerInterval);
-                        alert("Time is up! Submitting your current exam.");
-                        if(appState.sessionConfig.useBubbleSheet) {
-                            submitOmrExam();
-                        } else {
-                            navigate('result_screen');
+                        if(appState.timeRemaining <= 60) {
+                            timerBox.classList.replace('text-brand-blue', 'text-rose-500');
+                            timerBox.classList.replace('bg-brand-blue/10', 'bg-rose-500/10');
+                            if(oTime) oTime.parentElement.classList.add('animate-pulse');
                         }
-                    }
-                }, 1000);
+                        if(appState.timeRemaining <= 0) {
+                            clearInterval(appState.timerInterval);
+                            alert("Time is up! Submitting your current exam.");
+                            if(appState.sessionConfig.useBubbleSheet) {
+                                submitOmrExam();
+                            } else {
+                                navigate('result_screen');
+                            }
+                        }
+                    }, 1000);
+                }
+            } else {
+                if (timerBox) timerBox.classList.add('hidden');
             }
             
             navigate('mcq_screen');
