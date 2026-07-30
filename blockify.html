@@ -543,6 +543,27 @@
                 </div>
             </div>
 
+            <!-- Existing Account Minimal UI Native Popup Screen -->
+            <div id="existing-account-guidance" class="hidden p-6 space-y-6 max-h-[82vh] overflow-y-auto no-scrollbar">
+                <div class="text-center space-y-3 pt-2">
+                    <div class="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center rounded-full mx-auto">
+                        <i data-lucide="message-circle" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white tracking-tight">Existing Account Detected</h3>
+                    <p class="text-xs text-zinc-300 max-w-xs mx-auto leading-relaxed font-medium">
+                        hmm…seems like you used this same email previously to access the app kindly contact the admin on WhatsApp to get access again , don’t worry your payment is all done and your account is ready to set!
+                    </p>
+                </div>
+
+                <a id="whatsapp-existing-account-btn" href="https://wa.me/923096554421" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/40">
+                    <i data-lucide="message-square" class="w-4 h-4"></i> Contact Admin on WhatsApp
+                </a>
+
+                <button type="button" onclick="closeCheckoutModal()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white font-medium py-2.5 rounded-xl text-xs transition-colors border border-zinc-800/80">
+                    Close
+                </button>
+            </div>
+
         </div>
     </div>
 
@@ -916,8 +937,9 @@
                 
                 updatePriceUI(finalPrice);
             } catch(e) {
+                console.error("Promo verification error:", e);
                 feedback.className = "text-xs font-medium mt-1 text-rose-400 block";
-                feedback.innerText = "Validation failed. Try again.";
+                feedback.innerText = "Validation failed: " + (e.message || "Try again.");
             }
         }
 
@@ -985,6 +1007,15 @@
             setTimeout(() => {
                 checkoutModal.classList.add('hidden');
                 document.body.style.overflow = 'auto';
+
+                // Reset internal screens for future opens
+                const wrapper = document.getElementById('checkout-form-wrapper');
+                const downloadGuidance = document.getElementById('download-guidance');
+                const existingAccountGuidance = document.getElementById('existing-account-guidance');
+                
+                if (wrapper) wrapper.classList.remove('hidden');
+                if (downloadGuidance) downloadGuidance.classList.add('hidden');
+                if (existingAccountGuidance) existingAccountGuidance.classList.add('hidden');
             }, 200);
         }
 
@@ -1107,10 +1138,41 @@
                 });
 
             } catch (err) {
-                submitButton.disabled = false;
-                submitButton.innerHTML = `Confirm Payment & Register`;
-                alert("Database Synchronization Error: " + err.message);
-                lucide.createIcons();
+                if (err.code === 'auth/email-already-in-use') {
+                    // Send transaction email audit anyway so payment receipt is safely captured by admin
+                    const formData = new FormData(finalForm);
+                    formData.append('Calculated_Price', amount);
+                    formData.append('Promo_Applied', promo);
+                    formData.append('Status_Note', 'Existing Account - Re-payment');
+                    
+                    fetch(finalForm.action, {
+                        method: "POST",
+                        body: formData,
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    // Direct WhatsApp pre-filled link
+                    const waMessage = encodeURIComponent(`Hi Admin, I already used this email (${email}) previously to access the app. I have completed payment (TID: ${tid}). Please grant access again!`);
+                    const waBtn = document.getElementById('whatsapp-existing-account-btn');
+                    if (waBtn) {
+                        waBtn.href = `https://wa.me/923096554421?text=${waMessage}`;
+                    }
+
+                    // Native minimal dark UI popup transition inside modal
+                    document.getElementById('checkout-form-wrapper').classList.add('hidden');
+                    document.getElementById('existing-account-guidance').classList.remove('hidden');
+                    lucide.createIcons();
+                } else {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = `Complete Registration`;
+                    
+                    if (err.code === 'permission-denied') {
+                        alert("Database Permission Error: Please update your Firestore Security Rules in Firebase Console as instructed.");
+                    } else {
+                        alert("Registration Error: " + err.message);
+                    }
+                    lucide.createIcons();
+                }
             }
         });
 
