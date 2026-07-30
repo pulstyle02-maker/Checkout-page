@@ -664,12 +664,14 @@
             <div class="w-full max-w-4xl mx-auto px-3.5 md:px-8 pt-5 flex-1">
                 
                 <!-- Dynamic On-Background Greeting & Block Switcher -->
-                <div class="pb-5 px-1 flex items-end justify-between">
-                    <div>
-                        <p id="dashboard-greeting" class="text-xs font-bold text-zinc-500 dark:text-zinc-400">Good morning,</p>
-                        <h1 id="dashboard-username" class="text-[26px] font-black text-zinc-900 dark:text-white tracking-tight leading-tight">Dr. Student</h1>
+                <div class="pb-5 px-1 flex items-start justify-between">
+                    <div class="flex-1 min-w-0 pr-4">
+                        <h1 class="flex items-baseline gap-x-2 w-full overflow-hidden">
+                            <span id="dashboard-greeting" class="text-[14px] md:text-[16px] font-bold text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">Good morning,</span>
+                            <span id="dashboard-username" class="text-[22px] md:text-[26px] font-black text-zinc-900 dark:text-white tracking-tight leading-tight truncate capitalize">Dr. Student</span>
+                        </h1>
                     </div>
-                    <button id="dashboard-block-switcher" class="hidden items-center gap-1 text-zinc-400 dark:text-zinc-500 hover:text-brand-blue transition-colors mb-1.5 cursor-pointer card-press">
+                    <button id="dashboard-block-switcher" class="hidden items-center gap-1 text-zinc-400 dark:text-zinc-500 hover:text-brand-blue transition-colors mt-1.5 cursor-pointer card-press shrink-0">
                         <i data-lucide="layers" class="w-4 h-4"></i>
                         <span id="dashboard-block-badge" class="text-[11px] font-bold uppercase tracking-wider pt-[1px]">Block II</span>
                         <i id="dashboard-block-chevron" data-lucide="chevrons-up-down" class="w-3.5 h-3.5 ml-0.5"></i>
@@ -2697,7 +2699,9 @@
 
             const nameEl = document.getElementById('dashboard-username');
             if(nameEl) {
-                nameEl.innerText = appState.userData ? (appState.userData.fullName || 'Student') : 'Student';
+                let rawName = appState.userData ? (appState.userData.fullName || 'Student') : 'Student';
+                // Force Title Case capitalization directly in JS (e.g., "john doe" -> "John Doe")
+                nameEl.innerText = rawName.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
             }
 
             // Sync Block Switcher Badge on Dashboard
@@ -2733,24 +2737,34 @@
             if (!row) return;
 
             const daysOfWeek = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+            const activeDates = appState.userData?.activeDates || [];
             
-            const date = new Date();
-            let todayIndex = date.getDay() - 1; 
+            const now = new Date();
+            let todayIndex = now.getDay() - 1; 
             if (todayIndex === -1) todayIndex = 6; 
 
+            // Find the Date object for Monday of this current week
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - todayIndex);
+
             let html = '';
-            daysOfWeek.forEach((day, index) => {
+            daysOfWeek.forEach((dayLabel, index) => {
+                const currentDate = new Date(monday);
+                currentDate.setDate(monday.getDate() + index);
+                const dateStr = currentDate.toDateString();
+                
+                const isPast = index < todayIndex;
+                const isToday = index === todayIndex;
+                const isFuture = index > todayIndex;
+                
+                // Real Firebase synchronization check for this exact user
+                const wasActive = activeDates.includes(dateStr);
+
                 let statusHtml = '';
-                if (index < todayIndex) {
-                    // Completed Past Day (White background on Gradient)
-                    statusHtml = `
-                        <div class="w-[22px] h-[22px] rounded-full bg-white flex items-center justify-center mx-auto shadow-sm">
-                            <svg class="w-3 h-3 text-brand-blue stroke-[4px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                        </div>`;
-                } else if (index === todayIndex) {
-                    // In-Progress Today Circle Ring (White stroke on Gradient)
+                
+                if (isFuture) {
+                    statusHtml = `<div class="w-[22px] h-[22px] rounded-full bg-white/10 border border-white/30 flex items-center justify-center mx-auto"></div>`;
+                } else if (isToday) {
                     const sessionCount = appState.sessionStats ? (appState.sessionStats.correct + appState.sessionStats.incorrect) : 0;
                     const todayDone = Math.max(sessionCount, appState.totalMcqsDone % 50);
                     const target = 50;
@@ -2768,15 +2782,25 @@
                             </svg>
                         </div>`;
                 } else {
-                    // Future Day (Translucent border on Gradient)
-                    statusHtml = `
-                        <div class="w-[22px] h-[22px] rounded-full bg-white/10 border border-white/30 flex items-center justify-center mx-auto"></div>`;
+                    if (wasActive) {
+                        statusHtml = `
+                            <div class="w-[22px] h-[22px] rounded-full bg-white flex items-center justify-center mx-auto shadow-sm">
+                                <svg class="w-3 h-3 text-brand-blue stroke-[4px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>`;
+                    } else {
+                        statusHtml = `
+                            <div class="w-[22px] h-[22px] rounded-full bg-white/10 border border-white/20 flex items-center justify-center mx-auto">
+                                <div class="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                            </div>`;
+                    }
                 }
 
                 html += `
                     <div class="flex flex-col items-center space-y-1.5">
                         ${statusHtml}
-                        <span class="text-[8px] font-black text-white/90">${day}</span>
+                        <span class="text-[8px] font-black text-white/90">${dayLabel}</span>
                     </div>`;
             });
 
@@ -3226,27 +3250,44 @@
             if (!appState.userData) return;
             const today = new Date().toDateString();
             const lastActive = appState.userData.lastActiveDate || "";
+            let activeDates = appState.userData.activeDates || [];
             
+            let dataToUpdate = {};
+            let needsUpdate = false;
+
+            // 1. Record today's exact date for the dynamic calendar
+            if (!activeDates.includes(today)) {
+                activeDates.push(today);
+                if (activeDates.length > 30) activeDates.shift(); // Keep payload light in Firebase
+                appState.userData.activeDates = activeDates;
+                dataToUpdate.activeDates = activeDates;
+                needsUpdate = true;
+            }
+            
+            // 2. Update Streak Numerics
             if (lastActive !== today) {
-                let newStreak = appState.streak;
+                let newStreak = appState.streak || 0;
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 
                 if (lastActive === yesterday.toDateString()) {
                     newStreak++;
-                } else if (lastActive === "") {
-                    newStreak = 1;
                 } else {
-                    newStreak = 0; 
+                    newStreak = 1; // Since they opened it today, streak is 1, not 0!
                 }
                 
                 appState.streak = newStreak;
-                // Offline persistence enabled, background safe
-                updateUserDoc({
-                    streak: newStreak,
-                    lastActiveDate: today
-                }).catch(e => console.warn(e));
+                appState.userData.lastActiveDate = today;
+                dataToUpdate.streak = newStreak;
+                dataToUpdate.lastActiveDate = today;
+                needsUpdate = true;
             }
+
+            // Sync array to Firebase User Document once
+            if (needsUpdate) {
+                updateUserDoc(dataToUpdate).catch(e => console.warn(e));
+            }
+            
             const display = document.getElementById('streak-number-display');
             if (display) display.innerText = appState.streak;
             renderStreakDots();
@@ -5204,19 +5245,43 @@
             parsed = parsed.replace(/is there anything else[\s\S]*?\?/gi, '');
             parsed = parsed.replace(/Would\s+you\s+like\s+a\s+summary\s+of\s+the\s+next\s+section\s+regarding[\s\S]*?\?/gi, '');
             
+            // Bold/Italic block replacements
             parsed = parsed.replace(/\*\*(.*?)\*\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
             parsed = parsed.replace(/\*(.*?)\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
             parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<span class="text-brand-gradient font-extrabold">$1</span>');
             
+            // Remove single asterisks and style the text nicely
+            parsed = parsed.replace(/\*([^\*]+)\*/g, '<strong class="font-bold text-zinc-900 dark:text-zinc-100">$1</strong>');
+
+            // Upgrade pathway arrows to Lucide icons
+            parsed = parsed.replace(/&rarr;/g, '<i data-lucide="arrow-right" class="w-3.5 h-3.5 inline-block mx-1.5 text-brand-blue"></i>');
+            
+            // Lists
             const bulletRegex = /^- (.*)$/gm;
             if(bulletRegex.test(parsed)) {
                 parsed = parsed.replace(bulletRegex, '<li class="ml-4 list-none relative before:content-[\'\\2022\'] before:absolute before:-left-4 before:text-brand-blue before:font-bold mb-3">$1</li>');
-                parsed = parsed.replace(/(<li.*<\/li>(\s*<br>\s*)*)+/g, '<ul class="my-3 space-y-2">$&</ul>');
             }
             
+            // Line Breaks
             parsed = parsed.replace(/\n/g, '<br>');
+            
+            // List Cleanup
+            parsed = parsed.replace(/(<li.*<\/li>(\s*<br>\s*)*)+/g, '<ul class="my-3 space-y-2">$&</ul>');
             parsed = parsed.replace(/<br>\s*<li/g, '<li');
             parsed = parsed.replace(/<\/ul>\s*<br>/g, '</ul>');
+
+            // --- TABLE FIXES (Gaps & Styling - No Rounded Corners) ---
+            // 1. Erase the extra <br> tags surrounding table tags to kill the huge gaps!
+            parsed = parsed.replace(/(<\/?(?:table|thead|tbody|tr|th|td)[^>]*>)(?:<br>\s*)+/g, '$1');
+            parsed = parsed.replace(/(?:<br>\s*)+(<\/?(?:table|thead|tbody|tr|th|td)[^>]*>)/g, '$1');
+
+            // 2. Inject Brand Gradient & Premium Table Classes (Square corners)
+            parsed = parsed.replace(/<table>/gi, '<div class="overflow-x-auto my-5 shadow-sm border border-zinc-200 dark:border-zinc-800 no-scrollbar"><table class="w-full text-left text-[13px] border-collapse">');
+            parsed = parsed.replace(/<\/table>/gi, '</table></div>');
+            parsed = parsed.replace(/<thead>/gi, '<thead class="bg-brand-gradient text-white">');
+            parsed = parsed.replace(/<th>/gi, '<th class="px-4 py-3 font-black uppercase tracking-wider text-[11px] border-b border-white/20 whitespace-nowrap">');
+            parsed = parsed.replace(/<tbody>/gi, '<tbody class="bg-white dark:bg-[#18181b] divide-y divide-zinc-200 dark:divide-zinc-800">');
+            parsed = parsed.replace(/<td>/gi, '<td class="px-4 py-3.5 align-top text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed">');
             
             return parsed;
         }
