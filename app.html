@@ -2360,12 +2360,14 @@
             
             appState.mcqSessionQuestions.forEach((q, i) => {
                 const hist = appState.mcqHistory[i];
+                const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
                 if (hist && hist.selected === q.correctOptionIndex) {
                     appState.sessionStats.correct++;
                     appState.totalCorrect++;
+                    // Remove from mistakes
+                    appState.incorrectMCQs = appState.incorrectMCQs.filter(x => (x.id || x.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) !== qId);
                 } else {
                     appState.sessionStats.incorrect++;
-                    const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
                     const exists = appState.incorrectMCQs.find(x => (x.id || x.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
                     if (!exists) {
                         appState.incorrectMCQs.push({...q, module: appState.context.module, subject: appState.context.subject});
@@ -2382,7 +2384,11 @@
                 });
             }
 
-            const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+            let setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+            const activeSet = appState.availableSets && appState.availableSets[appState.selectedSetIndex];
+            if (activeSet) {
+                setKey = activeSet.isMistakes ? 'Mistakes_Review' : `${appState.academicYear}_${appState.academicBlock}_${activeSet.originalSetIndex}`;
+            }
             const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
             const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
             
@@ -2537,17 +2543,19 @@
                 const isCorrect = appState.mcqSelectedOptionIndex === question.correctOptionIndex;
                 const qTag = String(question.tag).trim();
                 
-                if (isCorrect) {
-                    appState.sessionStats.correct++;
-                    appState.totalCorrect++;
-                } else {
-                    appState.sessionStats.incorrect++;
-                    const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
-                    const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
-                    if (!exists) {
-                        appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
-                    }
+                const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+            if (isCorrect) {
+                appState.sessionStats.correct++;
+                appState.totalCorrect++;
+                // Remove from mistakes if answered correctly!
+                appState.incorrectMCQs = appState.incorrectMCQs.filter(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) !== qId);
+            } else {
+                appState.sessionStats.incorrect++;
+                const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                if (!exists) {
+                    appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
                 }
+            }
                 
                 appState.totalMcqsDone++;
                 if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
@@ -2574,7 +2582,12 @@
 
             const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
             if (isLast) {
-                const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+                let setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+                const activeSet = appState.availableSets && appState.availableSets[appState.selectedSetIndex];
+                if (activeSet) {
+                    setKey = activeSet.isMistakes ? 'Mistakes_Review' : `${appState.academicYear}_${appState.academicBlock}_${activeSet.originalSetIndex}`;
+                }
+                
                 const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
                 const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
                 appState.setStats[setKey] = {
@@ -5199,7 +5212,10 @@
             const container = document.getElementById('notes-content-area');
             if(!APP_DATA.allNotes) APP_DATA.allNotes = [];
             
-            let matchedNotes = APP_DATA.allNotes.filter(n => appState.selectedLOs.includes(n.loCode));
+            let matchedNotes = APP_DATA.allNotes.filter(n => 
+                appState.selectedLOs.includes(n.loCode) && 
+                !n.content.toLowerCase().includes("no relevant information found")
+            );
             
             if (matchedNotes.length === 0) {
                 container.innerHTML = `
@@ -5239,6 +5255,7 @@
             let parsed = text;
             
             // Clean AI meta-tags and conversational filler prompts
+            parsed = parsed.replace(/based on the provided (reference )?texts?[,:]?\s*/gi, '');
             parsed = parsed.replace(/(would you like me to|would you like help|here is a summary|here is the summary|let me know if you need|i hope this helps)[\s\S]*?\?/gi, '');
             parsed = parsed.replace(/would you like me to provide[\s\S]*?\.\.\./gi, '');
             parsed = parsed.replace(/would you like me to provide any further detail[\s\S]*?$/gi, '');
@@ -5256,10 +5273,28 @@
             // Upgrade pathway arrows to Lucide icons
             parsed = parsed.replace(/&rarr;/g, '<i data-lucide="arrow-right" class="w-3.5 h-3.5 inline-block mx-1.5 text-brand-blue"></i>');
             
-            // Lists
+            // --- Transform plain paragraphs separated by full stops into bullet lists ---
+            let blocks = parsed.split(/\n{2,}/);
+            blocks = blocks.map(block => {
+                // Skip if it looks like a table, already has bullets, or is too short to be a paragraph
+                if (block.includes('\n \n') || block.match(/^- /m) || block.includes('|') || block.length < 50) return block;
+                
+                // If it contains sentences separated by full stops, split them into individual bullets
+                if (block.includes('. ')) {
+                    let sentences = block.split(/\.\s+/).filter(s => s.trim().length > 0);
+                    if (sentences.length > 1) {
+                        return sentences.map(s => '- ' + s.trim() + (s.trim().endsWith('.') ? '' : '.')).join('\n');
+                    }
+                }
+                return block;
+            });
+            parsed = blocks.join('\n\n');
+            
+            // Lists (Convert all markdown bullets to small triangle bullet points)
             const bulletRegex = /^- (.*)$/gm;
             if(bulletRegex.test(parsed)) {
-                parsed = parsed.replace(bulletRegex, '<li class="ml-4 list-none relative before:content-[\'\\2022\'] before:absolute before:-left-4 before:text-brand-blue before:font-bold mb-3">$1</li>');
+                // Uses Unicode \25B8 (▸) for the small triangle bullet
+                parsed = parsed.replace(bulletRegex, '<li class="ml-4 list-none relative before:content-[\'\\25B8\'] before:absolute before:-left-4 before:text-brand-blue before:font-black before:text-[14px] before:top-[1px] mb-3">$1</li>');
             }
             
             // Line Breaks
@@ -5635,15 +5670,46 @@
                 const totalSets = Math.ceil(mixedFiltered.length / SET_SIZE);
                 
                 appState.availableSets = [];
-                for (let i = 0; i < totalSets; i++) {
-                    appState.availableSets.push({
-                        id: i,
-                        title: `Set ${i + 1}`,
-                        items: mixedFiltered.slice(i * SET_SIZE, (i + 1) * SET_SIZE)
+                let setIdCounter = 0;
+
+                // 1. Inject Mistakes Review Set if there are any mistakes for these LOs
+                let mistakeItems = [];
+                if (appState.mode === 'mcqs' && appState.incorrectMCQs && appState.incorrectMCQs.length > 0) {
+                    let seenMistakeIds = new Set();
+                    appState.incorrectMCQs.forEach(q => {
+                        const tag = String(q.tag).trim();
+                        const uniqueId = q.id || (q.statement ? q.statement.substring(0, 30) : Math.random());
+                        if (appState.selectedLOs.includes(tag) && !seenMistakeIds.has(uniqueId)) {
+                            seenMistakeIds.add(uniqueId);
+                            mistakeItems.push(q);
+                        }
                     });
                 }
 
-                if (appState.selectedSetIndex >= totalSets) {
+                if (mistakeItems.length > 0) {
+                    // Sort mistakes randomly for fresh practice
+                    mistakeItems.sort(() => 0.5 - Math.random());
+                    appState.availableSets.push({
+                        id: setIdCounter++,
+                        title: 'Review Mistakes',
+                        items: mistakeItems,
+                        isMistakes: true
+                    });
+                }
+
+                // 2. Inject Normal Pre-made Sets
+                for (let i = 0; i < totalSets; i++) {
+                    appState.availableSets.push({
+                        id: setIdCounter++,
+                        title: `Set ${i + 1}`,
+                        items: mixedFiltered.slice(i * SET_SIZE, (i + 1) * SET_SIZE),
+                        isMistakes: false,
+                        originalSetIndex: i // keeping track of the numerical set for stats
+                    });
+                }
+
+                // Fallback selected index if out of bounds
+                if (appState.selectedSetIndex >= appState.availableSets.length) {
                     appState.selectedSetIndex = 0;
                 }
 
@@ -5677,41 +5743,51 @@
                 } else {
                     setsContainer.innerHTML = appState.availableSets.map(set => {
                         let locked = false;
-                        if (appState.isGuest && appState.mode === 'mcqs') {
+                        if (appState.isGuest && appState.mode === 'mcqs' && !set.isMistakes) {
                             const subLower = (appState.context.subject || '').toLowerCase();
                             if (appState.academicBlock === 'VIII' || appState.academicBlock === '8') {
                                 if (!subLower.includes('microbiology')) locked = true;
                             } else {
-                                if (subLower.includes('anatomy') && set.id >= 3) locked = true;
-                                else if (subLower.includes('biochemistry') && set.id >= 2) locked = true;
-                                else if (subLower.includes('physiology') && set.id >= 2) locked = true;
+                                if (subLower.includes('anatomy') && set.originalSetIndex >= 3) locked = true;
+                                else if (subLower.includes('biochemistry') && set.originalSetIndex >= 2) locked = true;
+                                else if (subLower.includes('physiology') && set.originalSetIndex >= 2) locked = true;
                             }
                         }
 
                         const isActive = appState.selectedSetIndex === set.id && !locked;
-                        const cls = isActive 
+                        
+                        let cls = isActive 
                             ? 'bg-brand-gradient border-transparent shadow-[0_4px_12px_rgba(75,184,214,0.3)]' 
                             : 'bg-white dark:bg-[#18181b] border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 shadow-sm';
                         
-                        const iconBg = isActive ? 'bg-white/20 border border-white/30 shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700';
-                        const iconColor = isActive ? 'text-white' : 'text-zinc-500';
-                        const textCls = isActive ? 'text-white' : 'text-zinc-900 dark:text-white';
-                        const subTextCls = isActive ? 'text-white/80' : 'text-zinc-500 dark:text-zinc-400';
+                        if (set.isMistakes && !isActive) {
+                            cls = 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-200 dark:border-rose-900 hover:bg-rose-100 dark:hover:bg-rose-900/20 shadow-sm';
+                        }
+
+                        let iconBg = isActive ? 'bg-white/20 border border-white/30 shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700';
+                        if (set.isMistakes && !isActive) iconBg = 'bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-800';
+
+                        let iconColor = isActive ? 'text-white' : 'text-zinc-500';
+                        if (set.isMistakes && !isActive) iconColor = 'text-rose-500';
+
+                        const iconName = set.isMistakes ? "shield-alert" : "layers";
+                        const textCls = isActive ? 'text-white' : (set.isMistakes ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-white');
+                        const subTextCls = isActive ? 'text-white/80' : (set.isMistakes ? 'text-rose-500 dark:text-rose-500' : 'text-zinc-500 dark:text-zinc-400');
                         
                         const modePrefix = appState.mode === 'vivacards' ? 'Viva_' : '';
-                        const setKey = `${appState.academicYear}_${appState.academicBlock}_${modePrefix}${set.id}`;
+                        const setKey = set.isMistakes ? 'Mistakes_Review' : `${appState.academicYear}_${appState.academicBlock}_${modePrefix}${set.originalSetIndex}`;
                         const stats = appState.setStats[setKey] || { times: 0, best: 0 };
                         
                         return `
                         <div onclick="${locked ? 'showGuestUpgradeModal()' : `setPracticeSet(${set.id})`}" class="p-3.5 rounded-[16px] border transition-all duration-300 card-press cursor-pointer flex flex-col items-start ${cls} ${locked ? 'opacity-50 grayscale' : ''}">
                             <div class="w-full flex justify-between items-start mb-2.5">
                                 <div class="w-8 h-8 rounded-[10px] flex items-center justify-center transition-colors ${iconBg}">
-                                    <i data-lucide="layers" class="w-4 h-4 ${iconColor} stroke-[2.5px]"></i>
+                                    <i data-lucide="${iconName}" class="w-4 h-4 ${iconColor} stroke-[2.5px]"></i>
                                 </div>
                                 ${locked ? `<i data-lucide="lock" class="w-4 h-4 text-zinc-400"></i>` : ''}
                             </div>
                             <p class="text-[14px] font-black leading-tight mb-1 ${textCls}">${set.title}</p>
-                            ${stats.times > 0 
+                            ${(stats.times > 0 && !set.isMistakes)
                                 ? `<p class="text-[10px] font-bold ${isActive ? 'text-white' : 'text-brand-blue'} leading-none mt-0.5">Best: ${stats.best}% <span class="${subTextCls} ml-1 font-medium">(${stats.times}x)</span></p>`
                                 : `<p class="text-[10px] font-bold ${subTextCls} leading-none mt-0.5">${set.items.length} Items</p>`
                             }
@@ -6359,17 +6435,19 @@
             const isCorrect = appState.mcqSelectedOptionIndex === question.correctOptionIndex;
             const qTag = String(question.tag).trim();
             
-            if (isCorrect) {
-                appState.sessionStats.correct++;
-                appState.totalCorrect++;
-            } else {
-                appState.sessionStats.incorrect++;
-                const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
-                const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
-                if (!exists) {
-                    appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
+            const qId = question.id || question.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+                if (isCorrect) {
+                    appState.sessionStats.correct++;
+                    appState.totalCorrect++;
+                    // Remove from mistakes
+                    appState.incorrectMCQs = appState.incorrectMCQs.filter(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) !== qId);
+                } else {
+                    appState.sessionStats.incorrect++;
+                    const exists = appState.incorrectMCQs.find(q => (q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "")) === qId);
+                    if (!exists) {
+                        appState.incorrectMCQs.push({...question, module: appState.context.module, subject: appState.context.subject});
+                    }
                 }
-            }
             
             appState.totalMcqsDone++;
 
@@ -6398,7 +6476,12 @@
         function handleNextMCQ() {
             const isLast = appState.currentMcqIndex === appState.mcqSessionQuestions.length - 1;
             if (isLast) {
-                const setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+                let setKey = `${appState.academicYear}_${appState.academicBlock}_${appState.selectedSetIndex}`;
+                const activeSet = appState.availableSets && appState.availableSets[appState.selectedSetIndex];
+                if (activeSet) {
+                    setKey = activeSet.isMistakes ? 'Mistakes_Review' : `${appState.academicYear}_${appState.academicBlock}_${activeSet.originalSetIndex}`;
+                }
+
                 const currentBest = appState.setStats[setKey] ? appState.setStats[setKey].best : 0;
                 const newScore = Math.round((appState.sessionStats.correct / appState.mcqSessionQuestions.length) * 100);
                 
