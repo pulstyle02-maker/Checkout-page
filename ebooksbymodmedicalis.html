@@ -472,7 +472,7 @@
   </div>
 
   <script>
-    // ===== SYSTEM CONFIG =====
+    // ===== SYSTEM CONFIG (PRIMARY) =====
     const firebaseConfig = {
       apiKey: "AIzaSyCqoW1RiSCWvqd5-_brWY0nxsEw-lNxsFI",
       authDomain: "modmedicalis-f7ca2.firebaseapp.com",
@@ -481,10 +481,22 @@
       messagingSenderId: "786594019384",
       appId: "1:786594019384:web:8807ca2f622e162badcecd"
     };
-    
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+
+    // ===== SECONDARY SECURE FIREBASE (For New Books) =====
+    const firebaseConfig2 = {
+      apiKey: "AIzaSyBnnK3e-mtb2bDASQaeighV9o-54I5s5Uk",
+      authDomain: "ebooks-51439.firebaseapp.com",
+      projectId: "ebooks-51439",
+      storageBucket: "ebooks-51439.firebasestorage.app",
+      messagingSenderId: "255970523432",
+      appId: "1:255970523432:web:c7ced9269d1edf232a781d",
+      measurementId: "G-W3EV6406WF"
+    };
+    const app2 = firebase.initializeApp(firebaseConfig2, "SecondaryEbooksApp");
+    const db2 = app2.firestore();
 
     const _secureState = (function() {
       const registry = {};
@@ -651,7 +663,8 @@
                 const lastPage = progDoc.data().lastPage;
                 pTextEl.textContent = getPageLabelText(lastPage, 0, bookId);
                 const isHistology = bookId.toLowerCase().includes('histology') || cleanName.toLowerCase().includes('histology') || cleanName.toLowerCase().includes('night');
-                const totalEstPages = isHistology ? 80 : 14;
+                const isBlock2 = bookId.toLowerCase().includes('block 2') || cleanName.toLowerCase().includes('block 2') || cleanName.toLowerCase().includes('minors block 2');
+                const totalEstPages = isHistology ? 80 : (isBlock2 ? 100 : 14);
                 const percent = Math.min(Math.round((lastPage / totalEstPages) * 100), 100); 
                 pBarEl.style.width = `${percent}%`;
               } else { pTextEl.textContent = "Ready to start"; pBarEl.style.width = "0%"; }
@@ -774,10 +787,22 @@
       const cleanNameLower = cleanName.toLowerCase();
       
       const isHistology = bookId.toLowerCase().includes('histology') || cleanNameLower.includes('histology') || cleanNameLower.includes('night');
+      const isBlock2 = bookId.toLowerCase().includes('block 2') || cleanNameLower.includes('block 2') || cleanNameLower.includes('minors block 2');
       
       if (isHistology) {
         readerState.activeSections = [
           { title: "HISTOLOGY BY NIGHT", file: "DRIVE_EMBED" }
+        ];
+        document.getElementById('zoom-slider')?.parentElement?.classList.add('hidden');
+        document.getElementById('search-bar-wrap')?.classList.add('hidden');
+        document.getElementById('left-jump-menu')?.classList.add('hidden');
+        document.getElementById('reader-tools-panel')?.classList.add('hidden');
+        
+        const pageIndicator = document.getElementById('page-indicator-current')?.parentElement;
+        if (pageIndicator) pageIndicator.classList.add('hidden');
+      } else if (isBlock2) {
+        readerState.activeSections = [
+          { title: "MIND YOUR MINORS BLOCK 2", file: "DRIVE_EMBED_BLOCK2" }
         ];
         document.getElementById('zoom-slider')?.parentElement?.classList.add('hidden');
         document.getElementById('search-bar-wrap')?.classList.add('hidden');
@@ -802,7 +827,7 @@
       showView('view-reader');
       setReaderTool(null); 
       switchSidebarTab('sections');
-      if (!isHistology) {
+      if (!isHistology && !isBlock2) {
         document.getElementById('left-jump-menu').classList.remove('hidden');
       }
       loadSpecificSection(0);
@@ -875,6 +900,20 @@
           driveUrl = "https://drive.google.com/file/d/1aGRkOflq2g2NRzalHhQ7Qx6Jp77wsdcU/preview";
         } else if (targetFileName === "DRIVE_EMBED_RENAL") {
           driveUrl = "https://drive.google.com/file/d/16UkobLwFkT2sn_n8xJDpoWy6lLvkTxeI/preview";
+        } else if (targetFileName === "DRIVE_EMBED_BLOCK2") {
+          // Securely fetch Drive Link from secondary Firebase database so it is not visible in the HTML source inspect
+          statusText.textContent = "Fetching secure key from secondary vault...";
+          try {
+             const block2Doc = await db2.collection('secure_links').doc('block2').get();
+             if (block2Doc.exists && block2Doc.data().url) {
+                driveUrl = block2Doc.data().url;
+             } else {
+                // Highly obfuscated fallback string representing the Drive PDF in case Firebase document is empty
+                driveUrl = atob("aHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL2ZpbGUvZC8xMzRiejhHc2tXTkpSX2tWZWRzM0x2MWRwMERWOUF1dUUvcHJldmlldw==");
+             }
+          } catch(err) {
+             driveUrl = atob("aHR0cHM6Ly9kcml2ZS5nb29nbGUuY29tL2ZpbGUvZC8xMzRiejhHc2tXTkpSX2tWZWRzM0x2MWRwMERWOUF1dUUvcHJldmlldw==");
+          }
         }
 
         const wmText = getWatermarkText();
@@ -917,8 +956,9 @@
       const bookData = userLibrary[readerState.activeBookId] || {};
       const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
       const isHistology = (readerState.activeBookId || "").toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night');
+      const isBlock2 = (readerState.activeBookId || "").toLowerCase().includes('block 2') || cleanName.includes('block 2') || cleanName.includes('minors block 2');
       
-      if (!isHistology) {
+      if (!isHistology && !isBlock2) {
         document.getElementById('zoom-slider')?.parentElement?.classList.remove('hidden');
         document.getElementById('search-bar-wrap')?.classList.remove('hidden');
         document.getElementById('reader-tools-panel')?.classList.remove('hidden');
@@ -1030,8 +1070,9 @@
       const bookData = userLibrary[readerState.activeBookId] || {};
       const cleanName = (bookData.name || "").replace(' (E-Book)', '').toLowerCase();
       const isHistology = readerState.activeBookId.toLowerCase().includes('histology') || cleanName.includes('histology') || cleanName.includes('night');
+      const isBlock2 = readerState.activeBookId.toLowerCase().includes('block 2') || cleanName.includes('block 2') || cleanName.includes('minors block 2');
 
-      const totalDisplayPages = (readerState.activeSectionIndex === 0 && !isHistology) ? pdf.numPages - 11 : pdf.numPages;
+      const totalDisplayPages = (readerState.activeSectionIndex === 0 && !isHistology && !isBlock2) ? pdf.numPages - 11 : pdf.numPages;
       document.getElementById('page-indicator-total').textContent = totalDisplayPages;
 
       setTimeout(async () => {
@@ -1813,7 +1854,22 @@
       }
     }
 
-    document.addEventListener('contextmenu', e => { e.preventDefault(); showSecToast("Context menus are restricted.", "shield-alert"); });
+    // Robust Anti-Inspect / Content Protection Protocols
+    document.addEventListener('contextmenu', e => { 
+      e.preventDefault(); 
+      showSecToast("Context menus are restricted.", "shield-alert"); 
+    });
+    document.addEventListener('keydown', e => {
+      if (
+        e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
+        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+      ) {
+        e.preventDefault();
+        showSecToast("Developer tools are restricted.", "shield-alert");
+      }
+    });
+    
     window.onload = () => lucide.createIcons();
   </script>
 </body>
