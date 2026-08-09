@@ -1102,14 +1102,20 @@
         <div id="screen-notes_viewer" class="app-screen z-40 bg-zinc-50 dark:bg-black">
             <div class="absolute inset-0 bg-grid-pattern opacity-50 z-0 pointer-events-none"></div>
             <div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative flex flex-col min-h-full z-10">
-                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black flex items-center space-x-3">
-                    <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                    <h1 class="text-2xl font-black text-zinc-900 dark:text-white truncate">Quick Notes</h1>
+                <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black flex justify-between items-center px-1">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <h1 class="text-2xl font-black text-zinc-900 dark:text-white truncate">Quick Notes</h1>
+                    </div>
                 </div>
-                <div class="flex-1 overflow-y-auto no-scrollbar py-2 pb-32" id="notes-content-area">
+                <div class="flex-1 overflow-y-auto no-scrollbar py-2 pb-32 relative" id="notes-content-area">
                     <!-- Populated dynamically without containers -->
                 </div>
             </div>
+            <!-- Floating AI FAB for Notes -->
+            <button onclick="openNotesAIDiscussSheet()" class="fixed bottom-[100px] right-6 md:right-auto md:left-[calc(50%+300px)] w-14 h-14 bg-brand-gradient text-white rounded-full shadow-[0_8px_25px_rgba(75,184,214,0.4)] flex items-center justify-center card-press z-50">
+                <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </button>
         </div>
 
         <!-- 6d. VIVACARDS VIEWER SCREEN (1-by-1 3D Flip UI) -->
@@ -2205,6 +2211,83 @@
                 </div>
             </div>
         </div>
+
+        <!-- ================= NOTES AI QUICK ACTIONS SHEET ================= -->
+        <div id="notes-ai-prompt-modal" class="fixed inset-0 z-[220] hidden flex-col justify-end md:justify-center items-center pointer-events-none">
+            <div id="notes-ai-prompt-backdrop" class="absolute inset-0 bg-black/70 backdrop-blur-md opacity-0 pointer-events-auto transition-opacity duration-300" onclick="closeNotesAIDiscussSheet()"></div>
+            <div id="notes-ai-prompt-container" class="relative w-full max-w-sm bg-white dark:bg-[#18181b] rounded-t-[32px] md:rounded-[28px] overflow-hidden shadow-2xl pointer-events-auto z-10 flex flex-col p-6 border border-zinc-200/80 dark:border-zinc-800">
+                <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 bg-gradient-to-r from-[#4bb8d6]/30 via-[#56d0a0]/30 to-[#fbd043]/30 blur-2xl pointer-events-none"></div>
+                <div class="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4 relative z-10"></div>
+                <div class="flex items-center justify-between mb-5 relative z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-brand-gradient p-[1.5px] shadow-md flex items-center justify-center">
+                            <div class="w-full h-full bg-white dark:bg-[#18181b] rounded-[14px] flex items-center justify-center">
+                                <i data-lucide="sparkles" class="w-5 h-5 text-zinc-900 dark:text-white"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-black text-zinc-900 dark:text-white leading-tight">AI Note Actions</h3>
+                            <p class="text-[11px] text-zinc-500 font-medium mt-0.5">Interact with your current notes</p>
+                        </div>
+                    </div>
+                    <button onclick="closeNotesAIDiscussSheet()" class="w-8 h-8 bg-zinc-100 dark:bg-zinc-800/80 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="space-y-2.5 my-1 relative z-10 max-h-[60vh] overflow-y-auto no-scrollbar pr-0.5">
+                    <button onclick="triggerNotesAIPrompt('summarize')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 font-bold text-lg">📝</div>
+                        <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Summarize</span><span class="text-[10px] text-zinc-500 block">Condense into a brief overview</span></div>
+                    </button>
+                    <button onclick="triggerNotesAIPrompt('memorize')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0 font-bold text-lg">🧠</div>
+                        <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Tricks to Memorize</span><span class="text-[10px] text-zinc-500 block">Mnemonics and active recall hooks</span></div>
+                    </button>
+                    <button onclick="triggerNotesAIPrompt('highyield')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0 font-bold text-lg">🔥</div>
+                        <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Most High-Yield Facts</span><span class="text-[10px] text-zinc-500 block">Extract key exam-tested points</span></div>
+                    </button>
+                    <button onclick="triggerNotesAIPrompt('layman')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 font-bold text-lg">💡</div>
+                        <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Explain as a Layman</span><span class="text-[10px] text-zinc-500 block">Simplify medical jargon</span></div>
+                    </button>
+                    <button onclick="triggerNotesAIPrompt('mcqs')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 font-bold text-lg">🎯</div>
+                        <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Generate Practice MCQs</span><span class="text-[10px] text-zinc-500 block">Create mock questions from these notes</span></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= INBUILT ONE-LINER & PDF MODAL ================= -->
+        <div id="one-liner-modal" class="fixed inset-0 z-[230] hidden flex-col justify-center items-center pointer-events-none p-4">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto" onclick="this.parentElement.classList.replace('flex', 'hidden')"></div>
+            <div class="relative w-full max-w-lg bg-zinc-50 dark:bg-[#121212] rounded-[24px] shadow-2xl pointer-events-auto z-10 flex flex-col max-h-[85vh] border border-zinc-200 dark:border-zinc-800">
+                <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-[#18181b] rounded-t-[24px]">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center shadow-sm"><i data-lucide="zap" class="w-4 h-4 text-white"></i></div>
+                        <h3 class="font-black text-zinc-900 dark:text-white">High-Yield One-Liners</h3>
+                    </div>
+                    <button onclick="document.getElementById('one-liner-modal').classList.replace('flex', 'hidden')" class="w-8 h-8 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-zinc-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div id="one-liner-content" class="flex-1 overflow-y-auto p-5 no-scrollbar bg-zinc-50 dark:bg-[#121212]">
+                    <!-- Injected dynamically -->
+                </div>
+                <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] rounded-b-[24px] flex gap-2">
+                    <button onclick="exportOneLinersToGPT()" class="flex-1 py-3 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-[14px] text-xs font-black card-press flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i> Enhance in ChatGPT
+                    </button>
+                    <button onclick="printOneLiners()" class="flex-1 py-3 bg-brand-gradient text-white rounded-[14px] text-xs font-black card-press flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="file-down" class="w-4 h-4"></i> Save / PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Highlight Trigger Button -->
+        <button id="floating-highlight-btn" onclick="applyHighlightToSelection()" class="fixed top-[15vh] left-1/2 -translate-x-1/2 bg-zinc-900 dark:bg-white text-white dark:text-black px-4 py-2.5 rounded-full shadow-2xl z-[150] hidden items-center gap-2 font-black text-xs card-press">
+            <i data-lucide="highlighter" class="w-4 h-4"></i> Highlight Text
+        </button>
 
         <!-- ================= AI DISCUSS PROMPT SELECTION SHEET ================= -->
         <div id="ai-prompt-modal" class="fixed inset-0 z-[220] hidden flex-col justify-end md:justify-center items-center pointer-events-none">
@@ -5760,6 +5843,18 @@
             if(!text) return '';
             let parsed = text;
             
+            // Re-apply Saved User Highlights First!
+            const userHighlights = appState.userData?.noteHighlights || [];
+            userHighlights.forEach(hl => {
+                if(hl.length > 5) {
+                    try {
+                        const escaped = hl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp(`(${escaped})`, 'gi');
+                        parsed = parsed.replace(regex, '<mark class="bg-brand-yellow/40 text-inherit rounded-sm px-0.5 border-b-2 border-brand-yellow/60">$1</mark>');
+                    } catch(e) {}
+                }
+            });
+            
             // Clean AI meta-tags and conversational filler prompts
             parsed = parsed.replace(/based on the provided (reference )?texts?[,:]?\s*/gi, '');
             parsed = parsed.replace(/(would you like me to|would you like help|here is a summary|here is the summary|let me know if you need|i hope this helps)[\s\S]*?\?/gi, '');
@@ -6257,12 +6352,22 @@
                     });
                 }
 
-                // 2. Inject Normal Pre-made Sets
+                // 2. Inject Normal Pre-made Sets (Using Round-Robin for natural spread across sets!)
+                let setsArray = Array.from({length: totalSets}, () => []);
+                mixedFiltered.forEach((item, index) => {
+                    if(totalSets > 0) setsArray[index % totalSets].push(item);
+                });
+
                 for (let i = 0; i < totalSets; i++) {
-                    let setItems = mixedFiltered.slice(i * SET_SIZE, (i + 1) * SET_SIZE);
+                    let setItems = setsArray[i] || [];
+                    
+                    // Force a local shuffle inside the set so it feels completely random by default
+                    setItems = [...setItems].sort(() => 0.5 - Math.random());
+                    
                     if (appState.sessionConfig.shuffle) {
                         setItems = [...setItems].sort(() => 0.5 - Math.random());
                     }
+
                     appState.availableSets.push({
                         id: setIdCounter++,
                         title: `Set ${i + 1}${appState.sessionConfig.shuffle ? ' (Shuffled)' : ''}`,
@@ -6762,6 +6867,19 @@
             });
 
             let html = '';
+            if (appState.incorrectMCQs && appState.incorrectMCQs.length > 0) {
+                html += `
+                    <div class="flex justify-between items-center bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 p-4 rounded-[20px] mb-5 shadow-sm">
+                        <div>
+                            <h4 class="text-[13px] font-black text-zinc-900 dark:text-white">Smart Revision</h4>
+                            <p class="text-[10px] text-zinc-500 font-bold">Convert mistakes to quick facts</p>
+                        </div>
+                        <button onclick="openOneLinerTool('mistakes')" class="bg-brand-gradient text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md card-press flex items-center gap-1.5">
+                            <i data-lucide="zap" class="w-4 h-4"></i> One-Liners
+                        </button>
+                    </div>
+                `;
+            }
             for (const mod in groups) {
                 html += `
                 <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 mb-4 shadow-sm">
@@ -8113,6 +8231,17 @@
             });
 
             let html = '';
+            html += `
+                <div class="flex justify-between items-center bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 p-4 rounded-[20px] mb-5 shadow-sm">
+                    <div>
+                        <h4 class="text-[13px] font-black text-zinc-900 dark:text-white">Smart Export</h4>
+                        <p class="text-[10px] text-zinc-500 font-bold">Convert saves to quick facts</p>
+                    </div>
+                    <button onclick="openOneLinerTool('saved')" class="bg-brand-gradient text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md card-press flex items-center gap-1.5">
+                        <i data-lucide="zap" class="w-4 h-4"></i> One-Liners
+                    </button>
+                </div>
+            `;
             for (const tag in groups) {
                 html += `<div class="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 mb-4 shadow-sm animate-[fadeIn_0.3s_ease-out]">
                             <h3 class="text-xs font-black text-brand-blue uppercase tracking-widest mb-4 flex items-center">
@@ -9914,6 +10043,161 @@
                 }
             });
         });
+
+        // --- HIGHLIGHTING ENGINE ---
+        let currentSelectionText = '';
+        document.addEventListener('selectionchange', () => {
+            const sel = window.getSelection();
+            const text = sel.toString().trim();
+            const btn = document.getElementById('floating-highlight-btn');
+            const isNotesScreen = document.getElementById('screen-notes_viewer') && document.getElementById('screen-notes_viewer').classList.contains('active');
+            
+            if (isNotesScreen && text.length > 5 && text.length < 500) {
+                currentSelectionText = text;
+                if(btn) {
+                    btn.classList.remove('hidden');
+                    btn.classList.add('flex');
+                }
+            } else if (btn) {
+                btn.classList.add('hidden');
+                btn.classList.remove('flex');
+            }
+        });
+
+        async function applyHighlightToSelection() {
+            if(!currentSelectionText || currentSelectionText.length < 5) return;
+            
+            if(!appState.userData.noteHighlights) {
+                appState.userData.noteHighlights = [];
+            }
+            
+            if(!appState.userData.noteHighlights.includes(currentSelectionText)) {
+                appState.userData.noteHighlights.push(currentSelectionText);
+                if(appState.currentUser) {
+                    updateUserDoc({ noteHighlights: appState.userData.noteHighlights }).catch(e => console.warn(e));
+                }
+            }
+            
+            const btn = document.getElementById('floating-highlight-btn');
+            if(btn) { btn.classList.add('hidden'); btn.classList.remove('flex'); }
+            
+            window.getSelection().removeAllRanges();
+            renderNotesViewer(); 
+        }
+
+        // --- INBUILT ONE-LINER ENGINE ---
+        window.openOneLinerTool = function(source) {
+            let pool = [];
+            if (source === 'mistakes') {
+                pool = appState.incorrectMCQs || [];
+            } else if (source === 'saved') {
+                pool = (APP_DATA.allMCQs || []).filter(q => isMCQBookmarked(q.id || q.statement.substring(0,30).replace(/[^a-zA-Z0-9]/g, "")));
+            }
+            
+            if(pool.length === 0) {
+                alert('No questions found to generate one-liners.');
+                return;
+            }
+
+            let html = pool.map(q => {
+                let stmt = cleanMCQStatement(q.statement);
+                stmt = stmt.replace(/Which of the following (is|statements is true|best describes|regarding|about)[\s\S]*?(?:is|are)?:?\s*/gi, '');
+                stmt = stmt.replace(/\?$/, '').trim();
+                if(stmt.length === 0) stmt = cleanMCQStatement(q.statement); 
+                
+                let ans = q.options && q.correctOptionIndex !== undefined ? q.options[q.correctOptionIndex] : 'Unknown';
+                return `
+                    <div class="mb-4 text-[13px] leading-relaxed bg-white dark:bg-[#1c1c1e] p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <span class="font-medium text-zinc-700 dark:text-zinc-300 block mb-1">👉 ${stmt}</span> 
+                        <span class="font-black text-brand-blue block bg-brand-blue/10 px-2 py-1 rounded inline-block mt-1">↳ ${ans}</span>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('one-liner-content').innerHTML = html;
+            document.getElementById('one-liner-modal').classList.remove('hidden');
+            document.getElementById('one-liner-modal').classList.add('flex');
+            lucide.createIcons();
+            window.currentOneLinerPool = pool;
+        }
+
+        window.exportOneLinersToGPT = function() {
+            if(!window.currentOneLinerPool || window.currentOneLinerPool.length === 0) return;
+            let text = window.currentOneLinerPool.map(q => {
+                const ans = q.options && q.correctOptionIndex !== undefined ? q.options[q.correctOptionIndex] : 'Unknown';
+                return `Q: ${q.statement}\nA: ${ans}`;
+            }).join('\n\n');
+            let prompt = `I am studying for my medical exams. Please convert the following medical multiple-choice questions and their correct answers into extremely concise, high-yield, one-liner facts for rapid active-recall revision:\n\n${text}`;
+            window.open('https://chatgpt.com/?q=' + encodeURIComponent(prompt), '_blank');
+        }
+
+        window.printOneLiners = function() {
+            if(!window.currentOneLinerPool || window.currentOneLinerPool.length === 0) return;
+            let contentHtml = window.currentOneLinerPool.map(q => {
+                let stmt = cleanMCQStatement(q.statement).replace(/Which of the following[\s\S]*?(?:is|are)?:?\s*/gi, '').replace(/\?$/, '').trim();
+                let ans = q.options && q.correctOptionIndex !== undefined ? q.options[q.correctOptionIndex] : 'Unknown';
+                return `<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eaeaea;">
+                            <strong style="color: #333;">• ${stmt}</strong><br>
+                            <span style="color: #4bb8d6; font-weight: bold; margin-left: 14px;">↳ ${ans}</span>
+                        </div>`;
+            }).join('');
+
+            let printWin = window.open('', '', 'width=800,height=900');
+            printWin.document.write(`
+                <html><head><title>High-Yield Revision</title>
+                <style>body { font-family: -apple-system, sans-serif; padding: 30px; line-height: 1.6; color: #111; } h2 { text-align: center; color: #111; margin-bottom: 5px; } p.sub { text-align: center; color: #666; font-size: 12px; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px; }</style>
+                </head><body><h2>BLOCKIFY High-Yield One-Liners</h2><p class="sub">Generated Study Sheet</p>${contentHtml}</body></html>
+            `);
+            printWin.document.close();
+            printWin.focus();
+            setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+        }
+
+        // --- QUICK NOTES AI SHEET LOGIC ---
+        window.openNotesAIDiscussSheet = function() {
+            const modal = document.getElementById('notes-ai-prompt-modal');
+            const backdrop = document.getElementById('notes-ai-prompt-backdrop');
+            const container = document.getElementById('notes-ai-prompt-container');
+            if (!modal) return;
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf([backdrop, container]);
+                gsap.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+                gsap.fromTo(container, { y: '100%', opacity: 0 }, { y: '0%', opacity: 1, duration: 0.45, ease: 'back.out(1.1)' });
+            }
+            lucide.createIcons();
+        }
+
+        window.closeNotesAIDiscussSheet = function() {
+            const modal = document.getElementById('notes-ai-prompt-modal');
+            const backdrop = document.getElementById('notes-ai-prompt-backdrop');
+            const container = document.getElementById('notes-ai-prompt-container');
+            if (!modal) return;
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf([backdrop, container]);
+                gsap.to(backdrop, { opacity: 0, duration: 0.25, ease: 'power2.in' });
+                gsap.to(container, { y: '100%', opacity: 0, duration: 0.3, ease: 'power3.in', onComplete: () => {
+                    modal.classList.add('hidden'); modal.classList.remove('flex');
+                }});
+            } else { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        }
+
+        window.triggerNotesAIPrompt = function(actionType) {
+            closeNotesAIDiscussSheet();
+            const contentArea = document.getElementById('notes-content-area');
+            if (!contentArea) return;
+            let rawNotesText = contentArea.innerText || contentArea.textContent || '';
+            if (rawNotesText.length > 5000) rawNotesText = rawNotesText.substring(0, 5000) + '... [Content truncated]';
+            const baseContext = `Here are my medical study notes:\n\n${rawNotesText}\n\n`;
+            let promptPrefix = "";
+            switch (actionType) {
+                case 'summarize': promptPrefix = "Please provide a highly concise and structured summary of these medical notes:\n\n"; break;
+                case 'memorize': promptPrefix = "Create clever mnemonics, memory tricks, and active recall hooks to help me easily memorize the key points from these notes:\n\n"; break;
+                case 'highyield': promptPrefix = "Extract only the absolute most high-yield, frequently tested facts and buzzwords from these notes for my medical board exams:\n\n"; break;
+                case 'layman': promptPrefix = "Explain the concepts in these notes using simple layman's terms and everyday real-world analogies:\n\n"; break;
+                case 'mcqs': promptPrefix = "Generate 5 challenging multiple-choice questions (with 5 options each A-E, and detailed explanations for the correct answers) based strictly on these notes:\n\n"; break;
+            }
+            window.open('https://chatgpt.com/?q=' + encodeURIComponent(promptPrefix + baseContext), '_blank');
+        }
 
         // --- AI DISCUSS SHEET LOGIC ---
         function openAIDiscussSheet() {
