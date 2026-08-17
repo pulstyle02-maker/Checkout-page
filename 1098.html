@@ -3702,27 +3702,16 @@
                 appState.selectedLOs.forEach(lo => { groupedByLO[lo] = []; });
                 let seenIds = new Set();
 
-                // Group them identical to session builder
+                // Group them identical to session builder (Sequential, no round-robin mixup)
+                let mixedFiltered = [];
                 pool.forEach(item => {
                     const tag = String(item.tag).trim();
                     const uniqueId = item.id || (item.statement ? item.statement.substring(0,30) : Math.random());
                     if (appState.selectedLOs.includes(tag) && !seenIds.has(uniqueId)) {
                         seenIds.add(uniqueId);
-                        groupedByLO[tag].push(item);
+                        mixedFiltered.push(item);
                     }
                 });
-
-                let mixedFiltered = [];
-                let hasItems = true;
-                while (hasItems) {
-                    hasItems = false;
-                    for (let lo of appState.selectedLOs) {
-                        if (groupedByLO[lo] && groupedByLO[lo].length > 0) {
-                            mixedFiltered.push(groupedByLO[lo].shift());
-                            hasItems = true;
-                        }
-                    }
-                }
                 
                 // Absolute lowest failsafe
                 if (mixedFiltered.length === 0) {
@@ -6372,30 +6361,18 @@
                     }
                 }
                 
-                let groupedByLO = {};
-                appState.selectedLOs.forEach(lo => { groupedByLO[lo] = []; });
-                
+                let mixedFiltered = [];
                 let seenIds = new Set();
+                
+                // Preserve exact JSON sequential order, no round-robin mixup
                 pool.forEach(item => {
                     const tag = String(appState.mode === 'mcqs' ? item.tag : item.loCode).trim();
                     const uniqueId = item.id || (item.statement ? item.statement.substring(0,30) : (item.front ? item.front.substring(0,30) : Math.random()));
                     if (appState.selectedLOs.includes(tag) && !seenIds.has(uniqueId)) {
                         seenIds.add(uniqueId);
-                        groupedByLO[tag].push(item);
+                        mixedFiltered.push(item);
                     }
                 });
-
-                let mixedFiltered = [];
-                let hasItems = true;
-                while (hasItems) {
-                    hasItems = false;
-                    for (let lo of appState.selectedLOs) {
-                        if (groupedByLO[lo] && groupedByLO[lo].length > 0) {
-                            mixedFiltered.push(groupedByLO[lo].shift());
-                            hasItems = true;
-                        }
-                    }
-                }
                 
                 const bcSubj = document.getElementById('bc-sb-subject');
                 if(bcSubj) bcSubj.innerText = appState.context.subject || "Subject";
@@ -6434,18 +6411,21 @@
                     });
                 }
 
-                // 2. Inject Normal Pre-made Sets (Using Round-Robin for natural spread across sets!)
+                // 2. Inject Normal Pre-made Sets (Sequential Chunking, No Round-Robin mixup)
                 let setsArray = Array.from({length: totalSets}, () => []);
                 mixedFiltered.forEach((item, index) => {
-                    if(totalSets > 0) setsArray[index % totalSets].push(item);
+                    if(totalSets > 0) {
+                        const setIndex = Math.floor(index / SET_SIZE);
+                        if (setsArray[setIndex]) {
+                            setsArray[setIndex].push(item);
+                        }
+                    }
                 });
 
                 for (let i = 0; i < totalSets; i++) {
                     let setItems = setsArray[i] || [];
                     
-                    // Force a local shuffle inside the set so it feels completely random by default
-                    setItems = [...setItems].sort(() => 0.5 - Math.random());
-                    
+                    // Only shuffle if the user has explicitly requested randomization
                     if (appState.sessionConfig.shuffle) {
                         setItems = [...setItems].sort(() => 0.5 - Math.random());
                     }
@@ -7002,7 +6982,8 @@
             const pool = appState.incorrectMCQs.filter(q => q.module === mod && q.subject === sub && q.tag === tag);
             if (pool.length === 0) return;
 
-            appState.sessionQuestions = [...pool].sort(() => 0.5 - Math.random());
+            // Sequential fetch instead of randomizing
+            appState.sessionQuestions = [...pool];
             appState.mcqSessionQuestions = appState.sessionQuestions;
             appState.mcqHistory = {};
             appState.currentQuestionIndex = 0;
@@ -7098,8 +7079,7 @@
                     return;
                 }
                 
-                setItems.sort(() => 0.5 - Math.random());
-                
+                // Keep exact set sequence as prepared in renderSessionBuilder
                 appState.sessionQuestions = setItems;
                 appState.currentQuestionIndex = 0;
                 
@@ -8825,11 +8805,11 @@
             
             let finalPool = [...sliceAnatomy, ...sliceEmbryo, ...sliceHisto];
             
-            // Fallback: if network gaps occur, construct a randomly balanced shuffled compilation
+            // Fallback: if network gaps occur, construct a sequentially balanced compilation
             if (finalPool.length < 5) {
-                let fallbackAnatomy = [...pools.anatomy].sort(() => 0.5 - Math.random()).slice(0, 20);
-                let fallbackEmbryo = [...pools.embryo].sort(() => 0.5 - Math.random()).slice(0, 10);
-                let fallbackHisto = [...pools.histology].sort(() => 0.5 - Math.random()).slice(0, 10);
+                let fallbackAnatomy = [...pools.anatomy].slice(0, 20);
+                let fallbackEmbryo = [...pools.embryo].slice(0, 10);
+                let fallbackHisto = [...pools.histology].slice(0, 10);
                 finalPool = [...fallbackAnatomy, ...fallbackEmbryo, ...fallbackHisto];
             }
 
@@ -8839,8 +8819,7 @@
                 return;
             }
 
-            // Shuffle compiled test list so questions are well-distributed
-            finalPool.sort(() => 0.5 - Math.random());
+            // Keep strictly sequential as fetched from the syllabus (No random shuffle)
             
             currentMockContext = {
                 type: 'class',
@@ -9074,8 +9053,7 @@
                 return;
             }
             
-            // Shuffle sliced set for exam freshness
-            slicedPool.sort(() => 0.5 - Math.random());
+            // Keep exactly sequential for the mock
             hideLoader();
             openMockExamConfigurator(slicedPool);
         }
@@ -9219,7 +9197,8 @@
             showLoader("Generating Mock...");
             await ensureMCQsLoaded();
             let pool = APP_DATA.allMCQs.filter(q => q.tag && currentMockContext.selectedLOs.map(normalizeLOCode).includes(normalizeLOCode(q.tag)));
-            pool.sort(() => 0.5 - Math.random());
+            
+            // Keep exactly sequential
             hideLoader();
             openMockExamConfigurator(pool.slice(0, count));
         }
@@ -9335,42 +9314,18 @@
                     }
                 });
 
-                // ROUND-ROBIN BY LO DISTRIBUTION TO ENSURE EVEN SPREAD ACROSS ALL SUB-TOPICS
-                let loGroups = {};
-                matchedPool.forEach(q => {
-                    const tag = q.tag ? String(q.tag).trim().toUpperCase() : "UNTAGGED";
-                    if (!loGroups[tag]) loGroups[tag] = [];
-                    loGroups[tag].push(q);
-                });
-
-                // Deterministic sort within each LO for non-overlapping mocks across Set IDs
-                Object.values(loGroups).forEach(group => {
-                    group.sort((a, b) => (a.id || a.statement || "").localeCompare(b.id || b.statement || ""));
-                });
-
-                // Re-build pool by grabbing 1 from each LO, then 2nd from each, etc.
-                let roundRobinList = [];
-                let keys = Object.keys(loGroups).sort();
-                let maxLen = Math.max(0, ...Object.values(loGroups).map(g => g.length));
+                // STRICTLY SEQUENTIAL DISTRIBUTION (NO ROUND ROBIN OR SHUFFLING)
+                let sortedList = [...matchedPool].sort((a, b) => (a.id || a.statement || "").localeCompare(b.id || b.statement || ""));
                 
-                for (let i = 0; i < maxLen; i++) {
-                    for (let key of keys) {
-                        if (loGroups[key][i]) {
-                            roundRobinList.push(loGroups[key][i]);
-                        }
-                    }
-                }
-
                 // Deterministic non-overlapping slicing based on the selected Mock Set ID Number
                 const sliceStart = (mockId - 1) * targetCount;
-                let selectedSlice = roundRobinList.slice(sliceStart, sliceStart + targetCount);
+                let selectedSlice = sortedList.slice(sliceStart, sliceStart + targetCount);
 
                 // Fallback boundary resolution if we exceed the purely non-overlapping count
                 if (selectedSlice.length < targetCount) {
                     const shortfall = targetCount - selectedSlice.length;
-                    const availableForFallback = roundRobinList.filter(q => !selectedSlice.includes(q));
-                    const fallbackShuffled = [...availableForFallback].sort(() => 0.5 - Math.random());
-                    selectedSlice = selectedSlice.concat(fallbackShuffled.slice(0, shortfall));
+                    const availableForFallback = sortedList.filter(q => !selectedSlice.includes(q));
+                    selectedSlice = selectedSlice.concat(availableForFallback.slice(0, shortfall));
                 }
 
                 // Add sequentially to final pool to keep subjects contiguous
@@ -10633,28 +10588,18 @@
                 pool = pool.filter(item => (item.statement + " " + (item.options ? item.options.join(" ") : "")).toLowerCase().includes(kw));
             }
 
-            let groupedByLO = {};
-            appState.selectedLOs.forEach(lo => { groupedByLO[lo] = []; });
+            let mixedFiltered = [];
             let seenIds = new Set();
+            
+            // Keep strictly sequential mapping instead of round-robin
             pool.forEach(item => {
                 const tag = String(item.tag).trim();
                 const uniqueId = item.id || (item.statement ? item.statement.substring(0,30) : Math.random());
                 if (appState.selectedLOs.includes(tag) && !seenIds.has(uniqueId)) {
                     seenIds.add(uniqueId);
-                    groupedByLO[tag].push(item);
+                    mixedFiltered.push(item);
                 }
             });
-            let mixedFiltered = [];
-            let hasItems = true;
-            while (hasItems) {
-                hasItems = false;
-                for (let lo of appState.selectedLOs) {
-                    if (groupedByLO[lo] && groupedByLO[lo].length > 0) {
-                        mixedFiltered.push(groupedByLO[lo].shift());
-                        hasItems = true;
-                    }
-                }
-            }
 
             const SET_SIZE = 20;
             let setItems = mixedFiltered.slice(roomData.setIndex * SET_SIZE, (roomData.setIndex + 1) * SET_SIZE);
