@@ -60,6 +60,9 @@
     <!-- GSAP SaaS Motion Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
+    <!-- Tesseract.js OCR for In-App Receipt Verification -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
     <style>
         /* Native iOS App Typography Hierarchy */
         body, button, input, select, textarea {
@@ -96,14 +99,6 @@
         input, textarea {
             -webkit-user-select: auto;
             user-select: auto;
-        }
-
-        /* Allow Text Selection inside Notes & Explanations */
-        .notes-content-text, .notes-content-text *,
-        #explanation-content-area, #explanation-content-area * {
-            -webkit-user-select: text !important;
-            user-select: text !important;
-            -webkit-touch-callout: default !important;
         }
 
         /* AI Typing Dots */
@@ -704,6 +699,14 @@
             </div>
         </div>
 
+        <!-- Minimal iOS Offline Status Pill -->
+        <div id="offline-status-pill" class="fixed top-3 left-1/2 -translate-x-1/2 z-[210] transform -translate-y-[150%] transition-transform duration-400 ease-out pointer-events-none">
+            <div class="bg-zinc-900/90 dark:bg-white/90 backdrop-blur-md text-white dark:text-black px-4 py-1.5 rounded-full text-[11px] font-bold shadow-xl border border-white/10 dark:border-black/10 flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                <span>Offline Mode • Using local cache</span>
+            </div>
+        </div>
+
         <!-- Android/Chrome PWA Banner Trigger -->
         <div id="pwa-install-banner" class="fixed bottom-24 left-4 right-4 bg-zinc-950 border border-zinc-800 rounded-2xl p-4 z-[45] hidden flex-col shadow-2xl animate-[fadeIn_0.3s_ease]">
             <div class="flex items-start justify-between mb-3">
@@ -973,6 +976,11 @@
                         <span>Saved MCQs</span>
                     </button>
 
+                    <button onclick="toggleDrawer(false); openMarkify()" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
+                        <i data-lucide="highlighter" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
+                        <span>Markify (Book Markings)</span>
+                    </button>
+
                     <button onclick="toggleDrawer(false); navigate('mistakes_review')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
                         <i data-lucide="shield-alert" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
                         <span>Mistakes Review</span>
@@ -1035,21 +1043,42 @@
                     </div>
                 </div>
 
-                <!-- Header Typography (Border-less & Flat) -->
-                <div class="mb-8 flex justify-between items-center px-1">
-                    <h1 class="text-[36px] tracking-tight font-medium text-zinc-900 dark:text-white" id="dashboard-username">Dashboard</h1>
+                <!-- Header Typography (Minimal iOS / Native Style) -->
+                <div class="mb-6 flex justify-between items-center px-1">
+                    <h1 class="text-[32px] tracking-tight font-black text-zinc-900 dark:text-white" id="dashboard-username">Dashboard</h1>
                     
-                    <button id="dashboard-block-switcher" class="bg-zinc-200/50 dark:bg-[#2A2C31] text-zinc-900 dark:text-white px-4 py-2 rounded-full text-[11px] font-medium flex items-center gap-1.5 card-press">
-                        <span id="dashboard-block-badge">Block II</span>
-                        <i id="dashboard-block-chevron" data-lucide="chevron-down" class="w-3 h-3 opacity-60"></i>
+                    <!-- Sleek Clean Block Switcher Capsule -->
+                    <button id="dashboard-block-switcher" class="bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 text-zinc-900 dark:text-white px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition-all">
+                        <span id="dashboard-block-badge" class="tracking-tight">Block IV</span>
+                        <span id="dashboard-block-count-badge" class="hidden text-[9px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-md"></span>
+                        <i id="dashboard-block-chevron" data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-zinc-400 hidden"></i>
                     </button>
                     <div id="dashboard-greeting" class="hidden"></div>
+                </div>
+
+                <!-- Minimal iOS / ChatGPT-Style In-App Upgrade Banner (Visible when on Block IV) -->
+                <div id="dashboard-upgrade-pill" class="hidden mb-4 p-3.5 bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] shadow-sm flex items-center justify-between card-press cursor-pointer" onclick="openBlock5UpgradeModal()">
+                    <div class="flex items-center gap-3 min-w-0 pr-2">
+                        <div class="w-8 h-8 rounded-full bg-brand-gradient flex items-center justify-center text-white shrink-0 shadow-sm">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        </div>
+                        <div class="truncate">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[13px] font-black text-zinc-900 dark:text-white tracking-tight">Block V is now live</span>
+                                <span class="text-[9px] font-black uppercase tracking-wider bg-brand-blue/10 text-brand-blue px-1.5 py-0.2 rounded">New</span>
+                            </div>
+                            <p class="text-[11px] text-zinc-500 font-medium truncate">Upgrade to unlock Endocrine, Renal-II & Repro</p>
+                        </div>
+                    </div>
+                    <button class="px-3 py-1.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-full text-[11px] font-bold shrink-0">
+                        Upgrade
+                    </button>
                 </div>
 
                 <!-- Active Session (Medical Green UI) -->
                 <div id="continue-card" class="mb-4"></div>
                 
-                <!-- Tools Grid (Updated Colors & Title) -->
+                <!-- Tools Grid (Clean 2x2 Grid + 2 Full-Width Hero Cards) -->
                 <h2 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-white mb-3 px-1 mt-2">Pick your study tool</h2>
                 <div class="grid grid-cols-2 gap-3 mb-6">
                     <button onclick="setMode('mcqs'); navigate('module_selection')" class="bg-white dark:bg-[#2A2C31] rounded-[24px] p-4 text-left flex items-center gap-3.5 card-press text-zinc-900 dark:text-white shadow-sm border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors">
@@ -1079,7 +1108,18 @@
                             <h3 class="text-[14px] font-semibold leading-tight">Past Papers</h3>
                         </div>
                     </button>
+
+                    <!-- MARKIFY HERO CARD (Full Width luxury card) -->
+                    <button onclick="openMarkify()" class="relative overflow-hidden bg-white dark:bg-[#18181b] rounded-[24px] p-5 text-left flex flex-col justify-center card-press shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-emerald-500/40 transition-all col-span-2 group">
+                        <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-gradient-to-tl from-[#10b981]/20 to-[#3b82f6]/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-700"></div>
+                        <div class="flex items-center justify-between w-full mb-1 relative z-10">
+                            <h3 class="text-[24px] font-[1000] tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#10b981] to-[#3b82f6]">Markify</h3>
+                            <span class="bg-brand-gradient text-white text-[9px] px-2.5 py-1 rounded-[8px] font-black uppercase tracking-widest shadow-sm">Book Markings</span>
+                        </div>
+                        <span class="text-[11px] text-zinc-500 font-bold relative z-10">Official MBBS syllabus book chapters & topic markings</span>
+                    </button>
                     
+                    <!-- USMLEFY HERO CARD -->
                     <button onclick="openUsmlefy()" class="relative overflow-hidden bg-white dark:bg-[#18181b] rounded-[24px] p-5 text-left flex flex-col justify-center card-press shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/40 transition-all col-span-2 group">
                         <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-gradient-to-tl from-brand-blue/20 to-purple-500/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-700"></div>
                         <div class="flex items-center justify-between w-full mb-1 relative z-10">
@@ -1838,7 +1878,7 @@
                         <div class="bg-white dark:bg-[#1c1c1e] rounded-[16px] overflow-hidden border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm divide-y divide-zinc-100 dark:divide-zinc-800/60">
                             <button onclick="clearCacheAndUpdateApp()" class="w-full p-3.5 text-center text-[15px] font-medium text-[#007aff] hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors flex items-center justify-center space-x-2">
                                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                                <span>Sync & Update App</span>
+                                <span>Update App</span>
                             </button>
 
                             <button onclick="logOutUser()" class="w-full p-3.5 text-center text-[15px] font-medium text-[#ff3b30] hover:bg-rose-50/50 dark:hover:bg-rose-950/20 transition-colors flex items-center justify-center space-x-2">
@@ -2148,14 +2188,156 @@
             </div>
         </div>
 
-        <!-- Block Selection Bottom Sheet -->
+        <!-- Block Selection Bottom Sheet (iOS Sheet Native Style) -->
         <div id="block-selection-overlay" class="mock-overlay" onclick="closeBlockSwitcher()"></div>
-        <div id="block-bottom-sheet" class="bg-white dark:bg-zinc-950 rounded-t-[32px] p-6 bottom-sheet shadow-2xl z-[105]">
-            <div class="w-12 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full mx-auto mb-6"></div>
-            <h2 class="text-lg font-[1000] text-zinc-900 dark:text-white text-center mb-1">Select Active Block</h2>
-            <p class="text-[11px] text-zinc-500 text-center mb-6 font-bold">Switch your current study curriculum</p>
-            <div id="block-switcher-list" class="space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar pb-6">
-                <!-- Generated via JS -->
+        <div id="block-bottom-sheet" class="bg-white dark:bg-[#121214] border-t border-zinc-200 dark:border-zinc-800 rounded-t-[32px] p-6 bottom-sheet shadow-2xl z-[105] max-w-lg mx-auto">
+            <div class="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-5"></div>
+            <div class="flex items-center justify-between mb-4 px-1">
+                <div>
+                    <h2 class="text-lg font-black text-zinc-900 dark:text-white tracking-tight leading-none">Switch Active Block</h2>
+                    <p class="text-[11px] text-zinc-500 font-medium mt-1">Select a curriculum to practice</p>
+                </div>
+                <button onclick="closeBlockSwitcher()" class="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="block-switcher-list" class="space-y-2.5 max-h-[55vh] overflow-y-auto no-scrollbar pb-4">
+                <!-- Generated dynamically via JS -->
+            </div>
+        </div>
+
+        <!-- ================= IN-APP BLOCK V UPGRADE & SUBSCRIPTION MODAL ================= -->
+        <div id="block5-upgrade-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[260] hidden opacity-0 flex items-end md:items-center justify-center p-0 md:p-4 transition-opacity duration-300">
+            <div id="block5-modal-container" class="w-full max-w-md bg-white dark:bg-[#121214] border border-zinc-200 dark:border-zinc-800 rounded-t-[32px] md:rounded-[28px] overflow-hidden shadow-2xl transform translate-y-full md:translate-y-0 md:scale-95 transition-all duration-300 flex flex-col max-h-[90vh]">
+                
+                <!-- iOS Grab Handle -->
+                <div class="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mt-3 mb-1 md:hidden"></div>
+
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-black uppercase tracking-widest bg-brand-gradient text-white px-2 py-0.5 rounded">2nd Year MBBS</span>
+                        <span class="text-xs font-bold text-zinc-500">In-App Subscription</span>
+                    </div>
+                    <button onclick="closeBlock5UpgradeModal()" class="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition-colors">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Content Area -->
+                <div class="p-6 overflow-y-auto no-scrollbar space-y-6 flex-1">
+                    
+                    <!-- STEP 1: Details & Payment Form -->
+                    <div id="block5-step-checkout" class="space-y-5">
+                        
+                        <!-- Hero Summary Card -->
+                        <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <h3 class="text-lg font-black text-zinc-900 dark:text-white tracking-tight leading-tight">Block V Subscription</h3>
+                                    <p class="text-[11px] text-zinc-500 font-medium">Endocrine, Reproduction & Renal-II</p>
+                                </div>
+                                <div class="text-right">
+                                    <span id="b5-display-price" class="text-lg font-black text-zinc-900 dark:text-white">Rs. 1,500</span>
+                                    <span class="block text-[9px] text-zinc-400 font-bold uppercase">Till Proff End</span>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 text-[11px] text-zinc-600 dark:text-zinc-400 font-bold">
+                                <div class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> Full MCQ Bank</div>
+                                <div class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> Vivacards & Notes</div>
+                                <div class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> Past Papers & Mocks</div>
+                                <div class="flex items-center gap-1.5"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> USMLEfy Step 1</div>
+                            </div>
+                        </div>
+
+                        <!-- JazzCash Payment Box -->
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-zinc-500 font-bold text-[11px] uppercase tracking-wider">Transfer Account</span>
+                                <span class="text-[10px] font-bold text-emerald-500">JazzCash / Raast</span>
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between">
+                                <div>
+                                    <div class="text-[10px] font-bold text-zinc-400 uppercase">Account Title: <strong class="text-zinc-800 dark:text-zinc-200 font-bold">MAH RUKH</strong></div>
+                                    <div class="text-base font-black text-zinc-900 dark:text-white font-mono tracking-wider" id="b5-acc-num">03186967013</div>
+                                </div>
+                                <button type="button" onclick="copyBlock5Account()" class="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold card-press shadow-sm flex items-center gap-1">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                    <span id="b5-copy-label">Copy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Promo Code Field -->
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">Promo Code</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="b5-promo-input" class="flex-1 bg-zinc-100 dark:bg-zinc-800 border border-transparent focus:border-brand-blue rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-900 dark:text-white uppercase outline-none placeholder:text-zinc-400 font-mono" placeholder="e.g. AIMC40">
+                                <button type="button" onclick="applyInAppPromoCode()" class="px-4 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold card-press">Apply</button>
+                            </div>
+                            <div id="b5-promo-feedback" class="text-xs font-bold hidden"></div>
+                        </div>
+
+                        <!-- Receipt & TID -->
+                        <div class="space-y-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+                            <div>
+                                <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Payment Screenshot</label>
+                                <label class="flex flex-col items-center justify-center p-4 border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-brand-blue rounded-2xl cursor-pointer bg-zinc-50 dark:bg-zinc-900/40 transition-colors">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5 text-zinc-400 mb-1"></i>
+                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300" id="b5-upload-label">Tap to upload receipt</span>
+                                    <span class="text-[10px] text-zinc-500">Auto-scans transaction ID</span>
+                                    <input type="file" id="b5-receipt-file" accept="image/*" class="hidden" onchange="handleInAppReceiptUpload(this)">
+                                </label>
+                                <div id="b5-ocr-feedback" class="text-xs font-bold mt-1.5 hidden text-center"></div>
+                            </div>
+
+                            <div>
+                                <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Transaction ID (TID)</label>
+                                <input type="text" id="b5-tid-input" class="w-full bg-zinc-100 dark:bg-zinc-800 border border-transparent focus:border-brand-blue rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-zinc-900 dark:text-white outline-none" placeholder="Enter 10-12 digit TID">
+                            </div>
+                        </div>
+
+                        <button id="btn-submit-b5" onclick="submitBlock5Payment()" class="w-full py-4 bg-brand-gradient text-white rounded-2xl font-bold text-sm shadow-md card-press flex items-center justify-center gap-2">
+                            <span>Confirm Subscription</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- STEP 2: Post-Upgrade Celebration & Switcher Guide -->
+                    <div id="block5-step-success" class="hidden space-y-6 text-center py-4 animate-[fadeIn_0.3s_ease-out]">
+                        <div class="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                            <i data-lucide="check-circle-2" class="w-8 h-8"></i>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Block V Unlocked!</h3>
+                            <p class="text-xs text-zinc-500 font-medium mt-1">You now have unrestricted access to both Block IV & Block V.</p>
+                        </div>
+
+                        <!-- Guide Card: How to Switch Blocks -->
+                        <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 text-left space-y-2.5">
+                            <div class="flex items-center gap-2 text-brand-blue">
+                                <i data-lucide="info" class="w-4 h-4"></i>
+                                <h4 class="text-xs font-black uppercase tracking-wider">How to Switch Blocks</h4>
+                            </div>
+                            <p class="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">
+                                Look at the top right of your Dashboard: tap the <span class="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold px-2 py-0.5 rounded-full text-[10px]">Block IV</span> badge anytime to seamlessly switch between your active blocks.
+                            </p>
+                        </div>
+
+                        <div class="space-y-2 pt-2">
+                            <button onclick="switchToBlock5Now()" class="w-full py-4 bg-brand-gradient text-white rounded-2xl font-bold text-sm shadow-md card-press flex items-center justify-center gap-2">
+                                <span>Switch to Block V Now</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="closeBlock5UpgradeModal()" class="w-full py-3 text-zinc-500 font-bold text-xs hover:text-zinc-900 dark:hover:text-white transition-colors">
+                                Stay on Block IV
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
 
@@ -2385,6 +2567,40 @@
                     </div>
                 </div>
                 <div id="past-papers-list" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <!-- ================= MARKIFY (BOOK MARKINGS) SCREEN ================= -->
+        <div id="screen-markify" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-4xl mx-auto px-4 md:px-6 flex flex-col h-full">
+                <div class="safe-pt pb-3 sticky top-0 z-20 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                            <div>
+                                <h1 class="text-2xl font-black text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
+                                    <span>Markify</span>
+                                    <span id="markify-block-badge" class="text-[10px] bg-brand-gradient text-white px-2.5 py-0.5 rounded-full font-black uppercase shadow-sm">Block</span>
+                                </h1>
+                                <p class="text-[11px] font-bold text-zinc-500">Official syllabus book chapter & topic markings</p>
+                            </div>
+                        </div>
+
+                        <!-- Ask BlockifAI regarding markings button -->
+                        <button onclick="askBlockifAIMarkings()" class="bg-brand-gradient text-white px-3.5 py-2 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md card-press">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                            <span>Ask BlockifAI</span>
+                        </button>
+                    </div>
+
+                    <!-- Filter Capsules -->
+                    <div class="flex flex-col gap-2 pt-1">
+                        <div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1" id="markify-module-capsules"></div>
+                        <div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1" id="markify-subject-capsules"></div>
+                    </div>
+                </div>
+
+                <div id="markify-content-area" class="flex-1 overflow-y-auto no-scrollbar py-4 space-y-4"></div>
             </div>
         </div>
 
@@ -3188,6 +3404,8 @@
             currentScreen: 'login',
             navHistory: ['login'],
             mode: 'mcqs', 
+            pharmaBookSource: 'big', // 'big' (Big Katzung) or 'mini' (Mini Katzung)
+            selectedPharmaCategory: 'All', // Dynamic category filter from MCQ "category" tag
             context: { module: null, subject: null },
             activeModuleTab: null,
             currentContextLOs: [], 
@@ -3391,26 +3609,51 @@
             renderSessionBuilder(); 
         }
 
-        const BLOCK8_SUBTOPICS = {
-            'pharmacology': ['Cell Wall Synthesis Inhibitors', 'Protein Synthesis Inhibitors', 'DNA/RNA Synthesis Inhibitors', 'Antimetabolites', 'Antimycobacterial', 'Antifungal', 'Antiviral', 'Antiparasitic', 'Penicillin', 'Cephalosporin', 'Macrolide', 'Tetracycline', 'Aminoglycoside', 'Fluoroquinolone'],
-            'microbiology': ['Gram Positive Cocci', 'Gram Negative Cocci', 'Gram Positive Bacilli', 'Gram Negative Bacilli', 'Mycobacteria', 'Spirochetes', 'Mycoplasma', 'Chlamydia', 'Rickettsia', 'Fungi', 'Viruses', 'Parasites', 'Staphylococcus', 'Streptococcus', 'Neisseria', 'Clostridium', 'Escherichia', 'Salmonella']
-        };
+        let MINI_KATZUNG_CACHE = null;
 
-        function getDetectedSubtopics(pool, subject) {
-            const subLower = subject.toLowerCase();
-            let keywords = [];
-            if (subLower.includes('pharmacology')) keywords = BLOCK8_SUBTOPICS['pharmacology'];
-            else if (subLower.includes('microbiology')) keywords = BLOCK8_SUBTOPICS['microbiology'];
-            else return [];
+        async function fetchMiniKatzungMCQs() {
+            if (MINI_KATZUNG_CACHE && MINI_KATZUNG_CACHE.length > 0) return MINI_KATZUNG_CACHE;
+            showLoader("Fetching Mini Katzung Qs...");
+            const files = ['b8aa', 'b8ab', 'b8ac', 'b8ad', 'b8ae', 'b8af'];
+            let all = [];
+            for (const f of files) {
+                try {
+                    const res = await fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${f}.json`, { cache: 'default' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (Array.isArray(data)) all.push(...data);
+                    }
+                } catch(e) {
+                    console.warn(`Could not load ${f}.json`, e);
+                }
+            }
+            MINI_KATZUNG_CACHE = all;
+            hideLoader();
+            return all;
+        }
 
-            let detected = new Set();
+        async function setPharmaBookSource(source) {
+            appState.pharmaBookSource = source;
+            appState.selectedPharmaCategory = 'All';
+            if (source === 'mini') {
+                await fetchMiniKatzungMCQs();
+            }
+            renderSessionBuilder();
+        }
+
+        function setPharmaCategory(cat) {
+            appState.selectedPharmaCategory = cat;
+            renderSessionBuilder();
+        }
+
+        function getDetectedCategories(pool) {
+            let cats = new Set();
             pool.forEach(q => {
-                const text = (q.statement + " " + (q.options ? q.options.join(" ") : "")).toLowerCase();
-                keywords.forEach(kw => {
-                    if (text.includes(kw.toLowerCase())) detected.add(kw);
-                });
+                if (q.category && typeof q.category === 'string' && q.category.trim().length > 0) {
+                    cats.add(q.category.trim());
+                }
             });
-            return Array.from(detected).sort();
+            return Array.from(cats).sort();
         }
 
         function toggleShuffle() {
@@ -3621,39 +3864,317 @@
                 return available;
             }
 
+            // Universal block checker across all aliases (e.g. block_4, 2nd_IV, block_5, 2nd_V)
             for (let year in allBlocksMap) {
                 if (purchased.includes(`${year}_ALL`)) {
                     allBlocksMap[year].forEach(b => available.push({ year: year, block: b }));
                 } else {
                     allBlocksMap[year].forEach(b => {
-                        if (purchased.includes(`${year}_${b}`)) available.push({ year: year, block: b });
+                        if (hasBlockAccess(year, b)) {
+                            // Avoid duplicates
+                            if (!available.some(item => item.year === year && item.block === b)) {
+                                available.push({ year: year, block: b });
+                            }
+                        }
                     });
                 }
             }
             return available;
         }
 
+        // ================= IN-APP BLOCK V SUBSCRIPTION ENGINE =================
+        let inAppB5State = {
+            originalPrice: 1500,
+            finalPrice: 1500,
+            appliedPromo: null
+        };
+
+        window.openBlock5UpgradeModal = function() {
+            const modal = document.getElementById('block5-upgrade-modal');
+            const container = document.getElementById('block5-modal-container');
+            const stepCheckout = document.getElementById('block5-step-checkout');
+            const stepSuccess = document.getElementById('block5-step-success');
+
+            if (!modal) return;
+
+            // Reset modal states
+            if (stepCheckout) stepCheckout.classList.remove('hidden');
+            if (stepSuccess) stepSuccess.classList.add('hidden');
+            
+            inAppB5State.finalPrice = 1500;
+            inAppB5State.appliedPromo = null;
+            document.getElementById('b5-display-price').innerText = 'Rs. 1,500';
+            document.getElementById('b5-promo-input').value = '';
+            document.getElementById('b5-promo-feedback').classList.add('hidden');
+            document.getElementById('b5-tid-input').value = '';
+            document.getElementById('b5-ocr-feedback').classList.add('hidden');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('translate-y-full', 'md:scale-95');
+                container.classList.add('translate-y-0', 'md:scale-100');
+            }, 10);
+            lucide.createIcons();
+        };
+
+        window.closeBlock5UpgradeModal = function() {
+            const modal = document.getElementById('block5-upgrade-modal');
+            const container = document.getElementById('block5-modal-container');
+            if (!modal || !container) return;
+
+            modal.classList.add('opacity-0');
+            container.classList.remove('translate-y-0', 'md:scale-100');
+            container.classList.add('translate-y-full', 'md:scale-95');
+
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 300);
+        };
+
+        window.copyBlock5Account = function() {
+            const num = document.getElementById('b5-acc-num').innerText;
+            navigator.clipboard.writeText(num);
+            const label = document.getElementById('b5-copy-label');
+            if (label) {
+                label.innerText = 'Copied';
+                setTimeout(() => { label.innerText = 'Copy'; }, 2000);
+            }
+        };
+
+        window.applyInAppPromoCode = async function() {
+            const input = document.getElementById('b5-promo-input');
+            const feedback = document.getElementById('b5-promo-feedback');
+            const code = input.value.trim().toUpperCase();
+            if (!code) return;
+
+            feedback.className = "text-xs font-bold mt-1 text-zinc-400 block";
+            feedback.innerText = "Verifying code...";
+            feedback.classList.remove('hidden');
+
+            try {
+                const snap = await db.collection("promoCodes").where("code", "==", code).get();
+                if (snap.empty) {
+                    feedback.className = "text-xs font-bold mt-1 text-rose-500 block";
+                    feedback.innerText = "Invalid promo code.";
+                    inAppB5State.appliedPromo = null;
+                    inAppB5State.finalPrice = inAppB5State.originalPrice;
+                    document.getElementById('b5-display-price').innerText = `Rs. ${inAppB5State.originalPrice.toLocaleString()}`;
+                    return;
+                }
+
+                let promoDoc = null;
+                snap.forEach(doc => promoDoc = { id: doc.id, ...doc.data() });
+
+                if (promoDoc.type === 'general' && promoDoc.validTill) {
+                    const today = new Date().toISOString().split('T')[0];
+                    if (today > promoDoc.validTill) {
+                        feedback.className = "text-xs font-bold mt-1 text-rose-500 block";
+                        feedback.innerText = "Promotional code expired.";
+                        inAppB5State.appliedPromo = null;
+                        inAppB5State.finalPrice = inAppB5State.originalPrice;
+                        document.getElementById('b5-display-price').innerText = `Rs. ${inAppB5State.originalPrice.toLocaleString()}`;
+                        return;
+                    }
+                }
+
+                inAppB5State.appliedPromo = promoDoc;
+                const discount = (inAppB5State.originalPrice * promoDoc.discountPct) / 100;
+                inAppB5State.finalPrice = inAppB5State.originalPrice - discount;
+
+                feedback.className = "text-xs font-bold mt-1 text-emerald-500 block";
+                feedback.innerText = `Applied ${promoDoc.discountPct}% discount!`;
+                document.getElementById('b5-display-price').innerText = `Rs. ${inAppB5State.finalPrice.toLocaleString()}`;
+            } catch (e) {
+                feedback.className = "text-xs font-bold mt-1 text-rose-500 block";
+                feedback.innerText = "Validation error: " + e.message;
+            }
+        };
+
+        window.handleInAppReceiptUpload = function(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const label = document.getElementById('b5-upload-label');
+            const feedback = document.getElementById('b5-ocr-feedback');
+            const tidInput = document.getElementById('b5-tid-input');
+
+            if (label) label.innerText = file.name;
+            if (feedback) {
+                feedback.className = "text-xs font-bold mt-1.5 text-zinc-400 block text-center";
+                feedback.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 inline animate-spin mr-1"></i> Scanning TID...`;
+                feedback.classList.remove('hidden');
+                lucide.createIcons();
+            }
+
+            if (typeof Tesseract !== 'undefined') {
+                Tesseract.recognize(file, 'eng')
+                    .then(({ data: { text } }) => {
+                        const numMatches = text.match(/\d{10,12}/);
+                        if (numMatches) {
+                            tidInput.value = numMatches[0];
+                            if (feedback) {
+                                feedback.className = "text-xs font-bold mt-1.5 text-emerald-500 block text-center";
+                                feedback.innerText = `TID Detected: ${numMatches[0]}`;
+                            }
+                        } else {
+                            if (feedback) {
+                                feedback.className = "text-xs font-bold mt-1.5 text-zinc-500 block text-center";
+                                feedback.innerText = "Please enter TID manually below.";
+                            }
+                        }
+                    })
+                    .catch(() => {
+                        if (feedback) {
+                            feedback.className = "text-xs font-bold mt-1.5 text-zinc-500 block text-center";
+                            feedback.innerText = "Please enter TID manually below.";
+                        }
+                    });
+            }
+        };
+
+        window.submitBlock5Payment = async function() {
+            const tid = document.getElementById('b5-tid-input').value.trim();
+            const btn = document.getElementById('btn-submit-b5');
+
+            if (!tid || tid.length < 6) {
+                alert("Please enter a valid Transaction ID (TID) from your JazzCash receipt.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Activating Subscription...</span>`;
+            lucide.createIcons();
+
+            try {
+                if (appState.isGuest) {
+                    // Unlock Block 5 in Guest mode while preserving Block IV
+                    if (!appState.userData.purchasedBlocks) appState.userData.purchasedBlocks = ['2nd_IV', 'block_4'];
+                    if (!appState.userData.purchasedBlocks.includes('2nd_V')) {
+                        appState.userData.purchasedBlocks.push('2nd_V', 'block_5');
+                    }
+                    localStorage.setItem('guest_stats', JSON.stringify(appState.userData));
+                } else if (appState.currentUser) {
+                    // Retain existing blocks (Block IV) and append Block V in Firestore
+                    const userRef = db.collection("users").doc(appState.currentUser.uid);
+                    await userRef.update({
+                        purchasedBlocks: firebase.firestore.FieldValue.arrayUnion('2nd_V', 'block_5', '2nd_IV', 'block_4'),
+                        lastSubscribedBlock: 'Block V',
+                        lastUpgradeTID: tid,
+                        lastUpgradeAmount: inAppB5State.finalPrice,
+                        lastUpgradeDate: new Date().toISOString()
+                    });
+
+                    if (!appState.userData.purchasedBlocks) appState.userData.purchasedBlocks = [];
+                    if (!appState.userData.purchasedBlocks.includes('2nd_V')) appState.userData.purchasedBlocks.push('2nd_V');
+                    if (!appState.userData.purchasedBlocks.includes('block_5')) appState.userData.purchasedBlocks.push('block_5');
+                    if (!appState.userData.purchasedBlocks.includes('2nd_IV')) appState.userData.purchasedBlocks.push('2nd_IV');
+                }
+
+                // Show step 2 (Celebration & Switcher guide)
+                document.getElementById('block5-step-checkout').classList.add('hidden');
+                document.getElementById('block5-step-success').classList.remove('hidden');
+                updateDashboardStatisticsUI();
+                lucide.createIcons();
+
+            } catch (err) {
+                console.error("Block 5 upgrade error:", err);
+                alert("Could not process subscription: " + err.message);
+                btn.disabled = false;
+                btn.innerHTML = `<span>Confirm Subscription</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+            }
+        };
+
+        window.switchToBlock5Now = function() {
+            closeBlock5UpgradeModal();
+            selectNewBlock('2nd', 'V');
+        };
+
         function openBlockSwitcher() {
             const overlay = document.getElementById('block-selection-overlay');
             const sheet = document.getElementById('block-bottom-sheet');
             const list = document.getElementById('block-switcher-list');
             
+            // Subtitle descriptions for instant user clarity
+            const blockDescriptions = {
+                'I': 'Foundation & Blood',
+                'II': 'Musculoskeletal System',
+                'III': 'Cardiovascular & Respiratory',
+                'IV': 'GIT & Renal-I',
+                'V': 'Endocrine, Reproduction & Renal-II',
+                'VI': 'Neurosciences & Head & Neck',
+                'VII': 'Cardiovascular-II & Respiratory-II',
+                'VIII': 'Neoplasia & Infectious Diseases',
+                'IX': 'Hematology-II & Immunology'
+            };
+
             const available = getAvailableBlocks();
-            list.innerHTML = available.map(item => {
+            let html = available.map(item => {
                 const isActive = (item.block === appState.academicBlock);
-                const bgCls = isActive ? 'bg-brand-blue/10 border-brand-blue/30 text-brand-blue' : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800';
-                const checkHtml = isActive ? `<i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue"></i>` : '';
+                const desc = blockDescriptions[item.block] || `${item.year} Year MBBS`;
                 
+                if (isActive) {
+                    return `
+                    <div class="w-full flex items-center justify-between p-4 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-black shadow-md transition-all">
+                        <div class="flex items-center gap-3.5 text-left min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-white/10 dark:bg-black/10 flex items-center justify-center font-black text-sm shrink-0">
+                                ${item.block}
+                            </div>
+                            <div class="truncate">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[14px] font-black tracking-tight leading-tight">Block ${item.block}</span>
+                                    <span class="text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-white px-2 py-0.5 rounded-full shadow-sm">Current</span>
+                                </div>
+                                <p class="text-[11px] font-medium opacity-80 truncate mt-0.5">${desc}</p>
+                            </div>
+                        </div>
+                        <i data-lucide="check" class="w-5 h-5 shrink-0 ml-2"></i>
+                    </div>`;
+                }
+
                 return `
-                <button onclick="selectNewBlock('${item.year}', '${item.block}')" class="w-full flex items-center justify-between p-4 border rounded-[16px] card-press transition-all ${bgCls}">
-                    <div class="flex flex-col items-start">
-                        <span class="text-[14px] font-black leading-none mb-1">Block ${item.block}</span>
-                        <span class="text-[10px] font-bold opacity-70 uppercase tracking-widest">${item.year} Year Curriculum</span>
+                <button onclick="selectNewBlock('${item.year}', '${item.block}')" class="w-full flex items-center justify-between p-4 rounded-2xl bg-zinc-50 dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 text-zinc-900 dark:text-white hover:border-brand-blue/60 transition-all card-press text-left group">
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-zinc-200/60 dark:bg-zinc-800 flex items-center justify-center font-black text-sm text-zinc-700 dark:text-zinc-300 shrink-0 group-hover:bg-brand-gradient group-hover:text-white transition-colors">
+                            ${item.block}
+                        </div>
+                        <div class="truncate">
+                            <span class="text-[14px] font-black tracking-tight leading-tight block group-hover:text-brand-blue transition-colors">Block ${item.block}</span>
+                            <p class="text-[11px] text-zinc-500 font-medium truncate mt-0.5">${desc}</p>
+                        </div>
                     </div>
-                    ${checkHtml}
+                    <span class="text-[11px] font-bold text-brand-blue shrink-0 ml-2 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                        Switch <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </span>
                 </button>`;
             }).join('');
-            
+
+            // If user has 2nd Year access but hasn't unlocked Block V, show a non-intrusive upgrade prompt in the sheet
+            const hasBlock5 = hasBlockAccess('2nd', 'V');
+            const hasBlock4 = hasBlockAccess('2nd', 'IV');
+            if (hasBlock4 && !hasBlock5) {
+                html += `
+                <div class="pt-2">
+                    <div onclick="closeBlockSwitcher(); openBlock5UpgradeModal();" class="p-4 rounded-2xl bg-gradient-to-r from-brand-blue/10 via-emerald-500/10 to-transparent border border-brand-blue/30 flex items-center justify-between cursor-pointer card-press">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-brand-gradient text-white flex items-center justify-center shadow-sm">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <span class="text-[13px] font-black text-zinc-900 dark:text-white block">Unlock Block V</span>
+                                <span class="text-[10px] text-zinc-500 font-bold">Endocrine, Reproduction & Renal-II</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-black text-brand-blue">Upgrade ↗</span>
+                    </div>
+                </div>`;
+            }
+
+            list.innerHTML = html;
             lucide.createIcons();
             overlay.classList.add('show');
             setTimeout(() => { sheet.classList.add('active'); }, 50);
@@ -3671,6 +4192,13 @@
             // Only exit early if BOTH block and year parameters match the active configuration
             if (appState.academicBlock === block && appState.academicYear === year) return;
             
+            // Save selection persistently to localStorage and Firestore
+            localStorage.setItem('last_active_block', block);
+            localStorage.setItem('last_active_year', year);
+            if (appState.currentUser && !appState.isGuest) {
+                updateUserDoc({ lastActiveBlock: block, lastActiveYear: year }).catch(() => {});
+            }
+
             showLoader("Switching Curriculum...");
             appState.academicYear = year;
             
@@ -3693,6 +4221,7 @@
 
             const switcherBtn = document.getElementById('dashboard-block-switcher');
             const badgeText = document.getElementById('dashboard-block-badge');
+            const countBadge = document.getElementById('dashboard-block-count-badge');
             const chevron = document.getElementById('dashboard-block-chevron');
             
             if (badgeText) badgeText.innerText = `Block ${appState.academicBlock}`;
@@ -3701,14 +4230,34 @@
             if (switcherBtn) {
                 switcherBtn.classList.remove('hidden');
                 switcherBtn.classList.add('flex');
+                
                 if (available.length > 1) {
+                    // MULTI-BLOCK MODE: Interactive clean pill with chevron
                     switcherBtn.onclick = openBlockSwitcher;
-                    if(chevron) chevron.classList.remove('hidden');
-                    switcherBtn.classList.add('card-press', 'cursor-pointer');
+                    if (chevron) chevron.classList.remove('hidden');
+                    if (countBadge) {
+                        countBadge.innerText = `${available.length}`;
+                        countBadge.classList.remove('hidden');
+                    }
+                    switcherBtn.className = "bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 text-zinc-900 dark:text-white px-3.5 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-sm hover:border-brand-blue/50 dark:hover:border-brand-blue/50 transition-all card-press cursor-pointer";
                 } else {
+                    // SINGLE BLOCK MODE: Minimal non-clickable badge, no chevron, no dropdown styling
                     switcherBtn.onclick = null;
-                    if(chevron) chevron.classList.add('hidden');
-                    switcherBtn.classList.remove('card-press', 'cursor-pointer');
+                    if (chevron) chevron.classList.add('hidden');
+                    if (countBadge) countBadge.classList.add('hidden');
+                    switcherBtn.className = "bg-zinc-100/70 dark:bg-zinc-850/60 border border-transparent text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full text-[11px] font-bold flex items-center shadow-none cursor-default select-none pointer-events-none";
+                }
+            }
+
+            // Check if user is in 2nd Year / Block IV and hasn't unlocked Block V yet
+            const upgradePill = document.getElementById('dashboard-upgrade-pill');
+            if (upgradePill) {
+                const hasBlock5 = hasBlockAccess('2nd', 'V');
+                const isBlock4 = (appState.academicBlock === 'IV' || appState.academicBlock === '4');
+                if (isBlock4 && !hasBlock5) {
+                    upgradePill.classList.remove('hidden');
+                } else {
+                    upgradePill.classList.add('hidden');
                 }
             }
         }
@@ -4607,48 +5156,57 @@
                     // Critical Fix: Sync AI Sessions / Chat History directly from Firebase on login
                     appState.aiSessions = appState.userData.aiSessions || [];
 
-                    const plans = appState.userData.purchasedBlocks || [];
-                    if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
-                        const planStr = String(plans[0]).trim();
-                        let detectedYear = "";
-                        let detectedBlock = "";
+                    // Check if the user previously selected a block (from cloud or localStorage)
+                    const savedBlock = appState.userData.lastActiveBlock || localStorage.getItem('last_active_block');
+                    const savedYear = appState.userData.lastActiveYear || localStorage.getItem('last_active_year');
 
-                        const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
-                        if (yearMatch) {
-                            detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
-                        }
+                    if (savedBlock && savedYear && hasBlockAccess(savedYear, savedBlock)) {
+                        appState.academicYear = savedYear;
+                        appState.academicBlock = savedBlock;
+                    } else {
+                        const plans = appState.userData.purchasedBlocks || [];
+                        if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
+                            const planStr = String(plans[0]).trim();
+                            let detectedYear = "";
+                            let detectedBlock = "";
 
-                        const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
-                        if (arabicMatch) {
-                            const numMap = {
-                                '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV'
-                            };
-                            detectedBlock = numMap[arabicMatch[1]];
-                        } else {
-                            const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
-                            if (romanMatch) {
-                                detectedBlock = romanMatch[1].toUpperCase();
+                            const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
+                            if (yearMatch) {
+                                detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
                             }
-                        }
 
-                        if (!detectedYear || detectedYear.toLowerCase() === "block") {
-                            const localYearBlockMap = {
-                                '1st': ['I', 'II', 'III'],
-                                '2nd': ['IV', 'V', 'VI'],
-                                '3rd': ['VII', 'VIII', 'IX'],
-                                '4th': ['X', 'XI', 'XII'],
-                                '5th': ['XIII', 'XIV', 'XV']
-                            };
-                            for (const [yr, blks] of Object.entries(localYearBlockMap)) {
-                                if (blks.includes(detectedBlock)) {
-                                    detectedYear = yr;
-                                    break;
+                            const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                            if (arabicMatch) {
+                                const numMap = {
+                                    '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV'
+                                };
+                                detectedBlock = numMap[arabicMatch[1]];
+                            } else {
+                                const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                                if (romanMatch) {
+                                    detectedBlock = romanMatch[1].toUpperCase();
                                 }
                             }
-                        }
 
-                        if (detectedYear) appState.academicYear = detectedYear;
-                        if (detectedBlock) appState.academicBlock = detectedBlock;
+                            if (!detectedYear || detectedYear.toLowerCase() === "block") {
+                                const localYearBlockMap = {
+                                    '1st': ['I', 'II', 'III'],
+                                    '2nd': ['IV', 'V', 'VI'],
+                                    '3rd': ['VII', 'VIII', 'IX'],
+                                    '4th': ['X', 'XI', 'XII'],
+                                    '5th': ['XIII', 'XIV', 'XV']
+                                };
+                                for (const [yr, blks] of Object.entries(localYearBlockMap)) {
+                                    if (blks.includes(detectedBlock)) {
+                                        detectedYear = yr;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (detectedYear) appState.academicYear = detectedYear;
+                            if (detectedBlock) appState.academicBlock = detectedBlock;
+                        }
                     }
                     
                     const subT = document.getElementById('drawer-subtitle');
@@ -5671,10 +6229,17 @@
         async function prefetchCurrentBlockNotes() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
-            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
             
+            // Check in-memory or IndexedDB first
+            if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
+            const cachedNotes = await getCachedFile(`notes_b${bNum}`);
+            if (cachedNotes && cachedNotes.length > 0) {
+                NOTES_CACHE[bNum] = cachedNotes;
+                APP_DATA.allNotes = cachedNotes;
+                return;
+            }
+
             const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
-            // Increased to 26 (a-z) to fetch all notes mapping
             const allNotesRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
             let allNotes = [];
@@ -5688,33 +6253,41 @@
                     });
                 }
             });
-            NOTES_CACHE[bNum] = allNotes;
-            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                APP_DATA.allNotes = allNotes;
+
+            if (allNotes.length > 0) {
+                NOTES_CACHE[bNum] = allNotes;
+                cacheFile(`notes_b${bNum}`, allNotes);
+                if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                    APP_DATA.allNotes = allNotes;
+                }
             }
         }
 
         async function prefetchCurrentBlockVivacards() {
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
-            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
             
+            // Check in-memory or IndexedDB first
+            if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
+            const cachedFlash = await getCachedFile(`flash_b${bNum}`);
+            if (cachedFlash && cachedFlash.length > 0) {
+                FLASH_CACHE[bNum] = cachedFlash;
+                APP_DATA.allFlashcards = cachedFlash;
+                return;
+            }
+
             const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
-            // Increased from 13 to 26 (a-z) to fetch all vivacards
             const allCardsRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
             let allFlashcards = [];
             allCardsRaw.forEach(modData => {
-                // Handle New Flat Flashcard Object Structure
                 if (modData.tag && modData.front && modData.back) {
                     allFlashcards.push({ 
                         loCode: extractLOCodeSafe(modData.tag), 
                         front: modData.front, 
                         back: modData.back 
                     });
-                }
-                // Handle Legacy Nested Syllabus Structure
-                else if (modData.learningObjectives) {
+                } else if (modData.learningObjectives) {
                     modData.learningObjectives.forEach(lo => {
                         let code = extractLOCodeSafe(lo.objective);
                         if(lo.flashcards) {
@@ -5741,36 +6314,52 @@
                     });
                 }
             });
-            FLASH_CACHE[bNum] = allFlashcards;
-            if (bNum === (blockToNum[appState.academicBlock] || 1)) {
-                APP_DATA.allFlashcards = allFlashcards;
+
+            if (allFlashcards.length > 0) {
+                FLASH_CACHE[bNum] = allFlashcards;
+                cacheFile(`flash_b${bNum}`, allFlashcards);
+                if (bNum === (blockToNum[appState.academicBlock] || 1)) {
+                    APP_DATA.allFlashcards = allFlashcards;
+                }
             }
         }
 
         async function fetchSyllabus() {
+            const cacheKey = `cached_syllabus_${appState.academicYear}`;
+            
+            // 1. Instantly load from local storage if available (Instant Offline Boot)
+            const localCached = localStorage.getItem(cacheKey);
+            if (localCached) {
+                try {
+                    APP_DATA.rawSyllabus = JSON.parse(localCached);
+                    buildSyllabusTree();
+                } catch(e){}
+            }
+
             try {
                 const timestamp = new Date().getTime();
-                // Dynamically construct the filename based on the academic year (e.g., 1styearsyllabus.json)
                 const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
                 const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}?nocache=${timestamp}`;
                 
-                const response = await fetch(url, { cache: 'no-store' });
+                const response = await fetch(url, { cache: navigator.onLine ? 'no-store' : 'force-cache' });
                 if(!response.ok) throw new Error("Syllabus fetch failed");
                 const data = await response.json();
                 
-                // Robust parsing for both Array root and Object root JSON files
                 APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
+                localStorage.setItem(cacheKey, JSON.stringify(APP_DATA.rawSyllabus));
                 buildSyllabusTree();
                 
-                // Fire these parallel tasks silently without blocking UI
                 Promise.all([
                     prefetchCurrentBlockMCQs(),
                     prefetchCurrentBlockNotes(),
                     prefetchCurrentBlockVivacards()
                 ]).catch(e => console.warn("Prefetch warning", e));
             } catch (error) {
-                console.warn("Error fetching syllabus:", error);
-                APP_DATA.rawSyllabus = [];
+                console.warn("Using offline syllabus cache:", error);
+                if (!APP_DATA.rawSyllabus || APP_DATA.rawSyllabus.length === 0) {
+                    const fallback = localStorage.getItem(cacheKey);
+                    APP_DATA.rawSyllabus = fallback ? JSON.parse(fallback) : [];
+                }
                 buildSyllabusTree();
             }
         }
@@ -5803,31 +6392,52 @@
                 return true;
             }
             
-            // Direct strict match fallback (e.g. "1st_II")
-            const targetId = `${year}_${block}`;
-            if (purchased.includes(targetId)) return true;
-            
-            // Dynamic check for alternative database block formats
+            const romanMap = {
+                '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI',
+                '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII',
+                '13':'XIII', '14':'XIV', '15':'XV'
+            };
+            const targetBlockRoman = romanMap[block] || block.toUpperCase();
+
+            // Direct match checks (e.g. "2nd_IV", "2nd_V", "block_4", "block_5", "block_iv", "block_v")
+            if (purchased.includes(`${year}_${block}`) || purchased.includes(`${year}_${targetBlockRoman}`)) return true;
+            if (purchased.includes(`block_${block.toLowerCase()}`) || purchased.includes(`block_${targetBlockRoman.toLowerCase()}`)) return true;
+
+            // Deep inspect every purchased plan string
             return purchased.some(plan => {
-                const planStr = String(plan).trim();
-                let detBlock = "";
+                const planStr = String(plan).trim().toLowerCase();
                 
-                // Parse either Arabic or Roman numeral block codes, allowing underscore boundaries
-                const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                // Matches "block_4", "block 4", "block-4", "4"
+                for (const [arabic, roman] of Object.entries(romanMap)) {
+                    if (roman === targetBlockRoman) {
+                        if (
+                            planStr.includes(`block_${arabic}`) || 
+                            planStr.includes(`block_${roman.toLowerCase()}`) ||
+                            planStr.includes(`block ${arabic}`) ||
+                            planStr.includes(`block ${roman.toLowerCase()}`) ||
+                            planStr.includes(`${year}_${roman.toLowerCase()}`) ||
+                            planStr.includes(`${year}_${arabic}`) ||
+                            planStr === `block_${arabic}` ||
+                            planStr === `block_${roman.toLowerCase()}`
+                        ) {
+                            return true;
+                        }
+                    }
+                }
+
+                // Generic regex fallback
+                let detBlock = "";
+                const arabicMatch = planStr.match(/(?:^|[^a-z0-9])(1[0-5]|[1-9])(?:$|[^a-z0-9])/i);
                 if (arabicMatch) {
-                    const numMap = {
-                        '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV'
-                    };
-                    detBlock = numMap[arabicMatch[1]];
+                    detBlock = romanMap[arabicMatch[1]];
                 } else {
-                    const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                    const romanMatch = planStr.match(/(?:^|[^a-z])(xiii|xiv|xv|viii|xii|iii|vii|xi|iv|ix|vi|ii|v|x|i)(?:$|[^a-z])/i);
                     if (romanMatch) {
                         detBlock = romanMatch[1].toUpperCase();
                     }
                 }
                 
-                // Grant access if the resolved block identifiers match (e.g., both evaluate to "II")
-                return detBlock === block;
+                return detBlock === targetBlockRoman;
             });
         }
 
@@ -6935,49 +7545,75 @@
                     }
                 }
 
-                // Dynamic Subtopic Filter UI Injection for Block VIII Pharma/Micro
+                // Block VIII Pharmacology Special Filter: Mini Katzung vs Big Katzung + Category Filter
+                const isBlock8 = (appState.academicBlock === 'VIII' || appState.academicBlock === '8');
+                const isPharma = appState.context.subject && appState.context.subject.toLowerCase().includes('pharmacology');
+
                 const subContainer = document.getElementById('subtopic-filter-container');
                 if (subContainer && appState.mode === 'mcqs') {
-                    if ((appState.academicBlock === 'VIII' || appState.academicBlock === '8') && appState.context.subject) {
-                        const subLower = appState.context.subject.toLowerCase();
-                        if (subLower.includes('pharmacology') || subLower.includes('microbiology')) {
-                            const detected = getDetectedSubtopics(pool, appState.context.subject);
-                            if (detected.length > 0) {
-                                let optsHtml = `<option value="All">All Subtopics</option>`;
-                                detected.forEach(kw => {
-                                    optsHtml += `<option value="${kw}" ${appState.sessionConfig.subtopicFilter === kw ? 'selected' : ''}>${kw}</option>`;
-                                });
-                                subContainer.innerHTML = `
-                                    <div class="mt-2 mb-3">
-                                        <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest mb-1.5 ml-1">Subtopic Filter</h3>
-                                        <div class="relative bg-[#F1F3F5] dark:bg-[#151719] rounded-[14px] border-transparent overflow-hidden card-press shadow-sm">
-                                            <select onchange="setSubtopicFilter(this.value)" class="w-full appearance-none bg-transparent px-4 py-3.5 text-[13px] font-bold text-zinc-900 dark:text-white outline-none cursor-pointer">
-                                                ${optsHtml}
-                                            </select>
-                                            <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                <i data-lucide="chevrons-up-down" class="w-4 h-4 text-zinc-400"></i>
-                                            </div>
+                    if (isBlock8 && isPharma) {
+                        const isMini = appState.pharmaBookSource === 'mini';
+                        const sourcePool = isMini ? (MINI_KATZUNG_CACHE || []) : (APP_DATA.allMCQs || []);
+                        
+                        // Extract categories for current selected LOs
+                        const matchedLOQuestions = sourcePool.filter(q => q && q.tag && appState.selectedLOs.map(normalizeLOCode).includes(normalizeLOCode(q.tag)));
+                        const categories = getDetectedCategories(matchedLOQuestions);
+
+                        let categorySelectHtml = '';
+                        if (categories.length > 0) {
+                            let options = `<option value="All">All Subtopic Categories (${matchedLOQuestions.length} Qs)</option>`;
+                            categories.forEach(cat => {
+                                const catCount = matchedLOQuestions.filter(q => q.category === cat).length;
+                                options += `<option value="${cat}" ${appState.selectedPharmaCategory === cat ? 'selected' : ''}>${cat} (${catCount} Qs)</option>`;
+                            });
+
+                            categorySelectHtml = `
+                                <div class="mt-3">
+                                    <div class="flex items-center justify-between mb-1.5 px-1">
+                                        <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">Subtopic Category</h3>
+                                        <span class="text-[9px] text-zinc-400 font-bold">Specific to selected LOs</span>
+                                    </div>
+                                    <div class="relative bg-[#F1F3F5] dark:bg-[#151719] rounded-[14px] border-transparent overflow-hidden card-press shadow-sm">
+                                        <select onchange="setPharmaCategory(this.value)" class="w-full appearance-none bg-transparent px-4 py-3 text-[12.5px] font-bold text-zinc-900 dark:text-white outline-none cursor-pointer">
+                                            ${options}
+                                        </select>
+                                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <i data-lucide="chevrons-up-down" class="w-4 h-4 text-zinc-400"></i>
                                         </div>
                                     </div>
-                                `;
-                            } else {
-                                subContainer.innerHTML = '';
-                            }
-                        } else {
-                            subContainer.innerHTML = '';
+                                </div>
+                            `;
                         }
+
+                        subContainer.innerHTML = `
+                            <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                <div class="flex items-center justify-between mb-2 px-1">
+                                    <h3 class="text-[11px] font-black text-zinc-900 dark:text-white uppercase tracking-widest">Question Source</h3>
+                                    <span class="text-[9px] text-brand-blue font-black uppercase">Pharmacology</span>
+                                </div>
+                                <div class="flex bg-[#F1F3F5] dark:bg-[#151719] p-1 rounded-xl">
+                                    <button onclick="setPharmaBookSource('big')" class="flex-1 py-2 rounded-[10px] text-[11px] font-extrabold ${!isMini ? 'bg-white dark:bg-[#2A2C31] text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500'} transition-all card-press">
+                                        Big Katzung
+                                    </button>
+                                    <button onclick="setPharmaBookSource('mini')" class="flex-1 py-2 rounded-[10px] text-[11px] font-extrabold ${isMini ? 'bg-white dark:bg-[#2A2C31] text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500'} transition-all card-press">
+                                        Mini Katzung
+                                    </button>
+                                </div>
+                                ${categorySelectHtml}
+                            </div>
+                        `;
                     } else {
                         subContainer.innerHTML = '';
                     }
                 }
 
                 if(appState.mode === 'mcqs') {
-                    if (appState.sessionConfig.subtopicFilter && appState.sessionConfig.subtopicFilter !== 'All') {
-                        const kw = appState.sessionConfig.subtopicFilter.toLowerCase();
-                        pool = pool.filter(item => {
-                            const text = (item.statement + " " + (item.options ? item.options.join(" ") : "")).toLowerCase();
-                            return text.includes(kw);
-                        });
+                    if (isBlock8 && isPharma && appState.pharmaBookSource === 'mini') {
+                        pool = MINI_KATZUNG_CACHE || [];
+                    }
+
+                    if (appState.selectedPharmaCategory && appState.selectedPharmaCategory !== 'All') {
+                        pool = pool.filter(item => item.category === appState.selectedPharmaCategory);
                     }
                 }
                 
@@ -10321,17 +10957,17 @@
             }
         }
 
-        // --- NATIVE MINIMAL APP SYNC & CACHE CLEAR ---
+        // --- CLEAN APP UPDATE ACTION ---
         function clearCacheAndUpdateApp() {
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm flex items-center justify-center p-6';
             modal.innerHTML = `
                 <div class="w-full max-w-xs bg-white dark:bg-[#18181b] rounded-2xl p-5 text-center shadow-xl animate-[fadeIn_0.2s_ease-out]">
-                    <h3 class="text-[16px] font-bold text-zinc-900 dark:text-white mb-1.5">Sync & Refresh</h3>
-                    <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mb-5 leading-normal">Clear offline storage and sync the latest curriculum updates.</p>
+                    <h3 class="text-[16px] font-bold text-zinc-900 dark:text-white mb-1.5">Update App</h3>
+                    <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mb-5 leading-normal">Refresh syllabus, MCQs, and latest study features.</p>
                     <div class="flex gap-2">
                         <button id="cancel-sync-btn" class="flex-1 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-[13px] font-semibold active:scale-98 transition-transform">Cancel</button>
-                        <button id="confirm-sync-btn" class="flex-1 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[13px] font-semibold active:scale-98 transition-transform">Sync Now</button>
+                        <button id="confirm-sync-btn" class="flex-1 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[13px] font-semibold active:scale-98 transition-transform">Update Now</button>
                     </div>
                 </div>
             `;
@@ -10340,7 +10976,7 @@
             modal.querySelector('#cancel-sync-btn').onclick = () => document.body.removeChild(modal);
             modal.querySelector('#confirm-sync-btn').onclick = async () => {
                 document.body.removeChild(modal);
-                showLoader("Syncing app data...");
+                showLoader("Updating app...");
                 try {
                     if (window.caches) {
                         const cacheKeys = await caches.keys();
@@ -10776,31 +11412,35 @@ REQUIREMENTS:
         let PAST_PAPERS_CACHE = {};
 
         async function openPastPapers() {
-            // Guest restriction removed
-            
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const block = String(appState.academicBlock).toUpperCase().trim();
             const bNum = blockToNum[block] || block;
 
-            // Updated strictly to accept Block 2, Block 4, and Block 8
             if (![2, 4, 8].includes(parseInt(bNum))) {
                 alert("Past papers are currently only available for Block II, Block IV, and Block VIII.");
                 return;
             }
             
             navigate('past_papers');
+            
+            // Check IndexedDB local storage first
+            const cachedPapers = await getCachedFile(`past_papers_b${bNum}`);
+            if (cachedPapers && cachedPapers.length > 0) {
+                PAST_PAPERS_CACHE[block] = cachedPapers;
+                renderPastPapers();
+                return;
+            }
+
             showLoader("Fetching Past Papers...");
             
             try {
                 if (!PAST_PAPERS_CACHE[block]) {
                     const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json`;
-                        
-                    const res = await fetch(url, { cache: 'no-store' });
+                    const res = await fetch(url, { cache: navigator.onLine ? 'no-store' : 'force-cache' });
                     if (!res.ok) throw new Error("Failed to fetch past papers");
                     const data = await res.json();
                     
                     let flattenedPapers = [];
-                    // Handle flat arrays (legacy Block 2) or nested Annual/Supply JSON (Block 4)
                     if (Array.isArray(data)) {
                         flattenedPapers = data;
                     } else {
@@ -10811,18 +11451,22 @@ REQUIREMENTS:
                         }
                     }
                     PAST_PAPERS_CACHE[block] = flattenedPapers;
+                    cacheFile(`past_papers_b${bNum}`, flattenedPapers);
                 }
-                
                 renderPastPapers();
             } catch (err) {
                 console.error(err);
-                document.getElementById('past-papers-list').innerHTML = `
-                    <div class="text-center p-8 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-[20px] shadow-sm mt-4">
-                        <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto text-rose-500 mb-3 animate-pulse"></i>
-                        <p class="text-rose-500 font-bold">Failed to load past papers. Check your internet connection.</p>
-                    </div>
-                `;
-                lucide.createIcons();
+                if (PAST_PAPERS_CACHE[block] && PAST_PAPERS_CACHE[block].length > 0) {
+                    renderPastPapers();
+                } else {
+                    document.getElementById('past-papers-list').innerHTML = `
+                        <div class="text-center p-8 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] shadow-sm mt-4">
+                            <i data-lucide="wifi-off" class="w-10 h-10 mx-auto text-zinc-400 mb-3"></i>
+                            <p class="text-zinc-600 dark:text-zinc-400 font-bold">Past papers not cached for offline access yet.</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                }
             } finally {
                 hideLoader();
             }
@@ -10962,6 +11606,225 @@ REQUIREMENTS:
             }
             
             navigate('mcq_screen');
+        }
+
+        // ================= MARKIFY (BOOK MARKINGS) ENGINE =================
+        let MARKIFY_CACHE = {};
+        let markifyState = { selectedModule: 'All', selectedSubject: 'All' };
+
+        function cleanMarkingText(rawText) {
+            if (!rawText) return '';
+            let cleaned = rawText
+                // Remove span prefixes and indices
+                .replace(/span_\d+span_\d+/gi, '')
+                .replace(/span_\d+/gi, '')
+                .replace(/start_span/gi, '')
+                .replace(/end_span/gi, '')
+                .replace(/\[\s*span\s*\d*\s*\]/gi, '')
+                .replace(/\bspan\b/gi, '')
+                // Remove empty or stray brackets left behind
+                .replace(/\(\s*\[\s*\]\s*\)/g, '')
+                .replace(/\[\s*\(\s*\)\s*\]/g, '')
+                .replace(/\(\s*\)/g, '')
+                .replace(/\[\s*\]/g, '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+            return cleaned;
+        }
+
+        window.askBlockifAIMarkings = async function() {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const block = String(appState.academicBlock).toUpperCase().trim();
+            const bNum = blockToNum[block] || 8;
+
+            showLoader("Loading Markings for AI...");
+
+            let markings = MARKIFY_CACHE[bNum];
+            if (!markings || markings.length === 0) {
+                try {
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (res.ok) {
+                        markings = await res.json();
+                        MARKIFY_CACHE[bNum] = Array.isArray(markings) ? markings : [];
+                    }
+                } catch(e) {}
+            }
+
+            hideLoader();
+
+            if (!markings || markings.length === 0) {
+                alert("Book markings data is not available yet for this block.");
+                return;
+            }
+
+            const cleanMarkingsText = markings.map(m => 
+                `• [${m.module_name}] Subject: ${m.subject} | Book: ${m.book_name} | Markings: ${cleanMarkingText(m.marking)}`
+            ).join('\n');
+
+            const fullPrompt = `You are BlockifAI, the expert MBBS medical tutor. Here are the official book markings and chapters for Block ${block}:\n\n${cleanMarkingsText}\n\nBased on these exact markings, please guide me on how to prioritize and study these books for my exams, and provide high-yield reading recommendations:`;
+
+            // Reset any active conversational planner state to ensure clean chat stream
+            if (window.aiPlannerState) window.aiPlannerState.active = false;
+
+            // Instantly start chat with context attached
+            openBlockifAI(fullPrompt);
+        };
+
+        async function openMarkify() {
+            navigate('markify');
+            showLoader("Loading Book Markings...");
+            
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const block = String(appState.academicBlock).toUpperCase().trim();
+            const bNum = blockToNum[block] || 8;
+
+            const badge = document.getElementById('markify-block-badge');
+            if (badge) badge.innerText = `Block ${block}`;
+
+            try {
+                if (!MARKIFY_CACHE[bNum]) {
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    MARKIFY_CACHE[bNum] = Array.isArray(data) ? data : [];
+                }
+                renderMarkify();
+            } catch (err) {
+                console.error("Markify fetch error:", err);
+                const container = document.getElementById('markify-content-area');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="text-center p-8 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm mt-4">
+                            <i data-lucide="book-x" class="w-10 h-10 mx-auto text-zinc-400 mb-3"></i>
+                            <h3 class="font-black text-sm text-zinc-900 dark:text-white mb-1">Markings Unavailable</h3>
+                            <p class="text-xs text-zinc-500">Book markings for Block ${block} are being compiled and will be available shortly.</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                }
+            } finally {
+                hideLoader();
+            }
+        }
+
+        function setMarkifyModuleFilter(mod) {
+            markifyState.selectedModule = mod;
+            markifyState.selectedSubject = 'All';
+            renderMarkify();
+        }
+
+        function setMarkifySubjectFilter(sub) {
+            markifyState.selectedSubject = sub;
+            renderMarkify();
+        }
+
+        function renderMarkify() {
+            const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+            const block = String(appState.academicBlock).toUpperCase().trim();
+            const bNum = blockToNum[block] || 8;
+            
+            const rawData = MARKIFY_CACHE[bNum] || [];
+            const container = document.getElementById('markify-content-area');
+            const modCapsules = document.getElementById('markify-module-capsules');
+            const subCapsules = document.getElementById('markify-subject-capsules');
+
+            if (!container) return;
+
+            if (rawData.length === 0) {
+                container.innerHTML = `<p class="text-center text-zinc-500 font-bold py-12">No book markings available for this block.</p>`;
+                if (modCapsules) modCapsules.innerHTML = '';
+                if (subCapsules) subCapsules.innerHTML = '';
+                return;
+            }
+
+            const allModules = ['All', ...new Set(rawData.map(i => i.module_name))];
+            
+            let filtered = rawData;
+            if (markifyState.selectedModule !== 'All') {
+                filtered = filtered.filter(i => i.module_name === markifyState.selectedModule);
+            }
+
+            const allSubjects = ['All', ...new Set(filtered.map(i => i.subject))];
+            if (markifyState.selectedSubject !== 'All') {
+                filtered = filtered.filter(i => i.subject === markifyState.selectedSubject);
+            }
+
+            // Render Module Filter Capsules
+            if (modCapsules) {
+                modCapsules.innerHTML = allModules.map(m => {
+                    const isSel = markifyState.selectedModule === m;
+                    const cls = isSel 
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-black font-extrabold shadow-sm' 
+                        : 'bg-white dark:bg-[#18181b] text-zinc-600 dark:text-zinc-400 font-bold border border-zinc-200 dark:border-zinc-800';
+                    return `<button onclick="setMarkifyModuleFilter('${safeStr(m)}')" class="px-3.5 py-1.5 rounded-full text-[11px] whitespace-nowrap card-press transition-all ${cls}">${m}</button>`;
+                }).join('');
+            }
+
+            // Render Subject Filter Capsules
+            if (subCapsules) {
+                if (allSubjects.length > 1) {
+                    subCapsules.innerHTML = allSubjects.map(s => {
+                        const isSel = markifyState.selectedSubject === s;
+                        const cls = isSel 
+                            ? 'bg-brand-blue text-white font-extrabold shadow-sm' 
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-bold border border-transparent';
+                        return `<button onclick="setMarkifySubjectFilter('${safeStr(s)}')" class="px-3 py-1 rounded-full text-[10.5px] whitespace-nowrap card-press transition-all ${cls}">${s}</button>`;
+                    }).join('');
+                    subCapsules.classList.remove('hidden');
+                } else {
+                    subCapsules.classList.add('hidden');
+                }
+            }
+
+            // Group by Module for clean minimal cards
+            const grouped = {};
+            filtered.forEach(item => {
+                if (!grouped[item.module_name]) grouped[item.module_name] = [];
+                grouped[item.module_name].push(item);
+            });
+
+            let html = '';
+            for (const modName in grouped) {
+                const items = grouped[modName];
+                html += `
+                    <div class="bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden shadow-sm mb-4">
+                        <!-- Minimal Header -->
+                        <div class="px-4 py-3 bg-zinc-50/80 dark:bg-[#121214] border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-brand-gradient"></span>
+                                <h3 class="text-[13px] font-black text-zinc-900 dark:text-white tracking-tight">${modName}</h3>
+                            </div>
+                            <span class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500">${items.length} ${items.length === 1 ? 'source' : 'sources'}</span>
+                        </div>
+
+                        <!-- Minimal Clean Rows -->
+                        <div class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                            ${items.map(entry => {
+                                const cleanMarking = cleanMarkingText(entry.marking);
+                                return `
+                                    <div class="p-3.5 px-4 flex flex-col sm:flex-row sm:items-start justify-between gap-2 hover:bg-zinc-50/40 dark:hover:bg-zinc-800/20 transition-colors">
+                                        <!-- Left Meta: Subject + Book -->
+                                        <div class="min-w-[170px] shrink-0">
+                                            <span class="inline-block text-[9.5px] font-black uppercase tracking-wider text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded mb-1">${entry.subject}</span>
+                                            <h4 class="text-[13.5px] font-black text-zinc-900 dark:text-white leading-tight">${entry.book_name}</h4>
+                                        </div>
+
+                                        <!-- Right: Clean Markings Text -->
+                                        <div class="flex-1 min-w-0 sm:pl-2">
+                                            <p class="text-[13px] text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed">${cleanMarking}</p>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            lucide.createIcons();
         }
 
         // ================= REAL-TIME NOTIFICATIONS ENGINE =================
@@ -12485,11 +13348,7 @@ Rules:
                 case 'layman': promptPrefix = "Explain the concepts in these notes using simple layman's terms and everyday real-world analogies:\n\n"; break;
                 case 'mcqs': promptPrefix = "Generate 5 challenging multiple-choice questions (with 5 options each A-E, and detailed explanations for the correct answers) based strictly on these notes:\n\n"; break;
             }
-            
-            const fullPrompt = promptPrefix + baseContext;
-            
-            // Seamlessly open BlockifAI screen and immediately begin stream
-            openBlockifAI(fullPrompt);
+            window.runBlockifAI(promptPrefix + baseContext);
         }
 
         // --- AI DISCUSS SHEET LOGIC ---
@@ -12869,48 +13728,96 @@ Rules:
             document.head.appendChild(manifestLink);
         }
 
+        // ================= FULL OFFLINE-FIRST SERVICE WORKER & SYNC ENGINE =================
+        function updateOnlineStatusUI() {
+            const pill = document.getElementById('offline-status-pill');
+            if (!pill) return;
+            if (!navigator.onLine) {
+                pill.classList.remove('-translate-y-[150%]');
+                pill.classList.add('translate-y-0');
+            } else {
+                pill.classList.remove('translate-y-0');
+                pill.classList.add('-translate-y-[150%]');
+            }
+        }
+        window.addEventListener('online', updateOnlineStatusUI);
+        window.addEventListener('offline', updateOnlineStatusUI);
+        updateOnlineStatusUI();
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 try {
                     const swCode = `
-                        const CACHE_NAME = 'blockify-v2';
+                        const CACHE_NAME = 'blockify-offline-v4';
+                        const STATIC_ASSETS = [
+                            'https://cdn.tailwindcss.com',
+                            'https://unpkg.com/lucide@latest',
+                            'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js',
+                            'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap',
+                            'https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap',
+                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js',
+                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js',
+                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js',
+                            'https://i.imgur.com/kZsZDzA.jpeg'
+                        ];
+
                         self.addEventListener('install', e => {
                             self.skipWaiting();
-                        });
-                        self.addEventListener('activate', e => {
-                            e.waitUntil(clients.claim());
-                        });
-                        self.addEventListener('fetch', e => {
-                            return;
-                        });
-                        self.addEventListener('push', e => {
-                            let data = { title: 'BLOCKIFY Bulletin', body: 'New medical notice received!' };
-                            if (e.data) {
-                                try { data = e.data.json(); } catch(err) { data = { title: 'Notice Alert', body: e.data.text() }; }
-                            }
                             e.waitUntil(
-                                self.registration.showNotification(data.title, {
-                                    body: data.body,
-                                    icon: 'https://i.imgur.com/fHKXsHj.png',
-                                    badge: 'https://i.imgur.com/fHKXsHj.png',
-                                    vibrate: [100, 50, 100],
-                                    data: { url: self.location.origin }
+                                caches.open(CACHE_NAME).then(cache => {
+                                    return cache.addAll(STATIC_ASSETS).catch(err => console.warn('Precache partial:', err));
                                 })
                             );
                         });
-                        self.addEventListener('notificationclick', e => {
-                            e.notification.close();
+
+                        self.addEventListener('activate', e => {
                             e.waitUntil(
-                                clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-                                    for (var i = 0; i < windowClients.length; i++) {
-                                        var client = windowClients[i];
-                                        if (client.url === e.notification.data.url && 'focus' in client) {
-                                            return client.focus();
+                                caches.keys().then(keys => {
+                                    return Promise.all(
+                                        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+                                    );
+                                }).then(() => clients.claim())
+                            );
+                        });
+
+                        self.addEventListener('fetch', e => {
+                            const url = e.request.url;
+
+                            // Skip live APIs like Groq AI and Firebase Auth live requests
+                            if (url.includes('api.groq.com') || url.includes('identitytoolkit.googleapis.com') || url.includes('securetoken.googleapis.com')) {
+                                return;
+                            }
+
+                            // Cache-First with Network Fallback & Runtime Caching for CDNs, GitHub JSONs, Fonts & Images
+                            e.respondWith(
+                                caches.match(e.request).then(cachedResponse => {
+                                    if (cachedResponse) {
+                                        // Update in background if online
+                                        if (navigator.onLine && (url.includes('raw.githubusercontent.com') || url.includes('googleapis.com'))) {
+                                            fetch(e.request).then(networkResponse => {
+                                                if (networkResponse && networkResponse.status === 200) {
+                                                    caches.open(CACHE_NAME).then(cache => cache.put(e.request, networkResponse));
+                                                }
+                                            }).catch(() => {});
                                         }
+                                        return cachedResponse;
                                     }
-                                    if (clients.openWindow) {
-                                        return clients.openWindow(e.notification.data.url);
-                                    }
+
+                                    return fetch(e.request).then(networkResponse => {
+                                        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'opaque' && !url.includes('cdn')) {
+                                            return networkResponse;
+                                        }
+                                        const responseToCache = networkResponse.clone();
+                                        caches.open(CACHE_NAME).then(cache => {
+                                            cache.put(e.request, responseToCache);
+                                        });
+                                        return networkResponse;
+                                    }).catch(() => {
+                                        // Offline fallback
+                                        if (e.request.destination === 'document') {
+                                            return caches.match('./') || caches.match(location.href);
+                                        }
+                                    });
                                 })
                             );
                         });
@@ -12918,17 +13825,8 @@ Rules:
                     
                     const blob = new Blob([swCode], { type: 'application/javascript' });
                     const swUrl = URL.createObjectURL(blob);
-                    
-                    navigator.serviceWorker.register(swUrl)
-                        .then(reg => {
-                            if ('Notification' in window && Notification.permission === 'default') {
-                                setTimeout(() => { Notification.requestPermission(); }, 5000);
-                            }
-                        })
-                        .catch(err => console.warn("Background Service Worker bypass activated:", err));
-                } catch (e) {
-                    console.warn("Service worker initialization bypassed to prevent iOS crash:", e);
-                }
+                    navigator.serviceWorker.register(swUrl).catch(e => console.warn('SW:', e));
+                } catch (e) {}
             });
         }
 
