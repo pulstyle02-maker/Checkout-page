@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -59,6 +59,14 @@
 
     <!-- GSAP SaaS Motion Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <!-- PDF.js Engine for Client-Side Book Page Extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
 
     <style>
         /* Native iOS App Typography Hierarchy */
@@ -350,32 +358,69 @@
                               linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
         }
         
-        /* Handwritten Notes Mode */
+        /* Handwritten Notes Mode (100% PDF MATCH) */
         .handwritten-mode .notes-content-text * {
-            font-family: 'Kalam', cursive !important;
-            font-style: normal !important; /* Force removes all italics */
-            letter-spacing: 0.02em;
+            font-family: 'Comic Sans MS', 'Comic Sans', 'Kalam', cursive !important;
+            font-style: normal !important;
+            letter-spacing: 0.01em;
+            color: #111 !important; /* Force dark text like PDF */
+        }
+        html.dark .handwritten-mode .notes-content-text * {
+            color: #eee !important; /* Ensure legibility in dark mode */
         }
         .handwritten-mode .notes-content-text p,
         .handwritten-mode .notes-content-text li,
         .handwritten-mode .notes-content-text td,
         .handwritten-mode .notes-content-text th {
-            font-size: 1.15rem !important; /* Larger for handwriting legibility */
-            line-height: 1.6 !important;
+            font-size: 1.05rem !important;
+            line-height: 1.7 !important;
+        }
+        /* PDF specific: yellow highlight for bold text, sharp corners */
+        .handwritten-mode .notes-content-text strong {
+            background-color: #fef08a !important; /* Yellow Highlight */
+            color: #000 !important; /* Black text on yellow */
+            font-weight: normal !important;
+            padding: 2px 4px !important;
+            border-radius: 0 !important; /* Sharp corners */
+            box-shadow: none !important;
+        }
+        /* PDF specific: Red text for main terms instead of gradient pills */
+        .handwritten-mode .notes-content-text .bg-brand-gradient {
+            background: transparent !important;
+            color: #dc2626 !important; /* Deep Red */
+            font-weight: bold !important;
+            font-size: 1.05rem !important;
+            text-transform: none !important;
+            letter-spacing: normal !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+        }
+        /* PDF specific: Red triangle bullets */
+        .handwritten-mode .notes-content-text li::before {
+            content: '▶' !important;
+            color: #dc2626 !important;
+            font-size: 14px !important;
+            top: 2px !important;
+            left: -18px !important;
+        }
+        .handwritten-mode .notes-content-text ul {
+            padding-left: 20px !important;
         }
         .handwritten-mode .notes-content-text table {
-            border: 2px solid currentColor !important;
-            border-radius: 8px !important;
+            border: 2px solid #ccc !important;
+            border-radius: 0px !important; /* Sharp corners for tables */
             background: transparent !important;
+            box-shadow: none !important;
         }
         .handwritten-mode .notes-content-text th {
             background: transparent !important;
             color: inherit !important;
-            border-bottom: 2px solid currentColor !important;
+            border-bottom: 2px solid #ccc !important;
+            text-transform: capitalize !important;
         }
         .handwritten-mode .notes-content-text td {
             background: transparent !important;
-            border-bottom: 1px dashed currentColor !important;
+            border-bottom: 1px solid #eaeaea !important;
         }
 
         /* High-End Apple/Arc Style AI Ambient Glow Button */
@@ -389,16 +434,60 @@
             100% { --angle: 360deg; }
         }
 
-        @keyframes gradientWave {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        /* Gemini-Style Fluid Ambient Glow (Feathered Smooth Fade to Half Screen) */
+        @keyframes geminiGlowFlow {
+            0% {
+                background-position: 0% 0%;
+                filter: blur(20px);
+            }
+            50% {
+                background-position: 100% 80%;
+                filter: blur(28px);
+            }
+            100% {
+                background-position: 0% 0%;
+                filter: blur(20px);
+            }
         }
-        .ai-wave-bg {
-            background: linear-gradient(270deg, #f43f5e, #3b82f6, #10b981, #f43f5e);
-            background-size: 600% 600%;
-            animation: gradientWave 4s ease infinite;
+
+        #gemini-generating-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50vh;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            /* Smooth alpha mask guarantees zero visible edge line */
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0.2) 75%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0.2) 75%, rgba(0,0,0,0) 100%);
         }
+
+        .gemini-ambient-active {
+            opacity: 1 !important;
+            background: radial-gradient(ellipse 130% 100% at 50% 0%, rgba(16, 185, 129, 0.35) 0%, rgba(59, 130, 246, 0.25) 40%, rgba(251, 208, 67, 0.15) 70%, transparent 100%) !important;
+            background-size: 180% 180% !important;
+            animation: geminiGlowFlow 5s ease-in-out infinite !important;
+        }
+
+        /* Juggling Cubes Animation Engine (Used in Loader, BlockifAI & Active States) */
+        @keyframes juggleTop {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-7px) rotate(4deg); }
+        }
+        @keyframes juggleLeft {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-5px, 3px) rotate(-4deg); }
+        }
+        @keyframes juggleRight {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(5px, 3px) rotate(4deg); }
+        }
+        .cube-top { animation: juggleTop 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite; transform-origin: center; }
+        .cube-left { animation: juggleLeft 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite 0.15s; transform-origin: center; }
+        .cube-right { animation: juggleRight 1.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite 0.3s; transform-origin: center; }
 
         /* Half-Fill Moving Gradient for BlockifAI */
         @keyframes halfFillWave {
@@ -613,60 +702,32 @@
             border-color: transparent !important;
         }
 
-        /* ================= MOBILE TYPOGRAPHY NATIVE APP SIZING ================= */
+        /* ================= MOBILE NATIVE APP TYPOGRAPHY & SPACING ================= */
         @media (max-width: 767px) {
-            /* Adjusted to match sleek native iOS/Android proportions */
-            .text-5xl { font-size: 2rem !important; line-height: 1.1 !important; } 
-            .text-4xl { font-size: 1.75rem !important; line-height: 1.15 !important; } 
-            .text-3xl { font-size: 1.5rem !important; line-height: 1.2 !important; } 
-            .text-2xl { font-size: 1.25rem !important; line-height: 1.25 !important; } 
-            .text-xl { font-size: 1.125rem !important; line-height: 1.3 !important; } 
-            .text-lg { font-size: 1rem !important; line-height: 1.4 !important; } 
-            .text-base { font-size: 0.9375rem !important; line-height: 1.5 !important; } 
-            .text-sm { font-size: 0.875rem !important; line-height: 1.5 !important; } 
-            .text-xs { font-size: 0.75rem !important; line-height: 1.5 !important; }
+            .text-5xl { font-size: 1.85rem !important; line-height: 1.15 !important; letter-spacing: -0.03em !important; } 
+            .text-4xl { font-size: 1.55rem !important; line-height: 1.2 !important; letter-spacing: -0.025em !important; } 
+            .text-3xl { font-size: 1.35rem !important; line-height: 1.22 !important; letter-spacing: -0.02em !important; } 
+            .text-2xl { font-size: 1.18rem !important; line-height: 1.25 !important; letter-spacing: -0.015em !important; } 
+            .text-xl { font-size: 1.05rem !important; line-height: 1.3 !important; } 
+            .text-lg { font-size: 0.95rem !important; line-height: 1.35 !important; } 
+            .text-base { font-size: 0.875rem !important; line-height: 1.45 !important; } 
+            .text-sm { font-size: 0.8125rem !important; line-height: 1.45 !important; } 
+            .text-xs { font-size: 0.72rem !important; line-height: 1.4 !important; }
             
-            /* SaaS Logo Motion Graphics Animation */
-        @keyframes drawCube {
-            0% { stroke-dasharray: 600; stroke-dashoffset: 600; fill: transparent; }
-            40% { stroke-dashoffset: 0; fill: transparent; }
-            100% { stroke-dashoffset: 0; fill: transparent; } /* Made completely transparent */
-        }
-        @keyframes revealLogoText {
-            0% { opacity: 0; transform: translateY(10px) scale(0.98); filter: blur(4px); }
-            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
-        
-        /* Juggling Cubes Animation Engine */
-        @keyframes juggleTop {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-8px) rotate(5deg); }
-        }
-        @keyframes juggleLeft {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            50% { transform: translate(-6px, 4px) rotate(-5deg); }
-        }
-        @keyframes juggleRight {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            50% { transform: translate(6px, 4px) rotate(5deg); }
-        }
-        .cube-top { animation: juggleTop 1.5s ease-in-out infinite; transform-origin: center; }
-        .cube-left { animation: juggleLeft 1.5s ease-in-out infinite 0.15s; transform-origin: center; }
-        .cube-right { animation: juggleRight 1.5s ease-in-out infinite 0.3s; transform-origin: center; }
-
-        /* Custom Arbitrary Pixel Classes Used in App */
-            .text-\[28px\] { font-size: 24px !important; }
-            .text-\[26px\] { font-size: 22px !important; }
-            .text-\[22px\] { font-size: 19px !important; }
-            .text-\[20px\] { font-size: 18px !important; }
-            .text-\[18px\] { font-size: 16px !important; }
-            .text-\[17px\] { font-size: 15px !important; }
-            .text-\[16px\] { font-size: 14px !important; }
-            .text-\[15px\] { font-size: 13.5px !important; }
-            .text-\[14px\] { font-size: 12.5px !important; }
+            .text-\[36px\] { font-size: 26px !important; line-height: 1.15 !important; }
+            .text-\[32px\] { font-size: 24px !important; line-height: 1.15 !important; }
+            .text-\[28px\] { font-size: 21px !important; }
+            .text-\[26px\] { font-size: 20px !important; }
+            .text-\[24px\] { font-size: 18.5px !important; }
+            .text-\[20px\] { font-size: 16.5px !important; }
+            .text-\[18px\] { font-size: 15px !important; }
+            .text-\[17px\] { font-size: 14.5px !important; }
+            .text-\[16px\] { font-size: 13.5px !important; }
+            .text-\[15px\] { font-size: 13px !important; }
+            .text-\[14px\] { font-size: 12px !important; }
             .text-\[13px\] { font-size: 11.5px !important; }
-            .text-\[12px\] { font-size: 11px !important; }
-            .text-\[11px\] { font-size: 10px !important; }
+            .text-\[12px\] { font-size: 10.5px !important; }
+            .text-\[11px\] { font-size: 9.5px !important; }
             .text-\[10px\] { font-size: 9px !important; }
         }
     </style>
@@ -970,6 +1031,17 @@
                         <span>Markify (Book Markings)</span>
                     </button>
 
+                    <!-- CLOZIFY (Anki Cloze Generation Engine) -->
+                    <button onclick="toggleDrawer(false); openClozify();" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
+                        <span class="w-[20px] h-[20px] rounded-md bg-zinc-200 dark:bg-zinc-800 text-brand-blue font-mono font-black text-[10px] flex items-center justify-center shrink-0 border border-zinc-300/50 dark:border-white/10 select-none">[...]</span>
+                        <span>Clozify (Anki Cards)</span>
+                    </button>
+
+                    <button onclick="toggleDrawer(false); openUsmlefy()" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
+                        <i data-lucide="activity" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
+                        <span>USMLEfy (Step 1)</span>
+                    </button>
+
                     <button onclick="toggleDrawer(false); navigate('mistakes_review')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
                         <i data-lucide="shield-alert" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
                         <span>Mistakes Review</span>
@@ -1076,26 +1148,6 @@
                             <h3 class="text-[14px] font-semibold leading-tight">Past Papers</h3>
                         </div>
                     </button>
-
-                    <!-- MARKIFY HERO CARD (Full Width luxury card) -->
-                    <button onclick="openMarkify()" class="relative overflow-hidden bg-white dark:bg-[#18181b] rounded-[24px] p-5 text-left flex flex-col justify-center card-press shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-emerald-500/40 transition-all col-span-2 group">
-                        <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-gradient-to-tl from-[#10b981]/20 to-[#3b82f6]/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-700"></div>
-                        <div class="flex items-center justify-between w-full mb-1 relative z-10">
-                            <h3 class="text-[24px] font-[1000] tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#10b981] to-[#3b82f6]">Markify</h3>
-                            <span class="bg-brand-gradient text-white text-[9px] px-2.5 py-1 rounded-[8px] font-black uppercase tracking-widest shadow-sm">Book Markings</span>
-                        </div>
-                        <span class="text-[11px] text-zinc-500 font-bold relative z-10">Official MBBS syllabus book chapters & topic markings</span>
-                    </button>
-                    
-                    <!-- USMLEFY HERO CARD -->
-                    <button onclick="openUsmlefy()" class="relative overflow-hidden bg-white dark:bg-[#18181b] rounded-[24px] p-5 text-left flex flex-col justify-center card-press shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/40 transition-all col-span-2 group">
-                        <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-gradient-to-tl from-brand-blue/20 to-purple-500/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-700"></div>
-                        <div class="flex items-center justify-between w-full mb-1 relative z-10">
-                            <h3 class="text-[24px] font-[1000] tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-purple-500">USMLEfy</h3>
-                            <span class="bg-zinc-900 dark:bg-white text-white dark:text-black text-[9px] px-2 py-1 rounded-[8px] font-black uppercase tracking-widest shadow-sm">Step 1</span>
-                        </div>
-                        <span class="text-[11px] text-zinc-500 font-bold relative z-10">First Aid Curriculum Crosswalk</span>
-                    </button>
                 </div>
 
                 <!-- Section Details (Quick Links) -->
@@ -1123,28 +1175,34 @@
                     </div>
                 </div>
 
-                <!-- BlockifAI Dashboard Card (Clean 3D Blob) -->
-                <div onclick="openBlockifAI()" class="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-5 mb-6 cursor-pointer card-press shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-gradient-to-tr from-brand-blue/20 to-purple-500/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                    <div class="w-14 h-14 shrink-0 flex items-center justify-center relative drop-shadow-md">
-                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full animate-[spin_16s_linear_infinite]">
-                          <defs>
-                            <linearGradient id="blobGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stop-color="#a855f7" />
-                              <stop offset="50%" stop-color="#3b82f6" />
-                              <stop offset="100%" stop-color="#06b6d4" />
-                            </linearGradient>
-                          </defs>
-                          <path fill="url(#blobGrad)" d="M45.7,-76.3C58.9,-69.3,69,-55.3,77.3,-41.2C85.6,-27.1,92.1,-13.6,90.4,-1.1C88.6,11.5,78.6,22.9,70.5,34.4C62.4,45.9,56.2,57.4,46.2,65.8C36.2,74.2,22.4,79.5,8.1,78.8C-6.2,78.1,-20.9,71.5,-32.7,62.5C-44.5,53.5,-53.4,42.1,-62.4,30.3C-71.4,18.5,-80.5,6.3,-82.1,-6.6C-83.7,-19.5,-77.8,-33,-68.2,-43.3C-58.6,-53.6,-45.3,-60.7,-32.3,-67.9C-19.3,-75.1,-9.6,-82.4,3.2,-84.3C16,-86.2,32.5,-83.3,45.7,-76.3Z" transform="translate(100 100) scale(1.1)" />
-                        </svg>
+                <!-- ULTRA-COMPACT SLIM BLOCKIFAI BAR -->
+                <div onclick="openBlockifAI()" class="bg-white dark:bg-[#2A2C31] rounded-[20px] px-3.5 py-2.5 mb-4 cursor-pointer card-press shadow-sm flex items-center justify-between border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <!-- Mini 3-Cubes Icon -->
+                        <div class="w-7 h-7 shrink-0 flex items-center justify-center">
+                            <svg class="w-full h-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round">
+                                    <g class="cube-top">
+                                        <path d="M50 7 L69 18 L69 40 L50 51 L31 40 L31 18 Z" fill="rgba(16,185,129,0.25)" stroke="#10b981"/>
+                                        <path d="M50 29 L31 18 M50 29 L69 18 M50 29 L50 51" stroke="#10b981"/>
+                                    </g>
+                                    <g class="cube-left">
+                                        <path d="M30 42 L49 53 L49 75 L30 86 L11 75 L11 53 Z" fill="rgba(59,130,246,0.25)" stroke="#3b82f6"/>
+                                        <path d="M30 64 L11 53 M30 64 L49 53 M30 64 L30 86" stroke="#3b82f6"/>
+                                    </g>
+                                    <g class="cube-right">
+                                        <path d="M70 42 L89 53 L89 75 L70 86 L51 75 L51 53 Z" fill="rgba(251,208,67,0.25)" stroke="#fbd043"/>
+                                        <path d="M70 64 L51 53 M70 64 L89 53 M70 64 L70 86" stroke="#fbd043"/>
+                                    </g>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="truncate">
+                            <span class="text-[13.5px] font-semibold text-zinc-900 dark:text-white leading-tight">BlockifAI</span>
+                            <span class="text-[11px] text-zinc-400 font-medium ml-1.5 truncate">• Ask anything</span>
+                        </div>
                     </div>
-                    <div class="flex-1 relative z-10">
-                        <h3 class="text-[16px] font-black text-zinc-900 dark:text-white leading-tight mb-0.5">BlockifAI Assistant</h3>
-                        <p class="text-[11px] font-medium text-zinc-500">Curriculum expert & AI study tutor</p>
-                    </div>
-                    <div class="relative z-10 w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-purple-500 group-hover:bg-purple-50 dark:group-hover:bg-purple-500/10 transition-colors">
-                        <i data-lucide="message-square" class="w-4 h-4"></i>
-                    </div>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400 shrink-0"></i>
                 </div>
 
                 <!-- Consistency/Streak Card -->
@@ -1491,28 +1549,31 @@
             </div>
         </div>
 
-        <!-- ================= GLOBAL SEARCH COMMAND PALETTE ================= -->
-        <div id="global-search-overlay" class="fixed inset-0 z-[200] hidden flex-col items-center p-4 sm:p-6 pt-[12vh] pointer-events-none transition-all duration-300">
+        <!-- ================= MINIMAL NATIVE SEARCH MODAL ================= -->
+        <div id="global-search-overlay" class="fixed inset-0 z-[200] hidden flex-col items-center p-3 sm:p-5 pt-[8vh] sm:pt-[12vh] pointer-events-none transition-all duration-300">
             <!-- Blur Backdrop -->
-            <div id="global-search-backdrop" class="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-sm opacity-0 transition-opacity" onclick="closeGlobalSearch()"></div>
+            <div id="global-search-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-md opacity-0 transition-opacity" onclick="closeGlobalSearch()"></div>
             
-            <!-- Command Panel -->
-            <div id="global-search-panel" class="relative w-full max-w-xl bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-2xl overflow-hidden flex flex-col scale-95 opacity-0 transition-all duration-300 pointer-events-auto">
-                <div class="flex items-center px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-[#1c1c1e]/50">
-                    <i data-lucide="search" class="w-5 h-5 text-brand-blue stroke-[2.5px]"></i>
-                    <input type="text" id="global-search-input" oninput="performGlobalSearch(this.value)" placeholder="Search objectives, topics..." class="flex-1 bg-transparent px-4 text-[16px] font-medium text-zinc-900 dark:text-white outline-none placeholder-zinc-400">
-                    <button onclick="document.getElementById('global-search-input').value=''; performGlobalSearch('');" class="mr-3">
-                        <i data-lucide="x-circle" class="w-4 h-4 text-zinc-400 hover:text-zinc-600 transition-colors"></i>
+            <!-- Sleek Search Card -->
+            <div id="global-search-panel" class="relative w-full max-w-lg bg-white/95 dark:bg-[#121214]/95 backdrop-blur-2xl border border-zinc-200/80 dark:border-white/10 rounded-[24px] shadow-2xl overflow-hidden flex flex-col scale-95 opacity-0 transition-all duration-300 pointer-events-auto">
+                <div class="p-1.5 bg-brand-gradient"></div>
+                
+                <div class="flex items-center px-4 py-3.5 border-b border-zinc-100 dark:border-white/5 gap-3">
+                    <i data-lucide="search" class="w-4 h-4 text-emerald-500 stroke-[2.5px] shrink-0"></i>
+                    <input type="text" id="global-search-input" oninput="performGlobalSearch(this.value)" placeholder="Search topics, LO codes, diseases..." class="flex-1 bg-transparent text-[14px] font-medium text-zinc-900 dark:text-white outline-none placeholder-zinc-400">
+                    <button onclick="document.getElementById('global-search-input').value=''; performGlobalSearch('');" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1">
+                        <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="closeGlobalSearch()" class="text-[10px] font-bold bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 shadow-sm card-press">ESC</button>
+                    <button onclick="closeGlobalSearch()" class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white px-2 py-1 rounded-lg card-press">Done</button>
                 </div>
-                <div id="global-search-results" class="max-h-[55vh] overflow-y-auto p-3 space-y-2 no-scrollbar bg-white dark:bg-[#18181b]">
-                    <div class="text-center py-10">
-                        <div class="w-12 h-12 bg-brand-blue/10 rounded-[14px] flex items-center justify-center mx-auto mb-3">
-                            <i data-lucide="search" class="w-5 h-5 text-brand-blue stroke-[3px]"></i>
+                
+                <div id="global-search-results" class="max-h-[60vh] overflow-y-auto p-3 space-y-2 no-scrollbar">
+                    <div class="text-center py-10 px-4">
+                        <div class="w-10 h-10 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-3 text-white shadow-md">
+                            <i data-lucide="search" class="w-4 h-4"></i>
                         </div>
-                        <h3 class="text-zinc-900 dark:text-white font-black text-sm mb-1">Global Database</h3>
-                        <p class="text-zinc-500 font-medium text-[11px]">Find objectives instantly across all blocks.</p>
+                        <h4 class="text-zinc-900 dark:text-white font-bold text-[14px] mb-1">Search Curriculum</h4>
+                        <p class="text-zinc-400 text-[11px]">Type to find objectives, viva topics, and notes instantly.</p>
                     </div>
                 </div>
             </div>
@@ -2455,7 +2516,220 @@
             </div>
         </div>
 
-        <!-- ================= EXAM REVIEW SCREEN ================= -->
+        <!-- ================= CLOZIFY SCREEN (ANKI GENERATOR & STUDY SUITE) ================= -->
+        <div id="screen-clozify" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
+            <div class="w-full max-w-3xl mx-auto px-4 md:px-6 flex flex-col h-full">
+                
+                <!-- Sticky Top Header -->
+                <div class="safe-pt pb-3 sticky top-0 z-30 bg-zinc-50/95 dark:bg-black/95 backdrop-blur-md border-b border-zinc-200/60 dark:border-white/5 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-1.5 py-0.5 rounded bg-brand-gradient text-white font-mono font-black text-[10px]">[...]</span>
+                                <h1 class="text-xl font-bold text-zinc-900 dark:text-white tracking-tight leading-none">Clozify</h1>
+                            </div>
+                            <p class="text-[11px] font-medium text-zinc-500 mt-0.5">AI Anki Flashcard Creator from Books</p>
+                        </div>
+                    </div>
+
+                    <!-- Mode Tab Toggle (Create vs Saved Decks) -->
+                    <div class="flex bg-zinc-200/70 dark:bg-zinc-900 p-1 rounded-xl">
+                        <button onclick="switchClozifyView('creator')" id="clozify-tab-creator" class="px-3 py-1.5 rounded-[9px] text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press">Creator</button>
+                        <button onclick="switchClozifyView('library')" id="clozify-tab-library" class="px-3 py-1.5 rounded-[9px] text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-all card-press">Decks</button>
+                    </div>
+                </div>
+
+                <!-- 1. CREATOR VIEW -->
+                <div id="clozify-view-creator" class="flex-1 overflow-y-auto no-scrollbar py-4 space-y-4">
+                    
+                    <!-- REAL 7-ROW GITHUB HEATMAP CONTRIBUTION GRAPH -->
+                    <div class="bg-white dark:bg-[#18181b] p-4 rounded-[22px] border border-zinc-200/80 dark:border-white/10 shadow-sm">
+                        <div class="flex items-center justify-between mb-3 px-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span class="text-[11px] font-bold text-zinc-800 dark:text-zinc-200">Clozify Activity Heatmap</span>
+                            </div>
+                            <span id="clozify-streak-label" class="text-[10.5px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">0 Day Streak</span>
+                        </div>
+
+                        <!-- 7 Days Rows x 16 Weeks Columns Grid -->
+                        <div class="overflow-x-auto no-scrollbar pb-1">
+                            <div class="flex items-start gap-2 min-w-[280px]">
+                                <!-- Day labels (Mon, Wed, Fri) -->
+                                <div class="flex flex-col justify-between h-[88px] text-[8px] font-bold text-zinc-400 pt-0.5 pr-1 select-none">
+                                    <span>Mon</span>
+                                    <span>Wed</span>
+                                    <span>Fri</span>
+                                </div>
+                                <!-- 7-Row Grid Body -->
+                                <div id="clozify-github-matrix" class="grid grid-rows-7 grid-flow-col gap-[3.5px] flex-1">
+                                    <!-- Populated dynamically via JS with true GitHub levels -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-1.5 mt-2.5 pt-2 border-t border-zinc-100 dark:border-white/5 text-[9px] font-bold text-zinc-400">
+                            <span>Less</span>
+                            <div class="w-2.5 h-2.5 rounded-[2px] bg-zinc-100 dark:bg-zinc-800"></div>
+                            <div class="w-2.5 h-2.5 rounded-[2px] bg-emerald-200 dark:bg-emerald-900"></div>
+                            <div class="w-2.5 h-2.5 rounded-[2px] bg-emerald-400 dark:bg-emerald-700"></div>
+                            <div class="w-2.5 h-2.5 rounded-[2px] bg-emerald-500 dark:bg-emerald-500"></div>
+                            <div class="w-2.5 h-2.5 rounded-[2px] bg-emerald-600 dark:bg-emerald-400"></div>
+                            <span>More</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 1: PDF Book Upload & Automatic Dynamic Chapter Detector -->
+                    <div class="bg-white dark:bg-[#18181b] p-5 rounded-[24px] border border-zinc-200/80 dark:border-white/10 shadow-sm space-y-4">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="file-up" class="w-4 h-4 text-emerald-500"></i>
+                            <h3 class="text-sm font-bold text-zinc-900 dark:text-white">1. Select Textbook PDF</h3>
+                        </div>
+
+                        <!-- Dropzone File Input -->
+                        <div onclick="document.getElementById('clozify-pdf-file').click()" class="border-2 border-dashed border-zinc-200 dark:border-zinc-800 hover:border-emerald-500 rounded-2xl p-5 text-center cursor-pointer transition-colors bg-zinc-50/50 dark:bg-black/30 group">
+                            <input type="file" id="clozify-pdf-file" accept="application/pdf" class="hidden" onchange="handleClozifyPdfUpload(event)">
+                            <div id="clozify-pdf-status">
+                                <div class="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200 block">Tap to select textbook PDF</span>
+                                <span class="text-[10px] text-zinc-400 font-medium">Automatic Chapter extraction ready</span>
+                            </div>
+                        </div>
+
+                        <!-- DYNAMIC CHAPTER / TOPIC DETECTOR DROPDOWN (Auto-fills page numbers) -->
+                        <div id="clozify-chapter-box" class="hidden">
+                            <label class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">Detected Chapters / Sections</label>
+                            <select id="clozify-chapter-select" onchange="handleClozifyChapterSelect(this.value)" class="w-full bg-zinc-100 dark:bg-[#121214] border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none truncate">
+                                <option value="">Select Chapter to auto-fill page range...</option>
+                            </select>
+                        </div>
+
+                        <!-- Page Range Selectors (Unlimited Range with smart background chunking) -->
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">From Page</label>
+                                <input type="number" id="clozify-page-start" min="1" placeholder="e.g. 1" class="w-full bg-zinc-100 dark:bg-[#121214] border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none focus:border-brand-blue">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">To Page</label>
+                                <input type="number" id="clozify-page-end" min="1" placeholder="e.g. 30" class="w-full bg-zinc-100 dark:bg-[#121214] border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none focus:border-brand-blue">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Syllabus Context Integration -->
+                    <div class="bg-white dark:bg-[#18181b] p-5 rounded-[24px] border border-zinc-200/80 dark:border-white/10 shadow-sm space-y-4">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="git-branch" class="w-4 h-4 text-brand-blue"></i>
+                            <h3 class="text-sm font-bold text-zinc-900 dark:text-white">2. Map to Modular Syllabus</h3>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">Module</label>
+                                <select id="clozify-module-select" onchange="populateClozifySubjects(this.value)" class="w-full bg-zinc-100 dark:bg-[#121214] border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none truncate">
+                                    <option value="">Select Module...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">Subject</label>
+                                <select id="clozify-subject-select" onchange="populateClozifyLOs(this.value)" class="w-full bg-zinc-100 dark:bg-[#121214] border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-white outline-none truncate" disabled>
+                                    <option value="">Select Module first...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Multi-Select LO Pills Container -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Target Objectives (LOs)</label>
+                                <span id="clozify-lo-selected-count" class="text-[10px] font-bold text-brand-blue">0 Selected</span>
+                            </div>
+                            <div id="clozify-lo-pills-list" class="max-h-36 overflow-y-auto no-scrollbar border border-zinc-200 dark:border-white/10 rounded-xl p-2 bg-zinc-50 dark:bg-[#121214] flex flex-wrap gap-1.5">
+                                <p class="text-[11px] text-zinc-400 p-2 italic">Select a subject above to load learning objectives.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Card Quantity & Generate Trigger -->
+                    <div class="bg-white dark:bg-[#18181b] p-5 rounded-[24px] border border-zinc-200/80 dark:border-white/10 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="layers" class="w-4 h-4 text-amber-500"></i>
+                                <h3 class="text-sm font-bold text-zinc-900 dark:text-white">3. Number of Cards</h3>
+                            </div>
+                            <span id="clozify-quantity-label" class="text-xs font-black text-brand-blue bg-brand-blue/10 px-2.5 py-0.5 rounded-full">20 Cards</span>
+                        </div>
+
+                        <!-- 20, 40, 60 Quick Pills -->
+                        <div class="grid grid-cols-3 gap-2.5">
+                            <button type="button" onclick="setClozifyCount(20)" id="clozify-count-20" class="py-3 rounded-xl text-xs font-bold bg-brand-gradient text-white shadow-sm transition-all card-press">20 Cards</button>
+                            <button type="button" onclick="setClozifyCount(40)" id="clozify-count-40" class="py-3 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-all card-press">40 Cards</button>
+                            <button type="button" onclick="setClozifyCount(60)" id="clozify-count-60" class="py-3 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-all card-press">60 Cards</button>
+                        </div>
+
+                        <!-- Generation Button -->
+                        <button id="btn-generate-clozify" onclick="generateClozifyAnkiDeck()" class="w-full py-4 bg-brand-gradient text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg card-press flex items-center justify-center gap-2 mt-2">
+                            <span class="font-mono text-sm">[...]</span>
+                            <span>Generate Clozify Deck</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. SAVED DECKS LIBRARY VIEW -->
+                <div id="clozify-view-library" class="hidden flex-1 overflow-y-auto no-scrollbar py-4 space-y-3">
+                    <div id="clozify-decks-list" class="space-y-3">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+
+                <!-- 3. INTERACTIVE CLOZE / ANKI CARD VIEWER -->
+                <div id="clozify-view-study" class="hidden flex-1 flex flex-col justify-between py-2">
+                    <!-- Session Meta Header -->
+                    <div class="flex items-center justify-between pb-3 px-1">
+                        <div class="truncate pr-2">
+                            <span id="clozify-study-deckname" class="text-xs font-bold text-zinc-900 dark:text-white truncate block">Card Study</span>
+                            <span id="clozify-study-lo" class="text-[10px] text-brand-blue font-mono font-bold uppercase"></span>
+                        </div>
+                        <span id="clozify-study-progress" class="text-xs font-black text-zinc-400 shrink-0">1 / 20</span>
+                    </div>
+
+                    <!-- Card Body with Tap-to-Reveal Cloze Mechanism -->
+                    <div class="flex-1 flex items-center justify-center py-4 perspective-1000">
+                        <div id="clozify-card-box" class="w-full min-h-[280px] max-h-[440px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-white/10 rounded-[28px] p-6 flex flex-col justify-between shadow-xl transition-all">
+                            <div class="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-white/5">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-emerald-500">Active Recall Cloze</span>
+                                <button onclick="speakClozifyText()" class="text-zinc-400 hover:text-brand-blue transition-colors"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
+                            </div>
+
+                            <div class="flex-1 flex items-center justify-center py-6 text-center">
+                                <p id="clozify-card-text" class="text-[16px] md:text-[18px] font-medium leading-[1.7] text-zinc-900 dark:text-white select-none">
+                                    <!-- Injected with interactive [...] pills -->
+                                </p>
+                            </div>
+
+                            <div class="pt-2 text-center">
+                                <span id="clozify-reveal-hint" class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Tap [...] to reveal missing term</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spaced Repetition Rating Buttons (Anki Style) -->
+                    <div class="grid grid-cols-4 gap-2 pt-3">
+                        <button onclick="rateClozifyCard('again')" class="py-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-bold card-press">Again</button>
+                        <button onclick="rateClozifyCard('hard')" class="py-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[11px] font-bold card-press">Hard</button>
+                        <button onclick="rateClozifyCard('good')" class="py-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[11px] font-bold card-press">Good</button>
+                        <button onclick="rateClozifyCard('easy')" class="py-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold card-press">Easy</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
         <div id="screen-exam_review" class="app-screen z-30 pb-32 bg-zinc-50 dark:bg-black">
             <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
                 <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black border-b border-zinc-200 dark:border-zinc-800 mb-4">
@@ -2808,84 +3082,86 @@
     
 
     <!-- ================= FULL PAGE BLOCKIFAI CHAT UI ================= -->
-        <div id="screen-blockifai" class="app-screen z-40 bg-white dark:bg-[#09090b]">
+        <div id="screen-blockifai" class="app-screen z-40 bg-white dark:bg-[#000000]">
             <div class="flex h-full w-full relative overflow-hidden">
                 
-                <!-- Left History Sidebar (Hidden by default on mobile, slides in) -->
-                <div id="blockifai-sidebar" class="absolute md:relative z-50 w-[280px] h-full bg-zinc-50 dark:bg-[#121214] border-r border-zinc-200 dark:border-zinc-800 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300">
-                    <div class="safe-pt p-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="font-black text-lg text-zinc-900 dark:text-white">Chat History</h2>
-                            <button onclick="toggleBlockifaiSidebar()" class="md:hidden w-8 h-8 flex items-center justify-center text-zinc-500 bg-zinc-200 dark:bg-zinc-800 rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
+                <!-- Left History Sidebar -->
+                <div id="blockifai-sidebar" class="absolute md:relative z-50 w-[280px] h-full bg-zinc-50 dark:bg-[#0d0d0f] border-r border-zinc-200 dark:border-white/10 flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+                    <div class="safe-pt p-4 border-b border-zinc-200 dark:border-white/10 shrink-0">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="font-bold text-[15px] text-zinc-900 dark:text-white">Conversations</h2>
+                            <button onclick="toggleBlockifaiSidebar()" class="md:hidden w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
                         </div>
                         <div class="relative">
-                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"></i>
-                            <input type="text" id="ai-history-search" oninput="renderBlockifAiSidebar()" placeholder="Search past chats..." class="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-xs font-medium text-zinc-900 dark:text-white outline-none focus:border-purple-500">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400"></i>
+                            <input type="text" id="ai-history-search" oninput="renderBlockifAiSidebar()" placeholder="Search chats..." class="w-full bg-white dark:bg-black/50 border border-zinc-200 dark:border-white/10 rounded-xl pl-8 pr-3 py-2 text-[12px] font-medium text-zinc-900 dark:text-white outline-none">
                         </div>
                     </div>
-                    <div id="blockifai-history-list" class="flex-1 overflow-y-auto no-scrollbar p-3 space-y-1">
+                    <div id="blockifai-history-list" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1">
                         <!-- History injected here -->
                     </div>
-                    <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
-                        <div class="flex items-center gap-3">
-                            <img src="https://i.imgur.com/kZsZDzA.jpeg" class="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-700">
-                            <span class="text-xs font-bold text-zinc-900 dark:text-white truncate flex-1" id="ai-sidebar-name">Student</span>
-                        </div>
+                    <div class="p-3 border-t border-zinc-200 dark:border-white/10 shrink-0 flex items-center gap-2.5">
+                        <div class="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center text-white text-[11px] font-bold">B</div>
+                        <span class="text-[12px] font-medium text-zinc-700 dark:text-zinc-300 truncate flex-1" id="ai-sidebar-name">Student</span>
                     </div>
                 </div>
 
                 <!-- Dark overlay for mobile sidebar -->
-                <div id="blockifai-sidebar-overlay" onclick="toggleBlockifaiSidebar()" class="absolute inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+                <div id="blockifai-sidebar-overlay" onclick="toggleBlockifaiSidebar()" class="absolute inset-0 bg-black/60 backdrop-blur-sm z-40 hidden md:hidden"></div>
 
                 <!-- Main Chat Area -->
-                <div class="flex-1 flex flex-col h-full relative w-full">
-                    <!-- Header with safe notch padding -->
-                    <div class="safe-pt px-4 pb-3 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#09090b] z-30 shrink-0 sticky top-0">
-                        <div class="flex items-center gap-3">
-                            <button onclick="goBack()" class="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300 card-press"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
-                            <button onclick="toggleBlockifaiSidebar()" class="md:hidden w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300 card-press"><i data-lucide="menu" class="w-4 h-4"></i></button>
+                <div class="flex-1 flex flex-col h-full relative w-full bg-white dark:bg-[#000000]">
+                    <!-- Gemini Smooth Animating Flow Gradient (Top to Half Screen) -->
+                    <div id="gemini-generating-bg" class="absolute top-0 left-0 right-0 h-[55vh] pointer-events-none z-0 opacity-0 transition-opacity duration-700"></div>
+
+                    <!-- Native Sticky Header -->
+                    <div class="safe-pt px-3 pb-3 flex items-center justify-between bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-zinc-200/60 dark:border-white/5 z-30 shrink-0 sticky top-0">
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="goBack()" class="p-2 text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors card-press"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                            <button onclick="toggleBlockifaiSidebar()" class="md:hidden p-2 text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors card-press"><i data-lucide="menu" class="w-4 h-4"></i></button>
                             
-                            <div class="flex items-center gap-2">
-                                <!-- 3 Cubes Logo -->
-                                <svg class="h-5 w-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <g stroke="url(#iconGrad)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
-                                        <path d="M50 7 L69 18 L69 40 L50 51 L31 40 L31 18 Z"/><path d="M50 29 L31 18 M50 29 L69 18 M50 29 L50 51"/>
-                                        <path d="M30 42 L49 53 L49 75 L30 86 L11 75 L11 53 Z"/><path d="M30 64 L11 53 M30 64 L49 53 M30 64 L30 86"/>
-                                        <path d="M70 42 L89 53 L89 75 L70 86 L51 75 L51 53 Z"/><path d="M70 64 L51 53 M70 64 L89 53 M70 64 L70 86"/>
+                            <!-- 3 JUGGLING CUBES ICON IN HEADER -->
+                            <div class="flex items-center gap-2 ml-1">
+                                <svg class="h-6 w-auto shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <g stroke="#10b981" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round" fill="rgba(16,185,129,0.15)">
+                                        <g class="cube-top">
+                                            <path d="M50 7 L69 18 L69 40 L50 51 L31 40 L31 18 Z"/>
+                                            <path d="M50 29 L31 18 M50 29 L69 18 M50 29 L50 51"/>
+                                        </g>
+                                        <g class="cube-left">
+                                            <path d="M30 42 L49 53 L49 75 L30 86 L11 75 L11 53 Z" stroke="#3b82f6" fill="rgba(59,130,246,0.15)"/>
+                                            <path d="M30 64 L11 53 M30 64 L49 53 M30 64 L30 86" stroke="#3b82f6"/>
+                                        </g>
+                                        <g class="cube-right">
+                                            <path d="M70 42 L89 53 L89 75 L70 86 L51 75 L51 53 Z" stroke="#fbd043" fill="rgba(251,208,67,0.15)"/>
+                                            <path d="M70 64 L51 53 M70 64 L89 53 M70 64 L70 86" stroke="#fbd043"/>
+                                        </g>
                                     </g>
                                 </svg>
-                                <h3 class="font-[1000] text-[19px] tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#10b981] via-[#3b82f6] to-[#a855f7] animate-[gradientWave_4s_ease_infinite]" style="background-size: 200% 200%;">
-                                    BlockifAI
-                                </h3>
+                                <span class="font-bold text-[16px] tracking-tight text-zinc-900 dark:text-white" style="font-family: 'Plus Jakarta Sans', sans-serif;">BlockifAI</span>
                             </div>
                         </div>
-                        <button onclick="createNewAiSession()" class="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-full text-[11px] font-black card-press shadow-sm">
-                            <i data-lucide="edit" class="w-3.5 h-3.5"></i> New Chat
+                        <button onclick="createNewAiSession()" class="flex items-center gap-1 px-3 py-1.5 bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/20 text-zinc-900 dark:text-white rounded-full text-[11px] font-semibold card-press transition-colors">
+                            <i data-lucide="plus" class="w-3 h-3"></i> New
                         </button>
                     </div>
 
-                    <!-- Ambient Background Orbs -->
-                    <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-purple-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-                    <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-
-                    <!-- Chat Log -->
-                    <div id="blockifai-content" class="flex-1 overflow-y-auto px-4 md:px-8 py-6 no-scrollbar text-[15px] leading-[1.8] text-zinc-800 dark:text-zinc-100 font-normal relative z-10 pb-32 flex flex-col gap-4">
-                        <!-- AI Content Injected Here -->
+                    <!-- Chat Message Area -->
+                    <div id="blockifai-content" class="flex-1 overflow-y-auto px-4 md:px-8 py-5 no-scrollbar text-[14px] leading-relaxed text-zinc-800 dark:text-zinc-100 font-normal relative z-10 pb-28 flex flex-col gap-3">
+                        <!-- Messages & 3 Cubes Loading state injected here -->
                     </div>
 
-                    <!-- Sticky Input -->
-                    <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent dark:from-[#09090b] dark:via-[#09090b] z-30 pb-6 md:pb-8">
-                        <!-- Capsule Prompts Removed -->
+                    <!-- Input Bar -->
+                    <div class="absolute bottom-0 left-0 right-0 px-4 pb-5 pt-3 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-black dark:via-black/90 z-30 backdrop-blur-sm">
                         <div id="blockifai-capsules" class="hidden"></div>
-                        <form id="blockifai-chat-form" class="flex items-end gap-2 max-w-3xl mx-auto bg-zinc-100 dark:bg-[#1c1c1e] border border-zinc-300 dark:border-zinc-700 rounded-3xl p-2 shadow-lg" onsubmit="handleBlockifAIChat(event)">
-                            <div class="flex-1 relative">
-                                <textarea id="blockifai-chat-input" rows="1" class="w-full bg-transparent px-3 py-2.5 text-[14px] font-medium text-zinc-900 dark:text-white outline-none resize-none max-h-32 min-h-[44px] placeholder-zinc-500" placeholder="Ask BlockifAI anything..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
+                        <form id="blockifai-chat-form" class="flex items-end gap-2 max-w-2xl mx-auto bg-zinc-100/90 dark:bg-[#18181b]/90 backdrop-blur-xl border border-zinc-200/80 dark:border-white/10 rounded-[24px] p-1.5 shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/30" onsubmit="handleBlockifAIChat(event)">
+                            <div class="flex-1 relative pl-2.5">
+                                <textarea id="blockifai-chat-input" rows="1" class="w-full bg-transparent px-1.5 py-2.5 text-[14px] font-medium text-zinc-900 dark:text-white outline-none resize-none max-h-28 min-h-[42px] placeholder-zinc-400" placeholder="Ask BlockifAI anything..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
                             </div>
-                            <button id="blockifai-send-btn" type="submit" class="w-10 h-10 mb-0.5 mr-0.5 rounded-full bg-gradient-to-tr from-purple-500 to-cyan-500 text-white flex items-center justify-center shrink-0 shadow-md card-press transition-colors disabled:opacity-50">
-                                <i data-lucide="arrow-up" class="w-5 h-5"></i>
+                            <button id="blockifai-send-btn" type="submit" class="w-9 h-9 rounded-full bg-brand-gradient text-white flex items-center justify-center shrink-0 shadow-sm card-press transition-all">
+                                <i data-lucide="arrow-up" class="w-4 h-4 stroke-[2.5px]"></i>
                             </button>
                         </form>
-                        <p class="text-center text-[10px] font-medium text-zinc-400 mt-2">BlockifAI can make mistakes. Check important info.</p>
                     </div>
                 </div>
 
@@ -3506,7 +3782,11 @@
             if (!setObj) return 'Unknown_Set';
             if (setObj.isMistakes) return 'Mistakes_Review';
             
-            let key = `${appState.academicYear}_${appState.academicBlock}_${appState.mode === 'vivacards' ? 'Viva_' : ''}${setObj.originalSetIndex}`;
+            // STRICT ISOLATION FIX: Bind progress specifically to the Subject & LO combination!
+            const subjectSafe = (appState.context.subject || 'Gen').replace(/\s+/g, '');
+            const loSafe = (appState.selectedLOs || []).slice().sort().join('-').replace(/\s+/g, '');
+            
+            let key = `${appState.academicYear}_${appState.academicBlock}_${subjectSafe}_${loSafe}_${appState.mode === 'vivacards' ? 'Viva_' : ''}${setObj.originalSetIndex}`;
             
             if (appState.sessionConfig.difficulty && appState.sessionConfig.difficulty !== 'All') {
                 key += `_${appState.sessionConfig.difficulty}`;
@@ -3881,7 +4161,7 @@
         }
 
         function initTheme() {
-            const theme = localStorage.getItem('app-theme') || 'dark';
+            const theme = localStorage.getItem('app-theme') || 'light';
             document.documentElement.className = theme;
             updateThemeButtonUI(theme);
         }
@@ -6541,6 +6821,15 @@
         function cleanMCQStatement(text) {
             if (!text) return '';
             let cleaned = text
+                // Fix Encoding issues (mangled characters)
+                .replace(/â€”/g, '—')
+                .replace(/â€“/g, '–')
+                .replace(/â€™/g, "'")
+                .replace(/â€˜/g, "'")
+                .replace(/â€œ/g, '"')
+                .replace(/â€/g, '"')
+                .replace(/â€¦/g, '...')
+                .replace(/â€¢/g, '-')
                 .replace(/according\s+to\s+(the\s+)?(provided\s+)?(reference\s+)?text,?\s*/gi, '')
                 .replace(/as\s+mentioned\s+in\s+(the\s+)?(provided\s+)?(reference\s+)?text,?\s*/gi, '')
                 .replace(/as\s+described\s+in\s+(the\s+)?(provided\s+)?(reference\s+)?text,?\s*/gi, '')
@@ -6603,6 +6892,16 @@
             if(!text) return '';
             let parsed = text;
             
+            // Fix Encoding issues (mangled characters like â€” for dashes)
+            parsed = parsed.replace(/â€”/g, '—');
+            parsed = parsed.replace(/â€“/g, '–');
+            parsed = parsed.replace(/â€™/g, "'");
+            parsed = parsed.replace(/â€˜/g, "'");
+            parsed = parsed.replace(/â€œ/g, '"');
+            parsed = parsed.replace(/â€/g, '"');
+            parsed = parsed.replace(/â€¦/g, '...');
+            parsed = parsed.replace(/â€¢/g, '-');
+
             // Re-apply Saved User Highlights First!
             const userHighlights = appState.userData?.noteHighlights || [];
             userHighlights.forEach(hl => {
@@ -6628,9 +6927,9 @@
             parsed = parsed.replace(/is there anything else[\s\S]*?\?/gi, '');
             parsed = parsed.replace(/Would\s+you\s+like\s+a\s+summary\s+of\s+the\s+next\s+section\s+regarding[\s\S]*?\?/gi, '');
             
-            // Bold/Italic block replacements
-            parsed = parsed.replace(/\*\*(.*?)\*\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
-            parsed = parsed.replace(/\*(.*?)\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-[6px] font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
+            // Bold/Italic block replacements (SHARP CORNERS)
+            parsed = parsed.replace(/\*\*(.*?)\*\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-none font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
+            parsed = parsed.replace(/\*(.*?)\*:/g, '<span class="bg-brand-gradient text-white px-2 py-0.5 rounded-none font-bold text-[11px] uppercase tracking-wider shadow-sm mr-1">$1</span>:');
             parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<span class="text-brand-gradient font-extrabold">$1</span>');
             
             // Remove single asterisks and style the text nicely
@@ -6820,12 +7119,12 @@
             
             if (!query) {
                 container.innerHTML = `
-                    <div class="text-center py-12">
-                        <div class="w-12 h-12 bg-brand-blue/10 rounded-[16px] flex items-center justify-center mx-auto mb-4">
-                            <i data-lucide="search" class="w-5 h-5 text-brand-blue stroke-[3px]"></i>
+                    <div class="text-center py-10 px-4">
+                        <div class="w-10 h-10 rounded-2xl bg-brand-gradient flex items-center justify-center mx-auto mb-3 text-white shadow-md">
+                            <i data-lucide="search" class="w-4 h-4"></i>
                         </div>
-                        <h3 class="text-zinc-900 dark:text-white font-black text-sm mb-1">Global Syllabus Search</h3>
-                        <p class="text-zinc-500 font-semibold text-[11px]">Type to find objectives instantly</p>
+                        <h4 class="text-zinc-900 dark:text-white font-bold text-[14px] mb-1">Search Curriculum</h4>
+                        <p class="text-zinc-400 text-[11px]">Type to find objectives, viva topics, and notes instantly.</p>
                     </div>`;
                 lucide.createIcons();
                 return;
@@ -11771,6 +12070,25 @@ REQUIREMENTS:
             lucide.createIcons();
         };
 
+        // Helper template for 3 Blocks Icon (SVG)
+        const SVG_THREE_BLOCKS = `
+            <svg class="w-full h-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round">
+                    <g class="cube-top">
+                        <path d="M50 7 L69 18 L69 40 L50 51 L31 40 L31 18 Z" fill="rgba(16,185,129,0.25)" stroke="#10b981"/>
+                        <path d="M50 29 L31 18 M50 29 L69 18 M50 29 L50 51" stroke="#10b981"/>
+                    </g>
+                    <g class="cube-left">
+                        <path d="M30 42 L49 53 L49 75 L30 86 L11 75 L11 53 Z" fill="rgba(59,130,246,0.25)" stroke="#3b82f6"/>
+                        <path d="M30 64 L11 53 M30 64 L49 53 M30 64 L30 86" stroke="#3b82f6"/>
+                    </g>
+                    <g class="cube-right">
+                        <path d="M70 42 L89 53 L89 75 L70 86 L51 75 L51 53 Z" fill="rgba(251,208,67,0.25)" stroke="#fbd043"/>
+                        <path d="M70 64 L51 53 M70 64 L89 53 M70 64 L70 86" stroke="#fbd043"/>
+                    </g>
+                </g>
+            </svg>`;
+
         function renderBlockifAIChat(scrollToLatestAi = false) {
             const contentBox = document.getElementById('blockifai-content');
             if (!contentBox) return;
@@ -11779,7 +12097,6 @@ REQUIREMENTS:
             
             if (!session || !session.messages || session.messages.length === 0) {
                 if (session && session.type === 'usmlefy') {
-                    // It's a USMLEfy history set
                     contentBox.innerHTML = `
                         <div class="flex flex-col items-center justify-center h-full text-center mt-20">
                             <div class="w-16 h-16 rounded-[20px] bg-gradient-to-tr from-brand-blue to-purple-500 flex items-center justify-center mb-5 shadow-lg">
@@ -11797,24 +12114,30 @@ REQUIREMENTS:
                     return;
                 }
 
-                // Empty state for new regular chat
+                // 3 Blocks Empty State
                 document.getElementById('blockifai-chat-form').style.display = 'flex';
                 contentBox.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-center mt-20 opacity-80">
-                        <div class="w-16 h-16 shrink-0 flex items-center justify-center relative drop-shadow-sm mb-4">
-                            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full absolute animate-[spin_12s_linear_infinite]">
-                                <defs>
-                                <linearGradient id="blobGradEmpty" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="#a855f7" />
-                                    <stop offset="50%" stop-color="#3b82f6" />
-                                    <stop offset="100%" stop-color="#06b6d4" />
-                                </linearGradient>
-                                </defs>
-                                <path fill="url(#blobGradEmpty)" d="M45.7,-76.3C58.9,-69.3,69,-55.3,77.3,-41.2C85.6,-27.1,92.1,-13.6,90.4,-1.1C88.6,11.5,78.6,22.9,70.5,34.4C62.4,45.9,56.2,57.4,46.2,65.8C36.2,74.2,22.4,79.5,8.1,78.8C-6.2,78.1,-20.9,71.5,-32.7,62.5C-44.5,53.5,-53.4,42.1,-62.4,30.3C-71.4,18.5,-80.5,6.3,-82.1,-6.6C-83.7,-19.5,-77.8,-33,-68.2,-43.3C-58.6,-53.6,-45.3,-60.7,-32.3,-67.9C-19.3,-75.1,-9.6,-82.4,3.2,-84.3C16,-86.2,32.5,-83.3,45.7,-76.3Z" transform="translate(100 100) scale(1.1)" />
-                            </svg>
+                    <div class="flex flex-col items-center justify-center h-full text-center mt-8 md:mt-16">
+                        <div class="w-16 h-16 shrink-0 flex items-center justify-center mb-5 p-2 bg-zinc-100 dark:bg-[#18181b] rounded-3xl border border-zinc-200/80 dark:border-white/10 shadow-sm">
+                            ${SVG_THREE_BLOCKS}
                         </div>
-                        <h3 class="font-black text-lg text-zinc-900 dark:text-white mb-2">How can I help you study?</h3>
-                        <p class="text-sm font-medium text-zinc-500 max-w-[280px]">Ask questions about your curriculum, get study tips, or review concepts.</p>
+                        <h3 class="font-bold text-[18px] text-zinc-900 dark:text-white mb-1 tracking-tight">Ask BlockifAI anything</h3>
+                        <p class="text-[12px] text-zinc-500 max-w-[260px] mb-6 font-medium">Get instant explanations, memory mnemonics, or quick pop quizzes.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 w-full max-w-md px-3">
+                            <button onclick="runBlockifAI('Create a 5-question pop quiz on Pharmacology for my current block.')" class="bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-white/5 p-3.5 rounded-2xl text-left hover:border-emerald-500/50 transition-colors card-press shadow-sm group">
+                                <h4 class="text-[13px] font-bold text-zinc-900 dark:text-white mb-0.5 group-hover:text-emerald-500">Quick Pop Quiz</h4>
+                                <p class="text-[11px] text-zinc-500 font-medium">Test my knowledge on current block</p>
+                            </button>
+                            <button onclick="runBlockifAI('Give me a catchy mnemonic to remember the cranial nerves.')" class="bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-white/5 p-3.5 rounded-2xl text-left hover:border-emerald-500/50 transition-colors card-press shadow-sm group">
+                                <h4 class="text-[13px] font-bold text-zinc-900 dark:text-white mb-0.5 group-hover:text-emerald-500">Create Mnemonic</h4>
+                                <p class="text-[11px] text-zinc-500 font-medium">Active recall retention tricks</p>
+                            </button>
+                            <button onclick="runBlockifAI('Explain the mechanism of action of ACE inhibitors simply.')" class="bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-white/5 p-3.5 rounded-2xl text-left hover:border-emerald-500/50 transition-colors card-press shadow-sm group md:col-span-2">
+                                <h4 class="text-[13px] font-bold text-zinc-900 dark:text-white mb-0.5 group-hover:text-emerald-500">Simplify Mechanism</h4>
+                                <p class="text-[11px] text-zinc-500 font-medium">Explain complex medical concepts clearly</p>
+                            </button>
+                        </div>
                     </div>
                 `;
                 lucide.createIcons();
@@ -11834,8 +12157,15 @@ REQUIREMENTS:
             contentBox.innerHTML = session.messages.map((msg, index) => {
                 if (msg.role === 'user') {
                     return `
-                        <div id="ai-msg-${index}" class="self-end max-w-[85%] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white px-5 py-3.5 rounded-3xl rounded-tr-sm shadow-sm">
-                            <p class="text-[14.5px] leading-relaxed font-medium whitespace-pre-wrap">${msg.content}</p>
+                        <div id="ai-msg-${index}" class="self-end max-w-[85%] flex flex-col items-end mb-4 animate-[fadeIn_0.2s_ease-out] group">
+                            <div class="bg-brand-gradient text-white px-5 py-3.5 rounded-[22px] rounded-br-[6px] shadow-[0_4px_15px_rgba(75,184,214,0.25)]">
+                                <p class="text-[14.5px] leading-relaxed font-medium whitespace-pre-wrap">${msg.content}</p>
+                            </div>
+                            <!-- ChatGPT Style User Actions -->
+                            <div class="flex items-center gap-3 mt-2 mr-2 opacity-50 hover:opacity-100 transition-opacity">
+                                <button onclick="editBlockifaiMessage(${index})" class="flex items-center gap-1 text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                                <button onclick="copyBlockifaiText(\`${encodeURIComponent(msg.content)}\`)" class="flex items-center gap-1 text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                            </div>
                         </div>
                     `;
                 } else if (msg.isPlannerPrompt) {
@@ -11942,8 +12272,21 @@ REQUIREMENTS:
                     `;
                 } else {
                     return `
-                        <div id="ai-msg-${index}" class="self-start max-w-[95%] text-zinc-800 dark:text-zinc-100 p-2">
-                            ${formatBlockifAIMinimal(msg.content)}
+                        <div id="ai-msg-${index}" class="self-start max-w-[95%] w-full flex flex-col items-start mt-1.5 mb-5 animate-[fadeIn_0.3s_ease-out] group">
+                            <div class="flex items-start gap-3 w-full">
+                                <!-- Default 3 Blocks Icon for All AI Responses -->
+                                <div class="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 flex items-center justify-center shrink-0 shadow-sm mt-0.5 p-1">
+                                    ${SVG_THREE_BLOCKS}
+                                </div>
+                                <div class="flex-1 min-w-0 text-zinc-800 dark:text-zinc-100 pt-0.5">
+                                    ${formatBlockifAIMinimal(msg.content)}
+                                </div>
+                            </div>
+                            <!-- AI Actions -->
+                            <div class="flex items-center gap-3 mt-2 ml-10 opacity-40 hover:opacity-100 transition-opacity">
+                                <button onclick="copyBlockifaiText(\`${encodeURIComponent(msg.content)}\`)" class="flex items-center gap-1 text-[10.5px] font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy</button>
+                                <button onclick="regenerateBlockifaiMessage(${index})" class="flex items-center gap-1 text-[10.5px] font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Regenerate</button>
+                            </div>
                         </div>
                     `;
                 }
@@ -11999,14 +12342,55 @@ REQUIREMENTS:
             if(!btn) return;
             if(isBlockifaiGenerating) {
                 btn.innerHTML = `<i data-lucide="square" class="w-4 h-4 fill-current"></i>`;
-                btn.classList.remove('from-purple-500', 'to-cyan-500');
-                btn.classList.add('from-rose-500', 'to-rose-400');
+                btn.classList.remove('bg-brand-gradient');
+                btn.classList.add('bg-rose-500');
+                btn.style.borderRadius = '12px'; // Make it look like a stop button
             } else {
-                btn.innerHTML = `<i data-lucide="arrow-up" class="w-5 h-5"></i>`;
-                btn.classList.remove('from-rose-500', 'to-rose-400');
-                btn.classList.add('from-purple-500', 'to-cyan-500');
+                btn.innerHTML = `<i data-lucide="arrow-up" class="w-5 h-5 stroke-[2.5px]"></i>`;
+                btn.classList.remove('bg-rose-500');
+                btn.classList.add('bg-brand-gradient');
+                btn.style.borderRadius = '20px'; // Revert to sleek rounded
             }
             lucide.createIcons();
+        };
+
+        // --- ChatGPT Style Actions ---
+        window.copyBlockifaiText = function(encodedStr) {
+            const txt = decodeURIComponent(encodedStr);
+            navigator.clipboard.writeText(txt).then(() => {
+                alert("Copied to clipboard!");
+            });
+        };
+
+        window.editBlockifaiMessage = function(index) {
+            const session = appState.aiSessions.find(s => s.id === appState.currentAiSessionId);
+            if (!session || !session.messages[index]) return;
+            
+            const msg = session.messages[index];
+            const input = document.getElementById('blockifai-chat-input');
+            if (input) {
+                input.value = msg.content;
+                input.style.height = 'auto';
+                input.style.height = input.scrollHeight + 'px';
+                input.focus();
+            }
+        };
+
+        window.regenerateBlockifaiMessage = function(index) {
+            if (isBlockifaiGenerating) return;
+            
+            const session = appState.aiSessions.find(s => s.id === appState.currentAiSessionId);
+            if (!session) return;
+            
+            // Delete AI's message and anything after it to cleanly regenerate
+            session.messages = session.messages.slice(0, index);
+            
+            // Find the immediate preceding user prompt to trigger runBlockifAI
+            const lastUserMsg = session.messages[session.messages.length - 1];
+            if (lastUserMsg && lastUserMsg.role === 'user') {
+                session.messages.pop(); // Pop it out so runBlockifAI pushes it back cleanly
+                runBlockifAI(lastUserMsg.content);
+            }
         };
 
         window.aiPlannerState = { active: false, step: 0, data: {}, draftPlan: null };
@@ -12252,16 +12636,44 @@ Provide:
 
         async function fetchBlockifAIResponse(prompt, session) {
             const contentBox = document.getElementById('blockifai-content');
+            const geminiBg = document.getElementById('gemini-generating-bg');
             
-            // Add Loading Bubble
+            // Activate Gemini-Style Top Ambient Animated Flow Gradient
+            if (geminiBg) {
+                geminiBg.classList.add('gemini-ambient-active');
+            }
+
+            // Add 3-CUBES JUGGLING LOADER BUBBLE
             const loadingId = 'ai-loading-' + Date.now();
             contentBox.insertAdjacentHTML('beforeend', `
-                <div id="${loadingId}" class="self-start max-w-[85%] text-zinc-500 p-4 flex items-center gap-1.5 h-14">
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
+                <div id="${loadingId}" class="self-start max-w-[95%] w-full flex items-start gap-3 mt-2 mb-4 animate-[fadeIn_0.2s_ease-out]">
+                    <div class="w-8 h-8 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 flex items-center justify-center shrink-0 shadow-sm mt-0.5 p-1">
+                        <svg class="w-full h-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <g stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round">
+                                <g class="cube-top">
+                                    <path d="M50 7 L69 18 L69 40 L50 51 L31 40 L31 18 Z" fill="rgba(16,185,129,0.2)" stroke="#10b981"/>
+                                    <path d="M50 29 L31 18 M50 29 L69 18 M50 29 L50 51" stroke="#10b981"/>
+                                </g>
+                                <g class="cube-left">
+                                    <path d="M30 42 L49 53 L49 75 L30 86 L11 75 L11 53 Z" fill="rgba(59,130,246,0.2)" stroke="#3b82f6"/>
+                                    <path d="M30 64 L11 53 M30 64 L49 53 M30 64 L30 86" stroke="#3b82f6"/>
+                                </g>
+                                <g class="cube-right">
+                                    <path d="M70 42 L89 53 L89 75 L70 86 L51 75 L51 53 Z" fill="rgba(251,208,67,0.2)" stroke="#fbd043"/>
+                                    <path d="M70 64 L51 53 M70 64 L89 53 M70 64 L70 86" stroke="#fbd043"/>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="bg-zinc-100/80 dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-white/5 rounded-2xl rounded-tl-sm px-4 py-2.5 flex items-center gap-1.5 shadow-sm">
+                        <span class="text-[12px] font-medium text-zinc-500 dark:text-zinc-400">BlockifAI is thinking</span>
+                        <span class="typing-dot text-emerald-500"></span>
+                        <span class="typing-dot text-brand-blue"></span>
+                        <span class="typing-dot text-amber-400"></span>
+                    </div>
                 </div>
             `);
+            lucide.createIcons();
             contentBox.scrollTop = contentBox.scrollHeight;
 
             blockifaiAbortController = new AbortController();
@@ -12388,6 +12800,12 @@ GUIDELINES:
             } finally {
                 isBlockifaiGenerating = false;
                 updateChatButtonState();
+                
+                // Smoothly fade out the Gemini animated ambient gradient
+                const geminiBg = document.getElementById('gemini-generating-bg');
+                if (geminiBg) {
+                    geminiBg.classList.remove('gemini-ambient-active');
+                }
             }
         }
 
@@ -13159,6 +13577,604 @@ Rules:
         // Arena Co-op handlers removed
 
         
+
+        // ================= CLOZIFY ENGINE (ANKI + PDF + SYLLABUS INTEGRATION) =================
+        let clozifyState = {
+            pdfFile: null,        // Stores raw File object (Prevents detached buffer error!)
+            pdfDoc: null,         // Cached PDF.js document instance
+            detectedChapters: [], // Extracted TOC chapters
+            targetCount: 20,
+            selectedLOs: [],
+            activeDeck: null,
+            currentCardIdx: 0,
+            isRevealed: false
+        };
+
+        window.openClozify = function() {
+            navigate('clozify');
+            initClozifySyllabusDropdowns();
+            renderClozifyHeatmap();
+            renderClozifyDecksLibrary();
+        };
+
+        window.switchClozifyView = function(viewName) {
+            const views = ['creator', 'library', 'study'];
+            views.forEach(v => {
+                const el = document.getElementById(`clozify-view-${v}`);
+                if (el) el.classList.toggle('hidden', v !== viewName);
+            });
+
+            const tabCreator = document.getElementById('clozify-tab-creator');
+            const tabLibrary = document.getElementById('clozify-tab-library');
+            if (tabCreator && tabLibrary) {
+                if (viewName === 'creator') {
+                    tabCreator.className = "px-3 py-1.5 rounded-[9px] text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press";
+                    tabLibrary.className = "px-3 py-1.5 rounded-[9px] text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-all card-press";
+                } else if (viewName === 'library') {
+                    tabLibrary.className = "px-3 py-1.5 rounded-[9px] text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm transition-all card-press";
+                    tabCreator.className = "px-3 py-1.5 rounded-[9px] text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-all card-press";
+                    renderClozifyDecksLibrary();
+                }
+            }
+            lucide.createIcons();
+        };
+
+        window.setClozifyCount = function(num) {
+            clozifyState.targetCount = num;
+            const label = document.getElementById('clozify-quantity-label');
+            if (label) label.innerText = `${num} Cards`;
+
+            [20, 40, 60].forEach(n => {
+                const btn = document.getElementById(`clozify-count-${n}`);
+                if (btn) {
+                    if (n === num) {
+                        btn.className = "py-3 rounded-xl text-xs font-bold bg-brand-gradient text-white shadow-sm transition-all card-press";
+                    } else {
+                        btn.className = "py-3 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-all card-press";
+                    }
+                }
+            });
+        };
+
+        window.initClozifySyllabusDropdowns = function() {
+            const modSelect = document.getElementById('clozify-module-select');
+            if (!modSelect) return;
+            
+            const modules = APP_DATA.modules ? Object.keys(APP_DATA.modules) : [];
+            if (modules.length === 0) {
+                modSelect.innerHTML = `<option value="">No modules loaded</option>`;
+                return;
+            }
+
+            modSelect.innerHTML = `<option value="">Select Module...</option>` + modules.map(m => `<option value="${m}">${m}</option>`).join('');
+        };
+
+        window.populateClozifySubjects = function(moduleName) {
+            const subSelect = document.getElementById('clozify-subject-select');
+            const pillsContainer = document.getElementById('clozify-lo-pills-list');
+            if (!subSelect) return;
+
+            clozifyState.selectedLOs = [];
+            document.getElementById('clozify-lo-selected-count').innerText = `0 Selected`;
+            if (pillsContainer) pillsContainer.innerHTML = `<p class="text-[11px] text-zinc-400 p-2 italic">Select a subject above to load learning objectives.</p>`;
+
+            if (!moduleName || !APP_DATA.modules[moduleName]) {
+                subSelect.innerHTML = `<option value="">Select Module first...</option>`;
+                subSelect.disabled = true;
+                return;
+            }
+
+            const subjects = Object.keys(APP_DATA.modules[moduleName].subjects);
+            subSelect.disabled = false;
+            subSelect.innerHTML = `<option value="">Select Subject...</option>` + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+        };
+
+        window.populateClozifyLOs = function(subjectName) {
+            const modName = document.getElementById('clozify-module-select').value;
+            const pillsContainer = document.getElementById('clozify-lo-pills-list');
+            if (!pillsContainer || !modName || !subjectName) return;
+
+            const modObj = APP_DATA.modules[modName];
+            const subObj = modObj ? modObj.subjects[subjectName] : null;
+            const los = subObj ? subObj.los : [];
+
+            if (los.length === 0) {
+                pillsContainer.innerHTML = `<p class="text-[11px] text-zinc-400 p-2 italic">No LOs found for this subject.</p>`;
+                return;
+            }
+
+            clozifyState.selectedLOs = [];
+            document.getElementById('clozify-lo-selected-count').innerText = `0 Selected`;
+
+            pillsContainer.innerHTML = los.map(lo => {
+                return `
+                    <button type="button" onclick="toggleClozifyLOPill('${lo.code}', this)" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-white/10 hover:border-brand-blue transition-all truncate card-press">
+                        <span>${lo.code}</span>
+                    </button>
+                `;
+            }).join('');
+        };
+
+        window.toggleClozifyLOPill = function(code, btn) {
+            const idx = clozifyState.selectedLOs.indexOf(code);
+            if (idx === -1) {
+                clozifyState.selectedLOs.push(code);
+                btn.classList.add('bg-brand-gradient', 'text-white', 'border-transparent');
+                btn.classList.remove('bg-white', 'dark:bg-zinc-800', 'text-zinc-700', 'dark:text-zinc-300');
+            } else {
+                clozifyState.selectedLOs.splice(idx, 1);
+                btn.classList.remove('bg-brand-gradient', 'text-white', 'border-transparent');
+                btn.classList.add('bg-white', 'dark:bg-zinc-800', 'text-zinc-700', 'dark:text-zinc-300');
+            }
+            document.getElementById('clozify-lo-selected-count').innerText = `${clozifyState.selectedLOs.length} Selected`;
+        };
+
+        // --- SAFE PDF UPLOADER WITH AUTOMATIC CHAPTER EXTRACTOR (BUFFER FIX) ---
+        window.handleClozifyPdfUpload = async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            clozifyState.pdfFile = file; // Store File reference to prevent detached ArrayBuffer errors!
+
+            const statusBox = document.getElementById('clozify-pdf-status');
+            const chapterBox = document.getElementById('clozify-chapter-box');
+            const chapterSelect = document.getElementById('clozify-chapter-select');
+
+            if (statusBox) {
+                statusBox.innerHTML = `
+                    <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200 block">${file.name}</span>
+                    <span class="text-[10px] text-emerald-500 font-bold">Scanning PDF structure & chapters...</span>
+                `;
+            }
+
+            try {
+                // Generate a fresh Uint8Array every time so buffer detachment cannot happen
+                const arrayBuffer = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+                const pdf = await loadingTask.promise;
+                clozifyState.pdfDoc = pdf;
+
+                // Extract Bookmarks / Table of Contents / Outline
+                let chapters = [];
+                try {
+                    const outline = await pdf.getOutline();
+                    if (outline && outline.length > 0) {
+                        for (let item of outline) {
+                            let pageNum = 1;
+                            if (item.dest) {
+                                let dest = item.dest;
+                                if (typeof dest === 'string') dest = await pdf.getDestination(dest);
+                                if (Array.isArray(dest) && dest[0]) {
+                                    const pageIndex = await pdf.getPageIndex(dest[0]);
+                                    pageNum = pageIndex + 1;
+                                }
+                            }
+                            chapters.push({ title: item.title, page: pageNum });
+                        }
+                    }
+                } catch(e) {
+                    console.warn("Outline extract error:", e);
+                }
+
+                // If no embedded PDF outline, generate intelligent chapter sections based on total page count
+                if (chapters.length === 0) {
+                    const total = pdf.numPages;
+                    const step = total > 150 ? 25 : (total > 60 ? 15 : 10);
+                    for (let p = 1; p <= total; p += step) {
+                        const endP = Math.min(p + step - 1, total);
+                        chapters.push({ title: `Pages ${p} - ${endP}`, page: p, endPage: endP });
+                    }
+                }
+
+                clozifyState.detectedChapters = chapters;
+
+                if (chapterSelect && chapters.length > 0) {
+                    chapterSelect.innerHTML = `<option value="">Select Chapter / Section...</option>` + chapters.map((c, i) => {
+                        const nextP = (c.endPage) ? c.endPage : (chapters[i+1] ? chapters[i+1].page - 1 : pdf.numPages);
+                        return `<option value="${c.page}-${nextP}">${c.title} (pp. ${c.page}-${nextP})</option>`;
+                    }).join('');
+                    if (chapterBox) chapterBox.classList.remove('hidden');
+                }
+
+                if (statusBox) {
+                    statusBox.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto mb-2 shadow-sm">
+                            <i data-lucide="check" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-xs font-black text-zinc-900 dark:text-white block">${file.name}</span>
+                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">${pdf.numPages} Total Pages • ${chapters.length} Sections Ready</span>
+                    `;
+                    lucide.createIcons();
+                }
+
+                // Default starting bounds
+                document.getElementById('clozify-page-start').value = 1;
+                document.getElementById('clozify-page-end').value = Math.min(15, pdf.numPages);
+
+            } catch (err) {
+                console.error("PDF upload error:", err);
+                alert("Failed to parse PDF file. Ensure it is a valid PDF.");
+            }
+        };
+
+        window.handleClozifyChapterSelect = function(rangeVal) {
+            if (!rangeVal) return;
+            const parts = rangeVal.split('-');
+            if (parts.length === 2) {
+                document.getElementById('clozify-page-start').value = parts[0];
+                document.getElementById('clozify-page-end').value = parts[1];
+            }
+        };
+
+        // Extract raw text from selected page ranges reliably without buffer errors
+        async function extractTextFromPdfRange(startPage, endPage) {
+            if (!clozifyState.pdfFile) return "";
+            
+            // Re-instantiate from raw File if instance was garbage-collected
+            if (!clozifyState.pdfDoc) {
+                const arrayBuffer = await clozifyState.pdfFile.arrayBuffer();
+                clozifyState.pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+            }
+
+            const pdf = clozifyState.pdfDoc;
+            let extractedPages = [];
+            
+            for (let p = startPage; p <= Math.min(endPage, pdf.numPages); p++) {
+                try {
+                    const page = await pdf.getPage(p);
+                    const content = await page.getTextContent();
+                    const pageStrings = content.items.map(item => item.str).join(" ");
+                    if (pageStrings.trim().length > 10) {
+                        extractedPages.push({ page: p, text: pageStrings });
+                    }
+                } catch(e) {
+                    console.warn(`Could not extract page ${p}:`, e);
+                }
+            }
+            return extractedPages;
+        }
+
+        // --- BACKGROUND CHUNKED ANKI GENERATOR (SAME INFERENCE ENGINE AS BLOCKIFAI) ---
+        window.generateClozifyAnkiDeck = async function() {
+            if (!clozifyState.pdfFile) {
+                alert("Please upload your textbook PDF first.");
+                return;
+            }
+
+            const pageStart = parseInt(document.getElementById('clozify-page-start').value) || 1;
+            const pageEnd = parseInt(document.getElementById('clozify-page-end').value) || pageStart;
+
+            if (pageStart > pageEnd) {
+                alert("Start page cannot be greater than End page.");
+                return;
+            }
+
+            showLoader("Extracting book pages...");
+
+            try {
+                const extractedPages = await extractTextFromPdfRange(pageStart, pageEnd);
+                if (extractedPages.length === 0) {
+                    throw new Error("Could not extract selectable text from these pages. Check if your PDF is text-based.");
+                }
+
+                // Check API key (Same source as BlockifAI)
+                if (!window.GEMINI_API_KEY) {
+                    const doc = await db.collection("system_config").doc("ai").get();
+                    if (doc.exists && doc.data().gemini_key) {
+                        window.GEMINI_API_KEY = doc.data().gemini_key.trim();
+                    } else {
+                        throw new Error("AI API Key missing in system_config/ai.");
+                    }
+                }
+
+                const cleanKey = window.GEMINI_API_KEY;
+                const totalCardsTarget = clozifyState.targetCount || 20;
+
+                // Split large page ranges into small background chunks to prevent AI token burnouts!
+                const CHUNK_SIZE = 8; // Process in 8-page blocks
+                let chunks = [];
+                for (let i = 0; i < extractedPages.length; i += CHUNK_SIZE) {
+                    chunks.push(extractedPages.slice(i, i + CHUNK_SIZE));
+                }
+
+                const cardsPerChunk = Math.max(5, Math.ceil(totalCardsTarget / chunks.length));
+                let allCompiledCards = [];
+                let deckTitleExtracted = "";
+
+                // Active Groq models identical to BlockifAI
+                const fastModels = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"];
+
+                const loContext = clozifyState.selectedLOs.length > 0 
+                    ? `Prioritize these official syllabus objectives: ${clozifyState.selectedLOs.join(', ')}` 
+                    : `Focus on high-yield medical board facts, anatomy, pharmacology, and pathology.`;
+
+                for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
+                    showLoader(`Compiling Cloze Cards (Batch ${cIdx + 1} of ${chunks.length})...`);
+                    
+                    const chunkText = chunks[cIdx].map(p => `[Page ${p.page}]: ${p.text}`).join('\n\n');
+                    
+                    const prompt = `You are a medical board exam question writer (UHS Modular, USMLE Step 1, First Aid standards).
+Generate exactly ${cardsPerChunk} high-yield, exam-tested Cloze deletion Anki flashcards strictly based on this medical textbook text.
+
+${loContext}
+
+STRICT HIGH-YIELD CLOZE RULES (WHAT TO HIDE):
+1. ALWAYS MASK THE EXACT EXAM-TESTED DISCRIMINATOR:
+   - Nerve root / Innervation (e.g. "{{c1::Axillary nerve (C5-C6)}}")
+   - Specific muscle / Artery / Structure (e.g. "{{c1::Supraspinatus}}", "{{c1::Deep femoral artery}}")
+   - Rate-limiting Enzyme / Biochemical intermediate (e.g. "{{c1::Glutamine-PRPP amidotransferase}}", "{{c1::HMG-CoA reductase}}")
+   - Receptor subtype / Second messenger (e.g. "{{c1::Beta-1 Gs protein}}", "{{c1::IP3/DAG}}")
+   - Pathognomonic buzzword / Hallmark microscopic finding (e.g. "{{c1::Auer rods}}", "{{c1::Reed-Sternberg cells}}", "{{c1::Psammoma bodies}}")
+   - First-line Drug / Reversal agent / Specific adverse effect (e.g. "{{c1::Ethambutol}} -> causes {{c2::optic neuropathy / red-green blindness}}")
+   - Diagnostic criteria / Clinical sign (e.g. "{{c1::Trousseau sign}} -> indicates {{c2::hypocalcemia}}")
+   - Embryological origin (e.g. "{{c1::Neural crest}}", "{{c1::Third pharyngeal pouch}}")
+
+2. NEVER HIDE GENERIC FILLER WORDS:
+   - ❌ WRONG: "The {{c1::muscle}} is located in the arm." (Tests nothing!)
+   - ✅ CORRECT: "The deltoid muscle is innervated by the {{c1::axillary}} nerve and abducts the arm from {{c2::15 to 90}} degrees."
+   - ❌ WRONG: "In this {{c1::disease}}, cells are abnormal."
+   - ✅ CORRECT: "{{c1::Aschoff bodies}} containing reactive {{c2::Anitschkow cells}} (caterpillar chromatin) are pathognomonic for {{c3::Acute Rheumatic Carditis}}."
+
+3. Provide rich contextual clinical clues in the unmasked portion of the sentence so active recall is possible.
+
+Return STRICTLY a JSON object matching this schema:
+{
+  "deckTitle": "Descriptive High-Yield Topic Title",
+  "cards": [
+    {
+      "cloze": "The {{c1::supraspinatus}} initiates the first 15° of arm abduction and is innervated by the {{c2::suprascapular}} nerve (C5-C6).",
+      "answer": "supraspinatus / suprascapular nerve",
+      "loCode": "MS-A-1"
+    }
+  ]
+}
+
+TEXTBOOK TEXT:
+${chunkText.substring(0, 9500)}`;
+
+                    let response = null;
+                    for (const model of fastModels) {
+                        try {
+                            response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    "Authorization": `Bearer ${cleanKey}`
+                                },
+                                body: JSON.stringify({
+                                    model: model,
+                                    messages: [
+                                        { role: "system", content: "You are an Anki generator API. Output ONLY valid JSON." },
+                                        { role: "user", content: prompt }
+                                    ],
+                                    temperature: 0.15,
+                                    response_format: { type: "json_object" }
+                                })
+                            });
+                            if (response.ok) break;
+                        } catch(e) {}
+                    }
+
+                    if (response && response.ok) {
+                        const d = await response.json();
+                        let text = d.choices?.[0]?.message?.content || "";
+                        text = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+                        try {
+                            const parsed = JSON.parse(text);
+                            if (parsed.deckTitle && !deckTitleExtracted) deckTitleExtracted = parsed.deckTitle;
+                            if (Array.isArray(parsed.cards)) {
+                                allCompiledCards.push(...parsed.cards);
+                            }
+                        } catch(parseErr) {
+                            console.warn("Batch JSON parse error:", parseErr);
+                        }
+                    }
+
+                    // Stop if we have gathered enough cards
+                    if (allCompiledCards.length >= totalCardsTarget) break;
+                }
+
+                if (allCompiledCards.length === 0) {
+                    throw new Error("Could not synthesize cards from this text. Ensure the PDF contains legible medical content.");
+                }
+
+                // Trim to exact requested count
+                allCompiledCards = allCompiledCards.slice(0, totalCardsTarget);
+
+                const modName = document.getElementById('clozify-module-select').value || 'General';
+                const subName = document.getElementById('clozify-subject-select').value || 'Textbook';
+
+                const newDeck = {
+                    id: 'deck_' + Date.now(),
+                    title: deckTitleExtracted || `${subName} (pp. ${pageStart}-${pageEnd})`,
+                    module: modName,
+                    subject: subName,
+                    pageRange: `${pageStart}-${pageEnd}`,
+                    cardsCount: allCompiledCards.length,
+                    createdAt: Date.now(),
+                    cards: allCompiledCards
+                };
+
+                if (!appState.userData.clozifyDecks) appState.userData.clozifyDecks = [];
+                appState.userData.clozifyDecks.unshift(newDeck);
+
+                recordClozifyActivity();
+
+                await updateUserDoc({
+                    clozifyDecks: appState.userData.clozifyDecks,
+                    clozifyDates: appState.userData.clozifyDates || [new Date().toDateString()]
+                });
+
+                hideLoader();
+                startClozifyStudySession(newDeck);
+
+            } catch (err) {
+                console.error("Clozify Error:", err);
+                hideLoader();
+                alert("Failed to generate Clozify cards: " + err.message);
+            }
+        };
+
+        window.startClozifyStudySession = function(deck) {
+            clozifyState.activeDeck = deck;
+            clozifyState.currentCardIdx = 0;
+            clozifyState.isRevealed = false;
+
+            document.getElementById('clozify-study-deckname').innerText = deck.title;
+            switchClozifyView('study');
+            renderClozifyCurrentCard();
+        };
+
+        window.renderClozifyCurrentCard = function() {
+            const deck = clozifyState.activeDeck;
+            if (!deck || !deck.cards || deck.cards.length === 0) return;
+
+            const card = deck.cards[clozifyState.currentCardIdx];
+            const progress = document.getElementById('clozify-study-progress');
+            const loLabel = document.getElementById('clozify-study-lo');
+            const cardTextBox = document.getElementById('clozify-card-text');
+            const hint = document.getElementById('clozify-reveal-hint');
+
+            if (progress) progress.innerText = `${clozifyState.currentCardIdx + 1} / ${deck.cards.length}`;
+            if (loLabel) loLabel.innerText = card.loCode || deck.subject;
+
+            clozifyState.isRevealed = false;
+            if (hint) hint.innerText = "Tap [...] to reveal missing term";
+
+            let formattedHtml = card.cloze.replace(/\{\{c\d+::(.*?)\}\}/g, (match, hiddenText) => {
+                return `<button onclick="revealClozifyTerm(this, '${safeStr(hiddenText)}')" class="inline-block mx-1 px-2.5 py-0.5 rounded-lg bg-brand-blue/15 text-brand-blue dark:bg-brand-blue/25 dark:text-cyan-300 font-black font-mono text-[14px] border border-brand-blue/30 card-press transition-all">[...]</button>`;
+            });
+
+            cardTextBox.innerHTML = formattedHtml;
+            lucide.createIcons();
+        };
+
+        window.revealClozifyTerm = function(btn, actualText) {
+            btn.outerHTML = `<span class="inline-block mx-1 px-2.5 py-0.5 rounded-lg bg-emerald-500 text-white font-black text-[14px] shadow-sm animate-[fadeIn_0.2s_ease-out]">${actualText}</span>`;
+            clozifyState.isRevealed = true;
+            const hint = document.getElementById('clozify-reveal-hint');
+            if (hint) hint.innerText = "Rate your recall below to advance";
+        };
+
+        window.rateClozifyCard = function(rating) {
+            recordClozifyActivity();
+
+            const deck = clozifyState.activeDeck;
+            if (clozifyState.currentCardIdx < deck.cards.length - 1) {
+                clozifyState.currentCardIdx++;
+                renderClozifyCurrentCard();
+            } else {
+                alert("🎉 Deck Complete! Great active recall session.");
+                switchClozifyView('library');
+            }
+        };
+
+        window.speakClozifyText = function() {
+            const deck = clozifyState.activeDeck;
+            if (!deck) return;
+            const card = deck.cards[clozifyState.currentCardIdx];
+            const cleanText = card.cloze.replace(/\{\{c\d+::(.*?)\}\}/g, '$1');
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        };
+
+        function recordClozifyActivity() {
+            const today = new Date().toDateString();
+            if (!appState.userData.clozifyDates) appState.userData.clozifyDates = [];
+            if (!appState.userData.clozifyDates.includes(today)) {
+                appState.userData.clozifyDates.push(today);
+                appState.userData.clozifyStreak = (appState.userData.clozifyStreak || 0) + 1;
+            }
+            renderClozifyHeatmap();
+        }
+
+        // --- TRUE 7-ROW GITHUB CONTRIBUTION HEATMAP MATRIX ---
+        window.renderClozifyHeatmap = function() {
+            const matrix = document.getElementById('clozify-github-matrix');
+            const streakLabel = document.getElementById('clozify-streak-label');
+            if (!matrix) return;
+
+            const dates = appState.userData?.clozifyDates || [];
+            const streak = appState.userData?.clozifyStreak || (dates.length > 0 ? 1 : 0);
+            if (streakLabel) streakLabel.innerText = `${streak} Day Streak`;
+
+            const totalWeeks = 16;
+            const totalDays = totalWeeks * 7;
+            const today = new Date();
+            
+            // Align to current day of week
+            const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon ...
+            
+            let html = '';
+            for (let i = totalDays - 1; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const dateStr = d.toDateString();
+                const isActive = dates.includes(dateStr);
+
+                // GitHub Green Intensity Levels
+                let levelCls = 'bg-zinc-100 dark:bg-zinc-800/80';
+                if (isActive) {
+                    levelCls = 'bg-emerald-500 dark:bg-emerald-400 shadow-sm';
+                }
+
+                html += `<div class="w-[10px] h-[10px] rounded-[2.5px] ${levelCls} transition-colors" title="${dateStr}"></div>`;
+            }
+
+            matrix.innerHTML = html;
+        };
+
+        window.renderClozifyDecksLibrary = function() {
+            const container = document.getElementById('clozify-decks-list');
+            if (!container) return;
+
+            const decks = appState.userData?.clozifyDecks || [];
+            if (decks.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16 px-4 bg-white dark:bg-[#18181b] rounded-[24px] border border-zinc-200/80 dark:border-white/10 shadow-sm mt-2">
+                        <div class="w-12 h-12 rounded-2xl bg-brand-gradient text-white flex items-center justify-center mx-auto mb-3 font-mono font-black text-sm">[...]</div>
+                        <h4 class="text-zinc-900 dark:text-white font-bold text-sm mb-1">No Saved Decks Yet</h4>
+                        <p class="text-zinc-400 text-xs font-medium max-w-xs mx-auto">Upload a book chapter in the Creator tab to generate your first Anki Cloze deck.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = decks.map(d => {
+                return `
+                    <div class="bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-white/10 rounded-[20px] p-4 shadow-sm flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3.5 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-brand-gradient text-white flex items-center justify-center font-mono font-black text-xs shrink-0 shadow-sm">[...]</div>
+                            <div class="truncate">
+                                <h4 class="text-[14px] font-bold text-zinc-900 dark:text-white leading-tight truncate mb-0.5">${d.title}</h4>
+                                <p class="text-[10px] text-zinc-400 font-medium truncate">${d.subject} • Pages ${d.pageRange} • <strong class="text-emerald-500">${d.cardsCount} Cards</strong></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="deleteClozifyDeck('${d.id}')" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            <button onclick="startClozifyStudySessionById('${d.id}')" class="px-3.5 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-black font-bold text-xs card-press shadow-sm">Study</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        };
+
+        window.startClozifyStudySessionById = function(id) {
+            const deck = (appState.userData?.clozifyDecks || []).find(d => d.id === id);
+            if (deck) startClozifyStudySession(deck);
+        };
+
+        window.deleteClozifyDeck = async function(id) {
+            if (!confirm("Are you sure you want to delete this Anki deck?")) return;
+            appState.userData.clozifyDecks = (appState.userData.clozifyDecks || []).filter(d => d.id !== id);
+            await updateUserDoc({ clozifyDecks: appState.userData.clozifyDecks });
+            renderClozifyDecksLibrary();
+        };
 
         // ================= PWA BACKGROUND WORKER GENERATOR =================
         // Dynamic Manifest Injection for seamless Android Chrome PWA installation
