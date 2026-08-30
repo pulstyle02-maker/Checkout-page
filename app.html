@@ -1001,24 +1001,9 @@
 
                 <!-- Minimal Icon Links (Thicker Font & Icons by ~3-4%) -->
                 <div class="space-y-1.5">
-                    <button onclick="toggleDrawer(false); switchTab('dashboard')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-900 dark:text-white hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
-                        <i data-lucide="home" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
-                        <span>Dashboard</span>
-                    </button>
-
-                    <button onclick="toggleDrawer(false); setMode('mcqs'); navigate('module_selection')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
-                        <i data-lucide="target" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
-                        <span>Practice Modules</span>
-                    </button>
-
-                    <button onclick="toggleDrawer(false); switchTab('explore')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
+                    <button onclick="toggleDrawer(false); switchTab('explore')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-900 dark:text-white hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
                         <i data-lucide="book-open" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
                         <span>Syllabus</span>
-                    </button>
-
-                    <button onclick="toggleDrawer(false); switchTab('analytics')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
-                        <i data-lucide="bar-chart-2" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
-                        <span>Stats & Analytics</span>
                     </button>
 
                     <button onclick="toggleDrawer(false); navigate('saved_mcqs')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
@@ -1040,11 +1025,6 @@
                     <button onclick="toggleDrawer(false); openUsmlefy()" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
                         <i data-lucide="activity" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
                         <span>USMLEfy (Step 1)</span>
-                    </button>
-
-                    <button onclick="toggleDrawer(false); navigate('mistakes_review')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
-                        <i data-lucide="shield-alert" class="w-[20px] h-[20px] stroke-[2.5px] shrink-0"></i>
-                        <span>Mistakes Review</span>
                     </button>
 
                     <button onclick="toggleDrawer(false); navigate('profile')" class="drawer-nav-item w-full flex items-center gap-4 px-3 py-3.5 rounded-xl text-left text-[15px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors card-press">
@@ -6479,7 +6459,13 @@
                         const subNameLower = s.name.toLowerCase();
                         const isAllowedAIMC29 = subNameLower.includes("gross anatomy") || subNameLower.includes("anatomy") || subNameLower.includes("embryology") || subNameLower.includes("histology");
                         
-                        let isGuestLockedSub = false; // Guest restriction removed
+                        let isGuestLockedSub = false;
+                        if (appState.isGuest) {
+                            // Lock everything in Guest mode EXCEPT Pharmacology
+                            if (!subNameLower.includes("pharmacology")) {
+                                isGuestLockedSub = true;
+                            }
+                        }
 
                         if ((isAIMC29 && !isAllowedAIMC29) || isGuestLockedSub) {
                             return `
@@ -6573,8 +6559,11 @@
                 const renderCard = (lo, originalIndex) => {
                     const isSelected = appState.selectedLOs.includes(lo.id);
                     
-                    // GUEST RESTRICTION: Lock everything beyond the first 4 LOs
+                    // GUEST RESTRICTION: Lock everything beyond the first 4 LOs (Except Pharmacology)
                     let locked = appState.isGuest && originalIndex > 3; 
+                    if (appState.isGuest && appState.context.subject.toLowerCase().includes("pharmacology")) {
+                        locked = false; // Unlock all LOs for Pharmacology
+                    }
                     const isTopicsOpen = !!appState.loTopicsOpenStates[lo.id];
                     
                     const wrapperClass = isSelected 
@@ -7495,8 +7484,11 @@
                     }
                 } else {
                     setsContainer.innerHTML = appState.availableSets.map(set => {
-                        // GUEST RESTRICTION: Lock sets beyond the first 2 (Index 0 and 1)
+                        // GUEST RESTRICTION: Lock sets beyond the first 2 (Index 0 and 1) (Except Pharmacology)
                         let locked = appState.isGuest && set.originalSetIndex > 1; 
+                        if (appState.isGuest && appState.context.subject.toLowerCase().includes("pharmacology")) {
+                            locked = false; // Unlock all sets for Pharmacology
+                        }
                         const isActive = appState.selectedSetIndex === set.id && !locked;
                         
                         // LUXURY MINIMAL PRACTICE SET CARDS
@@ -11930,6 +11922,35 @@ REQUIREMENTS:
             alert("Saved! This memory trick has been stored securely.");
         };
 
+        window.downloadBlockifaiPDF = function(encodedStr) {
+            const content = decodeURIComponent(encodedStr);
+            const htmlContent = formatBlockifAIMinimal(content);
+            let printWin = window.open('', '', 'width=800,height=900');
+            printWin.document.write(`
+                <html><head><title>BlockifAI Generated Response</title>
+                <style>
+                    body { font-family: -apple-system, sans-serif; padding: 40px; line-height: 1.6; color: #111; max-width: 800px; margin: 0 auto; } 
+                    h2 { font-size: 22px; color: #111; margin-top: 20px; margin-bottom: 15px; } 
+                    h3 { font-size: 18px; margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; } 
+                    h4 { font-size: 14px; text-transform: uppercase; color: #4bb8d6; margin-top: 15px; }
+                    p { margin-bottom: 10px; font-size: 15px; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+                    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                    th { background-color: #f9f9f9; font-weight: bold; }
+                    ul { margin-top: 5px; margin-bottom: 15px; padding-left: 20px; }
+                    li { margin-bottom: 5px; }
+                </style>
+                </head><body>
+                <h2 style="text-align: center;">BlockifAI Export</h2>
+                <hr style="margin-bottom:30px; border:0; border-top:1px solid #eee;" />
+                ${htmlContent}
+                </body></html>
+            `);
+            printWin.document.close();
+            printWin.focus();
+            setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+        };
+
         window.appState = window.appState || {};
         appState.aiSessions = [];
         appState.currentAiSessionId = null;
@@ -12286,6 +12307,7 @@ REQUIREMENTS:
                             <div class="flex items-center gap-3 mt-2 ml-10 opacity-40 hover:opacity-100 transition-opacity">
                                 <button onclick="copyBlockifaiText(\`${encodeURIComponent(msg.content)}\`)" class="flex items-center gap-1 text-[10.5px] font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy</button>
                                 <button onclick="regenerateBlockifaiMessage(${index})" class="flex items-center gap-1 text-[10.5px] font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Regenerate</button>
+                                <button onclick="downloadBlockifaiPDF(\`${encodeURIComponent(msg.content)}\`)" class="flex items-center gap-1 text-[10.5px] font-semibold text-zinc-500 hover:text-brand-blue transition-colors"><i data-lucide="file-down" class="w-3.5 h-3.5"></i> Save PDF</button>
                             </div>
                         </div>
                     `;
@@ -13886,13 +13908,14 @@ Rules:
                 const fastModels = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"];
 
                 const loContext = clozifyState.selectedLOs.length > 0 
-                    ? `Prioritize these official syllabus objectives: ${clozifyState.selectedLOs.join(', ')}` 
+                    ? `Prioritize these official syllabus objectives and specifically extract topics directly related to them: ${clozifyState.selectedLOs.join(', ')}` 
                     : `Focus on high-yield medical board facts, anatomy, pharmacology, and pathology.`;
 
-                for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
-                    showLoader(`Compiling Cloze Cards (Batch ${cIdx + 1} of ${chunks.length})...`);
-                    
-                    const chunkText = chunks[cIdx].map(p => `[Page ${p.page}]: ${p.text}`).join('\n\n');
+                showLoader(`Compiling Cloze Cards (Processing ${chunks.length} batches simultaneously)...`);
+
+                // Map all chunks to Promises to run them completely in parallel for near-instant generation
+                const fetchPromises = chunks.map(async (chunk, cIdx) => {
+                    const chunkText = chunk.map(p => `[Page ${p.page}]: ${p.text}`).join('\n\n');
                     
                     const prompt = `You are a medical board exam question writer (UHS Modular, USMLE Step 1, First Aid standards).
 Generate exactly ${cardsPerChunk} high-yield, exam-tested Cloze deletion Anki flashcards strictly based on this medical textbook text.
@@ -13964,16 +13987,22 @@ ${chunkText.substring(0, 9500)}`;
                             const parsed = JSON.parse(text);
                             if (parsed.deckTitle && !deckTitleExtracted) deckTitleExtracted = parsed.deckTitle;
                             if (Array.isArray(parsed.cards)) {
-                                allCompiledCards.push(...parsed.cards);
+                                return parsed.cards;
                             }
                         } catch(parseErr) {
                             console.warn("Batch JSON parse error:", parseErr);
                         }
                     }
+                    return [];
+                });
 
-                    // Stop if we have gathered enough cards
-                    if (allCompiledCards.length >= totalCardsTarget) break;
-                }
+                // Await all parallel requests simultaneously
+                const chunkResults = await Promise.all(fetchPromises);
+                
+                // Aggregate results
+                chunkResults.forEach(cardsArray => {
+                    allCompiledCards.push(...cardsArray);
+                });
 
                 if (allCompiledCards.length === 0) {
                     throw new Error("Could not synthesize cards from this text. Ensure the PDF contains legible medical content.");
