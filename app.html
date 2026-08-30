@@ -1746,6 +1746,9 @@
 
                     <!-- Action Buttons -->
                     <div class="w-full flex flex-col gap-3">
+                        <button onclick="triggerResultQuickReview()" class="w-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-black py-4 rounded-[20px] shadow-sm card-press flex justify-center items-center gap-2 mb-1">
+                            <span class="font-mono text-sm font-black">[...]</span> Generate Cloze Review Deck
+                        </button>
                         <button onclick="renderExamReview()" class="w-full bg-brand-gradient text-white font-black py-4 rounded-[20px] shadow-[0_8px_30px_rgba(75,184,214,0.3)] card-press flex justify-center items-center gap-2">
                             <i data-lucide="search" class="w-5 h-5"></i> Review Exam
                         </button>
@@ -2928,6 +2931,10 @@
                     <button onclick="triggerNotesAIPrompt('mcqs')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
                         <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 font-bold text-lg">🎯</div>
                         <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Generate Practice MCQs</span><span class="text-[10px] text-zinc-500 block">Create mock questions from these notes</span></div>
+                    </button>
+                    <button onclick="triggerNotesAIPrompt('cloze')" class="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-zinc-800/80 hover:border-brand-blue/60 transition-all card-press flex items-center gap-3.5 group">
+                        <div class="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 font-bold text-lg font-mono">[...]</div>
+                        <div><span class="block text-xs font-black text-zinc-900 dark:text-white group-hover:text-brand-blue">Generate Anki Cloze</span><span class="text-[10px] text-zinc-500 block">Convert entire topic into fill-in-the-blank cards</span></div>
                     </button>
                 </div>
             </div>
@@ -9226,6 +9233,21 @@
             }
         }
 
+        window.triggerResultQuickReview = function() {
+            if (!appState.mcqSessionQuestions || appState.mcqSessionQuestions.length === 0) return;
+            
+            // Extract unique topics/LOs from the exam just taken
+            let topics = new Set();
+            appState.mcqSessionQuestions.forEach(q => {
+                if (q.tag) topics.add(q.tag);
+                else if (q.subject) topics.add(q.subject);
+            });
+            let topicString = Array.from(topics).join(', ');
+            
+            let prompt = `I just finished a medical practice test covering these topics/objectives: ${topicString}.\n\nProvide a rapid, high-yield 'Quick Review' of the most frequently tested board-exam concepts for these specific topics. Use bullet points and highlight the key pathognomonic buzzwords.`;
+            window.runBlockifAI(prompt);
+        };
+
         // Render Exam Review Screen
         function renderExamReview() {
             const container = document.getElementById('exam-review-list');
@@ -11903,6 +11925,14 @@ REQUIREMENTS:
             }
             
             let finalHtml = output.join('');
+            
+            // MAGIC FIX: Parse Anki Cloze Syntax into Interactive Chat Buttons
+            finalHtml = finalHtml.replace(/\{\{c\d+::(.*?)(?:::.*?)?\}\}/g, (match, hiddenText) => {
+                // Ensure safe string escaping to prevent HTML breakage inside the onclick handler
+                const safeHiddenText = hiddenText.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                return `<button onclick="window.revealChatCloze(this, '${safeHiddenText}')" class="inline-block mx-1 px-2.5 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-600 dark:bg-indigo-500/25 dark:text-indigo-300 font-black font-mono text-[14px] border border-indigo-500/30 card-press transition-all">[...]</button>`;
+            });
+
             // Add Save Mnemonic button if response looks like it contains a mnemonic
             if (finalHtml.toLowerCase().includes("mnemonic") || finalHtml.toLowerCase().includes("memory trick")) {
                 const safeTextToSave = encodeURIComponent(cleanMCQStatement(cleanText.substring(0, 300)));
@@ -11920,6 +11950,11 @@ REQUIREMENTS:
                 await updateUserDoc({ noteHighlights: appState.userData.noteHighlights });
             }
             alert("Saved! This memory trick has been stored securely.");
+        };
+
+        // Reveal Chat Cloze Function
+        window.revealChatCloze = function(btn, actualText) {
+            btn.outerHTML = `<span class="inline-block mx-1 px-2.5 py-0.5 rounded-lg bg-emerald-500 text-white font-black text-[14px] shadow-sm animate-[fadeIn_0.2s_ease-out]">${actualText}</span>`;
         };
 
         window.downloadBlockifaiPDF = function(encodedStr) {
@@ -13229,7 +13264,8 @@ Rules:
                 rawNotesText = contentArea.innerText || contentArea.textContent || '';
             }
 
-            if (rawNotesText.length > 5000) rawNotesText = rawNotesText.substring(0, 5000) + '... [Content truncated]';
+            // Expanded to 40,000 characters to ensure massive complete LOs are fully processed by Groq without trimming
+            if (rawNotesText.length > 40000) rawNotesText = rawNotesText.substring(0, 40000) + '... [Content truncated]';
             const baseContext = `Here are my medical study notes:\n\n${rawNotesText}\n\n`;
             let promptPrefix = "";
             switch (actionType) {
@@ -13238,6 +13274,7 @@ Rules:
                 case 'highyield': promptPrefix = "Extract only the absolute most high-yield, frequently tested facts and buzzwords from these notes for my medical board exams:\n\n"; break;
                 case 'layman': promptPrefix = "Explain the concepts in these notes using simple layman's terms and everyday real-world analogies:\n\n"; break;
                 case 'mcqs': promptPrefix = "Generate 5 challenging multiple-choice questions (with 5 options each A-E, and detailed explanations for the correct answers) based strictly on these notes:\n\n"; break;
+                case 'cloze': promptPrefix = "Generate high-yield, exam-tested Cloze deletion Anki flashcards strictly based on the entirety of these notes. Format them as a simple numbered list. ALWAYS MASK THE EXACT EXAM-TESTED DISCRIMINATOR using standard Anki format (e.g. {{c1::Axillary nerve}}). Do NOT output JSON. Do NOT summarize or truncate, process all the information:\n\n"; break;
             }
             window.runBlockifAI(promptPrefix + baseContext);
         }
@@ -13757,23 +13794,40 @@ Rules:
                 const pdf = await loadingTask.promise;
                 clozifyState.pdfDoc = pdf;
 
-                // Extract Bookmarks / Table of Contents / Outline
+                // Extract Bookmarks / Table of Contents / Outline (Smart Nested Chapter Extraction)
                 let chapters = [];
                 try {
                     const outline = await pdf.getOutline();
                     if (outline && outline.length > 0) {
-                        for (let item of outline) {
-                            let pageNum = 1;
-                            if (item.dest) {
-                                let dest = item.dest;
-                                if (typeof dest === 'string') dest = await pdf.getDestination(dest);
-                                if (Array.isArray(dest) && dest[0]) {
-                                    const pageIndex = await pdf.getPageIndex(dest[0]);
-                                    pageNum = pageIndex + 1;
+                        const processOutline = async (items) => {
+                            for (let item of items) {
+                                const titleLower = item.title.toLowerCase().trim();
+                                const isUnitOrPart = titleLower.startsWith('unit') || titleLower.startsWith('part') || titleLower.startsWith('section');
+                                
+                                // Only push as a chapter if it's not a generic "Unit" wrapper
+                                if (!isUnitOrPart) {
+                                    let pageNum = 1;
+                                    if (item.dest) {
+                                        let dest = item.dest;
+                                        if (typeof dest === 'string') dest = await pdf.getDestination(dest);
+                                        if (Array.isArray(dest) && dest[0]) {
+                                            const pageIndex = await pdf.getPageIndex(dest[0]);
+                                            pageNum = pageIndex + 1;
+                                        }
+                                    }
+                                    chapters.push({ title: item.title, page: pageNum });
+                                }
+                                
+                                // Recursively extract actual chapters nested inside the "Units"
+                                if (item.items && item.items.length > 0) {
+                                    await processOutline(item.items);
                                 }
                             }
-                            chapters.push({ title: item.title, page: pageNum });
-                        }
+                        };
+                        await processOutline(outline);
+                        
+                        // Sort chapters by page number to ensure ranges generate correctly
+                        chapters.sort((a, b) => a.page - b.page);
                     }
                 } catch(e) {
                     console.warn("Outline extract error:", e);
