@@ -459,6 +459,16 @@
                         </div>
                     </div>
 
+                    <!-- Promo Code existing -->
+                    <div class="mb-6">
+                        <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Promo Code (Optional)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="promo-input-existing" class="custom-input font-mono text-sm uppercase" placeholder="e.g. SAVE20">
+                            <button type="button" onclick="applyPromoCode('existing')" class="px-6 bg-zinc-900 hover:bg-zinc-800 text-white font-black text-xs rounded-xl transition-colors uppercase tracking-widest card-press shadow-sm">Apply</button>
+                        </div>
+                        <div id="promo-feedback-existing" class="hidden"></div>
+                    </div>
+
                     <!-- Payment Instructs -->
                     <div class="bg-[#f7f9f8] rounded-2xl p-4 flex justify-between items-center border border-zinc-200 mb-6">
                         <div>
@@ -511,6 +521,16 @@
                             <h3 class="text-xs font-black text-zinc-400 uppercase tracking-widest mb-1">Total</h3>
                             <h4 id="new-payment-price" class="text-xl font-[1000] text-zinc-900">Rs. 1,500</h4>
                         </div>
+                    </div>
+
+                    <!-- Promo Code new -->
+                    <div class="mb-6">
+                        <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Promo Code (Optional)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="promo-input-new" class="custom-input font-mono text-sm uppercase" placeholder="e.g. SAVE20">
+                            <button type="button" onclick="applyPromoCode('new')" class="px-6 bg-zinc-900 hover:bg-zinc-800 text-white font-black text-xs rounded-xl transition-colors uppercase tracking-widest card-press shadow-sm">Apply</button>
+                        </div>
+                        <div id="promo-feedback-new" class="hidden"></div>
                     </div>
 
                     <!-- Payment Instructs -->
@@ -776,9 +796,15 @@
         // ================= CHECKOUT SPA LOGIC =================
         let checkoutContext = { id: '', name: '', price: 0 };
         let authenticatedUserDoc = null;
+        let appliedPromo = null;
+        let originalPrice = 1500;
+        let finalPrice = 1500;
 
         function openCheckoutFlow(blockId, planName, price) {
             checkoutContext = { id: blockId, name: planName, price: price };
+            appliedPromo = null;
+            originalPrice = price;
+            finalPrice = price;
             
             // Map nice IDs to Firestore strict strings
             const dbMap = { 'block_2': '1st_II', 'block_4': '2nd_IV', 'block_5': '2nd_V', 'block_8': '3rd_VIII' };
@@ -796,8 +822,7 @@
                 document.getElementById('auth-plan-name').innerText = planName.split(' - ')[1] || planName;
                 document.getElementById('existing-checkout-plan').innerText = planName.split(' - ')[1] || planName;
                 document.getElementById('new-payment-plan').innerText = planName.split(' - ')[1] || planName;
-                document.getElementById('existing-checkout-price').innerText = `Rs. ${price.toLocaleString()}`;
-                document.getElementById('new-payment-price').innerText = `Rs. ${price.toLocaleString()}`;
+                updatePriceUI(price);
 
                 // Reset forms
                 document.getElementById('checkout-login-form').reset();
@@ -809,6 +834,17 @@
                 document.getElementById('receipt-upload-existing').value = '';
                 document.getElementById('tid-new').value = '';
                 document.getElementById('tid-existing').value = '';
+
+                // Reset promo inputs
+                const pIE = document.getElementById('promo-input-existing');
+                const pIN = document.getElementById('promo-input-new');
+                if (pIE) pIE.value = '';
+                if (pIN) pIN.value = '';
+                
+                const pFE = document.getElementById('promo-feedback-existing');
+                const pFN = document.getElementById('promo-feedback-new');
+                if (pFE) pFE.classList.add('hidden');
+                if (pFN) pFN.classList.add('hidden');
 
                 document.getElementById('ocr-res-new').classList.add('hidden');
                 document.getElementById('ocr-res-existing').classList.add('hidden');
@@ -850,6 +886,91 @@
                 }
             });
             lucide.createIcons();
+        }
+
+        // --- PROMO CODE LOGIC ---
+        async function applyPromoCode(type) {
+            const inputEl = document.getElementById(`promo-input-${type}`);
+            const feedbackEl = document.getElementById(`promo-feedback-${type}`);
+            const codeVal = inputEl.value.trim().toUpperCase();
+            
+            if(!codeVal) return;
+            
+            feedbackEl.className = "text-[10px] font-bold mt-2 text-white/70 block drop-shadow-sm";
+            feedbackEl.innerText = "Verifying code...";
+            feedbackEl.classList.remove('hidden');
+            
+            try {
+                const snap = await db.collection("promoCodes").where("code", "==", codeVal).get();
+                if(snap.empty) {
+                    feedbackEl.className = "text-[10px] font-bold mt-2 text-rose-500 block drop-shadow-sm";
+                    feedbackEl.innerText = "Invalid promo code.";
+                    appliedPromo = null;
+                    updatePriceUI(originalPrice);
+                    return;
+                }
+                
+                let promoDoc = null;
+                snap.forEach(doc => promoDoc = {id: doc.id, ...doc.data()});
+                
+                if(promoDoc.type === 'general' && promoDoc.validTill) {
+                    const today = new Date().toISOString().split('T')[0];
+                    if(today > promoDoc.validTill) {
+                        feedbackEl.className = "text-[10px] font-bold mt-2 text-rose-500 block drop-shadow-sm";
+                        feedbackEl.innerText = "Promotional code expired.";
+                        appliedPromo = null;
+                        updatePriceUI(originalPrice);
+                        return;
+                    }
+                }
+                
+                appliedPromo = promoDoc;
+                const discount = (originalPrice * promoDoc.discountPct) / 100;
+                finalPrice = originalPrice - discount;
+                
+                feedbackEl.className = "text-[10px] font-bold mt-2 text-brand-green block drop-shadow-sm";
+                feedbackEl.innerText = `Applied ${promoDoc.discountPct}% discount`;
+                
+                updatePriceUI(finalPrice);
+            } catch(e) {
+                console.error("Promo verification error:", e);
+                feedbackEl.className = "text-[10px] font-bold mt-2 text-rose-500 block drop-shadow-sm";
+                feedbackEl.innerText = "Validation failed: " + (e.message || "Try again.");
+            }
+        }
+
+        function updatePriceUI(price) {
+            document.getElementById('existing-checkout-price').innerText = `Rs. ${price.toLocaleString()}`;
+            document.getElementById('new-payment-price').innerText = `Rs. ${price.toLocaleString()}`;
+        }
+
+        async function recordPromoUsage(amountPaid) {
+            if (appliedPromo) {
+                try {
+                    const promoRef = db.collection("promoCodes").doc(appliedPromo.id);
+                    await db.runTransaction(async (transaction) => {
+                        const sfDoc = await transaction.get(promoRef);
+                        if (!sfDoc.exists) return;
+                        
+                        const currentUsage = sfDoc.data().usageCount || 0;
+                        const currentEarnings = sfDoc.data().totalEarnings || 0;
+                        
+                        let newEarnings = currentEarnings;
+                        if (sfDoc.data().type === 'ambassador') {
+                            const commPct = sfDoc.data().commissionPct || 0;
+                            const ambassadorCut = (amountPaid * commPct) / 100;
+                            newEarnings += ambassadorCut;
+                        }
+
+                        transaction.update(promoRef, {
+                            usageCount: currentUsage + 1,
+                            totalEarnings: newEarnings
+                        });
+                    });
+                } catch(e) {
+                    console.error("Failed to update promo stats:", e);
+                }
+            }
         }
 
         // Bridge function to validate payment step before registration
@@ -1061,6 +1182,9 @@
                 await db.collection("users").doc(auth.currentUser.uid).update({
                     purchasedBlocks: firebase.firestore.FieldValue.arrayUnion(checkoutContext.dbId)
                 });
+                
+                // Record Promo
+                await recordPromoUsage(finalPrice);
 
                 // Send background email audit
                 triggerAuditEmail(authenticatedUserDoc.fullName, authenticatedUserDoc.email, checkoutContext.name, tid, fileInput.files[0]);
@@ -1115,13 +1239,16 @@
                     email: email,
                     role: "student",
                     purchasedBlocks: [checkoutContext.dbId],
-                    amountPaid: checkoutContext.price,
+                    amountPaid: finalPrice,
                     transactionId: tid,
-                    promoUsed: "None",
+                    promoUsed: appliedPromo ? appliedPromo.code : "None",
                     totalMcqsDone: 0,
                     streak: 0,
                     createdAt: new Date().toISOString()
                 });
+
+                // Record Promo
+                await recordPromoUsage(finalPrice);
 
                 // Send background email audit via Formsubmit
                 triggerAuditEmail(name, email, checkoutContext.name, tid, fileInput.files[0]);
@@ -1155,6 +1282,9 @@
             document.getElementById('audit-file').files = dt.files;
 
             const formData = new FormData(form);
+            formData.append('Calculated_Price', finalPrice);
+            formData.append('Promo_Applied', appliedPromo ? appliedPromo.code : "None");
+            
             fetch(form.action, { method: "POST", body: formData, headers: { 'Accept': 'application/json' } }).catch(()=>{});
         }
 
