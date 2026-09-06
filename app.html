@@ -4218,7 +4218,7 @@
             
             const nameEl = document.getElementById('dashboard-username');
             if(nameEl) {
-                let rawName = appState.userData ? (appState.userData.fullName || 'Student') : 'Student';
+                let rawName = (appState.userData && appState.userData.fullName && appState.userData.fullName.trim() !== '') ? appState.userData.fullName.trim() : 'Student';
                 let formattedName = rawName.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
                 nameEl.innerText = `Hello, ${formattedName.split(' ')[0]}`;
             }
@@ -5213,24 +5213,22 @@
                     const subT = document.getElementById('drawer-subtitle');
                     if(subT) subT.innerText = `${appState.academicYear} Year MBBS • UHS`;
                     
-                    try {
-                        updateStreak();
-                        updateDashboardStatisticsUI();
-                        updateContinueCardUI();
-                        initRealTimeNotificationsListener(user.uid);
-                        evaluateBlock5Promos();
-                    } catch(bootError) {
-                        console.warn("Soft boot warning caught and bypassed:", bootError);
-                    } finally {
-                        // GUARANTEED execution to prevent getting stuck on loader
-                        hideLoader();
-                        switchTab('dashboard');
-                        fetchSyllabus();
-                    }
+                    // Safely execute UI updates individually so one failure doesn't break the name/plans rendering
+                    try { updateStreak(); } catch(e) { console.warn("Streak sync error:", e); }
+                    try { updateDashboardStatisticsUI(); } catch(e) { console.warn("Dashboard UI error:", e); }
+                    try { updateContinueCardUI(); } catch(e) { console.warn("Continue Card error:", e); }
+                    try { initRealTimeNotificationsListener(user.uid); } catch(e) { console.warn("Notifs error:", e); }
+                    try { evaluateBlock5Promos(); } catch(e) { console.warn("Promo error:", e); }
+
+                    // GUARANTEED execution to prevent getting stuck on loader
+                    hideLoader();
+                    switchTab('dashboard');
+                    fetchSyllabus();
                     
                 } catch(e) {
                     console.warn("Hydration soft-fallback active: ", e);
                     appState.userData = appState.userData || {};
+                    try { updateDashboardStatisticsUI(); } catch(err){} // Force UI update even on fallback
                     hideLoader();
                     switchTab('dashboard');
                     fetchSyllabus(); 
@@ -5915,10 +5913,7 @@
                 const validResults = results.filter(Boolean);
                 allData.push(...validResults.flat(Infinity));
                 
-                // Break early if we hit 404s to save time
-                if (validResults.length < chunk.length) {
-                    break; 
-                }
+                // REMOVED early break. A single 404 (or network drop) in a chunk should NOT cancel fetching subsequent files!
             }
             return allData;
         }
