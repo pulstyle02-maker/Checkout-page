@@ -4134,8 +4134,6 @@
         // Returns dynamic list of accessible blocks based on user's purchased plan
         function getAvailableBlocks() {
             if (!appState.userData) return [];
-            const role = appState.userData.role;
-            const purchased = appState.userData.purchasedBlocks || [];
             let available = [];
 
             const allBlocksMap = {
@@ -4146,21 +4144,14 @@
                 '5th': ['XIII', 'XIV', 'XV']
             };
 
-            if (role === 'master' || purchased.includes('ALL')) {
-                for (let year in allBlocksMap) {
-                    allBlocksMap[year].forEach(b => available.push({ year: year, block: b }));
-                }
-                return available;
-            }
-
+            // Use the smart parser (hasBlockAccess) which natively understands 
+            // "master", "ALL", "2nd_ALL", legacy "BLOCK 4", and new "2nd_V" universally!
             for (let year in allBlocksMap) {
-                if (purchased.includes(`${year}_ALL`)) {
-                    allBlocksMap[year].forEach(b => available.push({ year: year, block: b }));
-                } else {
-                    allBlocksMap[year].forEach(b => {
-                        if (purchased.includes(`${year}_${b}`)) available.push({ year: year, block: b });
-                    });
-                }
+                allBlocksMap[year].forEach(b => {
+                    if (hasBlockAccess(year, b)) {
+                        available.push({ year: year, block: b });
+                    }
+                });
             }
             return available;
         }
@@ -6358,7 +6349,10 @@
             const targetId = `${year}_${block}`;
             if (purchased.includes(targetId)) return true;
             
-            // Dynamic check for alternative database block formats
+            // Allow full year bundle access (e.g. "2nd_ALL")
+            if (purchased.includes(`${year}_ALL`)) return true;
+            
+            // Dynamic check for alternative database block formats (Legacy 'BLOCK 4', etc)
             return purchased.some(plan => {
                 const planStr = String(plan).trim();
                 let detBlock = "";
@@ -15152,16 +15146,63 @@ ${chunkText.substring(0, 9500)}`;
             window.addEventListener('load', () => {
                 try {
                     const swCode = `
-                        const CACHE_NAME = 'blockify-v2';
+                        const CACHE_NAME = 'blockify-offline-v3';
+                        const APP_SHELL = [
+                            './',
+                            'https://cdn.tailwindcss.com',
+                            'https://unpkg.com/lucide@latest',
+                            'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js',
+                            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js',
+                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js',
+                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js'
+                        ];
+
                         self.addEventListener('install', e => {
                             self.skipWaiting();
+                            e.waitUntil(
+                                caches.open(CACHE_NAME).then(cache => {
+                                    return cache.addAll(APP_SHELL).catch(() => {});
+                                })
+                            );
                         });
+
                         self.addEventListener('activate', e => {
-                            e.waitUntil(clients.claim());
+                            e.waitUntil(
+                                caches.keys().then(keys => Promise.all(
+                                    keys.map(key => {
+                                        if (key !== CACHE_NAME) return caches.delete(key);
+                                    })
+                                )).then(() => clients.claim())
+                            );
                         });
+
                         self.addEventListener('fetch', e => {
-                            return;
+                            if (e.request.method !== 'GET' || !e.request.url.startsWith('http')) return;
+                            
+                            e.respondWith(
+                                // ignoreSearch: true ensures that URLs with ?nocache=timestamp still match the cached version offline!
+                                caches.match(e.request, { ignoreSearch: true }).then(cachedResponse => {
+                                    const fetchPromise = fetch(e.request).then(networkResponse => {
+                                        if (networkResponse && networkResponse.status === 200) {
+                                            const responseToCache = networkResponse.clone();
+                                            caches.open(CACHE_NAME).then(cache => cache.put(e.request, responseToCache));
+                                        }
+                                        return networkResponse;
+                                    }).catch(() => {
+                                        // Ignore fetch errors (User is offline, fallback to cache silently)
+                                    });
+                                    
+                                    // If offline and no cache exists for the root document, safely return the home path
+                                    if (!cachedResponse && e.request.mode === 'navigate') {
+                                        return caches.match('./');
+                                    }
+                                    
+                                    return cachedResponse || fetchPromise;
+                                })
+                            );
                         });
+
                         self.addEventListener('push', e => {
                             let data = { title: 'BLOCKIFY Bulletin', body: 'New medical notice received!' };
                             if (e.data) {
