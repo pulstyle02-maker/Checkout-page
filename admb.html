@@ -2,8 +2,25 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
     <title>Master Admin | ModQBank</title>
+    
+    <!-- PWA Installation -->
+    <script>
+        const manifest = {
+            name: "ModQBank Admin", short_name: "Admin", start_url: ".",
+            display: "standalone", background_color: "#000000", theme_color: "#10b981",
+            icons: [{ src: "https://cdn-icons-png.flaticon.com/512/2965/2965306.png", sizes: "512x512", type: "image/png" }]
+        };
+        const manifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
+        document.write(`<link rel="manifest" href="${manifestUrl}">`);
+
+        if ('serviceWorker' in navigator) {
+            const sw = `self.addEventListener('fetch', () => {});`;
+            navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type: 'application/javascript' })));
+        }
+    </script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +36,7 @@
                 extend: {
                     fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
                     colors: {
-                        brand: { primary: '#1d4ed8', secondary: '#eab308' }
+                        brand: { primary: '#10b981', secondary: '#3b82f6' } // Medical Green & Blue
                     }
                 }
             }
@@ -30,322 +47,156 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #000000; color: #ffffff; overflow-x: hidden; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #000000; color: #ffffff; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
         
-        .bg-brand-gradient { background: linear-gradient(135deg, #1d4ed8 0%, #eab308 100%); }
-        .text-brand-gradient { background: linear-gradient(135deg, #3b82f6 0%, #eab308 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        /* Updated Medical Green to Blue Gradient */
+        .bg-brand-gradient { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); }
+        .text-brand-gradient { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-        /* Solid UI Elements */
-        .solid-card { background-color: #09090b; border: 1px solid #27272a; border-radius: 24px; }
-        .solid-input { background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; color: white; outline: none; }
-        .solid-input:focus { border-color: #1d4ed8; }
+        /* Solid UI Elements for native feel */
+        .solid-card { background-color: #09090b; border: 1px solid #27272a; border-radius: 28px; box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5); }
+        .solid-input { background-color: #18181b; border: 1px solid #27272a; border-radius: 16px; color: white; outline: none; transition: border 0.2s; }
+        .solid-input:focus { border-color: #10b981; }
         
-        /* App screen tab toggling */
-        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content { display: none; animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Button Press Animation */
-        .card-press { transition: transform 0.1s ease; }
-        .card-press:active { transform: scale(0.97); }
+        .card-press { transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card-press:active { transform: scale(0.95); }
 
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #000000; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        
+        /* Bottom Sheet Modal Animation */
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .bottom-sheet { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
-<body class="antialiased flex h-screen overflow-hidden selection:bg-brand-primary selection:text-white">
+<body class="selection:bg-brand-primary selection:text-white">
 
-    <!-- Mobile Overlay -->
-    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/80 z-20 hidden md:hidden transition-opacity"></div>
-    
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 w-72 bg-[#09090b] border-r border-zinc-900 flex flex-col flex-shrink-0 z-30 transition-transform duration-300">
-        <div class="h-20 flex items-center px-6 border-b border-zinc-900">
-            <div class="w-8 h-8 bg-brand-gradient text-white flex items-center justify-center rounded-lg font-black text-sm mr-3">M</div>
-            <span class="text-lg font-black tracking-tight text-white uppercase">Admin Portal</span>
-        </div>
-
-        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            <button onclick="switchTab('students')" id="tab-btn-students" class="w-full flex items-center px-4 py-3.5 rounded-2xl bg-zinc-900 text-white font-bold transition-all card-press">
-                <i data-lucide="users" class="w-5 h-5 mr-3 text-brand-primary"></i> Students DB
-            </button>
-            <button onclick="switchTab('promos')" id="tab-btn-promos" class="w-full flex items-center px-4 py-3.5 rounded-2xl text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
-                <i data-lucide="tag" class="w-5 h-5 mr-3"></i> Promo Codes
-            </button>
-            <button onclick="switchTab('notifications')" id="tab-btn-notifications" class="w-full flex items-center px-4 py-3.5 rounded-2xl text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
-                <i data-lucide="bell" class="w-5 h-5 mr-3"></i> Send Notifications
-            </button>
-            <button onclick="switchTab('master')" id="tab-btn-master" class="w-full flex items-center px-4 py-3.5 rounded-2xl text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
-                <i data-lucide="user-plus" class="w-5 h-5 mr-3"></i> Create User
-            </button>
-        </nav>
-
-        <div class="p-6 border-t border-zinc-900">
-            <div class="flex items-center space-x-3 text-xs font-bold text-zinc-600 uppercase tracking-widest">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>System Online</span>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#000000]">
-        
-        <!-- Header -->
-        <header class="h-20 flex items-center justify-between px-4 md:px-8 border-b border-zinc-900 flex-shrink-0 bg-[#000000]">
-            <div class="flex items-center gap-3">
-                <button onclick="toggleSidebar()" class="md:hidden p-2 bg-zinc-900 text-white rounded-lg border border-zinc-800">
-                    <i data-lucide="menu" class="w-5 h-5"></i>
+    <!-- ================= AUTH / LOGIN VIEW ================= -->
+    <div id="login-view" class="h-screen w-screen flex flex-col items-center justify-center p-6 bg-black relative z-50">
+        <div class="absolute inset-0 bg-brand-gradient opacity-10 blur-[120px]"></div>
+        <div class="solid-card p-8 w-full max-w-sm relative z-10 border-zinc-800">
+            <div class="w-20 h-20 bg-brand-gradient text-white flex items-center justify-center rounded-[24px] font-black text-3xl mx-auto mb-6 shadow-xl shadow-brand-primary/20">M</div>
+            <h1 class="text-2xl font-black uppercase text-center tracking-tight mb-2">Admin Portal</h1>
+            <p class="text-zinc-500 text-sm text-center mb-8 font-bold">Secure Access Verification</p>
+            
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Admin Email</label>
+                    <input type="email" id="login-email" required class="w-full solid-input px-4 py-4 font-bold" placeholder="admin@modqbank.com">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Security Key</label>
+                    <input type="password" id="login-password" required class="w-full solid-input px-4 py-4 font-bold" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-brand-gradient text-white font-black py-4 rounded-xl mt-4 transition-transform hover:scale-[0.98] uppercase tracking-widest text-sm shadow-xl shadow-brand-primary/20">
+                    Authenticate
                 </button>
-                <h2 id="page-title" class="text-xl md:text-2xl font-black uppercase tracking-tight">Student Database</h2>
-            </div>
-            <button onclick="fetchData()" class="px-4 md:px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl font-bold flex items-center text-xs md:text-sm hover:bg-zinc-800 transition-colors card-press">
-                <i data-lucide="refresh-cw" class="w-4 h-4 md:mr-2 text-brand-secondary"></i> <span class="hidden md:inline">Refresh Sync</span>
-            </button>
-        </header>
+            </form>
+            <div id="login-msg" class="hidden text-xs font-bold mt-4 p-3 rounded-lg text-center"></div>
+        </div>
+    </div>
 
-        <!-- Scrollable Area -->
-        <div class="flex-1 overflow-y-auto p-4 md:p-8">
-
-            <!-- ================= STUDENTS DB TAB ================= -->
-            <div id="tab-students" class="tab-content active">
-                
-                <!-- KPI Widgets -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div class="solid-card p-6 flex items-center justify-between">
-                        <div>
-                            <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Users</p>
-                            <h3 id="kpi-users" class="text-4xl font-black text-white">0</h3>
-                        </div>
-                        <i data-lucide="users" class="w-8 h-8 text-brand-primary"></i>
-                    </div>
-                    <div class="solid-card p-6 flex items-center justify-between">
-                        <div>
-                            <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Revenue</p>
-                            <h3 id="kpi-revenue" class="text-4xl font-black text-emerald-500">Rs. 0</h3>
-                        </div>
-                        <i data-lucide="credit-card" class="w-8 h-8 text-emerald-500"></i>
-                    </div>
-                    <div class="solid-card p-6 flex items-center justify-between">
-                        <div>
-                            <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total MCQs Solved</p>
-                            <h3 id="kpi-mcqs" class="text-4xl font-black text-brand-secondary">0</h3>
-                        </div>
-                        <i data-lucide="brain-circuit" class="w-8 h-8 text-brand-secondary"></i>
-                    </div>
-                </div>
-
-                <!-- Database Table -->
-                <div class="solid-card overflow-hidden">
-                    <div class="px-6 py-4 border-b border-zinc-900 bg-[#050505] flex flex-wrap items-center justify-between gap-4">
-                        <h3 class="font-black text-sm uppercase tracking-wide">Registered Accounts</h3>
-                        
-                        <!-- Purge AIMC 29 & Block IV Users Button -->
-                        <button onclick="deleteTargetedUsers()" class="px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all card-press">
-                            <i data-lucide="user-x" class="w-4 h-4"></i> Purge AIMC 29 / Block IV Users
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="bg-[#09090b]">
-                                <tr>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Student Info</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Purchased Plan</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Financials</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">App Stats</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="users-tbody" class="divide-y divide-zinc-900">
-                                <tr><td colspan="5" class="px-6 py-10 text-center text-zinc-600 font-bold">Loading secure database...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    <!-- ================= MAIN APP VIEW ================= -->
+    <div id="app-view" class="hidden antialiased flex h-screen overflow-hidden">
+        
+        <!-- Mobile Overlay -->
+        <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/90 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 w-[280px] bg-[#050505] border-r border-zinc-900 flex flex-col flex-shrink-0 z-30 transition-transform duration-300">
+            <div class="h-24 flex items-center px-6 border-b border-zinc-900 bg-[#000000]">
+                <div class="w-10 h-10 bg-brand-gradient text-white flex items-center justify-center rounded-xl font-black text-lg mr-4 shadow-lg shadow-brand-primary/20">M</div>
+                <span class="text-lg font-black tracking-tight text-white uppercase">ModQBank</span>
             </div>
 
-            <!-- ================= PROMO CODES TAB ================= -->
-            <div id="tab-promos" class="tab-content">
-                
-                <!-- Create Promo Form -->
-                <div class="solid-card p-6 md:p-8 mb-8">
-                    <h3 class="font-black text-sm uppercase tracking-wide mb-6">Generate New Promo</h3>
-                    
-                    <form id="promo-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                        <div>
-                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Promo Code</label>
-                            <input type="text" id="p-code" required class="w-full solid-input px-4 py-3 font-bold uppercase" placeholder="e.g. SAVE20">
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Campaign Type</label>
-                            <select id="p-type" onchange="togglePromoType()" class="w-full solid-input px-4 py-3 font-bold appearance-none">
-                                <option value="ambassador">Ambassador</option>
-                                <option value="general">General (Time-based)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black text-brand-secondary uppercase tracking-widest block mb-2">Student Discount %</label>
-                            <input type="number" id="p-disc" required min="1" max="100" class="w-full solid-input px-4 py-3 font-bold" placeholder="20">
-                        </div>
+            <nav class="flex-1 px-4 py-6 space-y-3 overflow-y-auto">
+                <button onclick="switchTab('students')" id="tab-btn-students" class="w-full flex items-center px-4 py-4 rounded-[20px] bg-zinc-900 text-white font-bold transition-all card-press">
+                    <i data-lucide="users" class="w-5 h-5 mr-3 text-brand-primary"></i> Students DB
+                </button>
+                <button onclick="switchTab('promos')" id="tab-btn-promos" class="w-full flex items-center px-4 py-4 rounded-[20px] text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
+                    <i data-lucide="tag" class="w-5 h-5 mr-3"></i> Promo Codes
+                </button>
+                <button onclick="switchTab('notifications')" id="tab-btn-notifications" class="w-full flex items-center px-4 py-4 rounded-[20px] text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
+                    <i data-lucide="bell" class="w-5 h-5 mr-3"></i> Notifications
+                </button>
+                <button onclick="switchTab('master')" id="tab-btn-master" class="w-full flex items-center px-4 py-4 rounded-[20px] text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press">
+                    <i data-lucide="user-plus" class="w-5 h-5 mr-3"></i> Create User
+                </button>
+            </nav>
 
-                        <!-- Ambassador Fields -->
-                        <div id="div-comm">
-                            <label class="text-[10px] font-black text-emerald-500 uppercase tracking-widest block mb-2">Ambassador Cut %</label>
-                            <input type="number" id="p-comm" min="0" max="100" class="w-full solid-input border-emerald-900 focus:border-emerald-500 px-4 py-3 font-bold" placeholder="10">
-                        </div>
-                        <div id="div-name" class="lg:col-span-2">
-                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Ambassador Name</label>
-                            <input type="text" id="p-name" class="w-full solid-input px-4 py-3 font-bold" placeholder="John Doe">
-                        </div>
-
-                        <!-- General Fields -->
-                        <div id="div-date" class="hidden lg:col-span-2">
-                            <label class="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-2">Valid Till (Expiry)</label>
-                            <input type="date" id="p-date" class="w-full solid-input border-rose-900 focus:border-rose-500 px-4 py-3 font-bold" style="color-scheme: dark;">
-                        </div>
-
-                        <div class="lg:col-span-2">
-                            <button type="submit" class="w-full bg-white text-black hover:bg-zinc-200 font-black py-3 rounded-xl transition-colors card-press uppercase tracking-wide">
-                                Save Promo Code
-                            </button>
-                        </div>
-                    </form>
-                    <div id="promo-msg" class="hidden text-xs font-bold mt-4 p-3 rounded-lg text-center"></div>
-                </div>
-
-                <!-- Promos Table -->
-                <div class="solid-card overflow-hidden">
-                    <div class="px-6 py-4 border-b border-zinc-900 bg-[#050505]">
-                        <h3 class="font-black text-sm uppercase tracking-wide">Active Campaigns</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="bg-[#09090b]">
-                                <tr>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Code & Type</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Configuration</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Usage & Earnings</th>
-                                    <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800 text-right">Delete</th>
-                                </tr>
-                            </thead>
-                            <tbody id="promos-tbody" class="divide-y divide-zinc-900">
-                                <tr><td colspan="4" class="px-6 py-10 text-center text-zinc-600 font-bold">Loading promos...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="p-6 border-t border-zinc-900 bg-[#000000]">
+                <button onclick="logoutAdmin()" class="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white font-bold transition-all card-press text-xs uppercase tracking-wider">
+                    <i data-lucide="log-out" class="w-4 h-4 mr-2"></i> Terminate Session
+                </button>
             </div>
+        </aside>
 
-            <!-- ================= SEND NOTIFICATIONS / NOTICES TAB ================= -->
-            <div id="tab-notifications" class="tab-content">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
-                    <!-- Composer -->
-                    <div class="solid-card p-6 md:p-8 lg:col-span-2">
-                        <h3 class="font-black text-sm uppercase tracking-wide mb-6">Compose New Announcement</h3>
-                        
-                        <form id="notif-form" class="space-y-6">
-                            <div>
-                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Target Student Recipient</label>
-                                <select id="notif-target" required class="w-full solid-input px-4 py-3.5 font-bold appearance-none">
-                                    <option value="">Select a student...</option>
-                                    <option value="GLOBAL" class="text-brand-secondary font-black">All Users (Global Notification)</option>
-                                    <!-- Populated dynamically via JS -->
-                                </select>
-                            </div>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Alert Header (Title)</label>
-                                    <input type="text" id="notif-title" required class="w-full solid-input px-4 py-3 font-bold" placeholder="e.g. Schedule Update or Plan Active">
-                                </div>
-                                <div>
-                                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Notice Type Indicator</label>
-                                    <select id="notif-type" class="w-full solid-input px-4 py-3 font-bold appearance-none">
-                                        <option value="alert">System Alert (Blue)</option>
-                                        <option value="success">Success / Verification (Green)</option>
-                                        <option value="urgent">Urgent Attention (Red)</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Detailed Notice Message</label>
-                                <textarea id="notif-message" required rows="4" class="w-full solid-input p-4 font-bold text-sm leading-relaxed" placeholder="Type your personalized instructions for this student here..."></textarea>
-                            </div>
-
-                            <button type="submit" class="w-full bg-brand-gradient text-white font-black py-4 rounded-xl transition-transform hover:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-2">
-                                <i data-lucide="send" class="w-4 h-4"></i> Dispatch Notification
-                            </button>
-                        </form>
-                        <div id="notif-msg" class="hidden text-xs font-bold mt-4 p-3 rounded-lg text-center"></div>
-                    </div>
-
-                    <!-- Quick Guide Card -->
-                    <div class="space-y-6">
-                        <div class="solid-card p-6">
-                            <h4 class="font-black text-xs uppercase text-zinc-400 tracking-wider mb-3">Target Notifications</h4>
-                            <p class="text-xs text-zinc-500 leading-relaxed">
-                                Notifications dispatched from this portal instantly synchronize inside the targeted student's mobile dashboard app utilizing real-time Firestore database queries. 
-                            </p>
-                            <div class="mt-4 pt-4 border-t border-zinc-900 space-y-3">
-                                <div class="flex items-center text-[10px] font-bold text-zinc-400 uppercase tracking-wide gap-2">
-                                    <span class="w-2.5 h-2.5 rounded bg-brand-primary"></span>
-                                    <span>System Update alert</span>
-                                </div>
-                                <div class="flex items-center text-[10px] font-bold text-zinc-400 uppercase tracking-wide gap-2">
-                                    <span class="w-2.5 h-2.5 rounded bg-emerald-500"></span>
-                                    <span>Payment verify confirmation</span>
-                                </div>
-                                <div class="flex items-center text-[10px] font-bold text-zinc-400 uppercase tracking-wide gap-2">
-                                    <span class="w-2.5 h-2.5 rounded bg-rose-500"></span>
-                                    <span>Subscription Expired warning</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#000000]">
+            
+            <!-- Header -->
+            <header class="h-24 flex items-center justify-between px-6 md:px-10 border-b border-zinc-900 flex-shrink-0 bg-[#000000] relative z-10">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="md:hidden p-3 bg-zinc-900 text-white rounded-xl border border-zinc-800 card-press">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    <h2 id="page-title" class="text-2xl font-black uppercase tracking-tight">Student Database</h2>
                 </div>
-            </div>
+                <button onclick="fetchData()" class="px-5 py-3 bg-brand-primary/10 border border-brand-primary/30 text-brand-primary rounded-xl font-bold flex items-center text-xs hover:bg-brand-primary hover:text-white transition-colors card-press uppercase tracking-wider">
+                    <i data-lucide="refresh-cw" class="w-4 h-4 md:mr-2"></i> <span class="hidden md:inline">Sync Cloud</span>
+                </button>
+            </header>
 
-            <!-- ================= CREATE USER TAB ================= -->
-            <div id="tab-master" class="tab-content">
-                <div class="solid-card p-6 md:p-8 max-w-2xl mx-auto md:mt-10 mt-4">
-                    <div class="w-12 h-12 rounded-xl bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center mb-6">
-                        <i data-lucide="user-plus" class="w-6 h-6 text-brand-primary"></i>
-                    </div>
-                    <h3 class="font-black text-2xl uppercase tracking-tight mb-2">Create New User</h3>
-                    <p class="text-sm font-medium text-zinc-500 mb-8 leading-relaxed">
-                        Manually create a user account. You can assign them full Master access or restrict them to a specific year and block(s).
-                    </p>
+            <!-- Scrollable Area -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-8">
+
+                <!-- ================= STUDENTS DB TAB ================= -->
+                <div id="tab-students" class="tab-content active max-w-[1600px] mx-auto">
                     
-                    <form id="master-form" class="space-y-5">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Username / Email</label>
-                                <input type="text" id="m-user" autocomplete="new-password" required class="w-full solid-input px-4 py-3 font-bold" placeholder="e.g. student123 or student@email.com">
+                    <!-- KPI Widgets -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="solid-card p-6 flex items-center justify-between relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-brand-gradient opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                            <div class="relative z-10">
+                                <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Registered Users</p>
+                                <h3 id="kpi-users" class="text-4xl font-black text-white">0</h3>
+                            </div>
+                            <i data-lucide="users" class="w-8 h-8 text-brand-primary relative z-10"></i>
+                        </div>
+                        <div class="solid-card p-6 flex items-center justify-between relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-emerald-500 opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                            <div class="relative z-10">
+                                <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Revenue</p>
+                                <h3 id="kpi-revenue" class="text-4xl font-black text-emerald-500">Rs. 0</h3>
+                            </div>
+                            <i data-lucide="credit-card" class="w-8 h-8 text-emerald-500 relative z-10"></i>
+                        </div>
+                        <div class="solid-card p-6 flex items-center justify-between relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-brand-secondary opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                            <div class="relative z-10">
+                                <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">MCQs Solved</p>
+                                <h3 id="kpi-mcqs" class="text-4xl font-black text-brand-secondary">0</h3>
+                            </div>
+                            <i data-lucide="brain-circuit" class="w-8 h-8 text-brand-secondary relative z-10"></i>
+                        </div>
+                    </div>
+
+                    <!-- Database Filters -->
+                    <div class="solid-card p-5 mb-6 bg-[#050505]">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                            <div class="md:col-span-2 relative">
+                                <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-500"></i>
+                                <input type="text" id="filter-search" oninput="renderUsers()" placeholder="Search Name, Email, Promo..." class="solid-input pl-11 pr-4 py-3 w-full font-bold text-sm">
                             </div>
                             <div>
-                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Account Password</label>
-                                <input type="password" id="m-pass" autocomplete="new-password" required minlength="6" class="w-full solid-input px-4 py-3 font-bold" placeholder="••••••••••••">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Access Role</label>
-                            <select id="m-role" onchange="toggleAccessFields()" class="w-full solid-input px-4 py-3 font-bold appearance-none">
-                                <option value="student">Student (Specific Year/Block Access)</option>
-                                <option value="master">Master Admin (All Content Unlocked)</option>
-                            </select>
-                        </div>
-
-                        <div id="access-fields" class="grid grid-cols-1 md:grid-cols-2 gap-5 transition-all">
-                            <div>
-                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Select Year</label>
-                                <select id="m-year" onchange="updateBlockOptions()" class="w-full solid-input px-4 py-3 font-bold appearance-none">
+                                <select id="filter-year" onchange="renderUsers()" class="solid-input px-4 py-3 w-full font-bold text-sm appearance-none">
+                                    <option value="">All Academic Years</option>
                                     <option value="1st">1st Year</option>
                                     <option value="2nd">2nd Year</option>
                                     <option value="3rd">3rd Year</option>
@@ -354,26 +205,271 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Select Block Access</label>
-                                <select id="m-block" class="w-full solid-input px-4 py-3 font-bold appearance-none">
-                                    <option value="ALL">All Blocks (Entire Year)</option>
+                                <select id="filter-block" onchange="renderUsers()" class="solid-input px-4 py-3 w-full font-bold text-sm appearance-none">
+                                    <option value="">All Blocks</option>
+                                    <option value="ALL">Full Master Access</option>
                                     <option value="I">Block I</option>
                                     <option value="II">Block II</option>
                                     <option value="III">Block III</option>
+                                    <option value="IV">Block IV</option>
+                                    <option value="V">Block V</option>
                                 </select>
                             </div>
                         </div>
+                    </div>
 
-                        <button type="submit" class="w-full bg-brand-gradient text-white font-black py-4 rounded-xl mt-2 transition-transform hover:scale-[0.98] uppercase tracking-wide">
-                            Generate Account
-                        </button>
-                    </form>
-                    <div id="master-msg" class="hidden text-xs font-bold mt-4 p-3 rounded-lg text-center"></div>
+                    <!-- Database Table -->
+                    <div class="solid-card overflow-hidden">
+                        <div class="px-6 py-5 border-b border-zinc-900 flex flex-wrap items-center justify-between gap-4">
+                            <h3 class="font-black text-sm uppercase tracking-wide">Live Directory</h3>
+                            <button onclick="deleteTargetedUsers()" class="px-4 py-2.5 bg-rose-600/10 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/20 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all card-press">
+                                <i data-lucide="user-x" class="w-4 h-4"></i> Purge Block IV / AIMC 29
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left whitespace-nowrap">
+                                <thead class="bg-[#09090b]">
+                                    <tr>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Student Info</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Access Plan</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Financials</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800 text-right">Actions Dashboard</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-tbody" class="divide-y divide-zinc-900">
+                                    <tr><td colspan="4" class="px-6 py-10 text-center text-zinc-600 font-bold">Connecting to Cloud Secure Server...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= PROMO CODES TAB ================= -->
+                <div id="tab-promos" class="tab-content max-w-[1200px] mx-auto">
+                    <div class="solid-card p-6 md:p-10 mb-8">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-12 h-12 rounded-2xl bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center"><i data-lucide="tag" class="w-6 h-6 text-brand-primary"></i></div>
+                            <h3 class="font-black text-lg uppercase tracking-wide">Generate New Campaign</h3>
+                        </div>
+                        
+                        <form id="promo-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Promo Code</label>
+                                <input type="text" id="p-code" required class="w-full solid-input px-4 py-3.5 font-bold uppercase" placeholder="e.g. SAVE20">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Campaign Type</label>
+                                <select id="p-type" onchange="togglePromoType()" class="w-full solid-input px-4 py-3.5 font-bold appearance-none">
+                                    <option value="ambassador">Ambassador</option>
+                                    <option value="general">General (Time-based)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-brand-secondary uppercase tracking-widest block mb-2">Student Discount %</label>
+                                <input type="number" id="p-disc" required min="1" max="100" class="w-full solid-input px-4 py-3.5 font-bold" placeholder="20">
+                            </div>
+
+                            <div id="div-comm">
+                                <label class="text-[10px] font-black text-emerald-500 uppercase tracking-widest block mb-2">Ambassador Cut %</label>
+                                <input type="number" id="p-comm" min="0" max="100" class="w-full solid-input border-emerald-900/50 focus:border-emerald-500 px-4 py-3.5 font-bold" placeholder="10">
+                            </div>
+                            <div id="div-name" class="lg:col-span-2">
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Ambassador Name</label>
+                                <input type="text" id="p-name" class="w-full solid-input px-4 py-3.5 font-bold" placeholder="John Doe">
+                            </div>
+
+                            <div id="div-date" class="hidden lg:col-span-2">
+                                <label class="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-2">Valid Till (Expiry)</label>
+                                <input type="date" id="p-date" class="w-full solid-input border-rose-900/50 focus:border-rose-500 px-4 py-3.5 font-bold" style="color-scheme: dark;">
+                            </div>
+
+                            <div class="lg:col-span-2">
+                                <button type="submit" class="w-full bg-brand-gradient text-white font-black py-3.5 rounded-xl transition-transform hover:scale-[0.98] card-press uppercase tracking-widest text-sm">
+                                    Deploy Code
+                                </button>
+                            </div>
+                        </form>
+                        <div id="promo-msg" class="hidden text-xs font-bold mt-6 p-4 rounded-xl text-center"></div>
+                    </div>
+
+                    <div class="solid-card overflow-hidden">
+                        <div class="px-6 py-5 border-b border-zinc-900 bg-[#050505]">
+                            <h3 class="font-black text-sm uppercase tracking-wide">Active Deployments</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left whitespace-nowrap">
+                                <thead class="bg-[#09090b]">
+                                    <tr>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Code Info</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Configuration</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Usage Data</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800 text-right">Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="promos-tbody" class="divide-y divide-zinc-900">
+                                    <tr><td colspan="4" class="px-6 py-10 text-center text-zinc-600 font-bold">Loading promos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= NOTIFICATIONS TAB ================= -->
+                <div id="tab-notifications" class="tab-content max-w-[1200px] mx-auto">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        
+                        <div class="solid-card p-6 md:p-8">
+                            <div class="flex items-center gap-4 mb-8">
+                                <div class="w-12 h-12 rounded-2xl bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center"><i data-lucide="send" class="w-6 h-6 text-brand-primary"></i></div>
+                                <div>
+                                    <h3 class="font-black text-lg uppercase tracking-tight">Push Dispatch</h3>
+                                    <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Real-time Cloud Messaging</p>
+                                </div>
+                            </div>
+                            
+                            <form id="notif-form" class="space-y-6">
+                                <div>
+                                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Target Recipient</label>
+                                    <select id="notif-target" required onchange="fetchExistingNotifs()" class="w-full solid-input px-4 py-4 font-bold appearance-none bg-zinc-900 border-zinc-800">
+                                        <option value="">Select an entity...</option>
+                                        <option value="GLOBAL" class="text-brand-secondary font-black">🌟 GLOBAL - All Active Devices</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Notice Title</label>
+                                        <input type="text" id="notif-title" required class="w-full solid-input px-4 py-3.5 font-bold" placeholder="e.g. Server Maintenance">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Urgency Level</label>
+                                        <select id="notif-type" class="w-full solid-input px-4 py-3.5 font-bold appearance-none">
+                                            <option value="alert">Standard Info (Blue)</option>
+                                            <option value="success">Account Success (Green)</option>
+                                            <option value="urgent">Critical Action (Red)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Payload Body</label>
+                                    <textarea id="notif-message" required rows="4" class="w-full solid-input p-4 font-bold text-sm leading-relaxed" placeholder="Detailed instruction..."></textarea>
+                                </div>
+
+                                <button type="submit" class="w-full bg-brand-gradient text-white font-black py-4 rounded-xl transition-transform hover:scale-[0.98] uppercase tracking-widest text-sm flex items-center justify-center gap-3">
+                                    <i data-lucide="zap" class="w-4 h-4"></i> Execute Push
+                                </button>
+                            </form>
+                            <div id="notif-msg" class="hidden text-xs font-bold mt-4 p-4 rounded-xl text-center"></div>
+                        </div>
+
+                        <!-- Manage Notifications -->
+                        <div class="solid-card flex flex-col overflow-hidden border-rose-900/30">
+                            <div class="p-6 md:p-8 bg-zinc-900/50 border-b border-zinc-900">
+                                <h3 class="font-black text-lg uppercase tracking-tight text-white mb-2">Active Database Records</h3>
+                                <p class="text-xs text-zinc-500 font-bold leading-relaxed">Select a target on the left to view and purge pre-existing notifications synchronized to their app.</p>
+                            </div>
+                            <div class="flex-1 p-6 overflow-y-auto space-y-3" id="existing-notifs-list">
+                                <div class="flex flex-col items-center justify-center h-full text-zinc-600 opacity-50 py-10">
+                                    <i data-lucide="inbox" class="w-12 h-12 mb-4"></i>
+                                    <p class="text-xs font-black uppercase tracking-widest">Awaiting Target Selection</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= CREATE USER TAB ================= -->
+                <div id="tab-master" class="tab-content">
+                    <div class="solid-card p-6 md:p-10 max-w-xl mx-auto md:mt-10 mt-4">
+                        <div class="flex flex-col items-center text-center mb-10">
+                            <div class="w-16 h-16 rounded-2xl bg-brand-primary/10 border border-brand-primary/30 flex items-center justify-center mb-6">
+                                <i data-lucide="shield-check" class="w-8 h-8 text-brand-primary"></i>
+                            </div>
+                            <h3 class="font-black text-2xl uppercase tracking-tight mb-2">Secure Account Generator</h3>
+                            <p class="text-xs font-bold text-zinc-500 leading-relaxed max-w-sm">Bypass gateway to manually create an authorized entity inside the system.</p>
+                        </div>
+                        
+                        <form id="master-form" class="space-y-6">
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Entity ID (Username/Email)</label>
+                                <input type="text" id="m-user" autocomplete="new-password" required class="w-full solid-input px-4 py-4 font-bold" placeholder="student@email.com">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Access Key (Password)</label>
+                                <input type="password" id="m-pass" autocomplete="new-password" required minlength="6" class="w-full solid-input px-4 py-4 font-bold" placeholder="••••••••••••">
+                            </div>
+
+                            <div class="pt-4 border-t border-zinc-900">
+                                <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-3">Clearance Level</label>
+                                <select id="m-role" onchange="toggleAccessFields()" class="w-full solid-input px-4 py-4 font-black text-sm appearance-none bg-zinc-900">
+                                    <option value="student">Student (Restricted Access)</option>
+                                    <option value="master">Master Admin (God Mode)</option>
+                                </select>
+                            </div>
+
+                            <div id="access-fields" class="grid grid-cols-1 md:grid-cols-2 gap-5 transition-all">
+                                <div>
+                                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Academic Year</label>
+                                    <select id="m-year" onchange="updateBlockOptions()" class="w-full solid-input px-4 py-3.5 font-bold appearance-none">
+                                        <option value="1st">1st Year</option>
+                                        <option value="2nd">2nd Year</option>
+                                        <option value="3rd">3rd Year</option>
+                                        <option value="4th">4th Year</option>
+                                        <option value="5th">5th Year</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Module Access</label>
+                                    <select id="m-block" class="w-full solid-input px-4 py-3.5 font-bold appearance-none">
+                                        <option value="ALL">All Year Blocks</option>
+                                        <option value="I">Block I</option>
+                                        <option value="II">Block II</option>
+                                        <option value="III">Block III</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full bg-brand-gradient text-white font-black py-4.5 rounded-xl mt-4 transition-transform hover:scale-[0.98] uppercase tracking-widest text-sm shadow-lg shadow-brand-primary/20">
+                                Initialize Account
+                            </button>
+                        </form>
+                        <div id="master-msg" class="hidden text-xs font-bold mt-6 p-4 rounded-xl text-center"></div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Quick Message Template Modal -->
+    <div id="template-modal" class="fixed inset-0 bg-black/95 z-[100] hidden items-end md:items-center justify-center transition-opacity">
+        <div class="solid-card w-full max-w-lg md:rounded-[32px] rounded-b-none p-6 md:p-8 relative bottom-sheet bg-[#09090b]">
+            <button onclick="closeTemplateModal()" class="absolute top-6 right-6 text-zinc-500 hover:text-white bg-zinc-900 p-2 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <div class="flex items-center gap-4 mb-6">
+                <div id="tm-icon-bg" class="w-12 h-12 rounded-2xl flex items-center justify-center"><i id="tm-icon" data-lucide="message-square" class="w-6 h-6"></i></div>
+                <div>
+                    <h3 class="font-black text-xl uppercase tracking-tight text-white" id="template-modal-title">Quick Msg</h3>
+                    <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest" id="tm-user-display">Student</p>
                 </div>
             </div>
-
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Saved Responses</label>
+                    <select id="tm-selector" onchange="loadSelectedTemplate()" class="w-full solid-input px-4 py-3.5 font-bold text-sm appearance-none bg-zinc-900"></select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-zinc-500 uppercase tracking-widest block mb-2">Customize Content</label>
+                    <textarea id="tm-body" rows="6" class="w-full solid-input p-4 font-bold text-sm leading-relaxed" placeholder="Type here... Use {{name}} as placeholder."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button onclick="saveNewTemplate()" class="bg-zinc-800 text-white font-black py-4 rounded-xl transition-colors hover:bg-zinc-700 text-[10px] uppercase tracking-widest">Save Draft</button>
+                    <button id="tm-send-btn" class="bg-brand-gradient text-white font-black py-4 rounded-xl transition-transform hover:scale-[0.98] text-[10px] uppercase tracking-widest shadow-lg shadow-brand-primary/20">Launch App</button>
+                </div>
+            </div>
         </div>
-    </main>
+    </div>
 
     <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -381,7 +477,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 
     <script>
-        // Init Lucide
         lucide.createIcons();
 
         // Firebase Setup
@@ -397,10 +492,58 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // Ensure persistence
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
         // Global State Cache
         let cachedUsers = [];
+        
+        // Template System Cache
+        let currentModalMode = 'email'; 
+        let currentModalUser = null;
+        const defaultTemplates = {
+            email: [{ title: "Welcome Alert", body: "Hi {{name}},\n\nWelcome to ModQBank! Your account is verified." }],
+            wa: [{ title: "Plan Expiry", body: "Hello {{name}}, your plan expires soon. Renew to keep full access!" }]
+        };
 
-        // Mobile Sidebar & Access Toggles
+        // ================= AUTHENTICATION LOGIC =================
+        auth.onAuthStateChanged(user => {
+            const loginView = document.getElementById('login-view');
+            const appView = document.getElementById('app-view');
+            
+            if (user) {
+                // Verified session
+                loginView.classList.add('hidden');
+                appView.classList.remove('hidden');
+                fetchData();
+            } else {
+                // No session
+                loginView.classList.remove('hidden');
+                appView.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const eIn = document.getElementById('login-email').value;
+            const pIn = document.getElementById('login-password').value;
+            const msg = document.getElementById('login-msg');
+            
+            msg.className = "text-xs font-bold mt-4 p-3 rounded-xl text-center bg-zinc-900 text-zinc-400";
+            msg.innerText = "Authenticating...";
+            msg.classList.remove('hidden');
+
+            auth.signInWithEmailAndPassword(eIn, pIn).catch(err => {
+                msg.className = "text-xs font-bold mt-4 p-3 rounded-xl text-center bg-rose-500/10 text-rose-500 border border-rose-500/30";
+                msg.innerText = err.message;
+            });
+        });
+
+        function logoutAdmin() {
+            if(confirm("Securely terminate current session?")) { auth.signOut(); }
+        }
+
+        // ================= UI NAVIGATION =================
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('mobile-overlay');
@@ -415,7 +558,6 @@
             else fields.classList.remove('hidden');
         }
 
-        // UI Routing
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
@@ -427,478 +569,367 @@
             
             const titles = { 
                 'students': 'Student Database', 
-                'promos': 'Campaigns & Promos', 
-                'notifications': 'Dispatched Messages', 
-                'master': 'Create User Access' 
+                'promos': 'Campaign Management', 
+                'notifications': 'Comms Array', 
+                'master': 'Secure Account Gen' 
             };
             document.getElementById('page-title').innerText = titles[tab];
 
             ['students', 'promos', 'notifications', 'master'].forEach(t => {
                 const btn = document.getElementById(`tab-btn-${t}`);
                 if (t === tab) {
-                    btn.className = "w-full flex items-center px-4 py-3.5 rounded-2xl bg-zinc-900 text-white font-bold transition-all card-press";
+                    btn.className = "w-full flex items-center px-4 py-4 rounded-[20px] bg-zinc-900 text-white font-bold transition-all card-press";
                     btn.querySelector('i').classList.add('text-brand-primary');
                 } else {
-                    btn.className = "w-full flex items-center px-4 py-3.5 rounded-2xl text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press";
+                    btn.className = "w-full flex items-center px-4 py-4 rounded-[20px] text-zinc-500 hover:bg-zinc-900 hover:text-white font-bold transition-all card-press";
                     btn.querySelector('i').classList.remove('text-brand-primary');
                 }
             });
         }
 
-        // Fetch wrapper
-        function fetchData() {
-            fetchUsers();
-            fetchPromos();
-        }
+        function fetchData() { fetchUsers(); fetchPromos(); }
 
-        // Helpers
+        // ================= HELPERS =================
         function formatDate(isoString) {
             if (!isoString) return "N/A";
-            const d = new Date(isoString);
-            return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            return new Date(isoString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
         }
-
         function formatBlocks(blocks, role) {
-            if (role === 'master' || (blocks && blocks.includes("ALL"))) {
-                return `<span class="px-2.5 py-1 rounded bg-brand-primary/20 text-brand-primary border border-brand-primary/30 text-[9px] font-black uppercase tracking-widest">Master / All Blocks</span>`;
-            }
-            if (!blocks || blocks.length === 0) return `<span class="px-2.5 py-1 rounded bg-zinc-900 text-zinc-500 text-[9px] font-black uppercase tracking-widest border border-zinc-800">No Plan</span>`;
-            return blocks.map(b => `<span class="px-2.5 py-1 rounded bg-zinc-800 text-white border border-zinc-700 text-[9px] font-black uppercase tracking-widest mr-1">${b.replace('_', ' Block ')}</span>`).join('');
+            if (role === 'master' || (blocks && blocks.includes("ALL"))) return `<span class="px-3 py-1.5 rounded-lg bg-brand-primary/10 text-brand-primary border border-brand-primary/30 text-[10px] font-black uppercase tracking-widest">Master Clearance</span>`;
+            if (!blocks || blocks.length === 0) return `<span class="px-3 py-1.5 rounded-lg bg-zinc-900 text-zinc-500 text-[10px] font-black uppercase tracking-widest border border-zinc-800">No Plan Active</span>`;
+            return blocks.map(b => `<span class="px-2.5 py-1 rounded-md bg-zinc-800 text-white border border-zinc-700 text-[9px] font-black uppercase tracking-widest mr-1 mb-1 inline-block">${b.replace('_', ' ')}</span>`).join('');
         }
 
         // ================= 1. USERS DB =================
         async function fetchUsers() {
             const tbody = document.getElementById('users-tbody');
-            tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-zinc-600 font-bold"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2"></i> Syncing Firestore...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-zinc-500 font-bold"><i data-lucide="loader" class="w-8 h-8 animate-spin mx-auto mb-3 text-brand-primary"></i> Syncing Node Database...</td></tr>`;
             lucide.createIcons();
 
             try {
                 const snapshot = await db.collection("users").get();
                 let users = [];
-                snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
+                let totalRev = 0, totalMcqs = 0;
+                
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    users.push({ id: doc.id, ...d });
+                    if(d.role !== 'master') totalRev += (parseFloat(d.amountPaid) || 0);
+                    totalMcqs += (d.totalMcqsDone || 0);
+                });
                 
                 users.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-                cachedUsers = users; // Cache globally
+                cachedUsers = users; 
 
-                // Sync Target Dropdown in Notifications tab
-                populateTargetSelector(users);
-
-                if (users.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-zinc-600 font-bold">Database is empty.</td></tr>`;
-                    return;
-                }
-
-                let html = '';
-                let totalRev = 0;
-                let totalMcqs = 0;
-
-                users.forEach(u => {
-                    const rev = parseFloat(u.amountPaid) || 0;
-                    if(u.role !== 'master') totalRev += rev;
-                    totalMcqs += (u.totalMcqsDone || 0);
-
-                    html += `
-                    <tr class="hover:bg-zinc-900/50 transition-colors group">
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <p class="font-black text-white text-sm mb-1">${u.fullName || 'No Name'}</p>
-                            <p class="text-xs text-zinc-500 font-medium">${u.email}</p>
-                            <p class="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-2">Joined: ${formatDate(u.createdAt)}</p>
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <div class="mb-2">${formatBlocks(u.purchasedBlocks, u.role)}</div>
-                            <span class="px-2 py-0.5 rounded ${u.role === 'master' ? 'bg-rose-500/20 text-rose-500' : 'bg-zinc-800 text-zinc-400'} text-[9px] font-black uppercase tracking-widest">${u.role || 'student'}</span>
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <p class="text-xs font-black text-emerald-500 mb-1">Rs. ${rev}</p>
-                            <p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest truncate max-w-[120px]" title="${u.transactionId}">TRX: ${u.transactionId || 'N/A'}</p>
-                            ${u.promoUsed && u.promoUsed !== 'None' ? `<p class="text-[10px] text-brand-secondary font-black uppercase tracking-widest mt-1">PROMO: ${u.promoUsed}</p>` : ''}
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <p class="text-xs font-bold text-white mb-1"><span class="text-zinc-500">Solved:</span> ${u.totalMcqsDone || 0}</p>
-                            <p class="text-xs font-bold text-white"><span class="text-zinc-500">Streak:</span> ${u.streak || 0} <i data-lucide="flame" class="w-3 h-3 inline text-brand-secondary -mt-1"></i></p>
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900 text-right">
-                            <button onclick="triggerQuickAlert('${u.id}')" class="p-2 rounded-lg bg-zinc-900 text-brand-secondary hover:bg-zinc-800 transition-colors mr-2 opacity-0 group-hover:opacity-100" title="Send Notification Message">
-                                <i data-lucide="bell-ring" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="upgradeToMaster('${u.id}')" class="p-2 rounded-lg bg-zinc-900 text-brand-primary hover:bg-brand-primary hover:text-white transition-colors mr-2 opacity-0 group-hover:opacity-100" title="Grant Master Access">
-                                <i data-lucide="arrow-up-circle" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="deleteUser('${u.id}')" class="p-2 rounded-lg bg-zinc-900 text-rose-500 hover:bg-rose-600 hover:text-white transition-colors" title="Delete Profile">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
-                        </td>
-                    </tr>`;
-                });
-
-                tbody.innerHTML = html;
                 document.getElementById('kpi-users').innerText = users.length;
                 document.getElementById('kpi-revenue').innerText = 'Rs. ' + totalRev.toLocaleString();
                 document.getElementById('kpi-mcqs').innerText = totalMcqs.toLocaleString();
-                lucide.createIcons();
-
+                
+                populateTargetSelector(users);
+                renderUsers(); 
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-rose-500 font-bold">Error: ${e.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-rose-500 font-bold">Protocol Error: ${e.message}</td></tr>`;
             }
         }
 
-        async function upgradeToMaster(id) {
-            if(confirm("Grant this user Master Access to all blocks?")) {
-                await db.collection("users").doc(id).update({
-                    role: "master",
-                    purchasedBlocks: ["ALL"]
-                });
-                fetchUsers();
-            }
-        }
+        // Filtering Function
+        function renderUsers() {
+            const tbody = document.getElementById('users-tbody');
+            const query = document.getElementById('filter-search').value.toLowerCase();
+            const fYear = document.getElementById('filter-year').value;
+            const fBlock = document.getElementById('filter-block').value;
 
-        async function deleteUser(id) {
-            if(confirm("Permanently delete this student's profile data?")) {
-                await db.collection("users").doc(id).delete();
-                fetchUsers();
-            }
-        }
+            const filtered = cachedUsers.filter(u => {
+                const searchStr = `${u.fullName || ''} ${u.email || ''} ${u.promoUsed || ''}`.toLowerCase();
+                const mQuery = searchStr.includes(query);
+                
+                const bArr = u.purchasedBlocks || [];
+                let mYear = true, mBlock = true;
+                
+                if (u.role === 'master') {
+                    // Masters pass everything if year/block is selected logically
+                } else {
+                    if (fYear) mYear = bArr.some(b => typeof b === 'string' && (b.includes(fYear) || b === "ALL"));
+                    if (fBlock) mBlock = bArr.some(b => typeof b === 'string' && (b.includes(`_${fBlock}`) || b === fBlock || b === "ALL" || b.includes(`${fYear}_ALL`)));
+                }
+                return mQuery && mYear && mBlock;
+            });
 
-        // Bulk delete users matching 'AIMC 29' promo OR Block IV access
-        async function deleteTargetedUsers() {
-            const confirm1 = confirm("⚠️ DANGER: BATCH DELETION ⚠️\n\nAre you sure you want to permanently delete ALL users who:\n1. Used promo code 'AIMC 29'\nOR\n2. Have access to Block IV?\n\nThis action CANNOT be undone!");
-            if (!confirm1) return;
-
-            const confirm2 = prompt("To confirm this deletion, type 'PURGE' in capital letters below:");
-            if (confirm2 !== "PURGE") {
-                alert("Operation cancelled. Confirmation keyword did not match.");
+            if(filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-zinc-600 font-bold text-sm">No matches found.</td></tr>`;
                 return;
             }
 
-            const tbody = document.getElementById('users-tbody');
-            tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-rose-500 font-bold"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2"></i> Executing Batch Deletion... Please wait.</td></tr>`;
+            let html = '';
+            filtered.forEach(u => {
+                const uStr = encodeURIComponent(JSON.stringify(u).replace(/'/g, "%27"));
+                html += `
+                <tr class="hover:bg-zinc-900/40 transition-colors group">
+                    <td class="px-6 py-5 border-b border-zinc-900/50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-black text-xs text-zinc-400">
+                                ${(u.fullName || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <p class="font-black text-white text-sm mb-0.5 tracking-wide">${u.fullName || 'Anonymous User'}</p>
+                                <p class="text-[11px] text-zinc-500 font-bold">${u.email}</p>
+                                <p class="text-[9px] text-brand-primary font-black uppercase tracking-widest mt-1">Joined: ${formatDate(u.createdAt)}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-5 border-b border-zinc-900/50">
+                        <div class="mb-2 max-w-[200px] flex flex-wrap gap-1">${formatBlocks(u.purchasedBlocks, u.role)}</div>
+                        <span class="px-2 py-0.5 rounded ${u.role === 'master' ? 'bg-rose-500/20 text-rose-500' : 'bg-zinc-800 text-zinc-400'} text-[9px] font-black uppercase tracking-widest">${u.role || 'student'}</span>
+                    </td>
+                    <td class="px-6 py-5 border-b border-zinc-900/50">
+                        <p class="text-sm font-black text-emerald-400 mb-1">Rs. ${parseFloat(u.amountPaid) || 0}</p>
+                        ${u.promoUsed && u.promoUsed !== 'None' ? `<p class="text-[10px] text-brand-secondary font-black uppercase tracking-widest mb-1 px-2 py-1 bg-brand-secondary/10 inline-block rounded border border-brand-secondary/20">🏷️ ${u.promoUsed}</p>` : ''}
+                        <p class="text-[9px] text-zinc-600 font-bold uppercase tracking-widest truncate max-w-[120px]" title="${u.transactionId}">TRX: ${u.transactionId || 'N/A'}</p>
+                    </td>
+                    <td class="px-6 py-5 border-b border-zinc-900/50 text-right space-x-1">
+                        <button onclick="openTemplateModal('wa', '${uStr}')" class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors" title="WhatsApp Preset">
+                            <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="openTemplateModal('email', '${uStr}')" class="p-2.5 rounded-xl bg-brand-secondary/10 text-brand-secondary hover:bg-brand-secondary hover:text-white transition-colors" title="Email Preset">
+                            <i data-lucide="mail" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="triggerQuickAlert('${u.id}')" class="p-2.5 rounded-xl bg-zinc-900 text-zinc-300 hover:bg-zinc-800 transition-colors" title="In-App Push">
+                            <i data-lucide="bell-ring" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="deleteUser('${u.id}')" class="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors ml-2" title="Purge Profile">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html; lucide.createIcons();
+        }
+
+        // ================= TEMPLATE SYSTEM =================
+        function getSavedTemplates(type) { return JSON.parse(localStorage.getItem(`modTemplates_${type}`)) || defaultTemplates[type]; }
+        function saveTemplatesToLocal(type, arr) { localStorage.setItem(`modTemplates_${type}`, JSON.stringify(arr)); }
+
+        function openTemplateModal(mode, userStr) {
+            currentModalMode = mode;
+            currentModalUser = JSON.parse(decodeURIComponent(userStr));
+            
+            document.getElementById('template-modal').classList.remove('hidden');
+            document.getElementById('template-modal').classList.add('flex');
+            
+            document.getElementById('template-modal-title').innerText = mode === 'wa' ? 'WhatsApp Push' : 'Email Blast';
+            document.getElementById('tm-icon').setAttribute('data-lucide', mode === 'wa' ? 'message-circle' : 'mail');
+            document.getElementById('tm-icon-bg').className = mode === 'wa' ? 'w-12 h-12 rounded-2xl flex items-center justify-center bg-emerald-500/10 text-emerald-500' : 'w-12 h-12 rounded-2xl flex items-center justify-center bg-brand-secondary/10 text-brand-secondary';
+            document.getElementById('tm-user-display').innerText = currentModalUser.fullName || currentModalUser.email;
+            
+            const btn = document.getElementById('tm-send-btn');
+            btn.className = mode === 'wa' ? 'bg-emerald-500 text-black font-black py-4 rounded-xl transition-transform hover:scale-[0.98] text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20' : 'bg-brand-secondary text-white font-black py-4 rounded-xl transition-transform hover:scale-[0.98] text-[10px] uppercase tracking-widest shadow-lg shadow-brand-secondary/20';
+            
             lucide.createIcons();
+            
+            const select = document.getElementById('tm-selector');
+            const tpls = getSavedTemplates(mode);
+            select.innerHTML = tpls.map((t, i) => `<option value="${i}">${t.title}</option>`).join('');
+            
+            if(tpls.length > 0) loadSelectedTemplate();
+            
+            btn.onclick = () => { executeSendMsg(); };
+        }
 
+        function closeTemplateModal() {
+            document.getElementById('template-modal').classList.add('hidden');
+            document.getElementById('template-modal').classList.remove('flex');
+        }
+
+        function loadSelectedTemplate() {
+            const idx = document.getElementById('tm-selector').value;
+            const tpls = getSavedTemplates(currentModalMode);
+            const rawBody = tpls[idx].body;
+            document.getElementById('tm-body').value = rawBody.replace(/{{name}}/g, currentModalUser.fullName || 'Student');
+        }
+
+        function saveNewTemplate() {
+            const tpls = getSavedTemplates(currentModalMode);
+            const name = prompt("Name this template (e.g. Follow Up):");
+            if(!name) return;
+            const raw = document.getElementById('tm-body').value.replace(new RegExp(currentModalUser.fullName || 'Student', 'g'), '{{name}}');
+            tpls.push({ title: name, body: raw });
+            saveTemplatesToLocal(currentModalMode, tpls);
+            openTemplateModal(currentModalMode, encodeURIComponent(JSON.stringify(currentModalUser))); // refresh
+            alert("Template saved!");
+        }
+
+        function executeSendMsg() {
+            const text = encodeURIComponent(document.getElementById('tm-body').value);
+            if (currentModalMode === 'wa') {
+                const num = prompt("Enter full WhatsApp number with country code (e.g. 923...):", "");
+                if(num !== null) window.open(`https://wa.me/${num.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
+            } else {
+                window.open(`mailto:${currentModalUser.email}?subject=ModQBank%20Update&body=${text}`, '_blank');
+            }
+        }
+
+        async function deleteUser(id) { if(confirm("Permanently purge this entity?")) { await db.collection("users").doc(id).delete(); fetchUsers(); } }
+        async function deleteTargetedUsers() {
+            if (!confirm("⚠️ DANGER: PURGE PROTOCOL ⚠️\n\nDelete all users with 'AIMC 29' promo OR Block IV access?")) return;
+            if (prompt("Type 'PURGE' to confirm:") !== "PURGE") { alert("Aborted."); return; }
+            document.getElementById('users-tbody').innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-rose-500 font-bold"><i data-lucide="loader" class="w-8 h-8 animate-spin mx-auto mb-3"></i> Executing Mass Purge...</td></tr>`; lucide.createIcons();
             try {
-                const snapshot = await db.collection("users").get();
-                let deletePromises = [];
-                let deletedCount = 0;
-
-                snapshot.forEach(doc => {
-                    const u = doc.data();
-                    
-                    // Check Promo (matches 'aimc 29' or 'aimc29')
+                let promises = [], count = 0;
+                cachedUsers.forEach(u => {
                     const promo = (u.promoUsed || '').toString().toLowerCase().replace(/\s+/g, '');
-                    const isAimc29 = promo === 'aimc29';
-
-                    // Check Block IV (matches '2nd_IV', 'Block IV', 'IV', '4th_IV', etc.)
                     const blocks = Array.isArray(u.purchasedBlocks) ? u.purchasedBlocks : [];
-                    const isBlockIV = blocks.some(b => {
-                        if (typeof b !== 'string') return false;
-                        const cleanB = b.toUpperCase();
-                        return cleanB.includes('_IV') || cleanB.includes('BLOCK IV') || cleanB === 'IV';
-                    });
-
-                    if (isAimc29 || isBlockIV) {
-                        deletePromises.push(db.collection("users").doc(doc.id).delete());
-                        deletedCount++;
+                    if (promo === 'aimc29' || blocks.some(b => (typeof b === 'string' && (b.toUpperCase().includes('_IV') || b.toUpperCase() === 'IV')))) {
+                        promises.push(db.collection("users").doc(u.id).delete()); count++;
                     }
                 });
-
-                if (deletedCount === 0) {
-                    alert("No matching users found for 'AIMC 29' promo code or Block IV access.");
-                    fetchUsers();
-                    return;
-                }
-
-                await Promise.all(deletePromises);
-                alert(`SUCCESS: Cleaned up and deleted ${deletedCount} user account(s).`);
-                fetchUsers();
-
-            } catch (error) {
-                alert("Error deleting targeted users: " + error.message);
-                fetchUsers();
-            }
-        }
-
-        function populateTargetSelector(users) {
-            const select = document.getElementById('notif-target');
-            if(!select) return;
-            
-            let html = '<option value="">Choose a student...</option>';
-            html += '<option value="GLOBAL" class="text-brand-secondary font-black">All Users (Global Notification)</option>';
-            
-            const sorted = [...users].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
-            sorted.forEach(u => {
-                html += `<option value="${u.id}">${u.fullName || 'No Name'} (${u.email})</option>`;
-            });
-            select.innerHTML = html;
-        }
-
-        function triggerQuickAlert(userId) {
-            switchTab('notifications');
-            const targetSelect = document.getElementById('notif-target');
-            if(targetSelect) {
-                targetSelect.value = userId;
-            }
+                if (count === 0) { alert("No targets found."); renderUsers(); return; }
+                await Promise.all(promises); alert(`Purged ${count} records.`); fetchUsers();
+            } catch(e) { alert("Error: " + e.message); fetchUsers(); }
         }
 
         // ================= 2. PROMO CODES =================
         function togglePromoType() {
-            const type = document.getElementById('p-type').value;
-            if(type === 'ambassador') {
-                document.getElementById('div-comm').classList.remove('hidden');
-                document.getElementById('div-name').classList.remove('hidden');
-                document.getElementById('div-date').classList.add('hidden');
-                document.getElementById('p-comm').required = true;
-                document.getElementById('p-name').required = true;
-                document.getElementById('p-date').required = false;
-            } else {
-                document.getElementById('div-comm').classList.add('hidden');
-                document.getElementById('div-name').classList.add('hidden');
-                document.getElementById('div-date').classList.remove('hidden');
-                document.getElementById('p-comm').required = false;
-                document.getElementById('p-name').required = false;
-                document.getElementById('p-date').required = true;
-            }
+            const isAmb = document.getElementById('p-type').value === 'ambassador';
+            document.getElementById('div-comm').classList.toggle('hidden', !isAmb);
+            document.getElementById('div-name').classList.toggle('hidden', !isAmb);
+            document.getElementById('div-date').classList.toggle('hidden', isAmb);
+            document.getElementById('p-comm').required = isAmb;
+            document.getElementById('p-name').required = isAmb;
+            document.getElementById('p-date').required = !isAmb;
         }
 
         document.getElementById('promo-form').addEventListener('submit', async(e) => {
             e.preventDefault();
             const msg = document.getElementById('promo-msg');
-            msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-zinc-900 text-zinc-400"; 
-            msg.innerText = "Saving to database..."; 
-            msg.classList.remove('hidden');
+            msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-zinc-900 text-zinc-400 block"; 
+            msg.innerText = "Deploying to network..."; 
 
-            const data = {
-                code: document.getElementById('p-code').value.trim().toUpperCase(),
-                type: document.getElementById('p-type').value,
-                discountPct: parseInt(document.getElementById('p-disc').value),
-                usageCount: 0,
-                totalEarnings: 0,
-                createdAt: new Date().toISOString()
-            };
+            const data = { code: document.getElementById('p-code').value.trim().toUpperCase(), type: document.getElementById('p-type').value, discountPct: parseInt(document.getElementById('p-disc').value), usageCount: 0, totalEarnings: 0, createdAt: new Date().toISOString() };
+            if(data.type === 'ambassador') { data.commissionPct = parseInt(document.getElementById('p-comm').value); data.ambassadorName = document.getElementById('p-name').value.trim(); } 
+            else { data.validTill = document.getElementById('p-date').value; }
 
-            if(data.type === 'ambassador') {
-                data.commissionPct = parseInt(document.getElementById('p-comm').value);
-                data.ambassadorName = document.getElementById('p-name').value.trim();
-            } else {
-                data.validTill = document.getElementById('p-date').value;
-            }
-
-            try {
-                await db.collection("promoCodes").add(data);
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"; 
-                msg.innerText = "Campaign Deployed Successfully!";
-                document.getElementById('promo-form').reset(); 
-                togglePromoType();
-                fetchPromos();
-            } catch(e) { 
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-rose-500/20 text-rose-500 border border-rose-500/30"; 
-                msg.innerText = "Error: " + e.message; 
-            }
+            try { await db.collection("promoCodes").add(data); msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-brand-primary/10 text-brand-primary border border-brand-primary/30 block"; msg.innerText = "Campaign Deployed!"; document.getElementById('promo-form').reset(); togglePromoType(); fetchPromos(); } 
+            catch(err) { msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-rose-500/10 text-rose-500 border border-rose-500/30 block"; msg.innerText = err.message; }
         });
 
         async function fetchPromos() {
             const tbody = document.getElementById('promos-tbody');
-            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-zinc-600 font-bold">Fetching Campaigns...</td></tr>`;
             try {
                 const snap = await db.collection("promoCodes").get();
-                let promos = [];
-                snap.forEach(doc => promos.push({ id: doc.id, ...doc.data() }));
+                let promos = []; snap.forEach(doc => promos.push({ id: doc.id, ...doc.data() }));
                 promos.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-
-                if(promos.length === 0) { 
-                    tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-zinc-600 font-bold">No active campaigns.</td></tr>`; 
-                    return; 
-                }
-                
+                if(promos.length === 0) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-zinc-600 font-bold">No active campaigns.</td></tr>`; return; }
                 let html = '';
                 promos.forEach(p => {
                     const isAmb = p.type === 'ambassador';
-                    html += `
-                    <tr class="hover:bg-zinc-900/50 transition-colors">
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <p class="font-black text-white text-lg mb-1 tracking-wider">${p.code}</p>
-                            <span class="px-2 py-0.5 rounded ${isAmb ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30' : 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'} text-[9px] font-black uppercase tracking-widest">${p.type}</span>
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <p class="text-xs font-bold text-zinc-400 mb-1.5"><span class="text-zinc-400">Discount:</span> <span class="text-brand-secondary">${p.discountPct}% OFF</span></p>
-                            ${isAmb 
-                                ? `<p class="text-xs font-bold text-zinc-400 mb-1.5"><span class="text-zinc-600">Rep:</span> <span class="text-white">${p.ambassadorName}</span></p>
-                                   <p class="text-xs font-bold text-zinc-400"><span class="text-zinc-600">Cut:</span> <span class="text-emerald-500">${p.commissionPct}%</span></p>` 
-                                : `<p class="text-xs font-bold text-zinc-400"><span class="text-zinc-600">Expiry:</span> <span class="text-rose-400">${p.validTill}</span></p>`}
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900">
-                            <p class="text-xs font-bold text-white mb-1.5"><span class="text-zinc-600">Uses:</span> ${p.usageCount}</p>
-                            ${isAmb ? `<p class="text-xs font-bold text-emerald-500"><span class="text-zinc-600">Generated:</span> Rs. ${p.totalEarnings}</p>` : ''}
-                        </td>
-                        <td class="px-6 py-5 border-b border-zinc-900 text-right">
-                            <button onclick="deletePromo('${p.id}')" class="p-2 rounded-lg bg-zinc-900 text-rose-500 hover:bg-rose-600 hover:text-white transition-colors">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
-                        </td>
+                    html += `<tr class="hover:bg-zinc-900/40">
+                        <td class="px-6 py-5 border-b border-zinc-900/50"><p class="font-black text-white text-lg mb-1 tracking-wider">${p.code}</p><span class="px-2.5 py-1 rounded-md ${isAmb ? 'bg-brand-primary/10 text-brand-primary border border-brand-primary/30' : 'bg-brand-secondary/10 text-brand-secondary border border-brand-secondary/30'} text-[9px] font-black uppercase tracking-widest">${p.type}</span></td>
+                        <td class="px-6 py-5 border-b border-zinc-900/50"><p class="text-[11px] font-bold text-zinc-400 mb-1.5">Discount: <span class="text-white">${p.discountPct}% OFF</span></p>${isAmb ? `<p class="text-[11px] font-bold text-zinc-400 mb-1.5">Rep: <span class="text-white">${p.ambassadorName}</span></p><p class="text-[11px] font-bold text-zinc-400">Cut: <span class="text-emerald-400">${p.commissionPct}%</span></p>` : `<p class="text-[11px] font-bold text-zinc-400">Expiry: <span class="text-rose-400">${p.validTill}</span></p>`}</td>
+                        <td class="px-6 py-5 border-b border-zinc-900/50"><p class="text-[11px] font-bold text-white mb-1.5"><span class="text-zinc-500">Uses:</span> ${p.usageCount}</p>${isAmb ? `<p class="text-[11px] font-bold text-emerald-400"><span class="text-zinc-500">Earnings:</span> Rs. ${p.totalEarnings}</p>` : ''}</td>
+                        <td class="px-6 py-5 border-b border-zinc-900/50 text-right"><button onclick="deletePromo('${p.id}')" class="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
                     </tr>`;
-                });
-                tbody.innerHTML = html; lucide.createIcons();
-            } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-rose-500 font-bold">Error: ${e.message}</td></tr>`; }
+                }); tbody.innerHTML = html; lucide.createIcons();
+            } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-rose-500 font-bold">${e.message}</td></tr>`; }
+        }
+        async function deletePromo(id) { if(confirm("Terminate campaign?")) { await db.collection("promoCodes").doc(id).delete(); fetchPromos(); } }
+
+        // ================= 3. DISPATCH NOTIFICATIONS & MANAGE =================
+        function populateTargetSelector(users) {
+            const select = document.getElementById('notif-target');
+            let html = '<option value="">Select an entity...</option><option value="GLOBAL" class="text-brand-secondary font-black">🌟 GLOBAL - All Active Devices</option>';
+            [...users].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')).forEach(u => html += `<option value="${u.id}">${u.fullName || 'N/A'} (${u.email})</option>`);
+            select.innerHTML = html;
         }
 
-        async function deletePromo(id) {
-            if(confirm("Terminate this promo code? It will instantly stop working for new checkouts.")) {
-                await db.collection("promoCodes").doc(id).delete();
-                fetchPromos();
-            }
-        }
+        function triggerQuickAlert(userId) { switchTab('notifications'); document.getElementById('notif-target').value = userId; fetchExistingNotifs(); }
 
-        // ================= 3. DISPATCH NOTIFICATIONS =================
         document.getElementById('notif-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const msg = document.getElementById('notif-msg');
-            msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-zinc-900 text-zinc-400";
-            msg.innerText = "Dispatching notification to database...";
-            msg.classList.remove('hidden');
-
             const targetUid = document.getElementById('notif-target').value;
-            const notifTitle = document.getElementById('notif-title').value.trim();
-            const notifText = document.getElementById('notif-message').value.trim();
-            const notifType = document.getElementById('notif-type').value;
+            const data = { title: document.getElementById('notif-title').value.trim(), message: document.getElementById('notif-message').value.trim(), type: document.getElementById('notif-type').value, createdAt: new Date().toISOString() };
+            if(!targetUid) { msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-rose-500/10 text-rose-500 block"; msg.innerText = "Select recipient."; return; }
 
-            if(!targetUid) {
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-rose-500/20 text-rose-400 border border-rose-500/30";
-                msg.innerText = "Please select a target recipient.";
-                return;
-            }
-
+            msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-zinc-900 text-zinc-400 block"; msg.innerText = "Executing push...";
             try {
-                if (targetUid === "GLOBAL") {
-                    // Send to all users via root-level collection
-                    await db.collection("global_notifications").add({
-                        title: notifTitle,
-                        message: notifText,
-                        type: notifType,
-                        createdAt: new Date().toISOString()
-                    });
-                } else {
-                    // Send to a specific user
-                    await db.collection("users").doc(targetUid).collection("notifications").add({
-                        title: notifTitle,
-                        message: notifText,
-                        type: notifType,
-                        read: false,
-                        createdAt: new Date().toISOString()
-                    });
-                }
-
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-                msg.innerText = "Notification successfully dispatched!";
-                document.getElementById('notif-form').reset();
-            } catch(error) {
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-rose-500/20 text-rose-500 border border-rose-500/30";
-                msg.innerText = "Dispatch Failure: " + error.message;
-            }
+                if (targetUid === "GLOBAL") await db.collection("global_notifications").add(data);
+                else await db.collection("users").doc(targetUid).collection("notifications").add({ ...data, read: false });
+                msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-brand-primary/10 text-brand-primary border border-brand-primary/30 block"; msg.innerText = "Push Success!";
+                document.getElementById('notif-title').value = ''; document.getElementById('notif-message').value = '';
+                fetchExistingNotifs();
+            } catch(err) { msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-rose-500/10 text-rose-500 block"; msg.innerText = err.message; }
         });
 
-        // Setup Map to dynamically change blocks when year changes
-        const yearBlockMap = {
-            '1st': ['I', 'II', 'III'],
-            '2nd': ['IV', 'V', 'VI'],
-            '3rd': ['VII', 'VIII', 'IX'],
-            '4th': ['X', 'XI', 'XII'],
-            '5th': ['XIII', 'XIV', 'XV']
-        };
-
-        function updateBlockOptions() {
-            const year = document.getElementById('m-year').value;
-            const blockSelect = document.getElementById('m-block');
-            const blocks = yearBlockMap[year];
+        async function fetchExistingNotifs() {
+            const uid = document.getElementById('notif-target').value;
+            const container = document.getElementById('existing-notifs-list');
+            if(!uid) { container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-zinc-600 opacity-50 py-10"><i data-lucide="inbox" class="w-12 h-12 mb-4"></i><p class="text-xs font-black uppercase tracking-widest">Awaiting Target</p></div>`; lucide.createIcons(); return; }
             
-            let html = '<option value="ALL">All Blocks (Entire Year)</option>';
-            blocks.forEach(b => {
-                html += `<option value="${b}">Block ${b}</option>`;
-            });
-            blockSelect.innerHTML = html;
+            container.innerHTML = `<div class="text-center py-6"><i data-lucide="loader" class="w-6 h-6 animate-spin mx-auto text-brand-primary mb-2"></i><p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Retrieving logs...</p></div>`; lucide.createIcons();
+            
+            try {
+                const ref = uid === "GLOBAL" ? db.collection("global_notifications") : db.collection("users").doc(uid).collection("notifications");
+                const snap = await ref.orderBy("createdAt", "desc").limit(15).get();
+                if(snap.empty) { container.innerHTML = `<div class="text-center py-10 text-xs font-bold text-zinc-500">No active records found for this target.</div>`; return; }
+                
+                let html = '';
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    let color = d.type === 'urgent' ? 'text-rose-500' : (d.type === 'success' ? 'text-emerald-500' : 'text-brand-secondary');
+                    html += `<div class="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 flex justify-between items-start gap-4">
+                        <div class="flex-1">
+                            <h4 class="font-black text-sm mb-1 ${color}">${d.title}</h4>
+                            <p class="text-xs text-zinc-400 leading-relaxed font-medium">${d.message}</p>
+                            <p class="text-[9px] font-black text-zinc-600 uppercase tracking-widest mt-2">${formatDate(d.createdAt)}</p>
+                        </div>
+                        <button onclick="deleteNotif('${doc.id}', '${uid}')" class="p-2.5 rounded-xl bg-zinc-800 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors flex-shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>`;
+                });
+                container.innerHTML = html; lucide.createIcons();
+            } catch(e) { container.innerHTML = `<div class="text-center py-6 text-xs font-bold text-rose-500">Error: ${e.message}</div>`; }
+        }
+
+        async function deleteNotif(notifId, uid) {
+            if(!confirm("Purge this notification record?")) return;
+            try {
+                const ref = uid === "GLOBAL" ? db.collection("global_notifications") : db.collection("users").doc(uid).collection("notifications");
+                await ref.doc(notifId).delete();
+                fetchExistingNotifs();
+            } catch(e) { alert(e.message); }
         }
 
         // ================= 4. CREATE USER ACCESS =================
+        const yearBlockMap = { '1st': ['I', 'II', 'III'], '2nd': ['IV', 'V', 'VI'], '3rd': ['VII', 'VIII', 'IX'], '4th': ['X', 'XI', 'XII'], '5th': ['XIII', 'XIV', 'XV'] };
+        function updateBlockOptions() {
+            const yr = document.getElementById('m-year').value;
+            let html = '<option value="ALL">All Year Blocks</option>';
+            yearBlockMap[yr].forEach(b => html += `<option value="${b}">Block ${b}</option>`);
+            document.getElementById('m-block').innerHTML = html;
+        }
+
         document.getElementById('master-form').addEventListener('submit', async(e) => {
             e.preventDefault();
             const msg = document.getElementById('master-msg');
-            msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-zinc-900 text-zinc-400"; 
-            msg.innerText = "Generating Account in Database..."; 
-            msg.classList.remove('hidden');
-
-            const rawUsername = document.getElementById('m-user').value.trim();
-            const email = rawUsername.includes('@') ? rawUsername : rawUsername.replace(/\s+/g, '').toLowerCase() + '@mod.user';
+            msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-zinc-900 text-zinc-400 block"; msg.innerText = "Initializing creation..."; 
             
+            const rawUser = document.getElementById('m-user').value.trim();
+            const email = rawUser.includes('@') ? rawUser : rawUser.replace(/\s+/g, '').toLowerCase() + '@mod.user';
             const pass = document.getElementById('m-pass').value;
             const role = document.getElementById('m-role').value;
-            const year = document.getElementById('m-year').value;
-            const block = document.getElementById('m-block').value;
+            const yr = document.getElementById('m-year').value;
+            const blk = document.getElementById('m-block').value;
 
-            let purchasedBlocks = [];
-            let fullName = rawUsername; 
-
-            if (role === 'master') {
-                purchasedBlocks = ["ALL"];
-                fullName = rawUsername + " (Master)";
-            } else {
-                if (block === 'ALL') {
-                    // Automatically assign ALL blocks associated with that specific year
-                    const yearBlocks = yearBlockMap[year].map(b => `${year}_${b}`);
-                    purchasedBlocks = [...yearBlocks, `${year}_ALL`];
-                } else {
-                    // Saves exactly as the app expects it (e.g. "1st_II")
-                    purchasedBlocks = [`${year}_${block}`]; 
-                }
-            }
+            let pBlocks = [], fName = rawUser; 
+            if (role === 'master') { pBlocks = ["ALL"]; fName += " (God)"; } 
+            else { if (blk === 'ALL') { pBlocks = [...yearBlockMap[yr].map(b => `${yr}_${b}`), `${yr}_ALL`]; } else { pBlocks = [`${yr}_${blk}`]; } }
 
             try {
-                const userCred = await auth.createUserWithEmailAndPassword(email, pass);
-                await db.collection("users").doc(userCred.user.uid).set({
-                    fullName: fullName, 
-                    email: email, 
-                    role: role, 
-                    purchasedBlocks: purchasedBlocks, 
-                    createdAt: new Date().toISOString()
-                });
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"; 
-                
-                // Explicitly tell the admin what the final login ID is in case they used a normal username
-                msg.innerText = `Success! User logs in with ID: ${email}`;
-                
-                document.getElementById('master-form').reset();
-                toggleAccessFields();
-                fetchUsers();
-            } catch(e) { 
-                msg.className = "text-xs font-bold mt-4 p-3 rounded-lg text-center bg-rose-500/20 text-rose-500 border border-rose-500/30"; 
-                msg.innerText = "Error: " + e.message; 
-            }
+                const uc = await auth.createUserWithEmailAndPassword(email, pass);
+                await db.collection("users").doc(uc.user.uid).set({ fullName: fName, email: email, role: role, purchasedBlocks: pBlocks, createdAt: new Date().toISOString() });
+                msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 block"; msg.innerText = `Entity created. ID: ${email}`;
+                document.getElementById('master-form').reset(); toggleAccessFields(); fetchUsers();
+            } catch(err) { msg.className = "text-xs font-bold mt-4 p-4 rounded-xl text-center bg-rose-500/10 text-rose-500 border border-rose-500/30 block"; msg.innerText = err.message; }
         });
-
-        // Init - Admin Secure Login
-        window.onload = () => {
-            // Check if someone is logged in
-            auth.onAuthStateChanged(user => {
-                // REPLACE THIS EMAIL WITH YOUR ACTUAL ADMIN EMAIL
-                if (user && user.email === "your_admin_email@gmail.com") {
-                    // Admin is verified, load the dashboard!
-                    fetchData();
-                } else {
-                    // Ask for Admin Credentials securely via browser popup
-                    const email = prompt("Enter Master Admin Email:");
-                    if(email) {
-                        const pass = prompt("Enter Master Admin Password:");
-                        auth.signInWithEmailAndPassword(email, pass)
-                            .then(() => {
-                                alert("Admin Login Successful!");
-                                fetchData();
-                            })
-                            .catch(e => {
-                                alert("Login Failed: " + e.message);
-                                document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:50px;'>UNAUTHORIZED ACCESS</h1>";
-                            });
-                    } else {
-                        document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:50px;'>UNAUTHORIZED ACCESS</h1>";
-                    }
-                }
-            });
-        };
     </script>
 </body>
 </html>
