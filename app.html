@@ -5232,102 +5232,102 @@
         });
         const auth = firebase.auth();
 
+        // Helper function to hydrate state from local storage or cloud
+        function applyHydratedUserData(data) {
+            if (!data) return;
+            appState.userData = data;
+            const fullName = data.fullName || "Student";
+            
+            const dName = document.getElementById('drawer-name');
+            if(dName) dName.innerText = fullName;
+            const dbName = document.getElementById('dashboard-username');
+            if(dbName) dbName.innerText = fullName;
+            const eName = document.getElementById('edit-name');
+            if(eName) eName.value = fullName;
+            
+            appState.bookmarkedMCQs = data.bookmarkedMCQs || [];
+            appState.incorrectMCQs = data.incorrectMCQs || [];
+            appState.completedSets = data.completedSets || [];
+            appState.totalMcqsDone = data.totalMcqsDone || 0;
+            appState.totalCorrect = data.totalCorrect || 0;
+            appState.streak = data.streak || 0;
+            appState.loStats = data.loStats || {};
+            appState.setStats = data.setStats || {};
+            appState.aiSessions = data.aiSessions || [];
+
+            const plans = data.purchasedBlocks || [];
+            if (plans.length > 0 && plans[0] !== "ALL" && data.role !== "master") {
+                const planStr = String(plans[0]).trim();
+                let detectedYear = "";
+                let detectedBlock = "";
+
+                const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
+                if (yearMatch) detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
+
+                const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                if (arabicMatch) {
+                    const numMap = { '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV' };
+                    detectedBlock = numMap[arabicMatch[1]];
+                } else {
+                    const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                    if (romanMatch) detectedBlock = romanMatch[1].toUpperCase();
+                }
+
+                if (!detectedYear || detectedYear.toLowerCase() === "block") {
+                    const localYearBlockMap = { '1st': ['I', 'II', 'III'], '2nd': ['IV', 'V', 'VI'], '3rd': ['VII', 'VIII', 'IX'], '4th': ['X', 'XI', 'XII'], '5th': ['XIII', 'XIV', 'XV'] };
+                    for (const [yr, blks] of Object.entries(localYearBlockMap)) {
+                        if (blks.includes(detectedBlock)) { detectedYear = yr; break; }
+                    }
+                }
+
+                if (detectedYear) appState.academicYear = detectedYear;
+                if (detectedBlock) appState.academicBlock = detectedBlock;
+            }
+            
+            const subT = document.getElementById('drawer-subtitle');
+            if(subT) subT.innerText = `${appState.academicYear} Year MBBS • UHS`;
+            
+            try { updateStreak(); } catch(e){}
+            try { updateDashboardStatisticsUI(); } catch(e){}
+            try { updateContinueCardUI(); } catch(e){}
+        }
+
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // Remove guest persistence whenever a real email account logs in
                 localStorage.removeItem('guest_active');
                 appState.isGuest = false;
                 appState.currentUser = user;
+
+                // 1. FAST OFFLINE BOOT: Immediately restore from localStorage so name & block are NEVER lost offline
+                const localCacheKey = 'blockify_offline_userData_' + user.uid;
+                const cachedProfile = localStorage.getItem(localCacheKey);
+                if (cachedProfile) {
+                    try {
+                        const parsed = JSON.parse(cachedProfile);
+                        applyHydratedUserData(parsed);
+                    } catch(e) {}
+                }
+
                 try {
+                    // 2. Fetch fresh cloud data if online
                     const docSnap = await db.collection("users").doc(user.uid).get();
-                    appState.userData = docSnap.exists ? docSnap.data() : {};
-                    appState.userData = appState.userData || {};
-                    
-                    const fullName = appState.userData.fullName || "Student";
-                    const dName = document.getElementById('drawer-name');
-                    if(dName) dName.innerText = fullName;
-                    const dbName = document.getElementById('dashboard-username');
-                    if(dbName) dbName.innerText = fullName;
-                    const eName = document.getElementById('edit-name');
-                    if(eName) eName.value = fullName;
-                    
-                    appState.bookmarkedMCQs = appState.userData.bookmarkedMCQs || [];
-                    appState.incorrectMCQs = appState.userData.incorrectMCQs || [];
-                    appState.completedSets = appState.userData.completedSets || [];
-                    appState.totalMcqsDone = appState.userData.totalMcqsDone || 0;
-                    appState.totalCorrect = appState.userData.totalCorrect || 0;
-                    appState.streak = appState.userData.streak || 0;
-                    appState.userData.inviteCode = appState.userData.inviteCode || null;
-                    appState.loStats = appState.userData.loStats || {};
-                    appState.setStats = appState.userData.setStats || {};
-                    appState.userData.readGlobalNotifs = appState.userData.readGlobalNotifs || [];
-                    
-                    // Critical Fix: Sync AI Sessions / Chat History directly from Firebase on login
-                    appState.aiSessions = appState.userData.aiSessions || [];
-
-                    const plans = appState.userData.purchasedBlocks || [];
-                    if (plans.length > 0 && plans[0] !== "ALL" && appState.userData.role !== "master") {
-                        const planStr = String(plans[0]).trim();
-                        let detectedYear = "";
-                        let detectedBlock = "";
-
-                        const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
-                        if (yearMatch) {
-                            detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
-                        }
-
-                        const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
-                        if (arabicMatch) {
-                            const numMap = {
-                                '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV'
-                            };
-                            detectedBlock = numMap[arabicMatch[1]];
-                        } else {
-                            const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
-                            if (romanMatch) {
-                                detectedBlock = romanMatch[1].toUpperCase();
-                            }
-                        }
-
-                        if (!detectedYear || detectedYear.toLowerCase() === "block") {
-                            const localYearBlockMap = {
-                                '1st': ['I', 'II', 'III'],
-                                '2nd': ['IV', 'V', 'VI'],
-                                '3rd': ['VII', 'VIII', 'IX'],
-                                '4th': ['X', 'XI', 'XII'],
-                                '5th': ['XIII', 'XIV', 'XV']
-                            };
-                            for (const [yr, blks] of Object.entries(localYearBlockMap)) {
-                                if (blks.includes(detectedBlock)) {
-                                    detectedYear = yr;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (detectedYear) appState.academicYear = detectedYear;
-                        if (detectedBlock) appState.academicBlock = detectedBlock;
+                    if (docSnap.exists) {
+                        const cloudData = docSnap.data();
+                        appState.userData = cloudData;
+                        // Permanently cache to device
+                        localStorage.setItem(localCacheKey, JSON.stringify(cloudData));
+                        applyHydratedUserData(cloudData);
                     }
                     
-                    const subT = document.getElementById('drawer-subtitle');
-                    if(subT) subT.innerText = `${appState.academicYear} Year MBBS • UHS`;
-                    
-                    // Safely execute UI updates individually so one failure doesn't break the name/plans rendering
-                    try { updateStreak(); } catch(e) { console.warn("Streak sync error:", e); }
-                    try { updateDashboardStatisticsUI(); } catch(e) { console.warn("Dashboard UI error:", e); }
-                    try { updateContinueCardUI(); } catch(e) { console.warn("Continue Card error:", e); }
-                    try { initRealTimeNotificationsListener(user.uid); } catch(e) { console.warn("Notifs error:", e); }
-                    try { evaluateBlock5Promos(); } catch(e) { console.warn("Promo error:", e); }
+                    try { initRealTimeNotificationsListener(user.uid); } catch(e){}
+                    try { evaluateBlock5Promos(); } catch(e){}
 
-                    // GUARANTEED execution to prevent getting stuck on loader
                     hideLoader();
                     switchTab('dashboard');
                     fetchSyllabus();
-                    
                 } catch(e) {
-                    console.warn("Hydration soft-fallback active: ", e);
-                    appState.userData = appState.userData || {};
-                    try { updateDashboardStatisticsUI(); } catch(err){} // Force UI update even on fallback
+                    console.warn("Offline boot active, using locally cached profile:", e);
+                    // Do NOT overwrite appState.userData with empty object!
                     hideLoader();
                     switchTab('dashboard');
                     fetchSyllabus(); 
@@ -6145,12 +6145,28 @@
 
         async function fetchMCQIndexForBlock(bNum) {
             if (MCQ_INDEX_CACHE[bNum]) return MCQ_INDEX_CACHE[bNum];
+            
+            const indexKey = `mcq_index_${bNum}`;
+            // 1. Check local IndexedDB storage first
+            try {
+                const cachedIndex = await getCachedFile(indexKey);
+                if (cachedIndex) {
+                    MCQ_INDEX_CACHE[bNum] = cachedIndex;
+                    return cachedIndex;
+                }
+            } catch(e) {}
+
+            // 2. If offline and not in IndexedDB, return null gracefully
+            if (!navigator.onLine) return null;
+
             const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}mcqsindex.json`;
             try {
                 const response = await fetch(url, { cache: 'default' });
                 if (response.ok) {
                     const data = await response.json();
                     MCQ_INDEX_CACHE[bNum] = data;
+                    // Permanently store index in IndexedDB
+                    cacheFile(indexKey, data);
                     return data;
                 }
             } catch (e) {
@@ -6404,30 +6420,50 @@
         }
 
         async function fetchSyllabus() {
+            const syllabusKey = `syllabus_${appState.academicYear}`;
+            
+            // 1. FAST OFFLINE BOOT: Load cached syllabus immediately
             try {
-                const timestamp = new Date().getTime();
-                // Dynamically construct the filename based on the academic year (e.g., 1styearsyllabus.json)
+                const localSyllabus = await getCachedFile(syllabusKey) || JSON.parse(localStorage.getItem(syllabusKey) || 'null');
+                if (localSyllabus && localSyllabus.length > 0) {
+                    APP_DATA.rawSyllabus = localSyllabus;
+                    buildSyllabusTree();
+                }
+            } catch(e) {}
+
+            // 2. Fetch latest online if connected
+            if (!navigator.onLine && APP_DATA.rawSyllabus && APP_DATA.rawSyllabus.length > 0) {
+                // Offline but already have syllabus cached -> prefetch cached MCQs silently
+                prefetchCurrentBlockMCQs();
+                return;
+            }
+
+            try {
                 const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}?nocache=${timestamp}`;
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}`;
                 
-                const response = await fetch(url, { cache: 'no-store' });
+                const response = await fetch(url, { cache: 'default' });
                 if(!response.ok) throw new Error("Syllabus fetch failed");
                 const data = await response.json();
                 
-                // Robust parsing for both Array root and Object root JSON files
                 APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
                 buildSyllabusTree();
                 
-                // Fire these parallel tasks silently without blocking UI
+                // Permanently cache syllabus locally in IndexedDB & LocalStorage
+                cacheFile(syllabusKey, APP_DATA.rawSyllabus);
+                try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
+                
                 Promise.all([
                     prefetchCurrentBlockMCQs(),
                     prefetchCurrentBlockNotes(),
                     prefetchCurrentBlockVivacards()
                 ]).catch(e => console.warn("Prefetch warning", e));
             } catch (error) {
-                console.warn("Error fetching syllabus:", error);
-                APP_DATA.rawSyllabus = [];
-                buildSyllabusTree();
+                console.warn("Using offline syllabus fallback:", error);
+                if (!APP_DATA.rawSyllabus || APP_DATA.rawSyllabus.length === 0) {
+                    APP_DATA.rawSyllabus = [];
+                    buildSyllabusTree();
+                }
             }
         }
 
@@ -15565,8 +15601,16 @@ ${chunkText.substring(0, 9500)}`;
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 try {
+                    // Save the current document shell directly to Cache Storage from main thread
+                    if ('caches' in window) {
+                        caches.open('blockify-offline-v4').then(cache => {
+                            cache.add(window.location.href).catch(()=>{});
+                            cache.add('./').catch(()=>{});
+                        }).catch(()=>{});
+                    }
+
                     const swCode = `
-                        const CACHE_NAME = 'blockify-offline-v3';
+                        const CACHE_NAME = 'blockify-offline-v4';
                         const APP_SHELL = [
                             './',
                             'https://cdn.tailwindcss.com',
@@ -15582,7 +15626,8 @@ ${chunkText.substring(0, 9500)}`;
                             self.skipWaiting();
                             e.waitUntil(
                                 caches.open(CACHE_NAME).then(cache => {
-                                    return cache.addAll(APP_SHELL).catch(() => {});
+                                    // Individual caching prevents 1 CDN error from killing the entire offline cache
+                                    return Promise.all(APP_SHELL.map(url => cache.add(url).catch(() => {})));
                                 })
                             );
                         });
@@ -15600,8 +15645,28 @@ ${chunkText.substring(0, 9500)}`;
                         self.addEventListener('fetch', e => {
                             if (e.request.method !== 'GET' || !e.request.url.startsWith('http')) return;
                             
+                            // Navigation requests (Opening the PWA offline)
+                            if (e.request.mode === 'navigate') {
+                                e.respondWith(
+                                    fetch(e.request)
+                                        .then(res => {
+                                            const copy = res.clone();
+                                            caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
+                                            return res;
+                                        })
+                                        .catch(async () => {
+                                            // Always return the cached page so the browser never shows "No Internet"
+                                            const match = await caches.match(e.request, { ignoreSearch: true }) || 
+                                                          await caches.match('./') || 
+                                                          await caches.match(self.registration.scope);
+                                            return match;
+                                        })
+                                );
+                                return;
+                            }
+
+                            // Asset requests
                             e.respondWith(
-                                // ignoreSearch: true ensures that URLs with ?nocache=timestamp still match the cached version offline!
                                 caches.match(e.request, { ignoreSearch: true }).then(cachedResponse => {
                                     const fetchPromise = fetch(e.request).then(networkResponse => {
                                         if (networkResponse && networkResponse.status === 200) {
@@ -15609,14 +15674,7 @@ ${chunkText.substring(0, 9500)}`;
                                             caches.open(CACHE_NAME).then(cache => cache.put(e.request, responseToCache));
                                         }
                                         return networkResponse;
-                                    }).catch(() => {
-                                        // Ignore fetch errors (User is offline, fallback to cache silently)
-                                    });
-                                    
-                                    // If offline and no cache exists for the root document, safely return the home path
-                                    if (!cachedResponse && e.request.mode === 'navigate') {
-                                        return caches.match('./');
-                                    }
+                                    }).catch(() => cachedResponse);
                                     
                                     return cachedResponse || fetchPromise;
                                 })
