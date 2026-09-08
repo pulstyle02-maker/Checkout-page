@@ -6059,14 +6059,25 @@
             }
         }
 
+        // GLOBALLY TRACK IDs TO PREVENT MASSIVE ARRAY MAPPING LOOPS ON EVERY DOWNLOAD
+        let GLOBAL_MCQ_ID_SET = new Set();
+
         function mergeMCQs(data) {
-            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
-            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
-            data.forEach(q => {
-                const qId = q.id || q.statement;
-                if (!existingIds.has(qId)) {
-                    APP_DATA.allMCQs.push(q);
-                }
+            if (!APP_DATA.allMCQs) {
+                APP_DATA.allMCQs = [];
+                GLOBAL_MCQ_ID_SET.clear();
+            }
+            
+            // Use requestAnimationFrame so large array injections don't freeze CSS animations/scrolling
+            requestAnimationFrame(() => {
+                data.forEach(q => {
+                    const qId = q.id || q.statement;
+                    // O(1) Lookup time. Saves massive CPU cycles.
+                    if (!GLOBAL_MCQ_ID_SET.has(qId)) {
+                        GLOBAL_MCQ_ID_SET.add(qId);
+                        APP_DATA.allMCQs.push(q);
+                    }
+                });
             });
         }
 
