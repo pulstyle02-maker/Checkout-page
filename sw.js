@@ -1,4 +1,22 @@
 // ================= MODMEDICALIS PWA SERVICE WORKER =================
+
+// 1. IMPORT FIREBASE SDKS FOR BACKGROUND PUSH NOTIFICATIONS
+importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js');
+
+// 2. INITIALIZE FIREBASE IN THE SERVICE WORKER
+firebase.initializeApp({
+  apiKey: "AIzaSyC5NkowybsLrQnTyuFrm2VTTHE2R2yNddA",
+  authDomain: "modqbank.firebaseapp.com",
+  projectId: "modqbank",
+  storageBucket: "modqbank.firebasestorage.app",
+  messagingSenderId: "44011667684",
+  appId: "1:44011667684:web:89421cc40c8bb37e806cf1"
+});
+
+const messaging = firebase.messaging();
+
+// 3. CACHE CONFIGURATION
 const STATIC_CACHE = 'modmedicalis-static-v4';
 const DYNAMIC_CACHE = 'modmedicalis-dynamic-v4';
 
@@ -15,8 +33,11 @@ const STATIC_ASSETS = [
   'https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js',
   'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js',
+  'https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js',
   'https://fonts.googleapis.com/css8?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap'
 ];
+
+// ================= CACHING ENGINE =================
 
 // Install: Cache each asset individually so one failure does not abort the install
 self.addEventListener('install', event => {
@@ -130,37 +151,44 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Push Notifications
-self.addEventListener('push', event => {
-  const data = event.data ? event.data.json() : { 
-    title: 'Blockify Update', 
-    body: 'Check your app for latest updates.', 
-    icon: 'https://i.imgur.com/kZsZDzA.jpeg' 
-  };
+// ================= FIREBASE BACKGROUND NOTIFICATION ENGINE =================
+
+// This handles push messages received while the PWA is fully closed/backgrounded
+messaging.onBackgroundMessage(function(payload) {
+  console.log('[sw.js] Received background message ', payload);
   
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Blockify', {
-      body: data.body || '',
-      icon: data.icon || 'https://i.imgur.com/kZsZDzA.jpeg',
-      badge: data.badge || 'https://i.imgur.com/kZsZDzA.jpeg',
-      tag: data.tag || 'blockify-notification',
-      vibrate: [200, 100, 200],
-      actions: [
-        { action: 'open', title: 'Open App' },
-        { action: 'dismiss', title: 'Dismiss' }
-      ]
-    })
-  );
+  // Safely extract data whether it was sent as a 'notification' payload or 'data' payload
+  const notificationTitle = payload.notification?.title || payload.data?.title || 'Blockify Alert';
+  const notificationOptions = {
+    body: payload.notification?.body || payload.data?.message || 'You have a new update.',
+    icon: 'https://i.imgur.com/kZsZDzA.jpeg',
+    badge: 'https://i.imgur.com/kZsZDzA.jpeg',
+    vibrate: [200, 100, 200],
+    data: payload.data || {},
+    actions: [
+      { action: 'open', title: 'Open App' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ]
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
+// Handle clicking the notification when the app is closed
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+
+  // If user clicked dismiss, do nothing
+  if (event.action === 'dismiss') return;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(clientList => {
+        // If the app is already open in a tab, focus it
         for (const client of clientList) {
           if ('focus' in client) return client.focus();
         }
+        // Otherwise, open a new window to the app
         return clients.openWindow('./');
       })
   );
