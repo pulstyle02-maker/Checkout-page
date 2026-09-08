@@ -3991,6 +3991,15 @@
 
         async function fetchMiniKatzungMCQs() {
             if (MINI_KATZUNG_CACHE && MINI_KATZUNG_CACHE.length > 0) return MINI_KATZUNG_CACHE;
+            const cacheKey = 'forever_mini_katzung';
+            try {
+                const cached = await getCachedFile(cacheKey);
+                if (cached && cached.length > 0) {
+                    MINI_KATZUNG_CACHE = cached;
+                    return cached;
+                }
+            } catch(e) {}
+
             showLoader("Fetching Mini Katzung Qs...");
             const files = ['b8aa', 'b8ab', 'b8ac', 'b8ad', 'b8ae', 'b8af'];
             let all = [];
@@ -4006,6 +4015,7 @@
                 }
             }
             MINI_KATZUNG_CACHE = all;
+            cacheFile(cacheKey, all);
             hideLoader();
             return all;
         }
@@ -4271,11 +4281,17 @@
             const sheet = document.getElementById('block-bottom-sheet');
             const list = document.getElementById('block-switcher-list');
             
+            // Update Subtitle text dynamically to communicate auto-save behavior
+            const titleEl = sheet.querySelector('p.text-zinc-500');
+            if (titleEl) {
+                titleEl.innerText = "The block you select will be saved as your default curriculum.";
+            }
+            
             const available = getAvailableBlocks();
             list.innerHTML = available.map(item => {
                 const isActive = (item.block === appState.academicBlock);
                 const bgCls = isActive ? 'bg-brand-blue/10 border-brand-blue/30 text-brand-blue' : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800';
-                const checkHtml = isActive ? `<i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue"></i>` : '';
+                const checkHtml = isActive ? `<div class="flex items-center gap-2"><span class="text-[9px] font-black uppercase tracking-widest bg-brand-blue text-white px-2 py-0.5 rounded-sm">Default</span><i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue"></i></div>` : '';
                 
                 return `
                 <button onclick="selectNewBlock('${item.year}', '${item.block}')" class="w-full flex items-center justify-between p-4 border rounded-[16px] card-press transition-all ${bgCls}">
@@ -4306,6 +4322,20 @@
             
             showLoader("Switching Curriculum...");
             appState.academicYear = year;
+
+            // SAVE AS DEFAULT GLOBALLY SO NEXT BOOT OPENS HERE AUTOMATICALLY
+            if (appState.currentUser && !appState.isGuest) {
+                if (!appState.userData) appState.userData = {};
+                appState.userData.defaultYear = year;
+                appState.userData.defaultBlock = block;
+                updateUserDoc({ 
+                    defaultYear: year, 
+                    defaultBlock: block 
+                }).catch(e => console.warn("Failed to save default block:", e));
+            } else if (appState.isGuest) {
+                localStorage.setItem('guest_year', year);
+                localStorage.setItem('guest_block', block);
+            }
             
             setTimeout(() => {
                 changeBlock(block);
@@ -5257,33 +5287,40 @@
             appState.setStats = data.setStats || {};
             appState.aiSessions = data.aiSessions || [];
 
-            const plans = data.purchasedBlocks || [];
-            if (plans.length > 0 && plans[0] !== "ALL" && data.role !== "master") {
-                const planStr = String(plans[0]).trim();
-                let detectedYear = "";
-                let detectedBlock = "";
+            if (data.defaultYear && data.defaultBlock) {
+                // 1. If user previously selected a default block, strictly obey it on every boot!
+                appState.academicYear = data.defaultYear;
+                appState.academicBlock = data.defaultBlock;
+            } else {
+                // 2. Otherwise, auto-detect their default block from their first purchased plan
+                const plans = data.purchasedBlocks || [];
+                if (plans.length > 0 && plans[0] !== "ALL" && data.role !== "master") {
+                    const planStr = String(plans[0]).trim();
+                    let detectedYear = "";
+                    let detectedBlock = "";
 
-                const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
-                if (yearMatch) detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
+                    const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
+                    if (yearMatch) detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
 
-                const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
-                if (arabicMatch) {
-                    const numMap = { '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV' };
-                    detectedBlock = numMap[arabicMatch[1]];
-                } else {
-                    const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
-                    if (romanMatch) detectedBlock = romanMatch[1].toUpperCase();
-                }
-
-                if (!detectedYear || detectedYear.toLowerCase() === "block") {
-                    const localYearBlockMap = { '1st': ['I', 'II', 'III'], '2nd': ['IV', 'V', 'VI'], '3rd': ['VII', 'VIII', 'IX'], '4th': ['X', 'XI', 'XII'], '5th': ['XIII', 'XIV', 'XV'] };
-                    for (const [yr, blks] of Object.entries(localYearBlockMap)) {
-                        if (blks.includes(detectedBlock)) { detectedYear = yr; break; }
+                    const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                    if (arabicMatch) {
+                        const numMap = { '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV' };
+                        detectedBlock = numMap[arabicMatch[1]];
+                    } else {
+                        const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                        if (romanMatch) detectedBlock = romanMatch[1].toUpperCase();
                     }
-                }
 
-                if (detectedYear) appState.academicYear = detectedYear;
-                if (detectedBlock) appState.academicBlock = detectedBlock;
+                    if (!detectedYear || detectedYear.toLowerCase() === "block") {
+                        const localYearBlockMap = { '1st': ['I', 'II', 'III'], '2nd': ['IV', 'V', 'VI'], '3rd': ['VII', 'VIII', 'IX'], '4th': ['X', 'XI', 'XII'], '5th': ['XIII', 'XIV', 'XV'] };
+                        for (const [yr, blks] of Object.entries(localYearBlockMap)) {
+                            if (blks.includes(detectedBlock)) { detectedYear = yr; break; }
+                        }
+                    }
+
+                    if (detectedYear) appState.academicYear = detectedYear;
+                    if (detectedBlock) appState.academicBlock = detectedBlock;
+                }
             }
             
             const subT = document.getElementById('drawer-subtitle');
@@ -5294,39 +5331,71 @@
             try { updateContinueCardUI(); } catch(e){}
         }
 
+        // ================= INSTANT OFFLINE/ONLINE BOOT ENGINE =================
+        // Synchronously load UI from cache before Firebase even wakes up!
+        const savedUid = localStorage.getItem('blockify_active_uid');
+        if (savedUid && localStorage.getItem('guest_active') !== 'true') {
+            const cachedProfile = localStorage.getItem('blockify_offline_userData_' + savedUid);
+            if (cachedProfile) {
+                try { 
+                    appState.currentUser = { uid: savedUid }; // Mock user until auth catches up
+                    applyHydratedUserData(JSON.parse(cachedProfile)); 
+                    hideLoader();
+                    switchTab('dashboard');
+                    fetchSyllabus();
+                } catch(e) {}
+            }
+        }
+
         auth.onAuthStateChanged((user) => {
             if (user) {
+                localStorage.setItem('blockify_active_uid', user.uid);
                 localStorage.removeItem('guest_active');
                 appState.isGuest = false;
                 appState.currentUser = user;
 
                 const localCacheKey = 'blockify_offline_userData_' + user.uid;
                 const cachedProfile = localStorage.getItem(localCacheKey);
-                if (cachedProfile) {
+                
+                // If it's a fresh login (no cache), keep loader spinning until Firestore fetches data
+                if (!cachedProfile && appState.currentScreen === 'login') {
+                    showLoader("Syncing Profile...");
+                } else if (cachedProfile) {
                     try { applyHydratedUserData(JSON.parse(cachedProfile)); } catch(e) {}
+                    hideLoader();
+                    if (appState.currentScreen === 'login' || appState.currentScreen === 'onboarding') {
+                        switchTab('dashboard');
+                    }
                 }
 
-                // FIX: Hide loader and show dashboard IMMEDIATELY. Never wait for Firestore to resolve.
-                hideLoader();
-                switchTab('dashboard');
-
-                // Perform cloud sync in the background so app never gets stuck
-                db.collection("users").doc(user.uid).get().then(docSnap => {
+                // Use onSnapshot for real-time offline-first UI updates, replacing the buggy .get()
+                db.collection("users").doc(user.uid).onSnapshot({ includeMetadataChanges: true }, (docSnap) => {
                     if (docSnap.exists) {
                         const cloudData = docSnap.data();
                         appState.userData = cloudData;
                         localStorage.setItem(localCacheKey, JSON.stringify(cloudData));
                         applyHydratedUserData(cloudData);
+                        
+                        if (!cachedProfile && (appState.currentScreen === 'login' || appState.currentScreen === 'onboarding')) {
+                            hideLoader();
+                            switchTab('dashboard');
+                            fetchSyllabus();
+                        }
                     }
-                    try { initRealTimeNotificationsListener(user.uid); } catch(e){}
-                    try { evaluateBlock5Promos(); } catch(e){}
-                    fetchSyllabus();
-                }).catch(e => {
-                    console.warn("Offline - using cached profile.", e);
-                    fetchSyllabus(); // Still fetch syllabus from local IndexedDB
+                }, (error) => {
+                    console.warn("Firestore sync paused (Offline Mode):", error);
+                    if (!cachedProfile) {
+                        hideLoader();
+                        showLoginError("Network required for first-time setup.");
+                    }
                 });
 
+                try { initRealTimeNotificationsListener(user.uid); } catch(e){}
+                try { evaluateBlock5Promos(); } catch(e){}
+                if (cachedProfile) fetchSyllabus();
+
             } else {
+                localStorage.removeItem('blockify_active_uid');
                 // PERSISTENT GUEST USER BOOT LOGIC (Keeps guest logged in forever)
                 if (localStorage.getItem('guest_active') === 'true') {
                     const savedYear = localStorage.getItem('guest_year') || '1st';
@@ -5607,6 +5676,8 @@
 
         async function logOutUser() {
             showLoader("Signing out...");
+            localStorage.removeItem('blockify_active_uid');
+            
             if (appState.isGuest) {
                 try {
                     if (window.caches) {
@@ -5992,21 +6063,32 @@
             let allData = [];
             const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
             
-            // FAST BUT SAFE BATCHING (Prevents Browser Crash & Stuck Loader)
             const chunkSize = 5; 
             for (let i = 0; i < letters.length; i += chunkSize) {
                 const chunk = letters.slice(i, i + chunkSize);
-                const promises = chunk.map(char => 
-                    fetch(`${baseUrl}${char}.json`, { cache: 'default' })
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
-                );
+                const promises = chunk.map(async char => {
+                    const url = `${baseUrl}${char}.json`;
+                    const cacheKey = `forever_cache_${url}`;
+                    
+                    // 1. Check local device memory forever cache first
+                    try {
+                        const cached = await getCachedFile(cacheKey);
+                        if (cached && cached.length > 0) return cached;
+                    } catch(e) {}
+                    
+                    // 2. If not found, fetch from network and save forever
+                    return fetch(url, { cache: 'default' })
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                            if (data) cacheFile(cacheKey, data);
+                            return data;
+                        })
+                        .catch(() => null);
+                });
                 
                 const results = await Promise.all(promises);
                 const validResults = results.filter(Boolean);
                 allData.push(...validResults.flat(Infinity));
-                
-                // REMOVED early break. A single 404 (or network drop) in a chunk should NOT cancel fetching subsequent files!
             }
             return allData;
         }
@@ -6344,8 +6426,17 @@
             const bNum = blockToNum[appState.academicBlock] || 1;
             if (NOTES_CACHE[bNum] && NOTES_CACHE[bNum].length > 0) return;
             
+            const cacheKey = `forever_compiled_notes_b${bNum}`;
+            try {
+                const cached = await getCachedFile(cacheKey);
+                if (cached && cached.length > 0) {
+                    NOTES_CACHE[bNum] = cached;
+                    if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allNotes = cached;
+                    return;
+                }
+            } catch(e) {}
+
             const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}N`;
-            // Increased to 26 (a-z) to fetch all notes mapping
             const allNotesRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
             let allNotes = [];
@@ -6360,6 +6451,7 @@
                 }
             });
             NOTES_CACHE[bNum] = allNotes;
+            cacheFile(cacheKey, allNotes);
             if (bNum === (blockToNum[appState.academicBlock] || 1)) {
                 APP_DATA.allNotes = allNotes;
             }
@@ -6370,22 +6462,24 @@
             const bNum = blockToNum[appState.academicBlock] || 1;
             if (FLASH_CACHE[bNum] && FLASH_CACHE[bNum].length > 0) return;
             
+            const cacheKey = `forever_compiled_flashcards_b${bNum}`;
+            try {
+                const cached = await getCachedFile(cacheKey);
+                if (cached && cached.length > 0) {
+                    FLASH_CACHE[bNum] = cached;
+                    if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards = cached;
+                    return;
+                }
+            } catch(e) {}
+
             const baseUrl = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/b${bNum}flash`;
-            // Increased from 13 to 26 (a-z) to fetch all vivacards
             const allCardsRaw = await fetchGitHubFilesSequentially(baseUrl, 26);
 
             let allFlashcards = [];
             allCardsRaw.forEach(modData => {
-                // Handle New Flat Flashcard Object Structure
                 if (modData.tag && modData.front && modData.back) {
-                    allFlashcards.push({ 
-                        loCode: extractLOCodeSafe(modData.tag), 
-                        front: modData.front, 
-                        back: modData.back 
-                    });
-                }
-                // Handle Legacy Nested Syllabus Structure
-                else if (modData.learningObjectives) {
+                    allFlashcards.push({ loCode: extractLOCodeSafe(modData.tag), front: modData.front, back: modData.back });
+                } else if (modData.learningObjectives) {
                     modData.learningObjectives.forEach(lo => {
                         let code = extractLOCodeSafe(lo.objective);
                         if(lo.flashcards) {
@@ -6413,6 +6507,7 @@
                 }
             });
             FLASH_CACHE[bNum] = allFlashcards;
+            cacheFile(cacheKey, allFlashcards);
             if (bNum === (blockToNum[appState.academicBlock] || 1)) {
                 APP_DATA.allFlashcards = allFlashcards;
             }
@@ -10370,18 +10465,17 @@
             
             try {
                 if (!WARD_CARDS_CACHE['II']) {
-                    const timestamp = new Date().getTime();
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/wardb2.json?nocache=${timestamp}`;
-                    
-                    const res = await fetch(url, { cache: 'no-store' });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    
-                    const text = await res.text();
-                    let data;
-                    try {
-                        data = JSON.parse(text);
-                    } catch (parseErr) {
-                        throw new Error("Formatting mismatch inside structural clinical database.");
+                    const cacheKey = `forever_wardcards_II`;
+                    let data = await getCachedFile(cacheKey);
+                    if (!data) {
+                        const timestamp = new Date().getTime();
+                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/wardb2.json?nocache=${timestamp}`;
+                        
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const text = await res.text();
+                        try { data = JSON.parse(text); } catch (parseErr) { throw new Error("Formatting mismatch inside structural clinical database."); }
+                        cacheFile(cacheKey, data);
                     }
                     WARD_CARDS_CACHE['II'] = data;
                 }
@@ -11830,14 +11924,18 @@
 
             try {
                 if (!USMLEFY_CACHE[bNum]) {
-                    const timestamp = new Date().getTime();
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/usmlefyb${bNum}.json?nocache=${timestamp}`;
-                    
-                    const res = await fetch(url, { cache: 'no-store' });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
-                    
-                    USMLEFY_CACHE[bNum] = data.uhsToFirstAid || [];
+                    const cacheKey = `forever_usmlefy_b${bNum}`;
+                    let data = await getCachedFile(cacheKey);
+                    if (!data) {
+                        const timestamp = new Date().getTime();
+                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/usmlefyb${bNum}.json?nocache=${timestamp}`;
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const rawData = await res.json();
+                        data = rawData.uhsToFirstAid || [];
+                        cacheFile(cacheKey, data);
+                    }
+                    USMLEFY_CACHE[bNum] = data;
                 }
                 renderUsmlefy();
             } catch (err) {
@@ -12198,22 +12296,25 @@ REQUIREMENTS:
             
             try {
                 if (!PAST_PAPERS_CACHE[block]) {
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json`;
+                    const cacheKey = `forever_pastpapers_b${bNum}`;
+                    let flattenedPapers = await getCachedFile(cacheKey);
+                    if (!flattenedPapers) {
+                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json`;
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (!res.ok) throw new Error("Failed to fetch past papers");
+                        const data = await res.json();
                         
-                    const res = await fetch(url, { cache: 'no-store' });
-                    if (!res.ok) throw new Error("Failed to fetch past papers");
-                    const data = await res.json();
-                    
-                    let flattenedPapers = [];
-                    // Handle flat arrays (legacy Block 2) or nested Annual/Supply JSON (Block 4)
-                    if (Array.isArray(data)) {
-                        flattenedPapers = data;
-                    } else {
-                        for (const [examSession, years] of Object.entries(data)) {
-                            for (const [year, questions] of Object.entries(years)) {
-                                flattenedPapers = flattenedPapers.concat(questions);
+                        flattenedPapers = [];
+                        if (Array.isArray(data)) {
+                            flattenedPapers = data;
+                        } else {
+                            for (const [examSession, years] of Object.entries(data)) {
+                                for (const [year, questions] of Object.entries(years)) {
+                                    flattenedPapers = flattenedPapers.concat(questions);
+                                }
                             }
                         }
+                        cacheFile(cacheKey, flattenedPapers);
                     }
                     PAST_PAPERS_CACHE[block] = flattenedPapers;
                 }
@@ -12463,11 +12564,17 @@ REQUIREMENTS:
                     if (bNum === 5 || bNum === '5' || block === 'V') {
                         MARKIFY_CACHE[bNum] = BLOCK5_RAW_MARKINGS;
                     } else {
-                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
-                        const res = await fetch(url, { cache: 'no-store' });
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                        const data = await res.json();
-                        MARKIFY_CACHE[bNum] = Array.isArray(data) ? data : [];
+                        const cacheKey = `forever_markify_b${bNum}`;
+                        let data = await getCachedFile(cacheKey);
+                        if (!data) {
+                            const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
+                            const res = await fetch(url, { cache: 'no-store' });
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            const rawData = await res.json();
+                            data = Array.isArray(rawData) ? rawData : [];
+                            cacheFile(cacheKey, data);
+                        }
+                        MARKIFY_CACHE[bNum] = data;
                     }
                 }
                 renderMarkify();
