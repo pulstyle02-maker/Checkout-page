@@ -6076,10 +6076,14 @@
                 const promises = chunk.map(async char => {
                     const cacheKey = `${baseUrl}_${char}`;
                     
+                    // Helper to accept both Arrays (MCQs) and Objects (Notes/Vivacards)
+                    // Auto-heals empty caches caused by previous bugs
+                    const isValidData = (d) => d && (Array.isArray(d) ? d.length > 0 : Object.keys(d).length > 0);
+                    
                     // 1. Try Local IndexedDB Cache First
                     try {
                         const cachedData = await getCachedFile(cacheKey);
-                        if (cachedData && Array.isArray(cachedData) && cachedData.length > 0) {
+                        if (isValidData(cachedData)) {
                             return cachedData;
                         }
                     } catch (e) {}
@@ -6089,7 +6093,7 @@
                         const res = await fetch(`${baseUrl}${char}.json`, { cache: 'default' });
                         if (res.ok) {
                             const data = await res.json();
-                            if (data && Array.isArray(data)) {
+                            if (isValidData(data)) {
                                 cacheFile(cacheKey, data).catch(()=>{}); // Cache it permanently
                                 return data;
                             }
