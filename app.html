@@ -817,7 +817,7 @@
     <div id="app-container">
 
         <!-- ================= NETWORK STATUS TOAST ================= -->
-        <div id="network-status-toast" class="fixed top-0 left-0 right-0 z-[500] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform -translate-y-[200%] pointer-events-none flex justify-center safe-pt px-4">
+        <div id="network-status-toast" class="fixed top-[calc(env(safe-area-inset-top,32px)+16px)] left-4 right-4 z-[500] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform -translate-y-[250%] opacity-0 pointer-events-none flex justify-center">
             <div class="bg-brand-gradient p-[1.5px] rounded-[20px] shadow-2xl w-full max-w-sm">
                 <div class="bg-zinc-950 px-4 py-3 rounded-[19px] flex items-center gap-3.5">
                     <div id="network-toast-icon-wrapper" class="w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
@@ -831,8 +831,8 @@
             </div>
         </div>
 
-        <!-- Instagram-Style Push Notification Banner -->
-        <div id="ios-push-notification" class="fixed top-3 left-4 right-4 z-[200] transform -translate-y-[150%] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto cursor-pointer" onclick="navigate('notifications_inbox'); hideIosPushBanner();">
+        <!-- Instagram-Style Push Notification Banner (Generously below Notch / Dynamic Island) -->
+        <div id="ios-push-notification" class="fixed top-[calc(env(safe-area-inset-top,32px)+16px)] left-4 right-4 z-[200] transform -translate-y-[250%] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto cursor-pointer" onclick="navigate('notifications_inbox'); hideIosPushBanner();">
             <div class="w-full max-w-sm mx-auto bg-white/90 dark:bg-[#121212]/90 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-full p-2.5 shadow-xl flex items-center gap-3">
                 <img src="https://i.imgur.com/kZsZDzA.jpeg" class="w-9 h-9 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10" alt="Blockify">
                 <div class="flex-1 min-w-0 text-left pr-2 flex flex-col justify-center">
@@ -12858,8 +12858,7 @@ REQUIREMENTS:
             const userId = appState.currentUser ? appState.currentUser.uid : null;
             if (!userId || appState.isGuest) return;
 
-            showLoader("Acknowledging alerts...");
-
+            // NO LOADER: Instant optimistic UI update
             let readGlobals = appState.userData?.readGlobalNotifs || [];
             activeNotifsArray.forEach(n => {
                 if (n.scope === 'global' && !readGlobals.includes(n.id)) {
@@ -12868,26 +12867,27 @@ REQUIREMENTS:
             });
             appState.userData.readGlobalNotifs = readGlobals;
 
+            // Mark personals as read in local memory immediately
             const unreadPersonals = activeNotifsArray.filter(n => n.scope === 'personal' && !n.read);
-            const batch = db.batch();
-            unreadPersonals.forEach(n => {
-                const docRef = db.collection("users").doc(userId).collection("notifications").doc(n.id);
-                batch.update(docRef, { read: true });
-            });
+            unreadPersonals.forEach(n => n.read = true);
 
+            // Immediately re-render feed so the screen clears instantly without waiting
+            mergeAndRebuildNotifsFeed([], 'sync', userId);
+
+            // Background silent sync to Firebase
             try {
-                // Sync Global array to Firebase
-                await db.collection("users").doc(userId).update({ readGlobalNotifs: readGlobals });
+                const batch = db.batch();
+                unreadPersonals.forEach(n => {
+                    const docRef = db.collection("users").doc(userId).collection("notifications").doc(n.id);
+                    batch.update(docRef, { read: true });
+                });
                 
-                // Sync Personals Subcollection
+                await db.collection("users").doc(userId).update({ readGlobalNotifs: readGlobals }).catch(()=>{});
                 if (unreadPersonals.length > 0) {
-                    await batch.commit();
+                    await batch.commit().catch(()=>{});
                 }
             } catch(e) {
-                console.warn(e);
-            } finally {
-                hideLoader();
-                mergeAndRebuildNotifsFeed([], 'sync', userId);
+                console.warn("Background notification sync error:", e);
             }
         }
 
@@ -15598,135 +15598,27 @@ ${chunkText.substring(0, 9500)}`;
             document.head.appendChild(manifestLink);
         }
 
+        // ================= BULLETPROOF PWA REGISTRATION =================
+        // 1. Force-save the active app HTML page shell into CacheStorage from main thread (100% works on iOS)
+        if ('caches' in window) {
+            caches.open('modmedicalis-static-v4').then(cache => {
+                cache.add(window.location.href).catch(()=>{});
+                cache.add('./').catch(()=>{});
+                cache.add(window.location.pathname).catch(()=>{});
+            }).catch(()=>{});
+        }
+
+        // 2. Clean registration of your existing server-side sw.js file
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                try {
-                    // Save the current document shell directly to Cache Storage from main thread
-                    if ('caches' in window) {
-                        caches.open('blockify-offline-v4').then(cache => {
-                            cache.add(window.location.href).catch(()=>{});
-                            cache.add('./').catch(()=>{});
-                        }).catch(()=>{});
-                    }
-
-                    const swCode = `
-                        const CACHE_NAME = 'blockify-offline-v4';
-                        const APP_SHELL = [
-                            './',
-                            'https://cdn.tailwindcss.com',
-                            'https://unpkg.com/lucide@latest',
-                            'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js',
-                            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js',
-                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js',
-                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js'
-                        ];
-
-                        self.addEventListener('install', e => {
-                            self.skipWaiting();
-                            e.waitUntil(
-                                caches.open(CACHE_NAME).then(cache => {
-                                    // Individual caching prevents 1 CDN error from killing the entire offline cache
-                                    return Promise.all(APP_SHELL.map(url => cache.add(url).catch(() => {})));
-                                })
-                            );
-                        });
-
-                        self.addEventListener('activate', e => {
-                            e.waitUntil(
-                                caches.keys().then(keys => Promise.all(
-                                    keys.map(key => {
-                                        if (key !== CACHE_NAME) return caches.delete(key);
-                                    })
-                                )).then(() => clients.claim())
-                            );
-                        });
-
-                        self.addEventListener('fetch', e => {
-                            if (e.request.method !== 'GET' || !e.request.url.startsWith('http')) return;
-                            
-                            // Navigation requests (Opening the PWA offline)
-                            if (e.request.mode === 'navigate') {
-                                e.respondWith(
-                                    fetch(e.request)
-                                        .then(res => {
-                                            const copy = res.clone();
-                                            caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
-                                            return res;
-                                        })
-                                        .catch(async () => {
-                                            // Always return the cached page so the browser never shows "No Internet"
-                                            const match = await caches.match(e.request, { ignoreSearch: true }) || 
-                                                          await caches.match('./') || 
-                                                          await caches.match(self.registration.scope);
-                                            return match;
-                                        })
-                                );
-                                return;
-                            }
-
-                            // Asset requests
-                            e.respondWith(
-                                caches.match(e.request, { ignoreSearch: true }).then(cachedResponse => {
-                                    const fetchPromise = fetch(e.request).then(networkResponse => {
-                                        if (networkResponse && networkResponse.status === 200) {
-                                            const responseToCache = networkResponse.clone();
-                                            caches.open(CACHE_NAME).then(cache => cache.put(e.request, responseToCache));
-                                        }
-                                        return networkResponse;
-                                    }).catch(() => cachedResponse);
-                                    
-                                    return cachedResponse || fetchPromise;
-                                })
-                            );
-                        });
-
-                        self.addEventListener('push', e => {
-                            let data = { title: 'BLOCKIFY Bulletin', body: 'New medical notice received!' };
-                            if (e.data) {
-                                try { data = e.data.json(); } catch(err) { data = { title: 'Notice Alert', body: e.data.text() }; }
-                            }
-                            e.waitUntil(
-                                self.registration.showNotification(data.title, {
-                                    body: data.body,
-                                    icon: 'https://i.imgur.com/fHKXsHj.png',
-                                    badge: 'https://i.imgur.com/fHKXsHj.png',
-                                    vibrate: [100, 50, 100],
-                                    data: { url: self.location.origin }
-                                })
-                            );
-                        });
-                        self.addEventListener('notificationclick', e => {
-                            e.notification.close();
-                            e.waitUntil(
-                                clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-                                    for (var i = 0; i < windowClients.length; i++) {
-                                        var client = windowClients[i];
-                                        if (client.url === e.notification.data.url && 'focus' in client) {
-                                            return client.focus();
-                                        }
-                                    }
-                                    if (clients.openWindow) {
-                                        return clients.openWindow(e.notification.data.url);
-                                    }
-                                })
-                            );
-                        });
-                    `;
-                    
-                    const blob = new Blob([swCode], { type: 'application/javascript' });
-                    const swUrl = URL.createObjectURL(blob);
-                    
-                    navigator.serviceWorker.register(swUrl)
-                        .then(reg => {
-                            if ('Notification' in window && Notification.permission === 'default') {
-                                setTimeout(() => { Notification.requestPermission(); }, 5000);
-                            }
-                        })
-                        .catch(err => console.warn("Background Service Worker bypass activated:", err));
-                } catch (e) {
-                    console.warn("Service worker initialization bypassed to prevent iOS crash:", e);
-                }
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log("Service Worker active for:", reg.scope);
+                        if ('Notification' in window && Notification.permission === 'default') {
+                            setTimeout(() => { Notification.requestPermission(); }, 5000);
+                        }
+                    })
+                    .catch(err => console.warn("SW registration error:", err));
             });
         }
 
