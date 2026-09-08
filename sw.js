@@ -16,9 +16,9 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// 3. CACHE CONFIGURATION
-const STATIC_CACHE = 'modmedicalis-static-v4';
-const DYNAMIC_CACHE = 'modmedicalis-dynamic-v4';
+// 3. CACHE CONFIGURATION (Bumped to v5 to FORCE PURGE the broken cache on users' phones)
+const STATIC_CACHE = 'modmedicalis-static-v5';
+const DYNAMIC_CACHE = 'modmedicalis-dynamic-v5';
 
 const STATIC_ASSETS = [
   './',
@@ -41,7 +41,7 @@ const STATIC_ASSETS = [
 
 // Install: Cache each asset individually so one failure does not abort the install
 self.addEventListener('install', event => {
-  self.skipWaiting();
+  self.skipWaiting(); // Force the waiting service worker to become the active service worker
   event.waitUntil(
     caches.open(STATIC_CACHE).then(cache => {
       return Promise.all(
@@ -55,7 +55,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Activate: Clean up old caches
+// Activate: Clean up old caches (This deletes the broken v4 cache that was causing logouts)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
@@ -72,12 +72,26 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. NEVER attempt to cache non-GET requests (prevents Firestore POST crash)
+  // 1. NEVER attempt to cache non-GET requests
   if (request.method !== 'GET') {
     return;
   }
 
-  // 2. Navigation Request: User opening the PWA on iPhone (Online or Offline)
+  // =========================================================================
+  // CRITICAL FIX: PREVENT GHOST LOGOUTS AND FIREBASE DATABASE DEADLOCKS
+  // Absolutely NEVER intercept or cache Firebase Auth, Firestore, or Google APIs.
+  // =========================================================================
+  if (
+    url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('firebaseio.com') ||
+    url.hostname.includes('gstatic.com') ||
+    url.hostname.includes('securetoken') ||
+    url.hostname.includes('identitytoolkit')
+  ) {
+    return; // Let the request go directly to the network without Service Worker interference
+  }
+
+  // 2. Navigation Request: User opening the PWA on iPhone/Android
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -89,7 +103,7 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(async () => {
-          // Guaranteed offline fallback so Safari NEVER shows the black screen
+          // Guaranteed offline fallback so mobile devices NEVER show the dinosaur/black screen
           const cached = await caches.match(request, { ignoreSearch: true }) ||
                          await caches.match('./', { ignoreSearch: true }) ||
                          await caches.match('./index.html', { ignoreSearch: true });
