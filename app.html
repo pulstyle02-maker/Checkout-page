@@ -3438,6 +3438,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <!-- ADD MESSAGING SDK FOR BACKGROUND PUSH NOTIFICATIONS -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
 
     <!-- ================= JAVASCRIPT ================= -->
     <script>
@@ -5292,46 +5294,38 @@
             try { updateContinueCardUI(); } catch(e){}
         }
 
-        auth.onAuthStateChanged(async (user) => {
+        auth.onAuthStateChanged((user) => {
             if (user) {
                 localStorage.removeItem('guest_active');
                 appState.isGuest = false;
                 appState.currentUser = user;
 
-                // 1. FAST OFFLINE BOOT: Immediately restore from localStorage so name & block are NEVER lost offline
                 const localCacheKey = 'blockify_offline_userData_' + user.uid;
                 const cachedProfile = localStorage.getItem(localCacheKey);
                 if (cachedProfile) {
-                    try {
-                        const parsed = JSON.parse(cachedProfile);
-                        applyHydratedUserData(parsed);
-                    } catch(e) {}
+                    try { applyHydratedUserData(JSON.parse(cachedProfile)); } catch(e) {}
                 }
 
-                try {
-                    // 2. Fetch fresh cloud data if online
-                    const docSnap = await db.collection("users").doc(user.uid).get();
+                // FIX: Hide loader and show dashboard IMMEDIATELY. Never wait for Firestore to resolve.
+                hideLoader();
+                switchTab('dashboard');
+
+                // Perform cloud sync in the background so app never gets stuck
+                db.collection("users").doc(user.uid).get().then(docSnap => {
                     if (docSnap.exists) {
                         const cloudData = docSnap.data();
                         appState.userData = cloudData;
-                        // Permanently cache to device
                         localStorage.setItem(localCacheKey, JSON.stringify(cloudData));
                         applyHydratedUserData(cloudData);
                     }
-                    
                     try { initRealTimeNotificationsListener(user.uid); } catch(e){}
                     try { evaluateBlock5Promos(); } catch(e){}
-
-                    hideLoader();
-                    switchTab('dashboard');
                     fetchSyllabus();
-                } catch(e) {
-                    console.warn("Offline boot active, using locally cached profile:", e);
-                    // Do NOT overwrite appState.userData with empty object!
-                    hideLoader();
-                    switchTab('dashboard');
-                    fetchSyllabus(); 
-                }
+                }).catch(e => {
+                    console.warn("Offline - using cached profile.", e);
+                    fetchSyllabus(); // Still fetch syllabus from local IndexedDB
+                });
+
             } else {
                 // PERSISTENT GUEST USER BOOT LOGIC (Keeps guest logged in forever)
                 if (localStorage.getItem('guest_active') === 'true') {
@@ -6076,71 +6070,65 @@
             });
         }
 
-        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE ---
+        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE (CPU OPTIMIZED) ---
+        window.ACTIVE_SYNC_LOCK = null; // Global lock to prevent CPU overheating
+
         async function startBackgroundBlockSync(bNum) {
             const indexData = MCQ_INDEX_CACHE[bNum];
             if (!indexData) return;
             
+            // If a sync is already running for this block, abort to save CPU
+            if (window.ACTIVE_SYNC_LOCK === bNum) return;
+            window.ACTIVE_SYNC_LOCK = bNum;
+            
             const blockKey = "b" + appState.academicBlock;
             const blockData = indexData[blockKey] || Object.values(indexData)[0];
-            const fileNames = Object.keys(blockData);
+            if(!blockData) return;
             
+            const fileNames = Object.keys(blockData);
             if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
             if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
             
-            let fileIdx = 0;
-            
-            async function downloadNext() {
-                // Stop sync if block or mode changes during download queue
-                const currentBlockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-                const currentBNum = currentBlockToNum[appState.academicBlock] || 1;
-                if (currentBNum !== bNum) return;
+            // Give UI time to render before starting heavy background tasks
+            await new Promise(r => setTimeout(r, 4000));
 
-                if (fileIdx >= fileNames.length) {
-                    console.log("Background synchronization complete.");
-                    return;
+            for (let i = 0; i < fileNames.length; i++) {
+                // Abort if user switched blocks to prevent overlapping downloads
+                const currentBlockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+                if ((currentBlockToNum[appState.academicBlock] || 1) !== bNum) {
+                    window.ACTIVE_SYNC_LOCK = null;
+                    return; 
                 }
+
+                const fileName = fileNames[i];
+                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) continue;
                 
-                const fileName = fileNames[fileIdx];
-                fileIdx++;
-                
-                // If already in RAM, continue
-                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) {
-                    downloadNext();
-                    return;
-                }
-                
-                // If already in local IndexedDB storage, load into RAM quietly and skip network
                 try {
                     const cachedData = await getCachedFile(fileName);
                     if (cachedData && cachedData.length > 0) {
                         window.LOADED_MCQ_FILES[bNum].add(fileName);
                         mergeMCQs(cachedData);
-                        downloadNext();
-                        return;
+                        continue;
                     }
-                } catch (e) {
-                    console.warn(e);
-                }
+                } catch (e) {}
                 
-                // Fast Background Download - 1 file every 500ms
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                fetch(url, { cache: 'default' })
-                    .then(r => r.ok ? r.json() : [])
-                    .then(data => {
+                try {
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
+                    const res = await fetch(url, { cache: 'default' });
+                    if(res.ok) {
+                        const data = await res.json();
                         window.LOADED_MCQ_FILES[bNum].add(fileName);
                         mergeMCQs(data);
                         cacheFile(fileName, data);
-                        setTimeout(downloadNext, 500); 
-                    })
-                    .catch(err => {
-                        console.warn(`Silent sync skipped ${fileName}:`, err);
-                        setTimeout(downloadNext, 500); 
-                    });
+                    }
+                } catch (err) {
+                    console.warn(`Silent sync skipped ${fileName}:`, err);
+                }
+                
+                // CRITICAL: Yield to the main thread for 1.5 seconds to prevent phone overheating
+                await new Promise(r => setTimeout(r, 1500));
             }
-            
-            // Starts background download after initial dashboard setup delay
-            setTimeout(downloadNext, 4000);
+            window.ACTIVE_SYNC_LOCK = null;
         }
 
         async function fetchMCQIndexForBlock(bNum) {
@@ -12661,6 +12649,38 @@ REQUIREMENTS:
 
         function initRealTimeNotificationsListener(userId) {
             if (!userId || appState.isGuest) return;
+
+            // --- FCM BACKGROUND PUSH NOTIFICATIONS SETUP ---
+            if (firebase.messaging.isSupported()) {
+                const messaging = firebase.messaging();
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        // VAPID key is required for Web Push. Replace with your actual Firebase Web Push Cert if you have one, 
+                        // or leave empty to use default auto-generation.
+                        return messaging.getToken(); 
+                    }
+                }).then((currentToken) => {
+                    if (currentToken) {
+                        // Save this token to the user's document so the server knows where to send background notifications
+                        db.collection('users').doc(userId).update({ fcmToken: currentToken }).catch(()=>{});
+                    }
+                }).catch((err) => console.log('Push permission denied or failed.', err));
+
+                // Handle messages received while app is OPEN
+                messaging.onMessage((payload) => {
+                    const notif = {
+                        id: 'push_' + Date.now(),
+                        title: payload.notification?.title || "New Notification",
+                        message: payload.notification?.body || "",
+                        type: 'urgent',
+                        createdAt: Date.now(),
+                        scope: 'personal',
+                        read: false
+                    };
+                    triggerIosPushToast(notif, userId);
+                });
+            }
+            // -----------------------------------------------
 
             // 1. Listen for User-Specific Messages (Personal Subcollection)
             db.collection("users").doc(userId).collection("notifications")
