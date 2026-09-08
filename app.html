@@ -816,16 +816,16 @@
 
     <div id="app-container">
 
-        <!-- ================= OFFLINE MODE TOAST ================= -->
-        <div id="offline-status-toast" class="fixed top-0 left-0 right-0 z-[500] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform -translate-y-[200%] pointer-events-none flex justify-center safe-pt px-4">
+        <!-- ================= NETWORK STATUS TOAST ================= -->
+        <div id="network-status-toast" class="fixed top-0 left-0 right-0 z-[500] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform -translate-y-[200%] pointer-events-none flex justify-center safe-pt px-4">
             <div class="bg-brand-gradient p-[1.5px] rounded-[20px] shadow-2xl w-full max-w-sm">
                 <div class="bg-zinc-950 px-4 py-3 rounded-[19px] flex items-center gap-3.5">
-                    <div class="w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
-                        <i data-lucide="wifi-off" class="w-4 h-4 text-white"></i>
+                    <div id="network-toast-icon-wrapper" class="w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
+                        <i id="network-toast-icon" data-lucide="wifi-off" class="w-4 h-4 text-white"></i>
                     </div>
                     <div class="flex-1">
-                        <h4 class="text-[13px] font-black text-white leading-tight mb-0.5">You are offline</h4>
-                        <p class="text-[11px] font-medium text-zinc-400 leading-tight">But don't worry, showing the loaded content only.</p>
+                        <h4 id="network-toast-title" class="text-[13px] font-black text-white leading-tight mb-0.5">You are offline</h4>
+                        <p id="network-toast-desc" class="text-[11px] font-medium text-zinc-400 leading-tight">But don't worry, showing loaded content only.</p>
                     </div>
                 </div>
             </div>
@@ -6255,6 +6255,12 @@
 
             if (filesToDownload.length === 0) return; // Completely loaded from local cache!
 
+            // OFFLINE FAILSAFE CHECK
+            if (!navigator.onLine) {
+                alert("You are currently offline. Please connect to internet and load MCQs for the first time atleast.");
+                return;
+            }
+
             // SHOW NETWORK DOWNLOADER UI WITH PROGRESS BAR!
             showLoader("Downloading MCQs...", true);
             let downloadedCount = 0;
@@ -6430,6 +6436,10 @@
             const bNum = blockToNum[appState.academicBlock] || 1;
 
             if (appState.mode === 'mcqs' && (!MCQ_INDEX_CACHE[bNum])) {
+                if (!navigator.onLine && (!APP_DATA.allMCQs || APP_DATA.allMCQs.length === 0)) {
+                    alert("You are currently offline. Please connect to internet and load MCQs for the first time atleast.");
+                    return;
+                }
                 showLoader("Syncing MCQ database...");
                 await prefetchCurrentBlockMCQs();
                 hideLoader();
@@ -10627,18 +10637,49 @@
         }
 
         // ================= OFFLINE NETWORK MANAGER =================
-        function handleNetworkStatus() {
-            const toast = document.getElementById('offline-status-toast');
+        let networkToastTimer;
+        
+        function showNetworkToast(isOnline) {
+            const toast = document.getElementById('network-status-toast');
+            const title = document.getElementById('network-toast-title');
+            const desc = document.getElementById('network-toast-desc');
+            const icon = document.getElementById('network-toast-icon');
+            const iconWrap = document.getElementById('network-toast-icon-wrapper');
             if (!toast) return;
 
-            if (!navigator.onLine) {
-                // User went offline
-                toast.classList.remove('-translate-y-[200%]');
-                toast.classList.add('translate-y-2'); // Slides down slightly below the safe top area
+            if (isOnline) {
+                title.innerText = "You are back online";
+                desc.innerText = "Curriculum syncing restored.";
+                icon.setAttribute('data-lucide', 'wifi');
+                icon.className = "w-4 h-4 text-emerald-500";
+                iconWrap.className = "w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0";
             } else {
-                // User came back online
+                title.innerText = "You are offline";
+                desc.innerText = "But don't worry, showing loaded content only.";
+                icon.setAttribute('data-lucide', 'wifi-off');
+                icon.className = "w-4 h-4 text-white";
+                iconWrap.className = "w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center shrink-0";
+            }
+            lucide.createIcons();
+
+            // Slide Down
+            toast.classList.remove('-translate-y-[200%]');
+            toast.classList.add('translate-y-2');
+
+            // Auto-Fade Away after 3.5 seconds
+            clearTimeout(networkToastTimer);
+            networkToastTimer = setTimeout(() => {
                 toast.classList.remove('translate-y-2');
                 toast.classList.add('-translate-y-[200%]');
+            }, 3500);
+        }
+
+        function handleNetworkStatus(e) {
+            // Trigger appropriate toast based on event
+            if (e && e.type === 'offline' || !navigator.onLine) {
+                showNetworkToast(false);
+            } else if (e && e.type === 'online') {
+                showNetworkToast(true);
             }
         }
 
