@@ -3438,8 +3438,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
-    <!-- ADD MESSAGING SDK FOR BACKGROUND PUSH NOTIFICATIONS -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
 
     <!-- ================= JAVASCRIPT ================= -->
     <script>
@@ -3675,8 +3673,7 @@
         }
 
         function updateUserDoc(data) {
-            // Apply to local state first
-            if (appState.userData) {
+            if (appState.isGuest) {
                 Object.assign(appState.userData, data);
                 if (data.totalMcqsDone !== undefined) appState.totalMcqsDone = data.totalMcqsDone;
                 if (data.totalCorrect !== undefined) appState.totalCorrect = data.totalCorrect;
@@ -3685,20 +3682,10 @@
                 if (data.loStats !== undefined) appState.loStats = data.loStats;
                 if (data.setStats !== undefined) appState.setStats = data.setStats;
                 if (data.streak !== undefined) appState.streak = data.streak;
-            }
-
-            if (appState.isGuest) {
                 localStorage.setItem('guest_stats', JSON.stringify(appState.userData));
                 return Promise.resolve();
             } else if (appState.currentUser && appState.currentUser.uid !== 'guest_user') {
-                // Instantly save to offline cache so UI updates survive refresh
-                const localCacheKey = 'blockify_offline_userData_' + appState.currentUser.uid;
-                localStorage.setItem(localCacheKey, JSON.stringify(appState.userData));
-                
-                // Then sync to cloud
-                if (typeof db !== 'undefined') {
-                    return db.collection("users").doc(appState.currentUser.uid).update(data).catch(e => console.warn("Saved locally. Cloud sync pending:", e));
-                }
+                return db.collection("users").doc(appState.currentUser.uid).update(data);
             }
             return Promise.resolve();
         }
@@ -4282,17 +4269,11 @@
             const sheet = document.getElementById('block-bottom-sheet');
             const list = document.getElementById('block-switcher-list');
             
-            // Update Subtitle text dynamically to communicate auto-save behavior
-            const titleEl = sheet.querySelector('p.text-zinc-500');
-            if (titleEl) {
-                titleEl.innerText = "The block you select will be saved as your default curriculum.";
-            }
-            
             const available = getAvailableBlocks();
             list.innerHTML = available.map(item => {
                 const isActive = (item.block === appState.academicBlock);
                 const bgCls = isActive ? 'bg-brand-blue/10 border-brand-blue/30 text-brand-blue' : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800';
-                const checkHtml = isActive ? `<div class="flex items-center gap-2"><span class="text-[9px] font-black uppercase tracking-widest bg-brand-blue text-white px-2 py-0.5 rounded-sm">Default</span><i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue"></i></div>` : '';
+                const checkHtml = isActive ? `<i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue"></i>` : '';
                 
                 return `
                 <button onclick="selectNewBlock('${item.year}', '${item.block}')" class="w-full flex items-center justify-between p-4 border rounded-[16px] card-press transition-all ${bgCls}">
@@ -4323,20 +4304,6 @@
             
             showLoader("Switching Curriculum...");
             appState.academicYear = year;
-
-            // SAVE AS DEFAULT GLOBALLY SO NEXT BOOT OPENS HERE AUTOMATICALLY
-            if (appState.currentUser && !appState.isGuest) {
-                if (!appState.userData) appState.userData = {};
-                appState.userData.defaultYear = year;
-                appState.userData.defaultBlock = block;
-                updateUserDoc({ 
-                    defaultYear: year, 
-                    defaultBlock: block 
-                }).catch(e => console.warn("Failed to save default block:", e));
-            } else if (appState.isGuest) {
-                localStorage.setItem('guest_year', year);
-                localStorage.setItem('guest_block', block);
-            }
             
             setTimeout(() => {
                 changeBlock(block);
@@ -5264,40 +5231,6 @@
             console.warn("Persistence error:", err.code);
         });
         const auth = firebase.auth();
-        
-        // WATCHDOG: If Firebase Auth hangs due to offline mode, force boot from cache after 4 seconds
-        let authWatchdog = setTimeout(() => {
-            if (document.getElementById('global-loader') && !document.getElementById('global-loader').classList.contains('hidden')) {
-                console.warn("Offline Boot: Auth timed out. Forcing cached dashboard.");
-                let foundUser = false;
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key.startsWith('blockify_offline_userData_')) {
-                        try {
-                            const data = JSON.parse(localStorage.getItem(key));
-                            appState.currentUser = { uid: key.replace('blockify_offline_userData_', '') };
-                            applyHydratedUserData(data);
-                            foundUser = true;
-                            hideLoader();
-                            switchTab('dashboard');
-                            fetchSyllabus();
-                            break;
-                        } catch(e){}
-                    }
-                }
-                if (!foundUser) {
-                    hideLoader();
-                    if (localStorage.getItem('guest_active') === 'true') {
-                        const savedYear = localStorage.getItem('guest_year') || '1st';
-                        const savedBlock = localStorage.getItem('guest_block') || 'II';
-                        confirmGuestBlock(savedYear, savedBlock, true);
-                    } else {
-                        if (typeof switchAuthView === 'function') switchAuthView('login');
-                        switchTab('login');
-                    }
-                }
-            }
-        }, 4000);
 
         // Helper function to hydrate state from local storage or cloud
         function applyHydratedUserData(data) {
@@ -5322,40 +5255,33 @@
             appState.setStats = data.setStats || {};
             appState.aiSessions = data.aiSessions || [];
 
-            if (data.defaultYear && data.defaultBlock) {
-                // 1. If user previously selected a default block, strictly obey it on every boot!
-                appState.academicYear = data.defaultYear;
-                appState.academicBlock = data.defaultBlock;
-            } else {
-                // 2. Otherwise, auto-detect their default block from their first purchased plan
-                const plans = data.purchasedBlocks || [];
-                if (plans.length > 0 && plans[0] !== "ALL" && data.role !== "master") {
-                    const planStr = String(plans[0]).trim();
-                    let detectedYear = "";
-                    let detectedBlock = "";
+            const plans = data.purchasedBlocks || [];
+            if (plans.length > 0 && plans[0] !== "ALL" && data.role !== "master") {
+                const planStr = String(plans[0]).trim();
+                let detectedYear = "";
+                let detectedBlock = "";
 
-                    const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
-                    if (yearMatch) detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
+                const yearMatch = planStr.match(/(?:^|[^a-zA-Z0-9])([1-5])(st|nd|rd|th)(?:$|[^a-zA-Z0-9])/i);
+                if (yearMatch) detectedYear = yearMatch[1] + yearMatch[2].toLowerCase();
 
-                    const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
-                    if (arabicMatch) {
-                        const numMap = { '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV' };
-                        detectedBlock = numMap[arabicMatch[1]];
-                    } else {
-                        const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
-                        if (romanMatch) detectedBlock = romanMatch[1].toUpperCase();
-                    }
-
-                    if (!detectedYear || detectedYear.toLowerCase() === "block") {
-                        const localYearBlockMap = { '1st': ['I', 'II', 'III'], '2nd': ['IV', 'V', 'VI'], '3rd': ['VII', 'VIII', 'IX'], '4th': ['X', 'XI', 'XII'], '5th': ['XIII', 'XIV', 'XV'] };
-                        for (const [yr, blks] of Object.entries(localYearBlockMap)) {
-                            if (blks.includes(detectedBlock)) { detectedYear = yr; break; }
-                        }
-                    }
-
-                    if (detectedYear) appState.academicYear = detectedYear;
-                    if (detectedBlock) appState.academicBlock = detectedBlock;
+                const arabicMatch = planStr.match(/(?:^|[^a-zA-Z0-9])(1[0-5]|[1-9])(?:$|[^a-zA-Z0-9])/);
+                if (arabicMatch) {
+                    const numMap = { '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI', '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII', '13':'XIII', '14':'XIV', '15':'XV' };
+                    detectedBlock = numMap[arabicMatch[1]];
+                } else {
+                    const romanMatch = planStr.match(/(?:^|[^a-zA-Z])(XIII|XIV|XV|VIII|XII|III|VII|XI|IV|IX|VI|II|V|X|I)(?:$|[^a-zA-Z])/i);
+                    if (romanMatch) detectedBlock = romanMatch[1].toUpperCase();
                 }
+
+                if (!detectedYear || detectedYear.toLowerCase() === "block") {
+                    const localYearBlockMap = { '1st': ['I', 'II', 'III'], '2nd': ['IV', 'V', 'VI'], '3rd': ['VII', 'VIII', 'IX'], '4th': ['X', 'XI', 'XII'], '5th': ['XIII', 'XIV', 'XV'] };
+                    for (const [yr, blks] of Object.entries(localYearBlockMap)) {
+                        if (blks.includes(detectedBlock)) { detectedYear = yr; break; }
+                    }
+                }
+
+                if (detectedYear) appState.academicYear = detectedYear;
+                if (detectedBlock) appState.academicBlock = detectedBlock;
             }
             
             const subT = document.getElementById('drawer-subtitle');
@@ -5366,44 +5292,46 @@
             try { updateContinueCardUI(); } catch(e){}
         }
 
-        auth.onAuthStateChanged((user) => {
-            clearTimeout(authWatchdog); // Clear watchdog, Firebase responded!
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 localStorage.removeItem('guest_active');
                 appState.isGuest = false;
                 appState.currentUser = user;
 
+                // 1. FAST OFFLINE BOOT: Immediately restore from localStorage so name & block are NEVER lost offline
                 const localCacheKey = 'blockify_offline_userData_' + user.uid;
                 const cachedProfile = localStorage.getItem(localCacheKey);
-                
-                // INSTANT UI POPULATION: Apply cached data before hiding loader
                 if (cachedProfile) {
-                    try { 
-                        const parsedCache = JSON.parse(cachedProfile);
-                        appState.userData = parsedCache; 
-                        applyHydratedUserData(parsedCache); 
+                    try {
+                        const parsed = JSON.parse(cachedProfile);
+                        applyHydratedUserData(parsed);
                     } catch(e) {}
                 }
 
-                hideLoader();
-                switchTab('dashboard');
-
-                // BACKGROUND SYNC
-                db.collection("users").doc(user.uid).get({ source: navigator.onLine ? 'default' : 'cache' }).then(docSnap => {
+                try {
+                    // 2. Fetch fresh cloud data if online
+                    const docSnap = await db.collection("users").doc(user.uid).get();
                     if (docSnap.exists) {
                         const cloudData = docSnap.data();
                         appState.userData = cloudData;
+                        // Permanently cache to device
                         localStorage.setItem(localCacheKey, JSON.stringify(cloudData));
-                        applyHydratedUserData(cloudData); // Update UI with latest cloud data
+                        applyHydratedUserData(cloudData);
                     }
+                    
                     try { initRealTimeNotificationsListener(user.uid); } catch(e){}
                     try { evaluateBlock5Promos(); } catch(e){}
-                    fetchSyllabus();
-                }).catch(e => {
-                    console.warn("Offline - using cached profile.", e);
-                    fetchSyllabus(); // Still fetch syllabus from local IndexedDB
-                });
 
+                    hideLoader();
+                    switchTab('dashboard');
+                    fetchSyllabus();
+                } catch(e) {
+                    console.warn("Offline boot active, using locally cached profile:", e);
+                    // Do NOT overwrite appState.userData with empty object!
+                    hideLoader();
+                    switchTab('dashboard');
+                    fetchSyllabus(); 
+                }
             } else {
                 // PERSISTENT GUEST USER BOOT LOGIC (Keeps guest logged in forever)
                 if (localStorage.getItem('guest_active') === 'true') {
@@ -6070,37 +5998,21 @@
             let allData = [];
             const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
             
+            // FAST BUT SAFE BATCHING (Prevents Browser Crash & Stuck Loader)
             const chunkSize = 5; 
             for (let i = 0; i < letters.length; i += chunkSize) {
                 const chunk = letters.slice(i, i + chunkSize);
-                const promises = chunk.map(async char => {
-                    const cacheKey = `${baseUrl}_${char}`;
-                    
-                    // 1. Try Local IndexedDB Cache First
-                    try {
-                        const cachedData = await getCachedFile(cacheKey);
-                        if (cachedData && Array.isArray(cachedData) && cachedData.length > 0) {
-                            return cachedData;
-                        }
-                    } catch (e) {}
-
-                    // 2. Fallback to Network
-                    try {
-                        const res = await fetch(`${baseUrl}${char}.json`, { cache: 'default' });
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && Array.isArray(data)) {
-                                cacheFile(cacheKey, data).catch(()=>{}); // Cache it permanently
-                                return data;
-                            }
-                        }
-                    } catch(e) {}
-                    return null;
-                });
+                const promises = chunk.map(char => 
+                    fetch(`${baseUrl}${char}.json`, { cache: 'default' })
+                    .then(r => r.ok ? r.json() : null)
+                    .catch(() => null)
+                );
                 
                 const results = await Promise.all(promises);
                 const validResults = results.filter(Boolean);
                 allData.push(...validResults.flat(Infinity));
+                
+                // REMOVED early break. A single 404 (or network drop) in a chunk should NOT cancel fetching subsequent files!
             }
             return allData;
         }
@@ -6153,87 +6065,82 @@
             }
         }
 
-        // GLOBALLY TRACK IDs TO PREVENT MASSIVE ARRAY MAPPING LOOPS ON EVERY DOWNLOAD
-        let GLOBAL_MCQ_ID_SET = new Set();
-
         function mergeMCQs(data) {
-            if (!APP_DATA.allMCQs) {
-                APP_DATA.allMCQs = [];
-                GLOBAL_MCQ_ID_SET.clear();
-            }
-            
-            // Use requestAnimationFrame so large array injections don't freeze CSS animations/scrolling
-            requestAnimationFrame(() => {
-                data.forEach(q => {
-                    const qId = q.id || q.statement;
-                    // O(1) Lookup time. Saves massive CPU cycles.
-                    if (!GLOBAL_MCQ_ID_SET.has(qId)) {
-                        GLOBAL_MCQ_ID_SET.add(qId);
-                        APP_DATA.allMCQs.push(q);
-                    }
-                });
+            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
+            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
+            data.forEach(q => {
+                const qId = q.id || q.statement;
+                if (!existingIds.has(qId)) {
+                    APP_DATA.allMCQs.push(q);
+                }
             });
         }
 
-        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE (CPU OPTIMIZED) ---
-        window.ACTIVE_SYNC_LOCK = null; // Global lock to prevent CPU overheating
-
+        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE ---
         async function startBackgroundBlockSync(bNum) {
             const indexData = MCQ_INDEX_CACHE[bNum];
             if (!indexData) return;
             
-            // If a sync is already running for this block, abort to save CPU
-            if (window.ACTIVE_SYNC_LOCK === bNum) return;
-            window.ACTIVE_SYNC_LOCK = bNum;
-            
             const blockKey = "b" + appState.academicBlock;
             const blockData = indexData[blockKey] || Object.values(indexData)[0];
-            if(!blockData) return;
-            
             const fileNames = Object.keys(blockData);
+            
             if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
             if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
             
-            // Give UI time to render before starting heavy background tasks
-            await new Promise(r => setTimeout(r, 4000));
-
-            for (let i = 0; i < fileNames.length; i++) {
-                // Abort if user switched blocks to prevent overlapping downloads
+            let fileIdx = 0;
+            
+            async function downloadNext() {
+                // Stop sync if block or mode changes during download queue
                 const currentBlockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-                if ((currentBlockToNum[appState.academicBlock] || 1) !== bNum) {
-                    window.ACTIVE_SYNC_LOCK = null;
-                    return; 
-                }
+                const currentBNum = currentBlockToNum[appState.academicBlock] || 1;
+                if (currentBNum !== bNum) return;
 
-                const fileName = fileNames[i];
-                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) continue;
+                if (fileIdx >= fileNames.length) {
+                    console.log("Background synchronization complete.");
+                    return;
+                }
                 
+                const fileName = fileNames[fileIdx];
+                fileIdx++;
+                
+                // If already in RAM, continue
+                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) {
+                    downloadNext();
+                    return;
+                }
+                
+                // If already in local IndexedDB storage, load into RAM quietly and skip network
                 try {
                     const cachedData = await getCachedFile(fileName);
                     if (cachedData && cachedData.length > 0) {
                         window.LOADED_MCQ_FILES[bNum].add(fileName);
                         mergeMCQs(cachedData);
-                        continue;
+                        downloadNext();
+                        return;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.warn(e);
+                }
                 
-                try {
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                    const res = await fetch(url, { cache: 'default' });
-                    if(res.ok) {
-                        const data = await res.json();
+                // Fast Background Download - 1 file every 500ms
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
+                fetch(url, { cache: 'default' })
+                    .then(r => r.ok ? r.json() : [])
+                    .then(data => {
                         window.LOADED_MCQ_FILES[bNum].add(fileName);
                         mergeMCQs(data);
                         cacheFile(fileName, data);
-                    }
-                } catch (err) {
-                    console.warn(`Silent sync skipped ${fileName}:`, err);
-                }
-                
-                // CRITICAL: Yield to the main thread for 1.5 seconds to prevent phone overheating
-                await new Promise(r => setTimeout(r, 1500));
+                        setTimeout(downloadNext, 500); 
+                    })
+                    .catch(err => {
+                        console.warn(`Silent sync skipped ${fileName}:`, err);
+                        setTimeout(downloadNext, 500); 
+                    });
             }
-            window.ACTIVE_SYNC_LOCK = null;
+            
+            // Starts background download after initial dashboard setup delay
+            setTimeout(downloadNext, 4000);
         }
 
         async function fetchMCQIndexForBlock(bNum) {
@@ -6524,14 +6431,12 @@
                 }
             } catch(e) {}
 
-            // If we successfully loaded syllabus from IndexedDB/LocalStorage, stop network fetch.
-            // This ensures instant offline loading and permanently uses cache unless user hits "Update App".
-            if (APP_DATA.rawSyllabus && APP_DATA.rawSyllabus.length > 0) {
+            // 2. Fetch latest online if connected
+            if (!navigator.onLine && APP_DATA.rawSyllabus && APP_DATA.rawSyllabus.length > 0) {
+                // Offline but already have syllabus cached -> prefetch cached MCQs silently
                 prefetchCurrentBlockMCQs();
                 return;
             }
-
-            if (!navigator.onLine) return; // Silent stop if totally empty and offline
 
             try {
                 const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
@@ -10466,23 +10371,18 @@
             
             try {
                 if (!WARD_CARDS_CACHE['II']) {
-                    const cacheKey = `ward_cards_II`;
-                    let data = null;
-                    try { data = await getCachedFile(cacheKey); } catch(e){}
-
-                    if (!data) {
-                        const timestamp = new Date().getTime();
-                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/wardb2.json?nocache=${timestamp}`;
-                        const res = await fetch(url, { cache: 'no-store' });
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                        
-                        const text = await res.text();
-                        try {
-                            data = JSON.parse(text);
-                            cacheFile(cacheKey, data).catch(()=>{});
-                        } catch (parseErr) {
-                            throw new Error("Formatting mismatch inside structural clinical database.");
-                        }
+                    const timestamp = new Date().getTime();
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/wardb2.json?nocache=${timestamp}`;
+                    
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    
+                    const text = await res.text();
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (parseErr) {
+                        throw new Error("Formatting mismatch inside structural clinical database.");
                     }
                     WARD_CARDS_CACHE['II'] = data;
                 }
@@ -11931,18 +11831,12 @@
 
             try {
                 if (!USMLEFY_CACHE[bNum]) {
-                    const cacheKey = `usmlefy_b${bNum}`;
-                    let data = null;
-                    try { data = await getCachedFile(cacheKey); } catch(e){}
-
-                    if (!data || !data.uhsToFirstAid) {
-                        const timestamp = new Date().getTime();
-                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/usmlefyb${bNum}.json?nocache=${timestamp}`;
-                        const res = await fetch(url, { cache: 'no-store' });
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                        data = await res.json();
-                        cacheFile(cacheKey, data).catch(()=>{});
-                    }
+                    const timestamp = new Date().getTime();
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/usmlefyb${bNum}.json?nocache=${timestamp}`;
+                    
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
                     
                     USMLEFY_CACHE[bNum] = data.uhsToFirstAid || [];
                 }
@@ -12305,17 +12199,11 @@ REQUIREMENTS:
             
             try {
                 if (!PAST_PAPERS_CACHE[block]) {
-                    const cacheKey = `past_papers_b${bNum}`;
-                    let data = null;
-                    try { data = await getCachedFile(cacheKey); } catch(e){}
-
-                    if (!data || (!Array.isArray(data) && Object.keys(data).length === 0)) {
-                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json`;
-                        const res = await fetch(url, { cache: 'no-store' });
-                        if (!res.ok) throw new Error("Failed to fetch past papers");
-                        data = await res.json();
-                        cacheFile(cacheKey, data).catch(()=>{});
-                    }
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json`;
+                        
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error("Failed to fetch past papers");
+                    const data = await res.json();
                     
                     let flattenedPapers = [];
                     // Handle flat arrays (legacy Block 2) or nested Annual/Supply JSON (Block 4)
@@ -12572,20 +12460,14 @@ REQUIREMENTS:
 
             try {
                 if (!MARKIFY_CACHE[bNum]) {
+                    // BYPASS JSON FETCH FOR BLOCK V (Reads from in-built code database directly)
                     if (bNum === 5 || bNum === '5' || block === 'V') {
                         MARKIFY_CACHE[bNum] = BLOCK5_RAW_MARKINGS;
                     } else {
-                        const cacheKey = `markify_b${bNum}`;
-                        let data = null;
-                        try { data = await getCachedFile(cacheKey); } catch(e){}
-
-                        if (!data || data.length === 0) {
-                            const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
-                            const res = await fetch(url, { cache: 'no-store' });
-                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                            data = await res.json();
-                            cacheFile(cacheKey, data).catch(()=>{});
-                        }
+                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const data = await res.json();
                         MARKIFY_CACHE[bNum] = Array.isArray(data) ? data : [];
                     }
                 }
@@ -12779,38 +12661,6 @@ REQUIREMENTS:
 
         function initRealTimeNotificationsListener(userId) {
             if (!userId || appState.isGuest) return;
-
-            // --- FCM BACKGROUND PUSH NOTIFICATIONS SETUP ---
-            if (firebase.messaging.isSupported()) {
-                const messaging = firebase.messaging();
-                Notification.requestPermission().then((permission) => {
-                    if (permission === 'granted') {
-                        // VAPID key is required for Web Push. Replace with your actual Firebase Web Push Cert if you have one, 
-                        // or leave empty to use default auto-generation.
-                        return messaging.getToken(); 
-                    }
-                }).then((currentToken) => {
-                    if (currentToken) {
-                        // Save this token to the user's document so the server knows where to send background notifications
-                        db.collection('users').doc(userId).update({ fcmToken: currentToken }).catch(()=>{});
-                    }
-                }).catch((err) => console.log('Push permission denied or failed.', err));
-
-                // Handle messages received while app is OPEN
-                messaging.onMessage((payload) => {
-                    const notif = {
-                        id: 'push_' + Date.now(),
-                        title: payload.notification?.title || "New Notification",
-                        message: payload.notification?.body || "",
-                        type: 'urgent',
-                        createdAt: Date.now(),
-                        scope: 'personal',
-                        read: false
-                    };
-                    triggerIosPushToast(notif, userId);
-                });
-            }
-            // -----------------------------------------------
 
             // 1. Listen for User-Specific Messages (Personal Subcollection)
             db.collection("users").doc(userId).collection("notifications")
