@@ -6174,11 +6174,7 @@
                 const promises = chunk.map(async char => {
                     const cacheKey = `${baseUrl}_${char}`;
                     
-                    // Helper to accept both Arrays (MCQs) and Objects (Notes/Vivacards)
-                    // Auto-heals empty caches caused by previous bugs
-                    const isValidData = (d) => d && (Array.isArray(d) ? d.length > 0 : Object.keys(d).length > 0);
-                    
-                    // 1. Try Local IndexedDB Cache First
+                    // 1. Try Local IndexedDB Cache First (isValidData is now globally enforced)
                     try {
                         const cachedData = await getCachedFile(cacheKey);
                         if (isValidData(cachedData)) {
@@ -6210,6 +6206,15 @@
         // --- ULTRA-LIGHTWEIGHT INDEXEDDB ENGINE ---
         const DB_NAME = "ModMedicalisCache";
         const STORE_NAME = "mcq_files";
+
+        // Global helper to prevent empty arrays/objects from breaking the app and causing blank screens
+        const isValidData = (d) => {
+            if (!d) return false;
+            if (Array.isArray(d)) return d.length > 0;
+            if (typeof d === 'object') return Object.keys(d).length > 0;
+            if (typeof d === 'string') return d.trim().length > 0;
+            return false;
+        };
         
         function getDB() {
             return new Promise((resolve, reject) => {
@@ -6232,7 +6237,12 @@
                     const transaction = db.transaction(STORE_NAME, "readonly");
                     const store = transaction.objectStore(STORE_NAME);
                     const request = store.get(key);
-                    request.onsuccess = () => resolve(request.result);
+                    request.onsuccess = () => {
+                        const res = request.result;
+                        // SECURITY/STABILITY FIX: Do not return empty cached data
+                        if (isValidData(res)) resolve(res);
+                        else resolve(null);
+                    };
                     request.onerror = () => reject(request.error);
                 });
             } catch (e) {
@@ -6628,8 +6638,8 @@
 
             // If we successfully loaded syllabus from IndexedDB/LocalStorage, stop network fetch.
             // This ensures instant offline loading and permanently uses cache unless user hits "Update App".
-            if (APP_DATA.rawSyllabus && APP_DATA.rawSyllabus.length > 0) {
-                prefetchCurrentBlockMCQs();
+            if (isValidData(APP_DATA.rawSyllabus)) {
+                await prefetchCurrentBlockMCQs();
                 return;
             }
 
@@ -6644,13 +6654,15 @@
                 const data = await response.json();
                 
                 APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
-                buildSyllabusTree();
                 
-                // Permanently cache syllabus locally in IndexedDB & LocalStorage
-                cacheFile(syllabusKey, APP_DATA.rawSyllabus);
-                try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
+                if (isValidData(APP_DATA.rawSyllabus)) {
+                    buildSyllabusTree();
+                    cacheFile(syllabusKey, APP_DATA.rawSyllabus);
+                    try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
+                }
                 
-                Promise.all([
+                // CRITICAL FIX: Await essential data so the UI doesn't render empty!
+                await Promise.all([
                     prefetchCurrentBlockMCQs(),
                     prefetchCurrentBlockNotes(),
                     prefetchCurrentBlockVivacards()
@@ -6668,19 +6680,21 @@
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
-            if (appState.mode === 'mcqs' && (!MCQ_INDEX_CACHE[bNum])) {
-                if (!navigator.onLine && (!APP_DATA.allMCQs || APP_DATA.allMCQs.length === 0)) {
+            // STABILITY FIX: We must check BOTH the index AND if the actual MCQ array is empty.
+            // Sometimes the index caches, but the MCQs array drops from memory.
+            if (appState.mode === 'mcqs' && (!MCQ_INDEX_CACHE[bNum] || !isValidData(APP_DATA.allMCQs))) {
+                if (!navigator.onLine && !isValidData(APP_DATA.allMCQs)) {
                     alert("You are currently offline. Please connect to internet and load MCQs for the first time atleast.");
                     return;
                 }
                 showLoader("Syncing MCQ database...");
                 await prefetchCurrentBlockMCQs();
                 hideLoader();
-            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
+            } else if (appState.mode === 'notes' && !isValidData(NOTES_CACHE[bNum])) {
                 showLoader("Syncing Notes database...");
                 await prefetchCurrentBlockNotes();
                 hideLoader();
-            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
+            } else if (appState.mode === 'vivacards' && !isValidData(FLASH_CACHE[bNum])) {
                 showLoader("Syncing Vivacards database...");
                 await prefetchCurrentBlockVivacards();
                 hideLoader();
@@ -7029,13 +7043,41 @@
             }
 
             if (modules.length === 0) {
+                // STABILITY FIX: Auto-heal attempt if modules are randomly empty due to cache slip
+                if (!window.__modulesAutoHealAttempted) {
+                    window.__modulesAutoHealAttempted = true;
+                    showLoader("Repairing Syllabus Data...");
+                    fetchSyllabus().then(() => {
+                        hideLoader();
+                        if (Object.keys(APP_DATA.modules).length > 0) {
+                            renderModulesAndSubjects(); // Re-trigger render successfully
+                        } else {
+                            capsulesContainer.innerHTML = '';
+                            listContainer.innerHTML = `
+                                <div class="text-center text-zinc-500 mt-10 font-medium p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] shadow-sm">
+                                    <i data-lucide="cloud-off" class="w-8 h-8 mx-auto mb-3 opacity-60"></i>
+                                    <p class="mb-4">Failed to load syllabus structures for ${appState.academicYear} Year, Block ${appState.academicBlock}. Check internet connection.</p>
+                                    <button onclick="clearCacheAndUpdateApp()" class="px-5 py-2.5 mt-2 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold card-press">Force System Sync</button>
+                                </div>`;
+                            lucide.createIcons();
+                        }
+                    });
+                    return; // Pause execution here until fetch resolves
+                }
+                
                 capsulesContainer.innerHTML = '';
                 listContainer.innerHTML = `
                     <div class="text-center text-zinc-500 mt-10 font-medium p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] shadow-sm">
-                        <p class="mb-4">No structured modules setup for ${appState.academicYear} Year, Block ${appState.academicBlock}.</p>
+                        <i data-lucide="cloud-off" class="w-8 h-8 mx-auto mb-3 opacity-60"></i>
+                        <p class="mb-4">Failed to load syllabus structures for ${appState.academicYear} Year, Block ${appState.academicBlock}. Check internet connection.</p>
+                        <button onclick="clearCacheAndUpdateApp()" class="px-5 py-2.5 mt-2 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold card-press">Force System Sync</button>
                     </div>`;
+                lucide.createIcons();
                 return;
             }
+            
+            // Reset auto-heal flag upon success
+            window.__modulesAutoHealAttempted = false;
 
             if (!appState.activeModuleTab) {
                 appState.activeModuleTab = modules[0].name;
