@@ -817,7 +817,7 @@
     <div id="app-container">
 
         <!-- ================= NETWORK STATUS TOAST ================= -->
-        <div id="network-status-toast" class="fixed top-0 left-0 right-0 z-[500] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform -translate-y-[200%] pointer-events-none flex justify-center safe-pt px-4">
+        <div id="network-status-toast" class="fixed top-[calc(env(safe-area-inset-top,32px)+16px)] left-4 right-4 z-[500] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] transform -translate-y-[250%] opacity-0 pointer-events-none flex justify-center">
             <div class="bg-brand-gradient p-[1.5px] rounded-[20px] shadow-2xl w-full max-w-sm">
                 <div class="bg-zinc-950 px-4 py-3 rounded-[19px] flex items-center gap-3.5">
                     <div id="network-toast-icon-wrapper" class="w-8 h-8 rounded-full bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
@@ -831,8 +831,8 @@
             </div>
         </div>
 
-        <!-- Instagram-Style Push Notification Banner -->
-        <div id="ios-push-notification" class="fixed top-3 left-4 right-4 z-[200] transform -translate-y-[150%] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto cursor-pointer" onclick="navigate('notifications_inbox'); hideIosPushBanner();">
+        <!-- Instagram-Style Push Notification Banner (Generously below Notch / Dynamic Island) -->
+        <div id="ios-push-notification" class="fixed top-[calc(env(safe-area-inset-top,32px)+16px)] left-4 right-4 z-[200] transform -translate-y-[250%] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto cursor-pointer" onclick="navigate('notifications_inbox'); hideIosPushBanner();">
             <div class="w-full max-w-sm mx-auto bg-white/90 dark:bg-[#121212]/90 backdrop-blur-xl border border-black/5 dark:border-white/5 rounded-full p-2.5 shadow-xl flex items-center gap-3">
                 <img src="https://i.imgur.com/kZsZDzA.jpeg" class="w-9 h-9 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10" alt="Blockify">
                 <div class="flex-1 min-w-0 text-left pr-2 flex flex-col justify-center">
@@ -3438,9 +3438,55 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <!-- ADD MESSAGING SDK FOR BACKGROUND PUSH NOTIFICATIONS -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js"></script>
 
     <!-- ================= JAVASCRIPT ================= -->
     <script>
+        // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
+        (async function emergencyCacheClear() {
+            const wipeVersion = "v6_total_reset"; // Change this string anytime you want to force all users to clear cache
+            if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
+                console.log("Initiating Emergency Cache Wipe...");
+                localStorage.clear();
+                sessionStorage.clear();
+                if (window.indexedDB) indexedDB.deleteDatabase("ModMedicalisCache");
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    for (let k of keys) await caches.delete(k);
+                }
+                if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (let r of regs) await r.unregister();
+                }
+                localStorage.setItem('app_wipe_version', wipeVersion);
+                window.location.reload(true); // Force hard reload from server
+            }
+        })();
+
+        // 2. BULLETPROOF GITHUB FETCHER (Bypasses Rate Limits & Bad JSON)
+        async function fetchWithRetry(url, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (res.ok) {
+                        const text = await res.text();
+                        try {
+                            return JSON.parse(text);
+                        } catch (err) {
+                            console.warn(`JSON Parse failed for ${url}. Bypassing...`);
+                            return null; // Prevents app crash if a JSON file has a syntax error
+                        }
+                    }
+                    if (res.status === 404) return null; // File doesn't exist, normal behavior
+                } catch (e) {
+                    if (i === retries - 1) console.warn(`Network fail for ${url}`);
+                    await new Promise(r => setTimeout(r, 600 * (i + 1))); // Wait and retry
+                }
+            }
+            return null;
+        }
+
         // --- EXPANDABLE STREAK WIDGET ENGINE ---
         function openStreakWidget() {
             const overlay = document.getElementById('streak-widget-overlay');
@@ -3994,7 +4040,7 @@
             let all = [];
             for (const f of files) {
                 try {
-                    const res = await fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${f}.json`, { cache: 'default' });
+                    const res = await fetch(`https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${f}.json?nocache=${Date.now()}`, { cache: 'no-store' });
                     if (res.ok) {
                         const data = await res.json();
                         if (Array.isArray(data)) all.push(...data);
@@ -5292,46 +5338,38 @@
             try { updateContinueCardUI(); } catch(e){}
         }
 
-        auth.onAuthStateChanged(async (user) => {
+        auth.onAuthStateChanged((user) => {
             if (user) {
                 localStorage.removeItem('guest_active');
                 appState.isGuest = false;
                 appState.currentUser = user;
 
-                // 1. FAST OFFLINE BOOT: Immediately restore from localStorage so name & block are NEVER lost offline
                 const localCacheKey = 'blockify_offline_userData_' + user.uid;
                 const cachedProfile = localStorage.getItem(localCacheKey);
                 if (cachedProfile) {
-                    try {
-                        const parsed = JSON.parse(cachedProfile);
-                        applyHydratedUserData(parsed);
-                    } catch(e) {}
+                    try { applyHydratedUserData(JSON.parse(cachedProfile)); } catch(e) {}
                 }
 
-                try {
-                    // 2. Fetch fresh cloud data if online
-                    const docSnap = await db.collection("users").doc(user.uid).get();
+                // FIX: Hide loader and show dashboard IMMEDIATELY. Never wait for Firestore to resolve.
+                hideLoader();
+                switchTab('dashboard');
+
+                // Perform cloud sync in the background so app never gets stuck
+                db.collection("users").doc(user.uid).get().then(docSnap => {
                     if (docSnap.exists) {
                         const cloudData = docSnap.data();
                         appState.userData = cloudData;
-                        // Permanently cache to device
                         localStorage.setItem(localCacheKey, JSON.stringify(cloudData));
                         applyHydratedUserData(cloudData);
                     }
-                    
                     try { initRealTimeNotificationsListener(user.uid); } catch(e){}
                     try { evaluateBlock5Promos(); } catch(e){}
-
-                    hideLoader();
-                    switchTab('dashboard');
                     fetchSyllabus();
-                } catch(e) {
-                    console.warn("Offline boot active, using locally cached profile:", e);
-                    // Do NOT overwrite appState.userData with empty object!
-                    hideLoader();
-                    switchTab('dashboard');
-                    fetchSyllabus(); 
-                }
+                }).catch(e => {
+                    console.warn("Offline - using cached profile.", e);
+                    fetchSyllabus(); // Still fetch syllabus from local IndexedDB
+                });
+
             } else {
                 // PERSISTENT GUEST USER BOOT LOGIC (Keeps guest logged in forever)
                 if (localStorage.getItem('guest_active') === 'true') {
@@ -5997,22 +6035,19 @@
         async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
             let allData = [];
             const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
+            const cacheBuster = Date.now();
             
-            // FAST BUT SAFE BATCHING (Prevents Browser Crash & Stuck Loader)
-            const chunkSize = 5; 
+            // Process in smaller chunks (3) using our new Bulletproof Fetcher to stop GitHub from dropping connections
+            const chunkSize = 3; 
             for (let i = 0; i < letters.length; i += chunkSize) {
                 const chunk = letters.slice(i, i + chunkSize);
                 const promises = chunk.map(char => 
-                    fetch(`${baseUrl}${char}.json`, { cache: 'default' })
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
+                    fetchWithRetry(`${baseUrl}${char}.json?nocache=${cacheBuster}`, 3)
                 );
                 
                 const results = await Promise.all(promises);
                 const validResults = results.filter(Boolean);
                 allData.push(...validResults.flat(Infinity));
-                
-                // REMOVED early break. A single 404 (or network drop) in a chunk should NOT cancel fetching subsequent files!
             }
             return allData;
         }
@@ -6065,82 +6100,90 @@
             }
         }
 
+        // GLOBALLY TRACK IDs TO PREVENT MASSIVE ARRAY MAPPING LOOPS ON EVERY DOWNLOAD
+        let GLOBAL_MCQ_ID_SET = new Set();
+
         function mergeMCQs(data) {
-            if (!APP_DATA.allMCQs) APP_DATA.allMCQs = [];
-            const existingIds = new Set(APP_DATA.allMCQs.map(q => q.id || q.statement));
-            data.forEach(q => {
-                const qId = q.id || q.statement;
-                if (!existingIds.has(qId)) {
-                    APP_DATA.allMCQs.push(q);
-                }
+            if (!APP_DATA.allMCQs) {
+                APP_DATA.allMCQs = [];
+                GLOBAL_MCQ_ID_SET.clear();
+            }
+            
+            // Use requestAnimationFrame so large array injections don't freeze CSS animations/scrolling
+            requestAnimationFrame(() => {
+                data.forEach(q => {
+                    const qId = q.id || q.statement;
+                    // O(1) Lookup time. Saves massive CPU cycles.
+                    if (!GLOBAL_MCQ_ID_SET.has(qId)) {
+                        GLOBAL_MCQ_ID_SET.add(qId);
+                        APP_DATA.allMCQs.push(q);
+                    }
+                });
             });
         }
 
-        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE ---
+        // --- SEQUENTIAL BACKGROUND BLOCK SYNC ENGINE (CPU OPTIMIZED) ---
+        window.ACTIVE_SYNC_LOCK = null; // Global lock to prevent CPU overheating
+
         async function startBackgroundBlockSync(bNum) {
             const indexData = MCQ_INDEX_CACHE[bNum];
             if (!indexData) return;
             
+            // If a sync is already running for this block, abort to save CPU
+            if (window.ACTIVE_SYNC_LOCK === bNum) return;
+            window.ACTIVE_SYNC_LOCK = bNum;
+            
             const blockKey = "b" + appState.academicBlock;
             const blockData = indexData[blockKey] || Object.values(indexData)[0];
-            const fileNames = Object.keys(blockData);
+            if(!blockData) return;
             
+            const fileNames = Object.keys(blockData);
             if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
             if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
             
-            let fileIdx = 0;
-            
-            async function downloadNext() {
-                // Stop sync if block or mode changes during download queue
-                const currentBlockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
-                const currentBNum = currentBlockToNum[appState.academicBlock] || 1;
-                if (currentBNum !== bNum) return;
+            // Give UI time to render before starting heavy background tasks
+            await new Promise(r => setTimeout(r, 4000));
 
-                if (fileIdx >= fileNames.length) {
-                    console.log("Background synchronization complete.");
-                    return;
+            for (let i = 0; i < fileNames.length; i++) {
+                // Abort if user switched blocks to prevent overlapping downloads
+                const currentBlockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
+                if ((currentBlockToNum[appState.academicBlock] || 1) !== bNum) {
+                    window.ACTIVE_SYNC_LOCK = null;
+                    return; 
                 }
+
+                const fileName = fileNames[i];
+                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) continue;
                 
-                const fileName = fileNames[fileIdx];
-                fileIdx++;
-                
-                // If already in RAM, continue
-                if (window.LOADED_MCQ_FILES[bNum].has(fileName)) {
-                    downloadNext();
-                    return;
-                }
-                
-                // If already in local IndexedDB storage, load into RAM quietly and skip network
+                // ALWAYS FETCH FROM NETWORK FIRST
                 try {
-                    const cachedData = await getCachedFile(fileName);
-                    if (cachedData && cachedData.length > 0) {
-                        window.LOADED_MCQ_FILES[bNum].add(fileName);
-                        mergeMCQs(cachedData);
-                        downloadNext();
-                        return;
-                    }
-                } catch (e) {
-                    console.warn(e);
-                }
-                
-                // Fast Background Download - 1 file every 500ms
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                fetch(url, { cache: 'default' })
-                    .then(r => r.ok ? r.json() : [])
-                    .then(data => {
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}?nocache=${Date.now()}`;
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if(res.ok) {
+                        const data = await res.json();
                         window.LOADED_MCQ_FILES[bNum].add(fileName);
                         mergeMCQs(data);
                         cacheFile(fileName, data);
-                        setTimeout(downloadNext, 500); 
-                    })
-                    .catch(err => {
-                        console.warn(`Silent sync skipped ${fileName}:`, err);
-                        setTimeout(downloadNext, 500); 
-                    });
+                        continue;
+                    } else {
+                        throw new Error("Network response not ok");
+                    }
+                } catch (err) {
+                    // FALLBACK TO CACHE IF NETWORK FAILS
+                    try {
+                        const cachedData = await getCachedFile(fileName);
+                        if (cachedData && cachedData.length > 0) {
+                            window.LOADED_MCQ_FILES[bNum].add(fileName);
+                            mergeMCQs(cachedData);
+                        }
+                    } catch (e) {}
+                    console.warn(`Silent sync network failed ${fileName}, used cache fallback:`, err);
+                }
+                
+                // CRITICAL: Yield to the main thread for 1.5 seconds to prevent phone overheating
+                await new Promise(r => setTimeout(r, 1500));
             }
-            
-            // Starts background download after initial dashboard setup delay
-            setTimeout(downloadNext, 4000);
+            window.ACTIVE_SYNC_LOCK = null;
         }
 
         async function fetchMCQIndexForBlock(bNum) {
@@ -6253,54 +6296,61 @@
 
             if (missingFiles.length === 0) return; // Instantly loads from system RAM memory
             
-            // Fast check IndexedDB first WITHOUT showing network loader
-            let filesToDownload = [];
-            for (let fileName of missingFiles) {
-                try {
-                    const cachedData = await getCachedFile(fileName);
-                    if (cachedData && cachedData.length > 0) {
-                        window.LOADED_MCQ_FILES[bNum].add(fileName);
-                        mergeMCQs(cachedData);
-                    } else {
-                        filesToDownload.push(fileName);
-                    }
-                } catch (e) {
-                    filesToDownload.push(fileName);
-                }
-            }
+            // Network First Fetching (Forces update on push)
+            let filesToDownload = Array.from(missingFiles);
 
-            if (filesToDownload.length === 0) return; // Completely loaded from local cache!
-
-            // OFFLINE FAILSAFE CHECK
             if (!navigator.onLine) {
-                alert("You are currently offline. Please connect to internet and load MCQs for the first time atleast.");
+                let offlineFailed = false;
+                for (let fileName of filesToDownload) {
+                    try {
+                        const cachedData = await getCachedFile(fileName);
+                        if (cachedData && cachedData.length > 0) {
+                            window.LOADED_MCQ_FILES[bNum].add(fileName);
+                            mergeMCQs(cachedData);
+                        } else {
+                            offlineFailed = true;
+                        }
+                    } catch (e) {
+                        offlineFailed = true;
+                    }
+                }
+                if (offlineFailed) alert("You are currently offline. Please connect to internet to load missing MCQs.");
                 return;
             }
 
-            // SHOW NETWORK DOWNLOADER UI WITH PROGRESS BAR!
             showLoader("Downloading MCQs...", true);
             let downloadedCount = 0;
             const totalToDownload = filesToDownload.length;
 
-            let fetchPromises = filesToDownload.map(fileName => {
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                return fetch(url, { cache: 'default' })
-                    .then(r => r.ok ? r.json() : [])
-                    .then(data => {
+            let fetchPromises = filesToDownload.map(async fileName => {
+                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}?nocache=${Date.now()}`;
+                try {
+                    // Use our new highly reliable fetcher that retries automatically
+                    const data = await fetchWithRetry(url, 3);
+                    if (data && data.length > 0) {
                         window.LOADED_MCQ_FILES[bNum].add(fileName);
                         mergeMCQs(data);
                         cacheFile(fileName, data);
-                        
-                        downloadedCount++;
-                        const pct = (downloadedCount / totalToDownload) * 100;
-                        const estRemainingSecs = Math.ceil((totalToDownload - downloadedCount) * 0.5); // Approx 0.5s per file
-                        const timeText = estRemainingSecs > 0 ? `Est. ${estRemainingSecs}s remaining...` : `Finalizing...`;
-                        updateLoaderProgress(pct, `Downloading ${downloadedCount}/${totalToDownload} files`);
-                    })
-                    .catch(err => {
-                        downloadedCount++;
-                        console.warn(`Failed to fetch file ${fileName}:`, err);
-                    });
+                    } else {
+                        throw new Error("Empty or invalid data received.");
+                    }
+                } catch (err) {
+                    console.warn(`Failed downloading ${fileName}:`, err);
+                    // Absolute last resort fallback
+                    try {
+                        const cachedData = await getCachedFile(fileName);
+                        if (cachedData && cachedData.length > 0) {
+                            window.LOADED_MCQ_FILES[bNum].add(fileName);
+                            mergeMCQs(cachedData);
+                        }
+                    } catch (e) {}
+                } finally {
+                    downloadedCount++;
+                    const pct = (downloadedCount / totalToDownload) * 100;
+                    const estRemainingSecs = Math.ceil((totalToDownload - downloadedCount) * 0.5);
+                    const timeText = estRemainingSecs > 0 ? `Est. ${estRemainingSecs}s remaining...` : `Finalizing...`;
+                    updateLoaderProgress(pct, `Downloading ${downloadedCount}/${totalToDownload} files`);
+                }
             });
             
             if (fetchPromises.length > 0) {
@@ -6422,48 +6472,48 @@
         async function fetchSyllabus() {
             const syllabusKey = `syllabus_${appState.academicYear}`;
             
-            // 1. FAST OFFLINE BOOT: Load cached syllabus immediately
+            // 1. Fetch latest online if connected (FORCE NETWORK OVERRIDE)
+            if (navigator.onLine) {
+                try {
+                    const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}?nocache=${Date.now()}`;
+                    
+                    const response = await fetch(url, { cache: 'no-store' });
+                    if(!response.ok) throw new Error("Syllabus fetch failed");
+                    const data = await response.json();
+                    
+                    APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
+                    buildSyllabusTree();
+                    
+                    // Permanently cache fresh syllabus locally in IndexedDB & LocalStorage
+                    cacheFile(syllabusKey, APP_DATA.rawSyllabus);
+                    try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
+                    
+                    Promise.all([
+                        prefetchCurrentBlockMCQs(),
+                        prefetchCurrentBlockNotes(),
+                        prefetchCurrentBlockVivacards()
+                    ]).catch(e => console.warn("Prefetch warning", e));
+                    return;
+                } catch (error) {
+                    console.warn("Using offline syllabus fallback:", error);
+                }
+            }
+
+            // 2. OFFLINE FALLBACK: Load cached syllabus
             try {
                 const localSyllabus = await getCachedFile(syllabusKey) || JSON.parse(localStorage.getItem(syllabusKey) || 'null');
                 if (localSyllabus && localSyllabus.length > 0) {
                     APP_DATA.rawSyllabus = localSyllabus;
                     buildSyllabusTree();
-                }
-            } catch(e) {}
-
-            // 2. Fetch latest online if connected
-            if (!navigator.onLine && APP_DATA.rawSyllabus && APP_DATA.rawSyllabus.length > 0) {
-                // Offline but already have syllabus cached -> prefetch cached MCQs silently
-                prefetchCurrentBlockMCQs();
-                return;
-            }
-
-            try {
-                const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
-                const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}`;
-                
-                const response = await fetch(url, { cache: 'default' });
-                if(!response.ok) throw new Error("Syllabus fetch failed");
-                const data = await response.json();
-                
-                APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
-                buildSyllabusTree();
-                
-                // Permanently cache syllabus locally in IndexedDB & LocalStorage
-                cacheFile(syllabusKey, APP_DATA.rawSyllabus);
-                try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
-                
-                Promise.all([
-                    prefetchCurrentBlockMCQs(),
-                    prefetchCurrentBlockNotes(),
-                    prefetchCurrentBlockVivacards()
-                ]).catch(e => console.warn("Prefetch warning", e));
-            } catch (error) {
-                console.warn("Using offline syllabus fallback:", error);
-                if (!APP_DATA.rawSyllabus || APP_DATA.rawSyllabus.length === 0) {
+                    prefetchCurrentBlockMCQs();
+                } else {
                     APP_DATA.rawSyllabus = [];
                     buildSyllabusTree();
                 }
+            } catch(e) {
+                APP_DATA.rawSyllabus = [];
+                buildSyllabusTree();
             }
         }
 
@@ -10698,15 +10748,15 @@
             }
             lucide.createIcons();
 
-            // Slide Down
-            toast.classList.remove('-translate-y-[200%]');
-            toast.classList.add('translate-y-2');
+            // Slide Down below notch
+            toast.classList.remove('-translate-y-full', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
 
             // Auto-Fade Away after 3.5 seconds
             clearTimeout(networkToastTimer);
             networkToastTimer = setTimeout(() => {
-                toast.classList.remove('translate-y-2');
-                toast.classList.add('-translate-y-[200%]');
+                toast.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+                toast.classList.add('-translate-y-full', 'opacity-0', 'pointer-events-none');
             }, 3500);
         }
 
@@ -11377,8 +11427,8 @@
                     if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
                     
                     if (!window.LOADED_MCQ_FILES[bNum].has(fileName)) {
-                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}`;
-                        const p = fetch(url, { cache: 'default' })
+                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${fileName}?nocache=${Date.now()}`;
+                        const p = fetch(url, { cache: 'no-store' })
                             .then(r => r.ok ? r.json() : [])
                             .then(data => {
                                 window.LOADED_MCQ_FILES[bNum].add(fileName);
@@ -12199,7 +12249,7 @@ REQUIREMENTS:
             
             try {
                 if (!PAST_PAPERS_CACHE[block]) {
-                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json`;
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/pastb${bNum}.json?nocache=${Date.now()}`;
                         
                     const res = await fetch(url, { cache: 'no-store' });
                     if (!res.ok) throw new Error("Failed to fetch past papers");
@@ -12409,7 +12459,7 @@ REQUIREMENTS:
                     MARKIFY_CACHE[bNum] = markings;
                 } else {
                     try {
-                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json`;
+                        const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/markifyb${bNum}.json?nocache=${Date.now()}`;
                         const res = await fetch(url, { cache: 'no-store' });
                         if (res.ok) {
                             markings = await res.json();
@@ -12662,6 +12712,38 @@ REQUIREMENTS:
         function initRealTimeNotificationsListener(userId) {
             if (!userId || appState.isGuest) return;
 
+            // --- FCM BACKGROUND PUSH NOTIFICATIONS SETUP ---
+            if (firebase.messaging.isSupported()) {
+                const messaging = firebase.messaging();
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        // VAPID key is required for Web Push. Replace with your actual Firebase Web Push Cert if you have one, 
+                        // or leave empty to use default auto-generation.
+                        return messaging.getToken(); 
+                    }
+                }).then((currentToken) => {
+                    if (currentToken) {
+                        // Save this token to the user's document so the server knows where to send background notifications
+                        db.collection('users').doc(userId).update({ fcmToken: currentToken }).catch(()=>{});
+                    }
+                }).catch((err) => console.log('Push permission denied or failed.', err));
+
+                // Handle messages received while app is OPEN
+                messaging.onMessage((payload) => {
+                    const notif = {
+                        id: 'push_' + Date.now(),
+                        title: payload.notification?.title || "New Notification",
+                        message: payload.notification?.body || "",
+                        type: 'urgent',
+                        createdAt: Date.now(),
+                        scope: 'personal',
+                        read: false
+                    };
+                    triggerIosPushToast(notif, userId);
+                });
+            }
+            // -----------------------------------------------
+
             // 1. Listen for User-Specific Messages (Personal Subcollection)
             db.collection("users").doc(userId).collection("notifications")
                 .orderBy("createdAt", "desc")
@@ -12746,26 +12828,27 @@ REQUIREMENTS:
 
             if (!banner || !title || !msg) return;
 
-            // IG style mapping: keep app name as title, message as secondary
             title.innerText = notif.title || "Blockify";
             msg.innerText = notif.message || "New activity on your account.";
 
             if (pushTimeoutHandler) clearTimeout(pushTimeoutHandler);
 
-            // Animate Slide Down
-            banner.classList.remove('-translate-y-[150%]');
-            banner.classList.add('translate-y-0');
+            // Slide down smoothly below notch
+            banner.classList.remove('-translate-y-full', 'opacity-0', 'pointer-events-none');
+            banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
 
+            // Auto-dismiss after 4.5 seconds
             pushTimeoutHandler = setTimeout(() => {
                 hideIosPushBanner();
-            }, 4500); // slightly faster auto-hide like IG
+            }, 4500);
         }
 
         function hideIosPushBanner() {
             const banner = document.getElementById('ios-push-notification');
             if (banner) {
-                banner.classList.remove('translate-y-0');
-                banner.classList.add('-translate-y-[150%]');
+                // Slide all the way back up off-screen
+                banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+                banner.classList.add('-translate-y-full', 'opacity-0', 'pointer-events-none');
             }
         }
 
@@ -12858,8 +12941,7 @@ REQUIREMENTS:
             const userId = appState.currentUser ? appState.currentUser.uid : null;
             if (!userId || appState.isGuest) return;
 
-            showLoader("Acknowledging alerts...");
-
+            // NO LOADER: Instant optimistic UI update
             let readGlobals = appState.userData?.readGlobalNotifs || [];
             activeNotifsArray.forEach(n => {
                 if (n.scope === 'global' && !readGlobals.includes(n.id)) {
@@ -12868,26 +12950,27 @@ REQUIREMENTS:
             });
             appState.userData.readGlobalNotifs = readGlobals;
 
+            // Mark personals as read in local memory immediately
             const unreadPersonals = activeNotifsArray.filter(n => n.scope === 'personal' && !n.read);
-            const batch = db.batch();
-            unreadPersonals.forEach(n => {
-                const docRef = db.collection("users").doc(userId).collection("notifications").doc(n.id);
-                batch.update(docRef, { read: true });
-            });
+            unreadPersonals.forEach(n => n.read = true);
 
+            // Immediately re-render feed so the screen clears instantly without waiting
+            mergeAndRebuildNotifsFeed([], 'sync', userId);
+
+            // Background silent sync to Firebase
             try {
-                // Sync Global array to Firebase
-                await db.collection("users").doc(userId).update({ readGlobalNotifs: readGlobals });
+                const batch = db.batch();
+                unreadPersonals.forEach(n => {
+                    const docRef = db.collection("users").doc(userId).collection("notifications").doc(n.id);
+                    batch.update(docRef, { read: true });
+                });
                 
-                // Sync Personals Subcollection
+                await db.collection("users").doc(userId).update({ readGlobalNotifs: readGlobals }).catch(()=>{});
                 if (unreadPersonals.length > 0) {
-                    await batch.commit();
+                    await batch.commit().catch(()=>{});
                 }
             } catch(e) {
-                console.warn(e);
-            } finally {
-                hideLoader();
-                mergeAndRebuildNotifsFeed([], 'sync', userId);
+                console.warn("Background notification sync error:", e);
             }
         }
 
@@ -15598,135 +15681,27 @@ ${chunkText.substring(0, 9500)}`;
             document.head.appendChild(manifestLink);
         }
 
+        // ================= BULLETPROOF PWA REGISTRATION =================
+        // 1. Force-save the active app HTML page shell into CacheStorage from main thread (100% works on iOS)
+        if ('caches' in window) {
+            caches.open('modmedicalis-static-v4').then(cache => {
+                cache.add(window.location.href).catch(()=>{});
+                cache.add('./').catch(()=>{});
+                cache.add(window.location.pathname).catch(()=>{});
+            }).catch(()=>{});
+        }
+
+        // 2. Clean registration of your existing server-side sw.js file
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                try {
-                    // Save the current document shell directly to Cache Storage from main thread
-                    if ('caches' in window) {
-                        caches.open('blockify-offline-v4').then(cache => {
-                            cache.add(window.location.href).catch(()=>{});
-                            cache.add('./').catch(()=>{});
-                        }).catch(()=>{});
-                    }
-
-                    const swCode = `
-                        const CACHE_NAME = 'blockify-offline-v4';
-                        const APP_SHELL = [
-                            './',
-                            'https://cdn.tailwindcss.com',
-                            'https://unpkg.com/lucide@latest',
-                            'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js',
-                            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js',
-                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js',
-                            'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js'
-                        ];
-
-                        self.addEventListener('install', e => {
-                            self.skipWaiting();
-                            e.waitUntil(
-                                caches.open(CACHE_NAME).then(cache => {
-                                    // Individual caching prevents 1 CDN error from killing the entire offline cache
-                                    return Promise.all(APP_SHELL.map(url => cache.add(url).catch(() => {})));
-                                })
-                            );
-                        });
-
-                        self.addEventListener('activate', e => {
-                            e.waitUntil(
-                                caches.keys().then(keys => Promise.all(
-                                    keys.map(key => {
-                                        if (key !== CACHE_NAME) return caches.delete(key);
-                                    })
-                                )).then(() => clients.claim())
-                            );
-                        });
-
-                        self.addEventListener('fetch', e => {
-                            if (e.request.method !== 'GET' || !e.request.url.startsWith('http')) return;
-                            
-                            // Navigation requests (Opening the PWA offline)
-                            if (e.request.mode === 'navigate') {
-                                e.respondWith(
-                                    fetch(e.request)
-                                        .then(res => {
-                                            const copy = res.clone();
-                                            caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
-                                            return res;
-                                        })
-                                        .catch(async () => {
-                                            // Always return the cached page so the browser never shows "No Internet"
-                                            const match = await caches.match(e.request, { ignoreSearch: true }) || 
-                                                          await caches.match('./') || 
-                                                          await caches.match(self.registration.scope);
-                                            return match;
-                                        })
-                                );
-                                return;
-                            }
-
-                            // Asset requests
-                            e.respondWith(
-                                caches.match(e.request, { ignoreSearch: true }).then(cachedResponse => {
-                                    const fetchPromise = fetch(e.request).then(networkResponse => {
-                                        if (networkResponse && networkResponse.status === 200) {
-                                            const responseToCache = networkResponse.clone();
-                                            caches.open(CACHE_NAME).then(cache => cache.put(e.request, responseToCache));
-                                        }
-                                        return networkResponse;
-                                    }).catch(() => cachedResponse);
-                                    
-                                    return cachedResponse || fetchPromise;
-                                })
-                            );
-                        });
-
-                        self.addEventListener('push', e => {
-                            let data = { title: 'BLOCKIFY Bulletin', body: 'New medical notice received!' };
-                            if (e.data) {
-                                try { data = e.data.json(); } catch(err) { data = { title: 'Notice Alert', body: e.data.text() }; }
-                            }
-                            e.waitUntil(
-                                self.registration.showNotification(data.title, {
-                                    body: data.body,
-                                    icon: 'https://i.imgur.com/fHKXsHj.png',
-                                    badge: 'https://i.imgur.com/fHKXsHj.png',
-                                    vibrate: [100, 50, 100],
-                                    data: { url: self.location.origin }
-                                })
-                            );
-                        });
-                        self.addEventListener('notificationclick', e => {
-                            e.notification.close();
-                            e.waitUntil(
-                                clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-                                    for (var i = 0; i < windowClients.length; i++) {
-                                        var client = windowClients[i];
-                                        if (client.url === e.notification.data.url && 'focus' in client) {
-                                            return client.focus();
-                                        }
-                                    }
-                                    if (clients.openWindow) {
-                                        return clients.openWindow(e.notification.data.url);
-                                    }
-                                })
-                            );
-                        });
-                    `;
-                    
-                    const blob = new Blob([swCode], { type: 'application/javascript' });
-                    const swUrl = URL.createObjectURL(blob);
-                    
-                    navigator.serviceWorker.register(swUrl)
-                        .then(reg => {
-                            if ('Notification' in window && Notification.permission === 'default') {
-                                setTimeout(() => { Notification.requestPermission(); }, 5000);
-                            }
-                        })
-                        .catch(err => console.warn("Background Service Worker bypass activated:", err));
-                } catch (e) {
-                    console.warn("Service worker initialization bypassed to prevent iOS crash:", e);
-                }
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log("Service Worker active for:", reg.scope);
+                        if ('Notification' in window && Notification.permission === 'default') {
+                            setTimeout(() => { Notification.requestPermission(); }, 5000);
+                        }
+                    })
+                    .catch(err => console.warn("SW registration error:", err));
             });
         }
 
