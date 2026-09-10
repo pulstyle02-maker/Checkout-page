@@ -6233,12 +6233,19 @@ fetchWithRetry(`${baseUrl}${char}.json?nocache=${cacheBuster}`, 2).then(res => {
 })
 );
 const results = await Promise.all(promises);
-const validResults = results.filter(Boolean);
 
 // Ultra-compressed array merge to prevent V8 RAM spikes
-for(let j=0; j<validResults.length; j++){
-    if(validResults[j] && validResults[j].length) {
-        allData.push.apply(allData, validResults[j]);
+for(let j = 0; j < results.length; j++){
+    let resItem = results[j];
+    if(resItem) {
+        if (Array.isArray(resItem)) {
+            for(let k = 0; k < resItem.length; k++) {
+                allData.push(resItem[k]);
+            }
+        } else if (typeof resItem === 'object') {
+            allData.push(resItem);
+        }
+        results[j] = null; // Instantly free reference for background Garbage Collection
     }
 }
 
@@ -6809,11 +6816,18 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                     
                     // 🚀 SILENT NANOSECOND BACKGROUND TRIGGER (Won't freeze login)
                     setTimeout(() => {
-                        window.ACTIVE_MCQ_FETCH_PROMISE = prefetchCurrentBlockMCQs().finally(() => {
-                            window.ACTIVE_MCQ_FETCH_PROMISE = null;
-                        });
+                        // 1. Instantly trigger Notes & Viva (highest priority)
                         prefetchCurrentBlockNotes();
                         prefetchCurrentBlockVivacards();
+                        
+                        // 2. Nano-seconds later, silently start fetching MCQ JSONs (a-d, e-h)
+                        setTimeout(() => {
+                            if (!window.ACTIVE_MCQ_FETCH_PROMISE) {
+                                window.ACTIVE_MCQ_FETCH_PROMISE = prefetchCurrentBlockMCQs().finally(() => {
+                                    window.ACTIVE_MCQ_FETCH_PROMISE = null;
+                                });
+                            }
+                        }, 2);
                     }, 1);
                     return;
                 } catch (error) {
@@ -6852,6 +6866,11 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                 if (window.ACTIVE_MCQ_FETCH_PROMISE) {
                     showLoader("Downloading MCQs...", true);
                     await window.ACTIVE_MCQ_FETCH_PROMISE;
+                    
+                    // FORCE RE-BUILD AND RE-POPULATE COUNTS EXACTLY HERE
+                    buildSyllabusTree();
+                    if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+                    
                     hideLoader();
                 } else if (!MCQ_CACHE[bNum] || MCQ_CACHE[bNum].length === 0) {
                     // Failsafe if it somehow never started
@@ -6860,13 +6879,18 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                         window.ACTIVE_MCQ_FETCH_PROMISE = null;
                     });
                     await window.ACTIVE_MCQ_FETCH_PROMISE;
+                    
+                    // FORCE RE-BUILD AND RE-POPULATE COUNTS EXACTLY HERE
+                    buildSyllabusTree();
+                    if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
+                    
                     hideLoader();
                 }
-            } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
+            } else if (appState.mode === 'notes' && !NOTES_CACHE[bNum]) {
                 showLoader("Downloading Notes...", false);
                 await prefetchCurrentBlockNotes();
                 hideLoader();
-            } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
+            } else if (appState.mode === 'vivacards' && !FLASH_CACHE[bNum]) {
                 showLoader("Downloading Vivacards...", false);
                 await prefetchCurrentBlockVivacards();
                 hideLoader();
