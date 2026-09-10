@@ -6214,25 +6214,37 @@ return null;
             lucide.createIcons();
         }
 
-        // ================= CDN-SAFE SUPER-FETCH ENGINE (PREVENTS 503 ERRORS) =================
-async function fetchGitHubFilesSequentially(baseUrl, maxLetters) {
+        // ================= ULTRA-COMPRESSED SILENT FETCH ENGINE =================
+async function fetchGitHubFilesSequentially(baseUrl, maxLetters, progressCb = null) {
 let allData = [];
 const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
 const cacheBuster = Date.now();
-// CDN-SAFE BATCHING: 10 files per batch, 20ms delay BETWEEN batches (not files)
-// This prevents GitHub's rate limiting while maximizing parallel speed
-const chunkSize = 10;
+// BATCHING: 4 files per batch (A-D, E-H), 2ms delay BETWEEN batches.
+const chunkSize = 4;
+let loadedCount = 0;
+
 for (let i = 0; i < letters.length; i += chunkSize) {
 const chunk = letters.slice(i, i + chunkSize);
 const promises = chunk.map(char =>
-fetchWithRetry(`${baseUrl}${char}.json?nocache=${cacheBuster}`, 2)
+fetchWithRetry(`${baseUrl}${char}.json?nocache=${cacheBuster}`, 2).then(res => {
+    loadedCount++;
+    if(progressCb) progressCb(loadedCount, maxLetters);
+    return res;
+})
 );
 const results = await Promise.all(promises);
 const validResults = results.filter(Boolean);
-allData.push(...validResults.flat(Infinity));
-// CDN PROTECTION: Small 20ms delay between batches only (prevents 503 errors & allows UI painting)
+
+// Ultra-compressed array merge to prevent V8 RAM spikes
+for(let j=0; j<validResults.length; j++){
+    if(validResults[j] && validResults[j].length) {
+        allData.push.apply(allData, validResults[j]);
+    }
+}
+
+// 2ms micro-delay to allow browser UI thread to breathe without halting
 if (i + chunkSize < letters.length) {
-await new Promise(r => setTimeout(r, 20));
+await new Promise(r => setTimeout(r, 2));
 }
 }
 return allData;
@@ -6437,9 +6449,12 @@ return fallback;
 return null;
 }
 
+        window.ACTIVE_MCQ_FETCH_PROMISE = null;
+
         async function prefetchCurrentBlockMCQs() {
 const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
 const bNum = blockToNum[appState.academicBlock] || 1;
+
 // 🚀 CACHE-FIRST: Check for fresh full-block cache (INSTANT PWA RELOAD)
 const fullBlockKey = `full_block_${bNum}`;
 const fullBlockTimestamp = await getCacheTimestamp(fullBlockKey);
@@ -6448,54 +6463,32 @@ const cachedData = await getCachedFile(fullBlockKey);
 if (cachedData && cachedData.length > 0) {
 MCQ_CACHE[bNum] = cachedData;
 APP_DATA.allMCQs = cachedData;
-// Mark all files as loaded for LO-based fetching
 if (!window.LOADED_MCQ_FILES) window.LOADED_MCQ_FILES = {};
 if (!window.LOADED_MCQ_FILES[bNum]) window.LOADED_MCQ_FILES[bNum] = new Set();
-const indexData = await fetchMCQIndexForBlock(bNum);
-if (indexData) {
-const blockKey = "b" + appState.academicBlock;
-const blockData = indexData[blockKey] || Object.values(indexData)[0];
-if (blockData) Object.keys(blockData).forEach(fn => window.LOADED_MCQ_FILES[bNum].add(fn));
-}
 buildSyllabusTree();
 if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
 else if (appState.currentScreen === 'lo_selection') renderLOs();
 else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
-// Background refresh (non-blocking, won't affect UI speed)
 refreshBlockInBackground(bNum);
 return;
 }
 }
-// FALLBACK: Try index-based approach
-const indexData = await fetchMCQIndexForBlock(bNum);
-if (indexData) {
-const blockKey = "b" + appState.academicBlock;
-const blockData = indexData[blockKey] || Object.values(indexData)[0];
-loCountEstimateMap = {};
-for (const [fileName, fileInfo] of Object.entries(blockData)) {
-const loCodes = fileInfo.lo_codes || [];
-const countPerLo = loCodes.length > 0 ? Math.round(fileInfo.mcq_count / loCodes.length) : 0;
-loCodes.forEach(code => {
-const cleanCode = String(code).trim();
-loCountEstimateMap[cleanCode] = (loCountEstimateMap[cleanCode] || 0) + countPerLo;
-});
-}
-buildSyllabusTree();
-if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
-else if (appState.currentScreen === 'lo_selection') renderLOs();
-else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
-startBackgroundBlockSync(bNum);
-return;
-}
-// LAST RESORT: Fresh network fetch
+
+// FRESH NETWORK FETCH (With Progress Tracker for UI Locks)
 if (MCQ_CACHE[bNum] && MCQ_CACHE[bNum].length > 0) return;
 const baseUrl = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/b${bNum}`;
-const allData = await fetchGitHubFilesSequentially(baseUrl, 26);
+
+const allData = await fetchGitHubFilesSequentially(baseUrl, 26, (loaded, total) => {
+    let pct = (loaded / total) * 100;
+    updateLoaderProgress(pct, "Downloading MCQs...");
+});
+
 MCQ_CACHE[bNum] = allData;
-await cacheFile(fullBlockKey, allData); // Save for next PWA open
+await cacheFile(fullBlockKey, allData); 
+
 if (bNum === (blockToNum[appState.academicBlock] || 1)) {
 APP_DATA.allMCQs = allData;
-buildSyllabusTree();
+buildSyllabusTree(); // Instantly populates true counts
 if (appState.currentScreen === 'module_selection') renderModulesAndSubjects();
 else if (appState.currentScreen === 'lo_selection') renderLOs();
 else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
@@ -6810,15 +6803,18 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                     APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
                     buildSyllabusTree();
                     
-                    // Permanently cache fresh syllabus locally in IndexedDB & LocalStorage
+                    // Permanently cache fresh syllabus locally
                     cacheFile(syllabusKey, APP_DATA.rawSyllabus);
                     try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
                     
-                    Promise.all([
-                        prefetchCurrentBlockMCQs(),
-                        prefetchCurrentBlockNotes(),
-                        prefetchCurrentBlockVivacards()
-                    ]).catch(e => console.warn("Prefetch warning", e));
+                    // 🚀 SILENT NANOSECOND BACKGROUND TRIGGER (Won't freeze login)
+                    setTimeout(() => {
+                        window.ACTIVE_MCQ_FETCH_PROMISE = prefetchCurrentBlockMCQs().finally(() => {
+                            window.ACTIVE_MCQ_FETCH_PROMISE = null;
+                        });
+                        prefetchCurrentBlockNotes();
+                        prefetchCurrentBlockVivacards();
+                    }, 1);
                     return;
                 } catch (error) {
                     console.warn("Using offline syllabus fallback:", error);
@@ -6846,17 +6842,34 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             const blockToNum = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7, 'VIII':8, 'IX':9, 'X':10, 'XI':11, 'XII':12, 'XIII':13, 'XIV':14, 'XV':15 };
             const bNum = blockToNum[appState.academicBlock] || 1;
 
-            // Loaders completely suppressed for buttery smooth screen transitions
-            if (appState.mode === 'mcqs' && (!MCQ_INDEX_CACHE[bNum])) {
+            if (appState.mode === 'mcqs') {
                 if (!navigator.onLine && (!APP_DATA.allMCQs || APP_DATA.allMCQs.length === 0)) {
-                    alert("You are currently offline. Please connect to internet and load MCQs for the first time atleast.");
+                    alert("You are offline. Please connect to the internet to load MCQs.");
                     return;
                 }
-                await prefetchCurrentBlockMCQs();
+
+                // If background download is currently running, block UI and show progress!
+                if (window.ACTIVE_MCQ_FETCH_PROMISE) {
+                    showLoader("Downloading MCQs...", true);
+                    await window.ACTIVE_MCQ_FETCH_PROMISE;
+                    hideLoader();
+                } else if (!MCQ_CACHE[bNum] || MCQ_CACHE[bNum].length === 0) {
+                    // Failsafe if it somehow never started
+                    showLoader("Downloading MCQs...", true);
+                    window.ACTIVE_MCQ_FETCH_PROMISE = prefetchCurrentBlockMCQs().finally(() => {
+                        window.ACTIVE_MCQ_FETCH_PROMISE = null;
+                    });
+                    await window.ACTIVE_MCQ_FETCH_PROMISE;
+                    hideLoader();
+                }
             } else if (appState.mode === 'notes' && (!NOTES_CACHE[bNum] || NOTES_CACHE[bNum].length === 0)) {
+                showLoader("Downloading Notes...", false);
                 await prefetchCurrentBlockNotes();
+                hideLoader();
             } else if (appState.mode === 'vivacards' && (!FLASH_CACHE[bNum] || FLASH_CACHE[bNum].length === 0)) {
+                showLoader("Downloading Vivacards...", false);
                 await prefetchCurrentBlockVivacards();
+                hideLoader();
             }
         }
 
