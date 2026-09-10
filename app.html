@@ -2338,46 +2338,6 @@
             </div>
         </div>
 
-        <!-- ================= INFINITY TOPIC SELECTOR MODAL ================= -->
-        <div id="infinity-topic-modal" class="fixed inset-0 z-[220] hidden flex-col justify-end md:justify-center items-center pointer-events-none">
-            <div id="infinity-topic-backdrop" class="absolute inset-0 bg-black/70 backdrop-blur-md opacity-0 pointer-events-auto transition-opacity duration-300" onclick="closeInfinityTopicSelector()"></div>
-            <div id="infinity-topic-container" class="relative w-full max-w-sm bg-white dark:bg-[#18181b] rounded-t-[32px] md:rounded-[28px] overflow-hidden shadow-2xl pointer-events-auto z-10 flex flex-col p-6 border border-brand-blue/30">
-                <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 bg-gradient-to-r from-[#10b981]/30 to-[#3b82f6]/30 blur-2xl pointer-events-none"></div>
-                <div class="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mb-4 relative z-10"></div>
-                
-                <div class="flex items-center justify-between mb-2 relative z-10">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-brand-gradient flex items-center justify-center shadow-md">
-                            <!-- Pixelated Diagonal Infinity SVG -->
-                            <svg class="w-6 h-6" viewBox="0 0 64 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M 16 8 L 8 8 L 8 24 L 16 24 L 24 16 L 40 16 L 48 24 L 56 24 L 56 8 L 48 8 L 40 16 L 24 16 Z" stroke="white" stroke-width="4" stroke-linejoin="miter" stroke-linecap="square" class="pixel-infinity-path"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-base font-black text-zinc-900 dark:text-white leading-tight">Infinity Mode</h3>
-                            <p class="text-[11px] text-brand-blue font-bold mt-0.5 uppercase tracking-widest">Endless On-Demand MCQs</p>
-                        </div>
-                    </div>
-                    <button onclick="closeInfinityTopicSelector()" class="w-8 h-8 bg-zinc-100 dark:bg-zinc-800/80 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
-                </div>
-
-                <p class="text-xs text-zinc-500 font-medium mb-4 relative z-10">BlockifAI will generate a limitless stream of mixed C1-C6 MCQs. Select a specific focus topic below or proceed generally.</p>
-
-                <div class="mb-4 relative z-10">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-zinc-500 block mb-1.5">Select Topic Focus</label>
-                    <div id="infinity-topics-list" class="max-h-[30vh] overflow-y-auto no-scrollbar space-y-2">
-                        <!-- Injected via JS -->
-                    </div>
-                </div>
-
-                <button onclick="startInfinitySession()" class="w-full py-4 bg-brand-gradient text-white rounded-2xl text-[13px] font-black uppercase tracking-wider shadow-[0_8px_25px_rgba(75,184,214,0.3)] card-press flex items-center justify-center gap-2 relative z-10">
-                    <i data-lucide="zap" class="w-4 h-4"></i> Start Infinity
-                </button>
-            </div>
-        </div>
-
         <!-- ================= DEDICATED INFINITY LOADING SCREEN ================= -->
         <div id="infinity-loading-screen" class="fixed inset-0 z-[260] hidden flex-col items-center justify-center bg-black/90 backdrop-blur-2xl transition-opacity duration-300 pointer-events-auto">
             <div class="flex flex-col items-center justify-center">
@@ -6958,10 +6918,20 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                 const itemYear = normalizeYearName(item.year);
                 const itemBlock = normalizeBlockName(item.block);
                 
-                // Do not fetch Biochemistry or Radiology in Block VIII
+                // Do not fetch specific excluded subjects in Block VIII
                 if (targetBlock === 'VIII' || targetBlock === '8') {
-                    const subLower = (item.subject || '').toLowerCase();
-                    if (subLower.includes('biochemistry') || subLower.includes('radiology')) {
+                    const subLower = (item.subject || '').toLowerCase().trim();
+                    if (
+                        subLower.includes('biochemistry') || 
+                        subLower.includes('radiology') ||
+                        subLower.includes('gynaecology') || 
+                        subLower.includes('gynecology') || 
+                        subLower.includes('paediatrics') || 
+                        subLower.includes('pediatrics') ||
+                        subLower === 'medicine' || 
+                        subLower === 'general medicine' || 
+                        subLower === 'internal medicine'
+                    ) {
                         return false;
                     }
                 }
@@ -7168,23 +7138,25 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
 
             const mainTabs = ['dashboard', 'explore', 'analytics', 'profile'];
             const bottomNav = document.getElementById('bottom-nav');
+            const selectionGradient = document.getElementById('selection-bottom-gradient');
             
+            // Fix Bottom Nav Bug (Force explicit visibility and reset GSAP properties)
             if (mainTabs.includes(screenId)) {
-                bottomNav.style.display = 'block';
+                if (bottomNav) {
+                    bottomNav.style.display = 'block';
+                    if (typeof gsap !== 'undefined') gsap.set(bottomNav, { clearProps: "all" });
+                }
                 document.querySelectorAll('.nav-item').forEach(el => {
                     const icon = el.querySelector('svg') || el.querySelector('i'); 
                     
                     if (el.dataset.target === screenId) {
-                        // ACTIVE STATE (Instagram Style: High contrast, thicker outline, NO fill)
                         el.classList.add('text-zinc-900', 'dark:text-white');
                         el.classList.remove('text-zinc-500', 'dark:text-zinc-400', 'text-zinc-400');
                         if (icon) {
                             icon.classList.remove('stroke-[2px]', 'opacity-50', 'opacity-100', 'fill-current');
-                            // Use stroke-[3px] for bold outline without filling the SVG shape
                             icon.classList.add('stroke-[3px]', 'scale-110');
                         }
                     } else {
-                        // INACTIVE STATE (Solid opaque gray, thinner, hollow outline)
                         el.classList.remove('text-zinc-900', 'dark:text-white');
                         el.classList.add('text-zinc-500', 'dark:text-zinc-400');
                         if (icon) {
@@ -7194,14 +7166,15 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                     }
                 });
             } else {
-                bottomNav.style.display = 'none';
+                if (bottomNav) bottomNav.style.display = 'none';
             }
 
-            const selPages = ['module_selection', 'lo_selection', 'session_builder'];
-            if (selPages.includes(screenId)) {
-                document.getElementById('selection-bottom-gradient').classList.remove('hidden');
-            } else {
-                document.getElementById('selection-bottom-gradient').classList.add('hidden');
+            if (selectionGradient) {
+                if (practiceScreens.includes(screenId)) {
+                    selectionGradient.classList.remove('hidden');
+                } else {
+                    selectionGradient.classList.add('hidden');
+                }
             }
 
             if (screenId === 'dashboard') {
@@ -7221,10 +7194,7 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             if (screenId === 'vivacards_viewer') renderVivacardsViewer();
             if (screenId === 'explore') renderInteractiveSyllabusTab();
             if (screenId === 'analytics') renderAnalytics();
-            if (screenId === 'mock_exam') {
-                // Logic handled by openMockSelectionSheet from Dashboard
-            }
-            if (screenId === 'saved_mcqs') renderSavedMCQs(); // <-- SAVED MCQS RENDER TRIGGER FIXED! 
+            if (screenId === 'saved_mcqs') renderSavedMCQs(); 
             if (screenId === 'past_papers') renderPastPapers();
             if (screenId === 'usmlefy') renderUsmlefy();
             if (screenId === 'notifications_inbox') renderNotificationsInboxFeed(appState.currentUser ? appState.currentUser.uid : null);
@@ -8379,6 +8349,25 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
 
             // --- 1. MICRO SEARCH: Search ANY MCQ across questions bank (Instant from 1 character) ---
             if (currentSearchScope === 'micro') {
+                if (!APP_DATA.allMCQs || APP_DATA.allMCQs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-6 text-zinc-400">
+                            <div class="w-6 h-6 border-2 border-brand-blue border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                            <p class="text-xs font-bold text-zinc-500 mt-2">Loading question bank...</p>
+                        </div>`;
+                    if (badge) badge.innerText = `Loading...`;
+                    lucide.createIcons();
+                    
+                    // Trigger load without blocking
+                    prefetchCurrentBlockMCQs().then(() => {
+                        const input = document.getElementById('global-search-input');
+                        if (input && input.value.trim().toLowerCase() === query) {
+                            performGlobalSearch(query);
+                        }
+                    });
+                    return;
+                }
+
                 let pool = APP_DATA.allMCQs || [];
                 let matchedMCQs = [];
                 let seen = new Set();
@@ -8414,10 +8403,12 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                     const qMod = q.module || (typeof getSubjectOfLO === 'function' ? (getSubjectOfLO(q.tag) || "General") : "Curriculum");
                     const qSub = q.subject || (typeof getSubjectOfLO === 'function' ? (getSubjectOfLO(q.tag) || "Medical") : "Subject");
                     const cleanedStmt = cleanMCQStatement(q.statement);
-                    const safeQ = encodeURIComponent(JSON.stringify(q));
+                    
+                    // PASS THE STRING ID ONLY (Prevents quote escaping JSON crashes!)
+                    const safeQId = encodeURIComponent(q.id || q.statement.substring(0, 30));
 
                     return `
-                        <div onclick="launchMicroSearchMCQ('${safeQ}')" class="p-3 bg-zinc-50 dark:bg-black/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 border border-zinc-200/70 dark:border-white/5 rounded-2xl cursor-pointer transition-all card-press group flex flex-col gap-1.5">
+                        <div onclick="launchMicroSearchMCQ('${safeQId}')" class="p-3 bg-zinc-50 dark:bg-black/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 border border-zinc-200/70 dark:border-white/5 rounded-2xl cursor-pointer transition-all card-press group flex flex-col gap-1.5">
                             <div class="flex items-center justify-between gap-2">
                                 <div class="flex items-center gap-1.5 truncate">
                                     <span class="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-brand-blue/15 text-brand-blue truncate">${qMod}</span>
@@ -8485,10 +8476,17 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             lucide.createIcons();
         }
 
-        window.launchMicroSearchMCQ = function(encodedQ) {
+        window.launchMicroSearchMCQ = function(encodedQId) {
             try {
-                const question = JSON.parse(decodeURIComponent(encodedQ));
+                const targetId = decodeURIComponent(encodedQId);
                 closeGlobalSearch();
+
+                const question = (APP_DATA.allMCQs || []).find(q => (q.id || q.statement.substring(0, 30)) === targetId);
+                
+                if (!question) {
+                    alert("Error: MCQ data could not be retrieved from memory.");
+                    return;
+                }
 
                 appState.context.module = question.module || "Micro Search";
                 appState.context.subject = question.subject || "Question Bank";
@@ -9588,15 +9586,27 @@ Return ONLY a JSON object:
                     } catch (e) {}
                 }
 
-                // FAIL-PROOF ARCHITECTURE: If AI synthesis returns empty or encounters rate limits, NEVER show an error to user!
+                // FAIL-PROOF ARCHITECTURE: Intelligent Local Synthesis to prevent crashes
                 if (generatedQs.length === 0) {
                     console.warn("AI synthesis empty; activating intelligent local synthesis fallback...");
-                    // Pull from verified local bank for selected LOs to ensure uninterrupted flow
                     let fallbackPool = (APP_DATA.allMCQs || []).filter(q => q && q.tag && appState.selectedLOs.includes(String(q.tag).trim()));
                     if (fallbackPool.length === 0) fallbackPool = APP_DATA.allMCQs || [];
                     
-                    const shuffled = [...fallbackPool].sort(() => 0.5 - Math.random()).slice(0, 5);
-                    generatedQs = shuffled.map((orig, i) => ({
+                    // MEMORY FIX: Safely pick 5 items without sorting the entire massive array (Prevents OOM Crashes)
+                    let fallbackItems = [];
+                    if (fallbackPool.length > 0) {
+                        let maxItems = Math.min(5, fallbackPool.length);
+                        let usedIndices = new Set();
+                        while (fallbackItems.length < maxItems) {
+                            let r = Math.floor(Math.random() * fallbackPool.length);
+                            if (!usedIndices.has(r)) {
+                                usedIndices.add(r);
+                                fallbackItems.push(fallbackPool[r]);
+                            }
+                        }
+                    }
+                    
+                    generatedQs = fallbackItems.map((orig, i) => ({
                         ...orig,
                         id: 'inf_fb_' + Date.now() + '_' + i,
                         tag: orig.tag || "Infinity Stream",
@@ -9617,11 +9627,22 @@ Return ONLY a JSON object:
                 return true;
             } catch (err) {
                 console.warn("Graceful Infinity recovery from:", err);
-                // Guaranteed safety net fallback: Never display an error alert to the user
                 let fallbackPool = (APP_DATA.allMCQs || []).filter(q => q && q.tag && appState.selectedLOs.includes(String(q.tag).trim()));
                 if (fallbackPool.length === 0) fallbackPool = APP_DATA.allMCQs || [];
                 
-                const fallbackItems = [...fallbackPool].sort(() => 0.5 - Math.random()).slice(0, 5);
+                let fallbackItems = [];
+                if (fallbackPool.length > 0) {
+                    let maxItems = Math.min(5, fallbackPool.length);
+                    let usedIndices = new Set();
+                    while (fallbackItems.length < maxItems) {
+                        let r = Math.floor(Math.random() * fallbackPool.length);
+                        if (!usedIndices.has(r)) {
+                            usedIndices.add(r);
+                            fallbackItems.push(fallbackPool[r]);
+                        }
+                    }
+                }
+
                 fallbackItems.forEach((orig, i) => {
                     appState.mcqSessionQuestions.push({
                         ...orig,
@@ -16943,13 +16964,20 @@ ${chunkText.substring(0, 9500)}`;
         // Dynamic Manifest Injection for seamless Android Chrome PWA installation
         if (!document.querySelector('link[rel="manifest"]')) {
             const manifestData = {
-                name: "BLOCKIFY",
+                id: "/",
+                name: "BLOCKIFY App",
                 short_name: "BLOCKIFY",
+                description: "Medical MCQ & Study Engine for Modular Curriculum",
                 start_url: "./",
                 display: "standalone",
+                orientation: "portrait",
                 background_color: "#ffffff",
                 theme_color: "#ffffff",
-                icons: [{ src: "https://i.imgur.com/kZsZDzA.jpeg", sizes: "512x512", type: "image/jpeg" }]
+                icons: [
+                    { src: "https://i.imgur.com/kZsZDzA.jpeg", sizes: "192x192", type: "image/jpeg", purpose: "any maskable" },
+                    { src: "https://i.imgur.com/kZsZDzA.jpeg", sizes: "512x512", type: "image/jpeg", purpose: "any maskable" }
+                ],
+                categories: ["education", "medical"]
             };
             const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
             const manifestLink = document.createElement('link');
