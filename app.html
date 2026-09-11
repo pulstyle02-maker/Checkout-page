@@ -7212,12 +7212,20 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
         }
 
         function switchTab(screenId) {
+            // SPECIAL USER LOCK: Route all dashboard/set navigation back to Forensics Hub
+            if (appState.isForensicsSpecial && (screenId === 'dashboard' || screenId === 'session_builder' || screenId === 'module_selection')) {
+                screenId = 'forensics_hub';
+            }
             appState.navHistory = [screenId];
             appState.currentScreen = screenId;
             showScreen(screenId);
         }
 
         async function navigate(screenId, contextData = null) {
+            // SPECIAL USER LOCK: Route all dashboard/set navigation back to Forensics Hub
+            if (appState.isForensicsSpecial && (screenId === 'dashboard' || screenId === 'session_builder' || screenId === 'module_selection')) {
+                screenId = 'forensics_hub';
+            }
             if (contextData) appState.context = { ...appState.context, ...contextData };
             if (appState.currentScreen !== screenId) appState.navHistory.push(screenId);
             appState.currentScreen = screenId;
@@ -10695,6 +10703,18 @@ Return ONLY a JSON object:
                 subtext.innerText = "Review your mistakes to improve. 📖"; 
             }
 
+            // Forensics Special User Navigation Override
+            if (appState.isForensicsSpecial) {
+                const actionBtns = document.querySelector('#screen-result_screen .flex.gap-3');
+                if (actionBtns) {
+                    actionBtns.innerHTML = `
+                        <button onclick="navigate('forensics_hub')" class="w-full bg-zinc-900 dark:bg-white text-white dark:text-black font-black py-4 rounded-[20px] shadow-md card-press flex justify-center items-center gap-2 text-sm transition-transform active:scale-[0.98]">
+                            <i data-lucide="presentation" class="w-4 h-4"></i> Back to Lecture Slides
+                        </button>
+                    `;
+                }
+            }
+
             const circle = document.getElementById('result-circle');
             const circumference = 2 * Math.PI * 42; 
             const offset = circumference - (pct / 100) * circumference;
@@ -11600,7 +11620,11 @@ Return ONLY a JSON object:
 
         function confirmExitSession() {
             closeExitDialog();
-            goBack();
+            if (appState.isForensicsSpecial) {
+                navigate('forensics_hub');
+            } else {
+                goBack();
+            }
         }
 
         // Safe check to see if an MCQ ID is in the saved list (Handles both strings and objects)
@@ -17254,12 +17278,37 @@ ${chunkText.substring(0, 9500)}`;
             renderForensicsHub(data);
         };
 
-        window.exitForensicsSpecial = function() {
-            if (!confirm("Sign out of Forensic Medicine edition?")) return;
+        window.exitForensicsSpecial = async function() {
+            if (!confirm("Are you sure you want to sign out?")) return;
+            
+            showLoader("Signing out...");
+            
+            // Cleanly wipe special credentials from local memory
             localStorage.removeItem('forensics_special_active');
             appState.isForensicsSpecial = false;
-            window.location.reload(true);
+            appState.currentUser = null;
+            appState.userData = null;
+            
+            if (typeof auth !== 'undefined' && auth.signOut) {
+                try { await auth.signOut(); } catch(e) {}
+            }
+
+            // Instant seamless switch to login view without hanging on reload
+            setTimeout(() => {
+                switchAuthView('login');
+                switchTab('login');
+                hideLoader();
+            }, 250);
         };
+
+        // Cold-boot failsafe: Prevents the global loader from hanging if connection lags
+        setTimeout(() => {
+            const loader = document.getElementById('global-loader');
+            if (loader && !loader.classList.contains('hidden') && !appState.currentUser && !appState.isForensicsSpecial) {
+                hideLoader();
+                if (typeof switchTab === 'function') switchTab('login');
+            }
+        }, 2000);
 
         window.toggleForensicsTopicSets = function(topicKey) {
             forensicsOpenAccordions[topicKey] = !forensicsOpenAccordions[topicKey];
