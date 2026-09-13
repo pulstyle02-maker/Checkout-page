@@ -1512,6 +1512,26 @@
                     </div>
                 </div>
 
+                <!-- MATCHING DASHBOARD MICRO ANKI CARD -->
+                <div onclick="openMicroAnkiDashboard()" class="relative rounded-full p-[2px] mb-4 cursor-pointer card-press group mx-1">
+                    <!-- Spinning thin gradient border -->
+                    <div class="absolute inset-0 bg-[conic-gradient(from_var(--angle),#10b981,#3b82f6,#10b981)] animate-[rotateGlow_3s_linear_infinite] rounded-full opacity-80 group-hover:opacity-100 transition-opacity"></div>
+                    <!-- Inner button -->
+                    <div class="relative bg-[#F1F3F5] dark:bg-[#151719] rounded-full px-5 py-3.5 flex items-center justify-between shadow-sm">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <!-- Ultra-Modern Microbe/Virus SVG Icon -->
+                            <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="5.5" stroke="url(#iconGrad)" stroke-width="2" fill="#10b981" fill-opacity="0.18"/>
+                                <path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.3-6.7-2.1 2.1m-7.2 7.2-2.1 2.1m0-11.4 2.1 2.1m7.2 7.2 2.1 2.1" stroke="url(#iconGrad)" stroke-width="2" stroke-linecap="round"/>
+                                <circle cx="9.8" cy="10.2" r="1.1" fill="#10b981"/>
+                                <circle cx="14" cy="13.5" r="1.1" fill="#3b82f6"/>
+                            </svg>
+                            <span class="text-[14px] font-[1000] text-zinc-900 dark:text-white tracking-tight uppercase truncate">Microbiology Anki Cards</span>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-zinc-400 group-hover:text-brand-blue transition-colors shrink-0"></i>
+                    </div>
+                </div>
+
                 <!-- MATCHING DASHBOARD BLOCKIFAI CARD -->
                 <div onclick="openBlockifAI()" class="relative rounded-full p-[2px] mb-6 cursor-pointer card-press group mx-1">
                     <!-- Spinning thin gradient border -->
@@ -3355,6 +3375,44 @@
                 </div>
             </div>
         </div>
+        <!-- ================= MICROBIOLOGY ANKI SCREEN ================= -->
+        <div id="screen-micro_anki" class="app-screen z-20 pb-32 bg-[#F1F3F5] dark:bg-[#121316] text-zinc-900 dark:text-white flex flex-col min-h-screen overflow-y-auto no-scrollbar">
+            <div class="w-full max-w-2xl mx-auto px-4 md:px-6 pt-8">
+                <!-- Sticky Header -->
+                <div class="flex items-center justify-between mb-5 sticky top-0 safe-pt z-30 bg-[#F1F3F5]/90 dark:bg-[#121316]/90 backdrop-blur-xl pb-3 pt-2">
+                    <div class="flex items-center gap-3">
+                        <button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors">
+                            <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                        </button>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-[22px] font-black text-zinc-900 dark:text-white tracking-tight leading-none">Micro Anki</h1>
+                                <span class="bg-brand-gradient text-white text-[9.5px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider shadow-sm">20/Set</span>
+                            </div>
+                            <p class="text-[11px] text-zinc-500 font-bold mt-0.5" id="micro-anki-subtitle">Official Cloze Flashcards</p>
+                        </div>
+                    </div>
+                    <span id="micro-anki-total-badge" class="text-[11px] font-mono font-bold bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-full shadow-sm border border-zinc-200/60 dark:border-white/5">
+                        Loading...
+                    </span>
+                </div>
+
+                <!-- Repeat / Mistakes Active Deck Banner -->
+                <div id="micro-repeat-banner" class="hidden mb-4"></div>
+
+                <!-- Search Input -->
+                <div class="relative mb-5">
+                    <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="micro-search-input" oninput="filterMicroOrganisms(this.value)" placeholder="Search by organism (e.g., Staph, Strep)..." class="w-full bg-white dark:bg-[#18181b] text-zinc-900 dark:text-white rounded-[18px] pl-11 pr-4 py-3.5 text-[13px] font-bold outline-none border border-zinc-200/80 dark:border-white/5 focus:border-emerald-500 transition-all placeholder-zinc-400 shadow-sm">
+                </div>
+
+                <!-- Organisms & Sets Tray -->
+                <div id="micro-organisms-container" class="space-y-3 pb-8">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+
         <!-- Fixed Edge-to-Edge Native Bottom Nav (Absolute Extreme Bottom) -->
         <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white/95 dark:bg-[#121214]/95 backdrop-blur-xl z-50 border-t border-zinc-200/80 dark:border-zinc-800 transition-transform duration-300 ease-out pb-0 mb-0" style="display: none;">
             <div class="w-full h-[60px] px-6 flex justify-between items-center max-w-md mx-auto">
@@ -3800,6 +3858,69 @@ return null;
         let FLASH_CACHE = {};
         let MCQ_INDEX_CACHE = {};
         let loCountEstimateMap = {};
+
+        // ================= ULTRA-FAST COMPRESSED JSDELIVR MICRO ANKI ENGINE =================
+        let MICRO_ANKI_CACHE = null;
+        let microOrganismSearchQuery = "";
+        let microOpenSets = {};
+
+        async function fetchMicroAnkiCardsFast() {
+            // 1. Instant RAM Cache
+            if (MICRO_ANKI_CACHE && MICRO_ANKI_CACHE.length > 0) return MICRO_ANKI_CACHE;
+
+            // 2. Instant Local Storage (0ms offline retrieval)
+            try {
+                const stored = localStorage.getItem('micro_anki_fast_cache');
+                if (stored) {
+                    MICRO_ANKI_CACHE = JSON.parse(stored);
+                    return MICRO_ANKI_CACHE;
+                }
+            } catch(e) {}
+
+            // 3. Fast IndexedDB Cache fallback
+            const idbCached = await getCachedFile('micro_anki_fast_cache');
+            if (idbCached && idbCached.length > 0) {
+                MICRO_ANKI_CACHE = idbCached;
+                return idbCached;
+            }
+
+            // 4. jsDelivr Global Edge CDN Fetch (Instant & Compressed)
+            try {
+                const url = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/micro.json`;
+                const res = await fetch(url, { cache: 'force-cache' });
+                if (res.ok) {
+                    const raw = await res.json();
+                    if (Array.isArray(raw)) {
+                        // Compress memory allocation directly on arrival
+                        MICRO_ANKI_CACHE = new Array(raw.length);
+                        for (let i = 0; i < raw.length; i++) {
+                            const item = raw[i];
+                            MICRO_ANKI_CACHE[i] = {
+                                id: 'm_' + i,
+                                organism: item.organism ? item.organism.trim() : 'General',
+                                clozeText: item.clozeText || '',
+                                extraNote: item.extraNote || '',
+                                topic: item.topic || 'General',
+                                highYieldKeyword: item.highYieldKeyword || '',
+                                isAnki: true,
+                                loCode: item.organism ? item.organism.trim() : 'Microbiology'
+                            };
+                        }
+
+                        // Store compressed copy locally for zero-latency reloads
+                        try {
+                            localStorage.setItem('micro_anki_fast_cache', JSON.stringify(MICRO_ANKI_CACHE));
+                        } catch(e) {
+                            cacheFile('micro_anki_fast_cache', MICRO_ANKI_CACHE);
+                        }
+                        return MICRO_ANKI_CACHE;
+                    }
+                }
+            } catch (err) {
+                console.warn("jsDelivr micro fetch error:", err);
+            }
+            return MICRO_ANKI_CACHE || [];
+        }
 
         const SUBJECT_ICONS = {
             'anatomy': 'bone',
@@ -4357,6 +4478,225 @@ return null;
             const s = (seconds % 60).toString().padStart(2, '0');
             return `${m}:${s}`;
         }
+
+        // ================= MICRO ANKI DASHBOARD CONTROLLER =================
+        window.openMicroAnkiDashboard = async function() {
+            navigate('micro_anki');
+            renderMicroAnkiOrganisms();
+
+            // Load fast data without locking user interface
+            const cards = await fetchMicroAnkiCardsFast();
+            renderMicroAnkiOrganisms(cards);
+        };
+
+        window.toggleMicroOrganismAccordion = function(orgKey) {
+            microOpenSets[orgKey] = !microOpenSets[orgKey];
+            const panel = document.getElementById(`micro-set-panel-${orgKey}`);
+            const icon = document.getElementById(`micro-icon-${orgKey}`);
+            if (panel) {
+                if (microOpenSets[orgKey]) {
+                    panel.classList.remove('hidden');
+                    if (icon) icon.classList.add('rotate-180');
+                } else {
+                    panel.classList.add('hidden');
+                    if (icon) icon.classList.remove('rotate-180');
+                }
+            }
+        };
+
+        window.filterMicroOrganisms = function(val) {
+            microOrganismSearchQuery = (val || '').toLowerCase().trim();
+            renderMicroAnkiOrganisms(MICRO_ANKI_CACHE);
+        };
+
+        function renderMicroAnkiOrganisms(data) {
+            const container = document.getElementById('micro-organisms-container');
+            const totalBadge = document.getElementById('micro-anki-total-badge');
+            const repeatBanner = document.getElementById('micro-repeat-banner');
+            if (!container) return;
+
+            const cards = data || MICRO_ANKI_CACHE || [];
+
+            // Fast skeleton if data still streaming
+            if (cards.length === 0) {
+                container.innerHTML = Array.from({length: 4}).map(() => `
+                    <div class="p-4 rounded-[22px] bg-white dark:bg-[#18181b] border border-zinc-200/60 dark:border-white/5 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl shimmer-bg shrink-0"></div>
+                        <div class="flex-1 space-y-2">
+                            <div class="h-3.5 shimmer-bg rounded w-1/3"></div>
+                            <div class="h-2.5 shimmer-bg rounded w-1/4"></div>
+                        </div>
+                    </div>
+                `).join('');
+                return;
+            }
+
+            if (totalBadge) totalBadge.innerText = `${cards.length} Cards`;
+
+            // Micro Mistakes Check
+            const userMistakes = appState.userData?.microAnkiMistakes || [];
+            if (repeatBanner) {
+                if (userMistakes.length > 0) {
+                    repeatBanner.innerHTML = `
+                        <div onclick="startMicroMistakesDeck()" class="p-4 rounded-[22px] bg-rose-500/10 border border-rose-500/25 flex items-center justify-between cursor-pointer card-press transition-all hover:bg-rose-500/15 group shadow-sm">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center font-bold shrink-0 shadow-md">
+                                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                                </div>
+                                <div class="truncate">
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="text-[14px] font-black text-rose-600 dark:text-rose-400 leading-tight">Repeat / Mistakes Set</h4>
+                                        <span class="bg-rose-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full">${userMistakes.length} Cards</span>
+                                    </div>
+                                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">Cards marked "Again" • Practice to master</p>
+                                </div>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:bg-rose-500 group-hover:text-white transition-all">
+                                <i data-lucide="play" class="w-3.5 h-3.5 fill-current ml-0.5"></i>
+                            </div>
+                        </div>
+                    `;
+                    repeatBanner.classList.remove('hidden');
+                } else {
+                    repeatBanner.classList.add('hidden');
+                }
+            }
+
+            // Group cards by Organism
+            const grouped = {};
+            for (let i = 0; i < cards.length; i++) {
+                const org = cards[i].organism || 'General';
+                if (!grouped[org]) grouped[org] = [];
+                grouped[org].push(cards[i]);
+            }
+
+            let organisms = Object.keys(grouped).sort();
+            if (microOrganismSearchQuery) {
+                organisms = organisms.filter(o => o.toLowerCase().includes(microOrganismSearchQuery));
+            }
+
+            if (organisms.length === 0) {
+                container.innerHTML = `<p class="text-center text-zinc-400 font-bold py-12 text-xs">No organisms match "${microOrganismSearchQuery}".</p>`;
+                lucide.createIcons();
+                return;
+            }
+
+            const SET_SIZE = 20; // 20 MCQs per set
+
+            container.innerHTML = organisms.map((orgName, oIdx) => {
+                const orgCards = grouped[orgName];
+                const totalC = orgCards.length;
+                const totalSets = Math.ceil(totalC / SET_SIZE);
+                const orgKey = 'org_' + oIdx;
+                const isOpen = !!microOpenSets[orgKey];
+                const safeOrg = encodeURIComponent(orgName);
+
+                // Build 20-Card Sub-Sets
+                let setsHtml = '';
+                for (let s = 0; s < totalSets; s++) {
+                    const start = s * SET_SIZE;
+                    const end = Math.min(start + SET_SIZE, totalC);
+                    const count = end - start;
+
+                    setsHtml += `
+                        <div onclick="startMicroAnkiSet(decodeURIComponent('${safeOrg}'), ${s})" class="flex items-center justify-between p-3 rounded-[16px] bg-zinc-50 dark:bg-black/40 hover:bg-zinc-100 dark:hover:bg-white/[0.04] border border-zinc-200/60 dark:border-white/5 transition-all card-press cursor-pointer group/set">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-8 h-8 rounded-xl bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 group-hover/set:bg-brand-gradient group-hover/set:text-white flex items-center justify-center font-mono font-black text-xs shrink-0 shadow-sm transition-all">
+                                    ${s + 1}
+                                </div>
+                                <div>
+                                    <h4 class="text-[13px] font-bold text-zinc-900 dark:text-white leading-tight">Set ${s + 1}</h4>
+                                    <p class="text-[10.5px] text-zinc-400 font-medium">Cards ${start + 1} - ${end} (${count} items)</p>
+                                </div>
+                            </div>
+                            <div class="w-7 h-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover/set:bg-brand-blue group-hover/set:text-white transition-all shrink-0 shadow-sm">
+                                <i data-lucide="play" class="w-3 h-3 fill-current ml-0.5"></i>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-white/5 rounded-[22px] overflow-hidden shadow-sm transition-all">
+                        <div onclick="toggleMicroOrganismAccordion('${orgKey}')" class="p-4 md:p-5 flex items-center justify-between gap-3 cursor-pointer hover:bg-zinc-50/70 dark:hover:bg-white/[0.02] transition-colors card-press">
+                            <div class="flex items-center gap-3.5 min-w-0">
+                                <div class="w-11 h-11 rounded-[16px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-black text-[13px] shrink-0 shadow-sm">
+                                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="5.5" fill="#10b981" fill-opacity="0.15"/>
+                                        <path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.3-6.7-2.1 2.1m-7.2 7.2-2.1 2.1m0-11.4 2.1 2.1m7.2 7.2 2.1 2.1"/>
+                                        <circle cx="10" cy="10.5" r="1" fill="currentColor"/>
+                                        <circle cx="13.8" cy="13.2" r="1" fill="currentColor"/>
+                                    </svg>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="text-[15px] font-black text-zinc-900 dark:text-white leading-snug truncate mb-1">${orgName}</h3>
+                                    <div class="flex items-center gap-2 text-[11px] font-bold text-zinc-400">
+                                        <span class="text-emerald-500 font-extrabold">${totalC} Cards</span>
+                                        <span>•</span>
+                                        <span class="text-brand-blue font-extrabold">${totalSets} ${totalSets === 1 ? 'Set' : 'Sets'}</span>
+                                        <span>•</span>
+                                        <span>20/set</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
+                                <i id="micro-icon-${orgKey}" data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}"></i>
+                            </div>
+                        </div>
+
+                        <div id="micro-set-panel-${orgKey}" class="${isOpen ? 'block' : 'hidden'} px-4 pb-4 pt-1 space-y-2 border-t border-zinc-100 dark:border-white/5 bg-zinc-50/40 dark:bg-black/20">
+                            ${setsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        window.startMicroAnkiSet = async function(orgName, setIndex) {
+            showLoader("Opening Anki Set...");
+            const cards = await fetchMicroAnkiCardsFast();
+            hideLoader();
+
+            const orgCards = cards.filter(c => c.organism === orgName);
+            const SET_SIZE = 20;
+            const start = setIndex * SET_SIZE;
+            const end = start + SET_SIZE;
+            const setSlice = orgCards.slice(start, end);
+
+            if (setSlice.length === 0) {
+                alert("Empty card set.");
+                return;
+            }
+
+            appState.context.module = "Microbiology";
+            appState.context.subject = `${orgName} • Set ${setIndex + 1}`;
+            appState.mode = 'vivacards';
+            appState.sessionQuestions = [...setSlice];
+            appState.currentQuestionIndex = 0;
+
+            navigate('vivacards_viewer');
+            renderVivacardsViewer();
+        };
+
+        window.startMicroMistakesDeck = function() {
+            const mistakes = appState.userData?.microAnkiMistakes || [];
+            if (mistakes.length === 0) {
+                alert("No cards in your Repeat / Mistakes set.");
+                return;
+            }
+
+            appState.context.module = "Microbiology";
+            appState.context.subject = "Micro Anki • Repeat Set";
+            appState.mode = 'vivacards';
+            appState.sessionQuestions = [...mistakes];
+            appState.currentQuestionIndex = 0;
+
+            navigate('vivacards_viewer');
+            renderVivacardsViewer();
+        };
 
         function toggleQuestionJumpModal() {
             const modal = document.getElementById('mcq-jump-modal');
@@ -5565,6 +5905,8 @@ return null;
             appState.bookmarkedMCQs = data.bookmarkedMCQs || [];
             appState.incorrectMCQs = data.incorrectMCQs || [];
             appState.completedSets = data.completedSets || [];
+            if (!appState.userData) appState.userData = {};
+            appState.userData.microAnkiMistakes = data.microAnkiMistakes || [];
             appState.totalMcqsDone = data.totalMcqsDone || 0;
             appState.totalCorrect = data.totalCorrect || 0;
             appState.streak = data.streak || 0;
@@ -8237,12 +8579,12 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             const card = appState.sessionQuestions[appState.currentQuestionIndex];
             const total = appState.sessionQuestions.length;
             
+            // Always ensure card faces forward (no 3D flip)
             container.classList.remove('flipped');
             const inner = container.querySelector('.flip-card-inner');
-            
-            // Clear lingering GSAP inline styles so the next card isn't stuck backwards!
-            if (typeof gsap !== 'undefined' && inner) {
-                gsap.set(inner, { clearProps: "all" }); 
+            if (inner) {
+                inner.style.transform = 'rotateY(0deg)';
+                if (typeof gsap !== 'undefined') gsap.set(inner, { rotationY: 0, clearProps: "transform" }); 
             }
             
             setTimeout(() => {
@@ -8250,15 +8592,59 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                 if (progText) progText.innerText = `${appState.currentQuestionIndex + 1} of ${total}`;
                 
                 const locodeEl = document.getElementById('vivacard-locode');
-                if (locodeEl) locodeEl.innerText = card.loCode || 'VIVA';
+                if (locodeEl) locodeEl.innerText = card.organism || card.loCode || 'ANKI';
                 
-                document.getElementById('vivacard-front-text').innerText = card.front || "Card Front Data Unavailable";
-                document.getElementById('vivacard-back-text').innerHTML = parseNotesMarkdown(card.back || "Card Back Data Unavailable");
+                const frontEl = document.getElementById('vivacard-front-text');
+                const backEl = document.getElementById('vivacard-back-text');
+
+                // ================= SINGLE-SIDED ANKI CLOZE (NO 3D FLIP) =================
+                if (card.isAnki || card.clozeText) {
+                    const cloze = card.clozeText || '';
+                    
+                    // Individually bind each cloze answer using encodeURIComponent so only the clicked button reveals
+                    const masked = cloze.replace(/\{\{c\d+::(.*?)(?:::.*?)?\}\}/g, (match, ans) => {
+                        const encodedAns = encodeURIComponent(ans);
+                        return `<button type="button" data-ans="${encodedAns}" onclick="revealSpecificCloze(this, event)" class="micro-cloze-btn inline-flex items-center mx-1 px-3 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-300 font-mono font-black text-[15px] border border-emerald-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm">[...]</button>`;
+                    });
+
+                    // Render card front with masked term and hidden bottom tray
+                    frontEl.innerHTML = `
+                        <div class="flex flex-col items-center w-full max-h-[50vh] overflow-y-auto no-scrollbar px-1">
+                            ${card.topic ? `<span class="text-[10px] font-black uppercase tracking-widest text-brand-blue bg-brand-blue/10 px-2.5 py-1 rounded-md mb-3">${card.topic}</span>` : ''}
+                            
+                            <p id="micro-cloze-text-area" class="text-[17px] md:text-[19px] font-medium leading-[1.65] text-zinc-900 dark:text-white select-none text-center">${masked}</p>
+                            
+                            <span id="micro-anki-hint" class="text-[10px] font-bold text-zinc-400 mt-3 uppercase tracking-wider">Tap [...] to reveal answer</span>
+
+                            <!-- Hidden Bottom Tray (Reveals when cloze is tapped) -->
+                            <div id="micro-anki-tray" class="hidden w-full mt-4 pt-3 border-t border-zinc-200 dark:border-white/10 text-left space-y-2.5 animate-[fadeIn_0.3s_ease-out]">
+                                ${card.extraNote ? `
+                                    <div class="bg-zinc-100 dark:bg-zinc-800/70 p-3.5 rounded-2xl border border-zinc-200/80 dark:border-white/5 shadow-inner">
+                                        <span class="text-[9.5px] font-black uppercase tracking-wider text-brand-blue block mb-1">Clinical High-Yield Note</span>
+                                        <p class="text-[13px] text-zinc-700 dark:text-zinc-200 font-medium leading-relaxed">${card.extraNote}</p>
+                                    </div>
+                                ` : ''}
+
+                                ${card.highYieldKeyword ? `
+                                    <div class="flex items-center gap-2 pt-0.5">
+                                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Key Term:</span>
+                                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black border border-emerald-500/20">${card.highYieldKeyword}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    if (backEl) backEl.innerHTML = '';
+                } else {
+                    frontEl.innerText = card.front || "Card Front Data Unavailable";
+                    backEl.innerHTML = parseNotesMarkdown(card.back || "Card Back Data Unavailable");
+                }
                 
                 if (typeof gsap !== 'undefined') {
-                    gsap.fromTo(container, { y: 15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' });
+                    gsap.fromTo(container, { y: 15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out' });
                 }
-            }, 100);
+            }, 50);
             
             // Failsafe null checks for navigation buttons
             const btnPrev = document.getElementById('btn-viva-prev');
@@ -8286,6 +8672,43 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
 
             lucide.createIcons();
         }
+
+        // ================= INDIVIDUAL CLOZE REVEAL HANDLER =================
+        window.revealSpecificCloze = function(btn, event) {
+            if (event && event.stopPropagation) event.stopPropagation();
+            if (!btn) return;
+
+            // 1. Reveal ONLY this specific clicked button
+            const answer = decodeURIComponent(btn.getAttribute('data-ans') || '');
+            btn.outerHTML = `<span class="inline-block mx-1 px-2.5 py-0.5 rounded-lg bg-emerald-500 text-white font-black text-[15px] shadow-sm animate-[fadeIn_0.2s_ease-out]">${answer}</span>`;
+
+            // 2. Reveal the bottom High-Yield Note tray
+            const tray = document.getElementById('micro-anki-tray');
+            if (tray) {
+                tray.classList.remove('hidden');
+            }
+
+            // 3. Update hint based on remaining hidden clozes
+            const remaining = document.querySelectorAll('.micro-cloze-btn').length;
+            const hint = document.getElementById('micro-anki-hint');
+            if (hint) {
+                if (remaining === 0) {
+                    hint.innerText = "Rate your recall below to advance";
+                    hint.className = "text-[10px] font-bold text-emerald-500 mt-2 uppercase tracking-wider animate-[fadeIn_0.2s_ease-out]";
+                } else {
+                    hint.innerText = `${remaining} more hidden • tap to reveal`;
+                    hint.className = "text-[10px] font-bold text-zinc-400 mt-2 uppercase tracking-wider";
+                }
+            }
+        };
+
+        // Fallback for card taps
+        window.revealMicroAnkiTerm = function(event) {
+            const firstHidden = document.querySelector('.micro-cloze-btn');
+            if (firstHidden) {
+                window.revealSpecificCloze(firstHidden, event);
+            }
+        };
 
         window.toggleVivaJumpModal = function() {
             const modal = document.getElementById('viva-jump-modal');
@@ -8329,12 +8752,20 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
         };
 
         window.toggleVivacardFlip = function() {
+            const card = appState.sessionQuestions[appState.currentQuestionIndex];
+
+            // DO NOT FLIP OVER FOR MICRO ANKI CARDS!
+            if (card && (card.isAnki || card.clozeText)) {
+                // If user taps anywhere on the card, trigger the in-place reveal
+                revealMicroAnkiTerm(null, "");
+                return;
+            }
+
             const container = document.getElementById('vivacard-flip-container');
             const inner = container.querySelector('.flip-card-inner');
             const isFlipped = container.classList.contains('flipped');
             
             if (typeof gsap !== 'undefined') {
-                // Use GSAP directly for the rotation so it never clashes with CSS
                 if (isFlipped) {
                     gsap.to(inner, { rotationY: 0, duration: 0.5, ease: 'power2.inOut' });
                     container.classList.remove('flipped');
@@ -8342,15 +8773,14 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                     gsap.to(inner, { rotationY: 180, duration: 0.5, ease: 'power2.inOut' });
                     container.classList.add('flipped');
                 }
-                // Apply the pop animation to the outer container instead
                 gsap.fromTo(container, { scale: 0.95 }, { scale: 1, duration: 0.4, ease: 'back.out(1.5)' });
             } else {
                 container.classList.toggle('flipped');
             }
         };
 
-        window.rateVivaCard = function(rating) {
-            // "again" = incorrect, others = correct logic for global stats
+        window.rateVivaCard = async function(rating) {
+            const card = appState.sessionQuestions[appState.currentQuestionIndex];
             const isCorrect = rating !== 'again';
             
             appState.totalMcqsDone++;
@@ -8361,6 +8791,40 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                 appState.sessionStats.incorrect++;
             }
 
+            // ================= ANKI REPETITION & MISTAKES MEMORY =================
+            if (card && (card.isAnki || card.clozeText)) {
+                if (!appState.userData) appState.userData = {};
+                if (!appState.userData.microAnkiMistakes) appState.userData.microAnkiMistakes = [];
+
+                if (rating === 'again') {
+                    // 1. Re-queue card to repeat at the end of the active set
+                    appState.sessionQuestions.push({ ...card });
+
+                    // 2. Persist to mistakes deck in Firebase
+                    const exists = appState.userData.microAnkiMistakes.find(m => m.id === card.id);
+                    if (!exists) {
+                        appState.userData.microAnkiMistakes.push({ ...card });
+                        await updateUserDoc({ microAnkiMistakes: appState.userData.microAnkiMistakes });
+                    }
+
+                    // Native feedback toast
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed top-12 left-1/2 -translate-x-1/2 bg-rose-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl z-[600] flex items-center gap-1.5 animate-[fadeIn_0.2s_ease-out]';
+                    toast.innerHTML = `<i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Card queued to repeat at end`;
+                    document.body.appendChild(toast);
+                    lucide.createIcons();
+                    setTimeout(() => toast.remove(), 1600);
+
+                } else if (rating === 'good' || rating === 'easy') {
+                    // Remove from repeat list once mastered
+                    const prevLen = appState.userData.microAnkiMistakes.length;
+                    appState.userData.microAnkiMistakes = appState.userData.microAnkiMistakes.filter(m => m.id !== card.id);
+                    if (appState.userData.microAnkiMistakes.length !== prevLen) {
+                        await updateUserDoc({ microAnkiMistakes: appState.userData.microAnkiMistakes });
+                    }
+                }
+            }
+
             if (appState.currentUser && !appState.isGuest) {
                 updateUserDoc({
                     totalMcqsDone: appState.totalMcqsDone,
@@ -8368,27 +8832,9 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                 }).catch(e => console.warn(e));
             }
 
-            if (appState.currentQuestionIndex === appState.sessionQuestions.length - 1) {
-                // Finalize Set Stats
-                const setKey = `${appState.academicYear}_${appState.academicBlock}_Viva_${appState.selectedSetIndex}`;
-                const currentStats = appState.setStats[setKey] || { times: 0, best: 0 };
-                const newScore = Math.round((appState.sessionStats.correct / appState.sessionQuestions.length) * 100);
-                
-                appState.setStats[setKey] = {
-                    times: currentStats.times + 1,
-                    best: Math.max(currentStats.best, newScore),
-                    mcqsDone: appState.sessionQuestions.length,
-                    mcqsLeft: 0,
-                    totalMcqs: appState.sessionQuestions.length
-                };
-                
-                if (appState.currentUser && !appState.isGuest) {
-                    db.collection("users").doc(appState.currentUser.uid).update({ setStats: appState.setStats });
-                }
-                
-                // Show completion feedback before routing
-                alert(`Set Complete! Score: ${newScore}%`);
-                navigate('dashboard');
+            if (appState.currentQuestionIndex >= appState.sessionQuestions.length - 1) {
+                alert(`🎉 Set Complete! All cards reviewed.`);
+                goBack();
             } else {
                 appState.currentQuestionIndex++;
                 renderVivacardsViewer();
