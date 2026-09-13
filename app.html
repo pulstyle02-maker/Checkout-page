@@ -3859,20 +3859,85 @@ return null;
         let MCQ_INDEX_CACHE = {};
         let loCountEstimateMap = {};
 
-        // ================= ULTRA-FAST COMPRESSED JSDELIVR MICRO ANKI ENGINE =================
+        // ================= ULTRA-FAST COMPRESSED MICRO ANKI ENGINE (SMART AUTO-SYNC) =================
         let MICRO_ANKI_CACHE = null;
         let microOrganismSearchQuery = "";
         let microOpenSets = {};
+        let isMicroAnkiSyncing = false;
 
         async function fetchMicroAnkiCardsFast() {
-            // 1. Instant RAM Cache
-            if (MICRO_ANKI_CACHE && MICRO_ANKI_CACHE.length > 0) return MICRO_ANKI_CACHE;
+            // Background smart sync: Silently checks GitHub raw for changes to bypass the 12-hour CDN cache
+            const syncBackground = async () => {
+                if (isMicroAnkiSyncing || !navigator.onLine) return;
+                isMicroAnkiSyncing = true;
+                try {
+                    // We use raw.githubusercontent HERE to bypass jsDelivr cache and check for instant updates
+                    const url = `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/micro.json?nocache=${Date.now()}`;
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (res.ok) {
+                        const rawText = await res.text();
+                        const oldRawText = localStorage.getItem('micro_anki_fast_raw') || "";
+                        
+                        // ONLY process and re-render if the JSON content actually changed!
+                        if (rawText !== oldRawText && rawText.length > 50) {
+                            const raw = JSON.parse(rawText);
+                            if (Array.isArray(raw)) {
+                                let newCache = new Array(raw.length);
+                                for (let i = 0; i < raw.length; i++) {
+                                    const item = raw[i];
+                                    newCache[i] = {
+                                        id: 'm_' + i,
+                                        organism: item.organism ? item.organism.trim() : 'General',
+                                        clozeText: item.clozeText || '',
+                                        extraNote: item.extraNote || '',
+                                        topic: item.topic || 'General',
+                                        highYieldKeyword: item.highYieldKeyword || '',
+                                        isAnki: true,
+                                        loCode: item.organism ? item.organism.trim() : 'Microbiology'
+                                    };
+                                }
+
+                                MICRO_ANKI_CACHE = newCache;
+                                try {
+                                    // Save raw string for future comparison & save compressed JSON to LocalStorage
+                                    localStorage.setItem('micro_anki_fast_raw', rawText);
+                                    localStorage.setItem('micro_anki_fast_cache', JSON.stringify(MICRO_ANKI_CACHE));
+                                } catch(e) {
+                                    cacheFile('micro_anki_fast_cache', MICRO_ANKI_CACHE);
+                                }
+                                
+                                // Auto-update UI seamlessly if user is on the Micro Anki screen
+                                if (appState.currentScreen === 'micro_anki') {
+                                    renderMicroAnkiOrganisms(MICRO_ANKI_CACHE);
+                                    const toast = document.createElement('div');
+                                    toast.className = 'fixed top-[calc(env(safe-area-inset-top,32px)+16px)] left-1/2 -translate-x-1/2 bg-zinc-900 text-white px-4 py-2.5 rounded-full text-[11px] font-bold shadow-2xl z-[600] animate-[fadeIn_0.3s_ease-out] flex items-center gap-2';
+                                    toast.innerHTML = `<i data-lucide="refresh-cw" class="w-4 h-4 text-brand-blue"></i> Database auto-updated`;
+                                    document.body.appendChild(toast);
+                                    if (window.lucide) lucide.createIcons();
+                                    setTimeout(() => { toast.style.opacity = 0; toast.style.transition = 'opacity 0.3s'; setTimeout(()=>toast.remove(), 300); }, 2500);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Micro Anki Background Sync failed:", err);
+                } finally {
+                    isMicroAnkiSyncing = false;
+                }
+            };
+
+            // 1. Instant RAM Cache (0ms load)
+            if (MICRO_ANKI_CACHE && MICRO_ANKI_CACHE.length > 0) {
+                syncBackground();
+                return MICRO_ANKI_CACHE;
+            }
 
             // 2. Instant Local Storage (0ms offline retrieval)
             try {
                 const stored = localStorage.getItem('micro_anki_fast_cache');
                 if (stored) {
                     MICRO_ANKI_CACHE = JSON.parse(stored);
+                    syncBackground();
                     return MICRO_ANKI_CACHE;
                 }
             } catch(e) {}
@@ -3881,17 +3946,18 @@ return null;
             const idbCached = await getCachedFile('micro_anki_fast_cache');
             if (idbCached && idbCached.length > 0) {
                 MICRO_ANKI_CACHE = idbCached;
+                syncBackground();
                 return idbCached;
             }
 
-            // 4. jsDelivr Global Edge CDN Fetch (Instant & Compressed)
+            // 4. jsDelivr Global Edge CDN Fetch (Original super-fast CDN for initial fresh load)
             try {
                 const url = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/micro.json`;
                 const res = await fetch(url, { cache: 'force-cache' });
                 if (res.ok) {
-                    const raw = await res.json();
+                    const rawText = await res.text();
+                    const raw = JSON.parse(rawText);
                     if (Array.isArray(raw)) {
-                        // Compress memory allocation directly on arrival
                         MICRO_ANKI_CACHE = new Array(raw.length);
                         for (let i = 0; i < raw.length; i++) {
                             const item = raw[i];
@@ -3907,12 +3973,13 @@ return null;
                             };
                         }
 
-                        // Store compressed copy locally for zero-latency reloads
                         try {
+                            localStorage.setItem('micro_anki_fast_raw', rawText);
                             localStorage.setItem('micro_anki_fast_cache', JSON.stringify(MICRO_ANKI_CACHE));
                         } catch(e) {
                             cacheFile('micro_anki_fast_cache', MICRO_ANKI_CACHE);
                         }
+                        syncBackground(); // Start looking for newer updates in the background immediately
                         return MICRO_ANKI_CACHE;
                     }
                 }
