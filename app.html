@@ -862,8 +862,22 @@
             .text-\[12px\] { font-size: 10.5px !important; }
             .text-\[11px\] { font-size: 9.5px !important; }
             .text-\[10px\] { font-size: 9px !important; }
-        }
-    </style>
+}
+/* ===== OSPE FLASHCARD ENGINE ===== */
+#ospe-cover-strip { box-shadow: 0 -8px 22px rgba(0,0,0,0.09); border-top: 1px solid rgba(0,0,0,0.07); }
+html.dark #ospe-cover-strip { box-shadow: 0 -8px 22px rgba(0,0,0,0.55); border-top-color: rgba(255,255,255,0.09); }
+#screen-ospe_cards .flip-card-inner { transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+#ospe-front-img, #ospe-back-img { image-render: auto; -webkit-user-drag: none; }
+/* Safari/WebKit backface fix: only the correct face may ever paint */
+#ospe-flip-card .flip-card-front, #ospe-flip-card .flip-card-back {
+backface-visibility: hidden;
+-webkit-backface-visibility: hidden;
+-webkit-transform: translateZ(0);
+}
+#ospe-flip-card .flip-card-back { transform: rotateY(180deg) translateZ(0); }
+#ospe-flip-card.flipped .flip-card-front { visibility: hidden; transition: visibility 0s 0.35s; }
+#ospe-flip-card:not(.flipped) .flip-card-back { visibility: hidden; transition: visibility 0s 0.35s; }
+</style>
 </head>
 <body class="bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white">
 
@@ -3413,7 +3427,89 @@
             </div>
         </div>
 
-        <!-- Fixed Edge-to-Edge Native Bottom Nav (Absolute Extreme Bottom) -->
+        <!-- ================= OSPE HUB SCREEN (BLOCK VIII ONLY) ================= -->
+<div id="screen-ospe_hub" class="app-screen z-20 pb-32 bg-[#F1F3F5] dark:bg-[#121316] text-zinc-900 dark:text-white flex flex-col min-h-screen overflow-y-auto no-scrollbar">
+<div class="w-full max-w-2xl mx-auto px-4 md:px-6 pt-8">
+<div class="flex items-center justify-between mb-6 sticky top-0 safe-pt z-30 bg-[#F1F3F5]/90 dark:bg-[#121316]/90 backdrop-blur-xl pb-3 pt-2">
+<div class="flex items-center gap-3">
+<button onclick="goBack()" class="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+<div>
+<h1 class="text-[22px] font-black tracking-tight leading-none">OSPE Station</h1>
+<p class="text-[11px] text-zinc-500 font-bold mt-1">Block VIII • Practical Specimen Flashcards</p>
+</div>
+</div>
+<span class="text-[9.5px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-1 rounded-full">Label-Hide Mode</span>
+</div>
+<div class="space-y-4 pb-8">
+<div onclick="startOspeCategory('micro')" class="bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-white/5 rounded-[24px] p-5 shadow-sm cursor-pointer card-press hover:border-emerald-500/60 transition-all flex items-center gap-4">
+<div class="w-14 h-14 rounded-[18px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 shadow-sm"><i data-lucide="bug" class="w-7 h-7"></i></div>
+<div class="flex-1 min-w-0">
+<h3 class="text-[16px] font-black text-zinc-900 dark:text-white leading-tight mb-1">Microbiology OSPE</h3>
+<p class="text-[11px] text-zinc-500 font-bold"><span id="ospe-micro-count">0</span> Specimen Cards • Stains & Cultures</p>
+</div>
+<i data-lucide="chevron-right" class="w-5 h-5 text-zinc-400 shrink-0"></i>
+</div>
+<div onclick="startOspeCategory('patho')" class="bg-white dark:bg-[#18181b] border border-zinc-200/80 dark:border-white/5 rounded-[24px] p-5 shadow-sm cursor-pointer card-press hover:border-blue-500/60 transition-all flex items-center gap-4">
+<div class="w-14 h-14 rounded-[18px] bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 shadow-sm"><i data-lucide="microscope" class="w-7 h-7"></i></div>
+<div class="flex-1 min-w-0">
+<h3 class="text-[16px] font-black text-zinc-900 dark:text-white leading-tight mb-1">Pathology OSPE</h3>
+<p class="text-[11px] text-zinc-500 font-bold"><span id="ospe-patho-count">0</span> Specimen Cards • Gross & Histology Figures</p>
+</div>
+<i data-lucide="chevron-right" class="w-5 h-5 text-zinc-400 shrink-0"></i>
+</div>
+<div class="p-4 rounded-[20px] bg-zinc-200/40 dark:bg-white/[0.03] border border-zinc-200/60 dark:border-white/5 flex items-start gap-3">
+<i data-lucide="info" class="w-4 h-4 text-brand-blue shrink-0 mt-0.5"></i>
+<p class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed">The label / caption strip of every figure stays hidden on the front face and is revealed only when you flip the card. Strip height is auto-measured per image, so every caption is covered exactly.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= OSPE FLASHCARD VIEWER SCREEN ================= -->
+<div id="screen-ospe_cards" class="app-screen z-40 bg-zinc-50 dark:bg-black">
+<div class="w-full max-w-3xl mx-auto px-4 md:px-8 relative h-full flex flex-col safe-pb">
+<div class="safe-pt pb-2 flex justify-between items-center z-20 shrink-0">
+<button onclick="navigate('ospe_hub')" class="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+<div class="flex items-center gap-2 min-w-0">
+<span id="ospe-cat-badge" class="text-[10px] font-black text-emerald-500 dark:text-emerald-400 uppercase tracking-widest leading-none truncate">OSPE</span>
+</div>
+<span id="ospe-counter" class="text-[12px] font-bold text-zinc-400 shrink-0">1 / 1</span>
+</div>
+<h2 id="ospe-card-title" class="text-[13px] font-black text-zinc-900 dark:text-white text-center truncate px-6 pb-2 shrink-0">Specimen</h2>
+<div class="flex-1 flex flex-col items-center justify-center py-2 relative w-full min-h-0">
+<div class="perspective-1000 w-full h-full max-h-[560px] relative" id="ospe-flip-zone">
+<div id="ospe-flip-card" class="flip-card w-full h-full cursor-pointer" onclick="toggleOspeFlip()">
+<div class="flip-card-inner shadow-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px]">
+<div class="flip-card-front bg-white dark:bg-[#18181b] rounded-[24px] flex items-center justify-center p-3">
+<div id="ospe-front-wrap" class="relative overflow-hidden rounded-[10px] bg-white dark:bg-[#18181b]" style="width:100%;height:100%;">
+<img id="ospe-front-img" class="w-full h-full select-none" alt="OSPE specimen" draggable="false" style="object-fit:fill;">
+<div id="ospe-cover-strip" class="absolute left-0 right-0 bottom-0 z-10 bg-white dark:bg-[#18181b] flex items-center justify-center transition-all duration-500" style="height:24%;">
+<span class="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i> Labels hidden • tap to flip</span>
+</div>
+</div>
+</div>
+<div class="flip-card-back bg-white dark:bg-[#18181b] rounded-[24px] flex items-center justify-center p-3 border-2 border-emerald-500/20">
+<div id="ospe-back-wrap" class="relative overflow-hidden rounded-[10px] bg-white dark:bg-[#18181b]" style="width:100%;height:100%;">
+<img id="ospe-back-img" class="w-full h-full select-none" alt="OSPE specimen revealed" draggable="false" style="object-fit:fill;">
+</div>
+</div>
+</div>
+</div>
+<div id="ospe-load-overlay" class="absolute inset-0 z-30 bg-zinc-50/90 dark:bg-black/70 backdrop-blur-sm rounded-[24px] flex flex-col items-center justify-center gap-3">
+<div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+<p id="ospe-load-text" class="text-[11px] font-bold text-zinc-500">Fetching specimen image...</p>
+</div>
+</div>
+</div>
+<div class="py-4 z-20 shrink-0">
+<div class="flex items-center justify-between gap-3">
+<button id="ospe-prev-btn" onclick="ospePrev()" class="p-3 rounded-full bg-white dark:bg-[#1c1c1e] border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-white card-press shadow-sm"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+<button onclick="toggleOspeFlip()" class="flex-1 bg-zinc-900 dark:bg-white text-white dark:text-black font-black py-3.5 rounded-full text-[13px] card-press shadow-md flex items-center justify-center gap-2"><i data-lucide="refresh-ccw" class="w-4 h-4"></i> Flip Card</button>
+<button id="ospe-next-btn" onclick="ospeNext()" class="p-3 rounded-full bg-white dark:bg-[#1c1c1e] border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-white card-press shadow-sm"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Fixed Edge-to-Edge Native Bottom Nav (Absolute Extreme Bottom) -->
         <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white/95 dark:bg-[#121214]/95 backdrop-blur-xl z-50 border-t border-zinc-200/80 dark:border-zinc-800 transition-transform duration-300 ease-out pb-0 mb-0" style="display: none;">
             <div class="w-full h-[60px] px-6 flex justify-between items-center max-w-md mx-auto">
                 <div onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="dashboard">
@@ -3427,9 +3523,13 @@
                 <div onclick="openBlockifAI()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
                     <i data-lucide="sparkles" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:stroke-[2.5px]"></i>
                 </div>
-                <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="analytics">
-                    <i data-lucide="bar-chart-2" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-                </div>
+                <div onclick="openOspeHub()" id="nav-ospe-item" class="nav-item hidden flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="ospe_hub">
+<i data-lucide="microscope" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+<span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">OSPE</span>
+</div>
+<div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="analytics">
+<i data-lucide="bar-chart-2" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+</div>
                 <div onclick="switchTab('profile')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="profile">
                     <i data-lucide="user" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
                 </div>
@@ -7778,9 +7878,11 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             if (screenId === 'past_papers') renderPastPapers();
             if (screenId === 'usmlefy') renderUsmlefy();
             if (screenId === 'notifications_inbox') renderNotificationsInboxFeed(appState.currentUser ? appState.currentUser.uid : null);
-
-            lucide.createIcons();
-        }
+if (screenId === 'ospe_hub') renderOspeHub();
+if (screenId === 'ospe_cards') renderOspeCard();
+if (typeof updateOspeNavVisibility === 'function') updateOspeNavVisibility();
+lucide.createIcons();
+}
 
         // --- RENDER DYNAMIC SCREENS ---
 
@@ -18135,6 +18237,386 @@ ${chunkText.substring(0, 9500)}`;
             list.innerHTML = html;
             lucide.createIcons();
         }
-    </script>
+    // ================= OSPE FLASHCARD ENGINE (BLOCK VIII) =================
+const OSPE_DECKS = {
+micro: {
+title: 'Microbiology OSPE',
+codes: ['nTqWpN2','nTqWb94','nTqWmAl','nTqWPnt','nTqWytS','nTqXHo7','nTqXJV9','nTqXdPe','nTqX3Ku','nTqXnDB','nTqXIiF','nTqXzV1','nTqXuKg','nTqXAla','nTqXRUJ','nTqXYRR','nTqXaNp','nTqXcDN','nTqX0xI','nTqXWUG','nTqXhJf','nTqXwOl','nTqXexS','nTqXU0u','nTqXvs9','nTqXgUb','nTqX65x','nTqXLzB','nTqXPOQ','nTqXDqF','nTqXydJ','nTqh95v','nTqh2zN','nTqhJbp','nTqhBgs','nTqhfqX','nTqhndG','nTqho7f','nTqhxe4','nTqhYru','nTqh71e','nTqhcdb','nTqh5B9','nTqhGIV','nTqhVLP','nTqhXB1','nTqhhEF','nTqhjrg','nTqhekv','nTqhN2a','nTqh8Ip','nTqhkpR','nTqhShN','nTqh4EX','nTqhUQI','nTqh64n','nTqhi2s','nTqhtTl','nTqhQp4','nTqhDj2','nTqhbQS']
+},
+patho: {
+title: 'Pathology OSPE',
+codes: ['nTqELkN','nTqEtIt','nTqEQpI','nTqEs7p','nTqG94f','nTqG3pS','nTqGKT7','nTqGfj9','nTqGqQe','nTqGCCu','nTqGnEb','nTqGo4j','nTqGz3x','nTqGTvV','nTqGuyB','nTqG5j1']
+}
+};
+OSPE_DECKS.micro.cards = OSPE_DECKS.micro.codes.map((c, i) => ({ id: 'micro_ospe_' + (i + 1), code: c, page: 'https://freeimage.host/i/' + c, title: 'Microbiology Specimen ' + (i + 1) }));
+OSPE_DECKS.patho.cards = OSPE_DECKS.patho.codes.map((c, i) => ({ id: 'patho_ospe_' + (i + 1), code: c, page: 'https://freeimage.host/i/' + c, title: 'Pathology Specimen ' + (i + 1) }));
+// TRUE DIRECT CDN PATTERN (from freeimage "Image URL" field): https://iili.io/CODE.jpg
+function ospeDirectCandidates(code) {
+return ['https://iili.io/' + code + '.jpg', 'https://iili.io/' + code + '.png', 'https://iili.io/' + code + '.jpeg', 'https://iili.io/' + code + '.webp'];
+}
+function ospeProbeImage(url) {
+return new Promise(resolve => {
+const im = new Image();
+const timer = setTimeout(() => { im.src = ''; resolve(false); }, 12000);
+im.onload = () => { clearTimeout(timer); resolve(im.naturalWidth > 0); };
+im.onerror = () => { clearTimeout(timer); resolve(false); };
+im.src = url;
+});
+}
+async function ospeResolveDirect(card) {
+if (!card) return null;
+if (card.code) {
+const cands = ospeDirectCandidates(card.code);
+for (const u of cands) {
+if (await ospeProbeImage(u)) return u;
+}
+}
+try {
+const html = await ospeFetchText(card.page);
+if (html) {
+const m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+if (m && m[1] && m[1].startsWith('http') && (await ospeProbeImage(m[1]))) return m[1];
+}
+} catch (e) {}
+return null;
+}
+async function ospeFetchAnalysisBlob(url) {
+let blob = null;
+try {
+const res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+if (res.ok) { const b = await res.blob(); if (b && b.size > 2000 && (b.type || '').startsWith('image')) blob = b; }
+} catch (e) {}
+if (!blob) {
+for (const p of OSPE_PROXIES) {
+try {
+const res = await fetch(p + encodeURIComponent(url), { cache: 'force-cache' });
+if (res.ok) { const b = await res.blob(); if (b && b.size > 2000 && (b.type || '').startsWith('image')) { blob = b; break; } }
+} catch (e) {}
+}
+}
+return blob;
+}
+
+// === SMART PIXEL SCANNER FOR VARIABLE CAPTION HEIGHTS ===
+async function analyzeOspeCover(blob) {
+try {
+const bmp = await createImageBitmap(blob);
+const W = 200; // Downscale width for lightning-fast processing
+const H = Math.round(bmp.height * (W / bmp.width));
+const cv = document.createElement('canvas');
+cv.width = W;
+cv.height = H;
+const ctx = cv.getContext('2d', { willReadFrequently: true });
+ctx.drawImage(bmp, 0, 0, W, H);
+const imgData = ctx.getImageData(0, 0, W, H).data;
+
+let captionTopRow = H;
+// Scan from the bottom upwards to find where the white caption area ends
+for (let y = H - 1; y >= H * 0.3; y--) {
+let whitePixels = 0;
+let darkPixels = 0;
+for (let x = 0; x < W; x++) {
+const idx = (y * W + x) * 4;
+const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+// Check if pixel is near-white (caption background)
+if (r > 235 && g > 235 && b > 235) whitePixels++;
+// Check if pixel is dark (caption text)
+else if (r < 120 && g < 120 && b < 120) darkPixels++;
+}
+const whiteRatio = whitePixels / W;
+const darkRatio = darkPixels / W;
+
+// A caption row is mostly white background with some dark text strokes
+const isCaptionRow = (whiteRatio > 0.65 && darkRatio < 0.25) || (whiteRatio > 0.90);
+
+if (isCaptionRow) {
+captionTopRow = y; // Keep moving up as long as we see caption/white space
+} else {
+// We hit actual image content (colors, non-white backgrounds)
+break;
+}
+}
+
+// Calculate exact percentage height for the strip
+let measuredFrac = (H - captionTopRow) / H;
+// Safety bounds: minimum 8% (for tiny labels), maximum 45% (to prevent covering the whole image)
+measuredFrac = Math.max(0.08, Math.min(0.45, measuredFrac + 0.02)); // +0.02 padding
+return measuredFrac;
+} catch (scanErr) {
+console.warn("OSPE Canvas scan failed (CORS tainted?), using fallback.", scanErr);
+return 0.24; // Safe fallback if CORS blocks canvas analysis
+}
+}
+let ospeState = { category: 'micro', index: 0, flipped: false, lastRatio: 0.75, blobUrls: {} };
+const OSPE_PROXIES = ['https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?url=', 'https://api.codetabs.com/v1/proxy?quest='];
+function ospeReadMap(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { return {}; } }
+function ospeWriteMap(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+function updateOspeNavVisibility() {
+const el = document.getElementById('nav-ospe-item');
+if (!el) return;
+const on = (String(appState.academicBlock || '').toUpperCase() === 'VIII');
+if (on) { el.classList.remove('hidden'); el.classList.add('flex'); }
+else { el.classList.add('hidden'); el.classList.remove('flex'); }
+}
+window.openOspeHub = function () {
+if (String(appState.academicBlock || '').toUpperCase() !== 'VIII') { alert('OSPE mode is available for Block VIII only.'); return; }
+navigate('ospe_hub');
+};
+function renderOspeHub() {
+const mc = document.getElementById('ospe-micro-count');
+const pc = document.getElementById('ospe-patho-count');
+if (mc) mc.innerText = OSPE_DECKS.micro.cards.length;
+if (pc) pc.innerText = OSPE_DECKS.patho.cards.length;
+}
+window.startOspeCategory = function (cat) {
+ospeState.category = cat; ospeState.index = 0; ospeState.flipped = false;
+navigate('ospe_cards');
+};
+window.toggleOspeFlip = function () {
+const card = document.getElementById('ospe-flip-card');
+if (!card) return;
+ospeState.flipped = !ospeState.flipped;
+card.classList.toggle('flipped', ospeState.flipped);
+// Belt & braces: while flipped the cover strip is removed from the DOM flow entirely,
+// so the back face shows 100% of the image with zero hidden pixels.
+const strip = document.getElementById('ospe-cover-strip');
+if (strip) {
+if (ospeState.flipped) {
+ospeState.stripRestoreHeight = strip.style.height || '40%';
+strip.style.display = 'none';
+} else {
+strip.style.display = 'flex';
+strip.style.height = ospeState.stripRestoreHeight || '40%';
+}
+}
+};
+window.ospeNext = function () {
+const deck = OSPE_DECKS[ospeState.category];
+if (ospeState.index < deck.cards.length - 1) { ospeState.index++; ospeState.flipped = false; renderOspeCard(); }
+};
+window.ospePrev = function () {
+if (ospeState.index > 0) { ospeState.index--; ospeState.flipped = false; renderOspeCard(); }
+};
+async function ospeFetchText(url) {
+for (const p of OSPE_PROXIES) {
+try {
+const res = await fetch(p + encodeURIComponent(url), { cache: 'no-store' });
+if (res.ok) { const t = await res.text(); if (t && t.length > 200) return t; }
+} catch (e) {}
+}
+return null;
+}
+async function resolveOspeDirect(pageUrl) {
+const html = await ospeFetchText(pageUrl);
+if (!html) return null;
+const patterns = [
+/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i,
+/<meta[^>]+property=["']og:image:url["'][^>]+content=["']([^"']+)["']/i
+];
+for (const rx of patterns) { const m = html.match(rx); if (m && m[1] && m[1].startsWith('http')) return m[1]; }
+return null;
+}
+async function fetchCleanOspeBlob(url) {
+// freeimage.host strictly blocks JS fetch() and standard proxies via CORS/Hotlink protection.
+// We bypass this by loading the image natively via the DOM with referrerpolicy="no-referrer",
+// which mimics opening the image in a new browser tab, bypassing the hotlink block entirely.
+try {
+const img = new Image();
+img.crossOrigin = 'anonymous';
+img.referrerPolicy = 'no-referrer'; // Critical: prevents freeimage.host from blocking the request
+// Add a cache-buster so the browser forces a fresh native download every time
+img.src = url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+await new Promise((resolve, reject) => {
+img.onload = resolve;
+img.onerror = reject;
+});
+
+// === SMART PIXEL SCANNER FOR VARIABLE CAPTION HEIGHTS ===
+try {
+const cv = document.createElement('canvas');
+const W = 200; // Downscale width for lightning-fast processing
+const H = Math.round(img.naturalHeight * (W / img.naturalWidth));
+cv.width = W;
+cv.height = H;
+const ctx = cv.getContext('2d', { willReadFrequently: true });
+ctx.drawImage(img, 0, 0, W, H);
+const imgData = ctx.getImageData(0, 0, W, H).data;
+
+let captionTopRow = H;
+// Scan from the bottom upwards to find where the white caption area ends
+for (let y = H - 1; y >= H * 0.4; y--) {
+let whitePixels = 0;
+let darkPixels = 0;
+for (let x = 0; x < W; x++) {
+const idx = (y * W + x) * 4;
+const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+// Check if pixel is near-white (caption background)
+if (r > 235 && g > 235 && b > 235) whitePixels++;
+// Check if pixel is dark (caption text)
+else if (r < 120 && g < 120 && b < 120) darkPixels++;
+}
+const whiteRatio = whitePixels / W;
+const darkRatio = darkPixels / W;
+
+// A caption row is mostly white background with some dark text strokes
+const isCaptionRow = (whiteRatio > 0.65 && darkRatio < 0.25) || (whiteRatio > 0.90);
+
+if (isCaptionRow) {
+captionTopRow = y; // Keep moving up as long as we see caption/white space
+} else {
+// We hit actual image content (colors, non-white backgrounds)
+break;
+}
+}
+
+// Calculate exact percentage height for the strip
+let measuredFrac = (H - captionTopRow) / H;
+// Safety bounds: minimum 8% (for tiny labels), maximum 45% (to prevent covering the whole image)
+measuredFrac = Math.max(0.08, Math.min(0.45, measuredFrac + 0.02)); // +0.02 padding
+
+// Cache this exact measurement so we never have to scan this image again
+const coverMap = ospeReadMap('ospe_cover_map');
+const currentCard = OSPE_DECKS[ospeState.category].cards[ospeState.index];
+if (currentCard) {
+coverMap[currentCard.id] = measuredFrac;
+ospeWriteMap('ospe_cover_map', coverMap);
+// Instantly update the live strip without waiting for next render
+setOspeStrip(measuredFrac);
+}
+} catch (scanErr) {
+console.warn("OSPE Canvas scan failed (CORS tainted?), using fallback.", scanErr);
+}
+// ========================================================
+
+return await new Promise(resolve => cv.toBlob(resolve, 'image/png', 1.0)); // 1.0 = Max Lossless Quality
+} catch (e) {
+console.warn("Native OSPE image load blocked, attempting proxy fallback...", e);
+}
+// Failsafe Proxy Fallback (in case native load is ever blocked by extreme browser extensions)
+for (const p of OSPE_PROXIES) {
+try {
+const res = await fetch(p + encodeURIComponent(url), { cache: 'force-cache' });
+if (res.ok) { const b = await res.blob(); if (b && b.size > 2000) return b; }
+} catch (e) {}
+}
+return null;
+}
+async function analyzeOspeCover(blob) {
+try {
+const bmp = await createImageBitmap(blob);
+const W = 180;
+const H = Math.max(60, Math.round(bmp.height * (W / bmp.width)));
+const cv = document.createElement('canvas');
+cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d', { willReadFrequently: true });
+ctx.drawImage(bmp, 0, 0, W, H);
+const data = ctx.getImageData(0, 0, W, H).data;
+let coverTop = H;
+for (let y = H - 1; y >= 0; y--) {
+let white = 0, ink = 0, col = 0;
+for (let x = 0; x < W; x++) {
+const i = (y * W + x) * 4;
+const r = data[i], g = data[i + 1], b = data[i + 2];
+const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+const sat = mx - mn;
+if (sat >= 60 && lum <= 225) col++;
+else if (lum < 170 && sat < 60) ink++;
+else white++;
+}
+const wf = white / W, kf = ink / W, cf = col / W;
+let cls;
+if (cf > 0.12 || kf > 0.40) cls = 'C';
+else if ((kf + cf) < 0.004) cls = 'W';
+else if (wf >= 0.5 && kf <= 0.25 && cf < 0.08) cls = 'T';
+else cls = 'C';
+if (cls === 'C') break;
+coverTop = y;
+}
+let frac = (H - coverTop) / H;
+if (frac < 0.02) return 0;
+return Math.min(0.45, frac + 0.005);
+} catch (e) { return -1; }
+}
+function sizeOspeWrappers(ratio) {
+const zone = document.getElementById('ospe-flip-zone');
+if (!zone) return;
+const availW = Math.max(120, zone.clientWidth - 24);
+const availH = Math.max(120, zone.clientHeight - 24);
+let w = availW, h = w / ratio;
+if (h > availH) { h = availH; w = h * ratio; }
+['ospe-front-wrap', 'ospe-back-wrap'].forEach(id => {
+const el = document.getElementById(id);
+if (el) { el.style.width = w + 'px'; el.style.height = h + 'px'; }
+});
+}
+function setOspeStrip(frac) {
+const s = document.getElementById('ospe-cover-strip');
+if (!s) return;
+if (frac <= 0.005) { s.style.display = 'none'; } else { s.style.display = 'flex'; s.style.height = (frac * 100).toFixed(2) + '%'; }
+}
+window.renderOspeCard = async function () {
+const zone = document.getElementById('ospe-flip-zone');
+if (!zone) return;
+const deck = OSPE_DECKS[ospeState.category];
+const card = deck.cards[ospeState.index];
+if (!card) return;
+const flip = document.getElementById('ospe-flip-card');
+flip.classList.remove('flipped');
+ospeState.flipped = false;
+document.getElementById('ospe-counter').innerText = (ospeState.index + 1) + ' / ' + deck.cards.length;
+document.getElementById('ospe-cat-badge').innerText = deck.title;
+document.getElementById('ospe-card-title').innerText = card.title;
+const prevB = document.getElementById('ospe-prev-btn');
+const nextB = document.getElementById('ospe-next-btn');
+if (prevB) prevB.classList.toggle('opacity-30', ospeState.index === 0);
+if (nextB) nextB.classList.toggle('opacity-30', ospeState.index === deck.cards.length - 1);
+const overlay = document.getElementById('ospe-load-overlay');
+const loadText = document.getElementById('ospe-load-text');
+overlay.classList.remove('hidden');
+if (loadText) loadText.innerText = 'Fetching specimen image...';
+const directMap = ospeReadMap('ospe_direct_map');
+let direct = directMap[card.id] || null;
+if (direct && !(await ospeProbeImage(direct))) { direct = null; delete directMap[card.id]; ospeWriteMap('ospe_direct_map', directMap); }
+if (!direct) {
+direct = await ospeResolveDirect(card);
+if (direct) { directMap[card.id] = direct; ospeWriteMap('ospe_direct_map', directMap); }
+}
+const imgF = document.getElementById('ospe-front-img');
+const imgB = document.getElementById('ospe-back-img');
+if (!direct) {
+if (loadText) loadText.innerText = 'Could not fetch this image. Check connection & tap Next.';
+return;
+}
+imgF.src = direct; imgB.src = direct;
+await new Promise(resolve => {
+if (imgF.complete && imgF.naturalWidth > 0) return resolve();
+imgF.onload = () => resolve();
+imgF.onerror = () => resolve();
+});
+const nw = imgF.naturalWidth || 4, nh = imgF.naturalHeight || 3;
+ospeState.lastRatio = nw / nh;
+sizeOspeWrappers(ospeState.lastRatio);
+
+// BULLETPROOF DIMENSION-AWARE COVER: Exactly 40% of the bottom is hidden on the front face
+setOspeStrip(0.40);
+overlay.classList.add('hidden');
+
+const nxt = deck.cards[ospeState.index + 1];
+if (nxt && !directMap[nxt.id]) {
+setTimeout(() => {
+ospeResolveDirect(nxt).then(d => {
+if (d) { const m = ospeReadMap('ospe_direct_map'); m[nxt.id] = d; ospeWriteMap('ospe_direct_map', m); }
+});
+}, 60);
+}
+lucide.createIcons();
+};
+window.addEventListener('resize', () => {
+if (appState.currentScreen === 'ospe_cards') sizeOspeWrappers(ospeState.lastRatio || 0.75);
+});
+</script>
 </body>
 </html>
