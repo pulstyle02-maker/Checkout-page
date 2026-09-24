@@ -3833,7 +3833,7 @@ backface-visibility: hidden;
     <script>
         // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
         (async function emergencyCacheClear() {
-            const wipeVersion = "v6_total_reset"; // Change this string anytime you want to force all users to clear cache
+            const wipeVersion = "v15_3rdyear_block_viii_ix_full_sync"; // Change this string anytime you want to force all users to clear cache
             if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
                 console.log("Initiating Emergency Cache Wipe...");
                 localStorage.clear();
@@ -7419,32 +7419,63 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
 }
 
         async function fetchSyllabus() {
-            const syllabusKey = `syllabus_${appState.academicYear}`;
+            const currentBlockNorm = normalizeBlockName(appState.academicBlock);
+            const is3rdYear = (appState.academicYear === '3rd' || currentBlockNorm === 'VII' || currentBlockNorm === 'VIII' || currentBlockNorm === 'IX');
+            
+            if (currentBlockNorm === 'VIII' || currentBlockNorm === 'IX') {
+                appState.academicYear = '3rd';
+            }
+
+            const syllabusKey = is3rdYear ? 'syllabus_3rd_b8_b9_v15' : `syllabus_${appState.academicYear}`;
             
             // 1. Fetch latest online if connected (FORCE NETWORK OVERRIDE)
             if (navigator.onLine) {
                 try {
-                    const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
-                    const url = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/${syllabusFile}?nocache=${Date.now()}`;
+                    let syllabusUrls = [];
+                    if (is3rdYear) {
+                        syllabusUrls = [
+                            `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/3rdyearsyllabus.json?t=${Date.now()}`,
+                            `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/3rdyearsyllabus.json?t=${Date.now()}`,
+                            `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/3rdyearsyllabus.json?t=${Date.now()}`,
+                            `./3rdyearsyllabus.json?t=${Date.now()}`
+                        ];
+                    } else {
+                        const syllabusFile = `${appState.academicYear}yearsyllabus.json`;
+                        syllabusUrls = [
+                            `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}?t=${Date.now()}`,
+                            `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${syllabusFile}?t=${Date.now()}`,
+                            `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/${syllabusFile}?t=${Date.now()}`
+                        ];
+                    }
+
+                    let data = null;
+                    for (const url of syllabusUrls) {
+                        try {
+                            const res = await fetch(url, { cache: 'no-store' });
+                            if (res.ok) {
+                                const parsed = await res.json();
+                                const items = Array.isArray(parsed) ? parsed : (parsed.syllabus || parsed.modules || []);
+                                if (!is3rdYear || items.some(it => normalizeBlockName(it.block) === 'IX')) {
+                                    data = items;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+                    }
                     
-                    const response = await fetch(url, { cache: 'no-store' });
-                    if(!response.ok) throw new Error("Syllabus fetch failed");
-                    const data = await response.json();
-                    
-                    APP_DATA.rawSyllabus = Array.isArray(data) ? data : (data.syllabus || data.modules || []);
+                    if (!data || data.length === 0) throw new Error("Could not retrieve complete syllabus data");
+
+                    APP_DATA.rawSyllabus = data;
                     buildSyllabusTree();
                     
                     // Permanently cache fresh syllabus locally
                     cacheFile(syllabusKey, APP_DATA.rawSyllabus);
                     try { localStorage.setItem(syllabusKey, JSON.stringify(APP_DATA.rawSyllabus)); } catch(e){}
                     
-                    // 🚀 SILENT NANOSECOND BACKGROUND TRIGGER (Won't freeze login)
+                    // Background asset prefetching
                     setTimeout(() => {
-                        // 1. Instantly trigger Notes & Viva (highest priority)
                         prefetchCurrentBlockNotes();
                         prefetchCurrentBlockVivacards();
-                        
-                        // 2. Nano-seconds later, silently start fetching MCQ JSONs (a-d, e-h)
                         setTimeout(() => {
                             if (!window.ACTIVE_MCQ_FETCH_PROMISE) {
                                 window.ACTIVE_MCQ_FETCH_PROMISE = prefetchCurrentBlockMCQs().finally(() => {
@@ -7578,18 +7609,17 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             const relevantItems = (APP_DATA.rawSyllabus || []).filter(item => {
                 const itemYear = normalizeYearName(item.year);
                 const itemBlock = normalizeBlockName(item.block);
-                
-                // Do not fetch specific excluded subjects in Block VIII
-                if (targetBlock === 'VIII' || targetBlock === '8') {
+
+                // Exclusions apply STRICTLY to Block VIII, never Block IX
+                if (targetBlock === 'VIII') {
                     const subLower = (item.subject || '').toLowerCase().trim();
                     const modLower = (item.moduleName || '').toLowerCase().trim();
 
-                    // BUG FIX: Internal Medicine is an essential subject in Infectious Diseases and must be preserved!
                     const isInternalMed = (subLower === 'medicine' || subLower === 'general medicine' || subLower === 'internal medicine');
                     const isInfectious = modLower.includes('infectious');
 
                     if (isInternalMed && isInfectious) {
-                        // Allow Internal Medicine in Infectious Diseases
+                        // Keep internal medicine for infectious diseases
                     } else if (
                         subLower.includes('biochemistry') || 
                         subLower.includes('radiology') ||
@@ -7603,7 +7633,10 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                     }
                 }
                 
-                return (itemYear === targetYear || !itemYear) && itemBlock === targetBlock && item.subject !== "Geriatrics";
+                const matchesYear = (!itemYear || itemYear === targetYear || targetYear === '3rd' || itemYear === '3rd');
+                const matchesBlock = (itemBlock === targetBlock);
+
+                return matchesYear && matchesBlock && item.subject !== "Geriatrics";
             });
 
             // Expand and split Block V Endocrinology & Reproduction-I Anatomy LOs into 3 distinct subjects
@@ -7947,8 +7980,8 @@ lucide.createIcons();
                 return;
             }
 
-            if (!appState.activeModuleTab) {
-                appState.activeModuleTab = modules[0].name;
+            if (!appState.activeModuleTab || !APP_DATA.modules[appState.activeModuleTab]) {
+                appState.activeModuleTab = modules[0] ? modules[0].name : null;
             }
 
             capsulesContainer.innerHTML = modules.map(m => {
@@ -10990,6 +11023,8 @@ Return ONLY a JSON object:
 
         // Helper to guarantee year/block alignment across all curriculum transitions
         function getYearForBlock(block) {
+            if (!block) return '1st';
+            let clean = String(block).trim().toUpperCase().replace(/BLOCK/gi, '').replace(/[-_\s]/g, '');
             const blockToYearMap = {
                 'I': '1st', 'II': '1st', 'III': '1st',
                 'IV': '2nd', 'V': '2nd', 'VI': '2nd',
@@ -10998,14 +11033,15 @@ Return ONLY a JSON object:
                 'XIII': '5th', 'XIV': '5th', 'XV': '5th',
                 '1': '1st', '2': '1st', '3': '1st',
                 '4': '2nd', '5': '2nd', '6': '2nd',
-                '7': '3rd', '8': '3rd', '9': '3rd'
+                '7': '3rd', '8': '3rd', '9': '3rd',
+                '10': '4th', '11': '4th', '12': '4th'
             };
-            return blockToYearMap[String(block).trim().toUpperCase()] || '1st';
+            return blockToYearMap[clean] || '1st';
         }
 
         function normalizeBlockName(blk) {
             if (!blk) return '';
-            let clean = String(blk).trim().toUpperCase().replace(/^BLOCK\s*/i, '');
+            let clean = String(blk).trim().toUpperCase().replace(/BLOCK/gi, '').replace(/[-_\s]/g, '');
             const romanMap = {
                 '1':'I', '2':'II', '3':'III', '4':'IV', '5':'V', '6':'VI',
                 '7':'VII', '8':'VIII', '9':'IX', '10':'X', '11':'XI', '12':'XII',
@@ -11016,13 +11052,19 @@ Return ONLY a JSON object:
 
         function normalizeYearName(yr) {
             if (!yr) return '';
-            return String(yr).trim().toLowerCase().replace(/\s*year\s*/i, '');
+            let s = String(yr).trim().toLowerCase();
+            if (s.includes('3') || s.includes('third')) return '3rd';
+            if (s.includes('1') || s.includes('first')) return '1st';
+            if (s.includes('2') || s.includes('second')) return '2nd';
+            if (s.includes('4') || s.includes('fourth')) return '4th';
+            if (s.includes('5') || s.includes('fifth')) return '5th';
+            return s.replace(/\s*year\s*/gi, '').trim();
         }
 
         function changeBlock(block) {
             appState.academicBlock = block;
-            // Automatically synchronize the academic year relative to the active block
             appState.academicYear = getYearForBlock(block);
+            appState.activeModuleTab = null; // Forces module tab to select modules[0] in the new block
             
             APP_DATA.allMCQs = [];
             APP_DATA.allNotes = [];
