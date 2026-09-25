@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- PeerJS for Remote Control -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     
     <style>
         /* CSS Variables */
@@ -727,8 +729,14 @@
                         <button class="btn-secondary back-to-dashboard flex items-center gap-2 text-sm" style="padding: 6px 12px;">
                             <i class="ph ph-x"></i> Quit Session
                         </button>
+                        
                         <div style="font-weight: 600; color: var(--text-secondary);" id="session-progress-text">Question 1 of 10</div>
-                        <button class="icon-btn action-trigger" data-action="Report Issue"><i class="ph ph-flag"></i></button>
+                        
+                        <div class="flex items-center gap-2">
+                            <!-- Mobile Remote ID Display -->
+                            <span id="remote-id-display" style="font-size: 11px; font-weight: 600; background: var(--bg-surface-hover); color: var(--brand-blue); border: 1px solid var(--border-light); padding: 4px 8px; border-radius: 4px;">Remote ID: Loading...</span>
+                            <button class="icon-btn action-trigger" data-action="Report Issue"><i class="ph ph-flag"></i></button>
+                        </div>
                     </div>
 
                     <!-- Dynamic Injection Container -->
@@ -1246,7 +1254,62 @@
             startBtn.disabled = false;
         }
 
-        // --- ACTIVE SESSION LOGIC --- //
+        // --- ACTIVE SESSION & REMOTE LOGIC --- //
+        
+        let peer = null;
+        let peerConn = null;
+
+        // Initialize PeerJS for Remote Control functionality
+        function initRemote() {
+            if (peer) return; // Already initialized
+            
+            // Generate a simple 5 character ID
+            const shortId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            const myRoomId = 'BLOCKIFY-' + shortId;
+            
+            // Note: In production you might want to use a specific secure PeerJS server, 
+            // but the default cloud server works well for prototyping.
+            peer = new Peer(myRoomId);
+            
+            peer.on('open', (id) => {
+                document.getElementById('remote-id-display').innerText = `Remote ID: ${shortId}`;
+            });
+
+            peer.on('connection', (conn) => {
+                peerConn = conn;
+                showToast('📱 Mobile Remote Connected!');
+                
+                conn.on('data', (data) => {
+                    // Map incoming commands from the remote app to button clicks
+                    if (data === 'SHOW_ANSWER') {
+                        const btn = document.getElementById('anki-show-btn');
+                        if (btn && btn.style.display !== 'none') btn.click();
+                    } else if (data === 'AGAIN') {
+                        const btn = document.querySelector('.btn-anki.again');
+                        if(btn && btn.offsetParent !== null) btn.click();
+                    } else if (data === 'HARD') {
+                        const btn = document.querySelector('.btn-anki.hard');
+                        if(btn && btn.offsetParent !== null) btn.click();
+                    } else if (data === 'GOOD') {
+                        const btn = document.querySelector('.btn-anki.good');
+                        if(btn && btn.offsetParent !== null) btn.click();
+                    } else if (data === 'EASY') {
+                        const btn = document.querySelector('.btn-anki.easy');
+                        if(btn && btn.offsetParent !== null) btn.click();
+                    }
+                });
+                
+                conn.on('close', () => {
+                    showToast('📱 Remote Disconnected.');
+                });
+            });
+            
+            peer.on('error', (err) => {
+                console.error("PeerJS Error:", err);
+                document.getElementById('remote-id-display').innerText = `Remote Error`;
+            });
+        }
+
         document.getElementById('start-session-btn').addEventListener('click', () => {
             const bank = sessionConfig.moduleType === 'MCQ Bank' ? globalMcqs : globalAnki;
             const validItems = bank.filter(item => sessionConfig.selectedTopics.includes(item.topic));
@@ -1257,6 +1320,9 @@
             document.getElementById('session-setup-view').style.display = 'none';
             document.getElementById('active-session-view').style.display = 'block';
             document.getElementById('breadcrumb-current').innerText = sessionConfig.moduleType + " Active";
+            
+            // Init remote system when starting session
+            initRemote();
             
             renderSessionItem();
         });
@@ -1354,7 +1420,7 @@
                         <div id="anki-text">${frontText}</div>
                         <div class="anki-extra" id="anki-extra" style="display: none;">${item.extraInfo || ''}</div>
                     </div>
-                    <div style="text-align: center;">
+                    <div style="text-align: center;" id="anki-show-container">
                         <button class="btn-primary" id="anki-show-btn" style="padding: 12px 32px; font-size: 16px;">Show Answer</button>
                     </div>
                     <div class="anki-controls" id="anki-controls" style="display: none;">
@@ -1368,7 +1434,7 @@
                 document.getElementById('anki-show-btn').addEventListener('click', () => {
                     document.getElementById('anki-text').innerHTML = backText;
                     if(item.extraInfo) document.getElementById('anki-extra').style.display = 'block';
-                    document.getElementById('anki-show-btn').style.display = 'none';
+                    document.getElementById('anki-show-container').style.display = 'none';
                     document.getElementById('anki-controls').style.display = 'grid';
                 });
 
