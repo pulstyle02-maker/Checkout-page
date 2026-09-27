@@ -2,8 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Blockify USMLE</title>
+
+    <!-- PWA Primary & Theme Meta -->
+    <meta name="theme-color" content="#07090d">
+    <meta name="application-name" content="Blockify">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Apple / iOS Fullscreen PWA Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Blockify">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/bx6BeUT.png">
+
+    <!-- Embedded Standalone/Fullscreen Web App Manifest -->
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkJsb2NraWZ5IFVTTUxFIiwKICAic2hvcnRfbmFtZSIjogIkJsb2NraWZ5IiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogImZ1bGxzY3JlZW4iLAogICJkaXNwbGF5X292ZXJyaWRlIjogWyJmdWxsc2NyZWVuIiwgInN0YW5kYWxvbmUiXSwKICAib3JpZW50YXRpb24iOiAiYW55IiwKICAiYmFja2dyb3VuZF9jb2xvciIjogIiMwNzA5MGQiLAogICJ0aGVtZV9jb2xvciIjogIiMwNzA5MGQiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2kuaW1ndXIuY29tL2J4NmJlVVQucG5nIiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciLAogICAgICAicHVycG9zZSI6ICJhbnkgbWFza2FibGUiCiAgICB9LAogICAgewogICAgICAic3JjIjogImh0dHBzOi8vaS5pbWd1ci5jb20vYng2QmVVVC5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSIKICAgIH0KICBdCn0=">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Phosphor Icons -->
@@ -176,15 +190,27 @@
         }
 
         .top-header {
-            height: 60px;
-            min-height: 60px;
+            height: calc(60px + env(safe-area-inset-top, 0px));
+            min-height: calc(60px + env(safe-area-inset-top, 0px));
             border-bottom: 1px solid var(--border-light);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 32px;
+            padding: env(safe-area-inset-top, 0px) 32px 0 32px;
             background-color: var(--bg-surface);
             z-index: 10;
+        }
+
+        /* Fullscreen PWA Native Enhancements */
+        :fullscreen body {
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        :-webkit-full-screen body {
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
         }
         
         .icon-btn {
@@ -895,6 +921,7 @@
             </div>
             
             <div class="flex items-center gap-4">
+                <button class="icon-btn" id="pwa-fullscreen-btn" title="Toggle Fullscreen PWA"><i class="ph ph-arrows-out" id="fullscreen-icon"></i></button>
                 <button class="icon-btn action-trigger" data-action="Global Search"><i class="ph ph-magnifying-glass"></i></button>
                 <button class="icon-btn" id="theme-toggle" title="Toggle Theme"><i class="ph ph-sun" id="theme-icon"></i></button>
                 <button class="icon-btn action-trigger" data-action="Notifications" style="position: relative;">
@@ -1862,6 +1889,74 @@
                     showToast("Authentication confirmed. QBank online.");
                 }, 500);
             }, 800);
+        });
+
+        // --- FULLSCREEN PWA & INSTALLATION CONTROLLER ---
+        const fullscreenBtn = document.getElementById('pwa-fullscreen-btn');
+        const fullscreenIcon = document.getElementById('fullscreen-icon');
+        let deferredPrompt = null;
+
+        // Capture Chrome/Android PWA install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (fullscreenBtn) {
+                fullscreenBtn.style.color = 'var(--brand-green)';
+                fullscreenBtn.title = 'Install Blockify App';
+            }
+        });
+
+        function togglePwaFullscreen() {
+            // Trigger native install prompt if available
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => {
+                    deferredPrompt = null;
+                });
+                return;
+            }
+
+            // Fallback to Fullscreen API
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                const docEl = document.documentElement;
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen().catch(() => {});
+                } else if (docEl.webkitRequestFullscreen) {
+                    docEl.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
+        fullscreenBtn?.addEventListener('click', togglePwaFullscreen);
+
+        // Sync icon between arrows-out and arrows-in
+        const updateFullscreenIcon = () => {
+            const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            if (isFull) {
+                fullscreenIcon?.classList.replace('ph-arrows-out', 'ph-arrows-in');
+            } else {
+                fullscreenIcon?.classList.replace('ph-arrows-in', 'ph-arrows-out');
+            }
+        };
+
+        document.addEventListener('fullscreenchange', updateFullscreenIcon);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+
+        // On-screen reset button handler (dev-replay-btn)
+        document.getElementById('dev-replay-btn')?.addEventListener('click', () => {
+            localStorage.removeItem('blockify_usmle_intro_seen');
+            currentSlide = 1;
+            updateSplashUI();
+            authView.classList.add('hidden');
+            appView.classList.add('hidden');
+            splashView.classList.remove('hidden');
+            splashView.style.opacity = '1';
         });
     </script>
 </body>
