@@ -419,6 +419,26 @@
             padding-bottom: 16px;
         }
         
+        /* UWorld Pro QBank Styles */
+        .uw-vignette { font-size: 15px; line-height: 1.6; margin-bottom: 24px; color: var(--text-primary); }
+        .uw-option {
+            display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border: 1px solid transparent;
+            border-radius: var(--radius-sm); margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .uw-option:hover { background: var(--bg-surface-hover); border-color: var(--border-light); }
+        .uw-option.selected { border-color: var(--brand-blue); background: rgba(37, 99, 235, 0.05); }
+        .uw-option.correct { border-color: var(--brand-green); background: rgba(5, 150, 105, 0.1); pointer-events: none; }
+        .uw-option.wrong { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); pointer-events: none; opacity: 0.7; }
+        .uw-option-letter { font-weight: 700; min-width: 20px; color: var(--text-tertiary); }
+        .uw-option.selected .uw-option-letter { color: var(--brand-blue); }
+        
+        .uw-explanation-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-light); animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .uw-expl-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary); border-bottom: 2px solid var(--brand-blue); display: inline-block; padding-bottom: 4px; }
+        .uw-expl-text { font-size: 14px; line-height: 1.6; color: var(--text-primary); margin-bottom: 24px; }
+        .uw-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }
+        .uw-table th { background: var(--bg-surface-hover); text-align: left; padding: 12px; border: 1px solid var(--border-strong); color: var(--text-primary); font-weight: 600; opacity: 1; }
+        .uw-table td { padding: 12px; border: 1px solid var(--border-light); color: var(--text-primary); opacity: 1; }
+
         /* MCQ Styles */
         .mcq-container { font-size: 15px; }
         .mcq-question { font-weight: 500; margin-bottom: 24px; line-height: 1.6; }
@@ -758,6 +778,7 @@
             <a class="nav-item action-trigger" data-action="Learn Modules"><i class="ph ph-book-open"></i> Learn</a>
             <a class="nav-item custom-workflow-trigger" data-action="Rapid Recall"><i class="ph ph-cards"></i> Rapid Recall</a>
             <a class="nav-item custom-workflow-trigger" data-action="MCQ Bank"><i class="ph ph-exam"></i> Practice MCQs</a>
+            <a class="nav-item custom-workflow-trigger" data-action="Pro QBank"><i class="ph ph-stethoscope"></i> Pro QBank</a>
             
             <h3>Review</h3>
             <a class="nav-item action-trigger" data-action="Mistakes Log"><i class="ph ph-warning-circle"></i> Mistakes</a>
@@ -1060,6 +1081,7 @@
         let globalCurriculum = null;
         let globalMcqs = [];
         let globalAnki = [];
+        let globalProQBank = [];
         let isDataLoaded = false;
 
         let sessionConfig = {
@@ -1154,7 +1176,8 @@
                     
                     const data = JSON.parse(text);
                     if (Array.isArray(data)) {
-                        return data.flat(Infinity).filter(item => item && (item.question || item.text));
+                        // Added item.vignette so the Pro QBank doesn't get filtered out
+                        return data.flat(Infinity).filter(item => item && (item.question || item.text || item.vignette));
                     }
                     return [];
                 } catch (e) {
@@ -1165,15 +1188,68 @@
 
             const mcqPromises = chars.map(c => fetchJson(`${baseUrl}s1${c}.json`));
             const ankiPromises = chars.map(c => fetchJson(`${baseUrl}s1N${c}.json`));
+            const proQBankPromises = chars.map(c => fetchJson(`${baseUrl}s1U${c}.json`));
 
             const mcqsArrs = await Promise.all(mcqPromises);
             const ankiArrs = await Promise.all(ankiPromises);
+            const proQBankArrs = await Promise.all(proQBankPromises);
 
             globalMcqs = mcqsArrs.flat(Infinity);
             globalAnki = ankiArrs.flat(Infinity);
+            globalProQBank = proQBankArrs.flat(Infinity);
+
+            // --- Capture Unmapped Topics "As It Is" into Miscellaneous ---
+            if (globalCurriculum && globalCurriculum.curriculum) {
+                const sec2 = globalCurriculum.curriculum.section_II_high_yield_general_principles || [];
+                const sec3 = globalCurriculum.curriculum.section_III_high_yield_organ_systems || [];
+                
+                // 1. Gather all existing curriculum topics
+                const allCurriculumTopics = [];
+                sec2.forEach(sub => (sub.subsections || []).forEach(ss => {
+                    if (ss.topics) allCurriculumTopics.push(...ss.topics);
+                }));
+                sec3.forEach(sys => (sys.disciplines || []).forEach(d => {
+                    if (d.topics) allCurriculumTopics.push(...d.topics);
+                }));
+
+                // 2. Find unique topics from all fetched data
+                const uniqueItemTopics = new Set();
+                [...globalMcqs, ...globalAnki, ...globalProQBank].forEach(item => {
+                    if (item && item.topic) uniqueItemTopics.add(item.topic);
+                });
+
+                // 3. Filter out the ones that DO NOT match the curriculum
+                const unmappedTopics = [];
+                uniqueItemTopics.forEach(itemTopic => {
+                    const isMapped = allCurriculumTopics.some(cTopic => isTopicMatch(cTopic, itemTopic));
+                    if (!isMapped) {
+                        unmappedTopics.push(itemTopic); // Keep it exactly as it is
+                    }
+                });
+
+                // 4. Inject them into a Miscellaneous category so they show up in Setup
+                if (unmappedTopics.length > 0) {
+                    unmappedTopics.sort(); // Alphabetical order for UI
+                    
+                    sec3.push({
+                        system: "Miscellaneous",
+                        disciplines: [{ discipline: "Uncategorized Topics", topics: unmappedTopics }]
+                    });
+                    
+                    sec2.push({
+                        subject: "Miscellaneous",
+                        subsections: [{ name: "Uncategorized Topics", topics: unmappedTopics }]
+                    });
+
+                    // Update Dashboard visually to show the Miscellaneous section
+                    const container = document.getElementById('curriculum-container');
+                    const updatedSystems = sec3.map(s => s.system);
+                    renderDashboardItems(updatedSystems, container);
+                }
+            }
 
             isDataLoaded = true;
-            showToast(`Loaded ${globalMcqs.length} MCQs & ${globalAnki.length} Flashcards!`);
+            showToast(`Loaded ${globalMcqs.length} Basic MCQs, ${globalAnki.length} Cards, & ${globalProQBank.length} Pro QBank Items!`);
         }
 
         function renderDashboardItems(items, container) {
@@ -1235,7 +1311,31 @@
                 el.classList.add('active');
                 
                 const module = el.getAttribute('data-action');
-                launchSetupWorkflow(module);
+                
+                // COMPLETELY BYPASS CONFIGURATION FOR PRO QBANK
+                if (module === 'Pro QBank') {
+                    if (!globalProQBank || globalProQBank.length === 0) {
+                        showToast("No Pro questions found. Please check s1Ua.json.");
+                        return;
+                    }
+                    
+                    sessionConfig.moduleType = 'Pro QBank';
+                    
+                    // Take ALL available Pro QBank items directly, no filters applied
+                    currentSessionItems = [...globalProQBank];
+                    currentItemIndex = 0;
+
+                    document.getElementById('dashboard-view').style.display = 'none';
+                    document.getElementById('session-setup-view').style.display = 'none';
+                    document.getElementById('active-session-view').style.display = 'block';
+                    document.getElementById('breadcrumb-current').innerText = "Pro QBank Active";
+                    
+                    initRemote();
+                    renderSessionItem();
+                } else {
+                    // Send regular MCQs and Flashcards to the setup screen
+                    launchSetupWorkflow(module);
+                }
             });
         });
 
@@ -1280,6 +1380,14 @@
             document.querySelector('input[name="study_mode"][value="system"]').checked = true;
             sessionConfig.studyMode = 'system';
             
+            // Hide System/Subject selection if Pro QBank
+            const modeSection = document.querySelectorAll('.setup-section')[0];
+            if (moduleName === 'Pro QBank') {
+                modeSection.style.display = 'none';
+            } else {
+                modeSection.style.display = 'block';
+            }
+
             document.getElementById('item-filter-select').value = 'Unused';
             sessionConfig.filter = 'Unused';
 
@@ -1316,7 +1424,10 @@
             rootChecklist.innerHTML = '';
             
             let sourceArray = [];
-            if (sessionConfig.studyMode === 'system') {
+            if (sessionConfig.moduleType === 'Pro QBank') {
+                rootLabel.innerText = 'QBank Collection';
+                sourceArray = [{ name: 'All Pro QBank Topics' }];
+            } else if (sessionConfig.studyMode === 'system') {
                 rootLabel.innerText = 'Systems';
                 sourceArray = globalCurriculum.curriculum.section_III_high_yield_organ_systems || [];
             } else {
@@ -1325,7 +1436,7 @@
             }
 
             const filteredSource = sourceArray.filter(item => {
-                const name = (item.system || item.subject || '').toLowerCase();
+                const name = (item.name || item.system || item.subject || '').toLowerCase();
                 return name.includes(curriculumSearchQuery);
             });
 
@@ -1333,7 +1444,7 @@
                 rootChecklist.innerHTML = `<p style="color: var(--text-tertiary); font-size: 13px; font-style: italic; padding: 4px;">No matching items found.</p>`;
             } else {
                 filteredSource.forEach(item => {
-                    const name = item.system || item.subject;
+                    const name = item.name || item.system || item.subject;
                     const isChecked = sessionConfig.selectedRoots.includes(name) ? 'checked' : '';
                     const html = `
                         <label class="check-item">
@@ -1402,6 +1513,30 @@
             let renderedAny = false;
 
             sessionConfig.selectedRoots.forEach(rootName => {
+                // If Pro QBank, bypass curriculum and list exactly what's in the DB
+                if (sessionConfig.moduleType === 'Pro QBank' && rootName === 'All Pro QBank Topics') {
+                    const uniqueProTopics = [...new Set(globalProQBank.map(item => item.topic).filter(Boolean))].sort();
+                    let rootHtmlBuffer = `<div style="font-weight: 700; color: var(--text-primary); margin-top: 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border-light); font-size: 14px;">Available Topics</div>`;
+                    
+                    const filteredTopics = uniqueProTopics.filter(topic => topic.toLowerCase().includes(topicSearchQuery));
+                    
+                    if (filteredTopics.length > 0) {
+                        renderedAny = true;
+                        filteredTopics.forEach(topic => {
+                            allVisibleTopics.push(topic);
+                            const isChecked = sessionConfig.selectedTopics.includes(topic) ? 'checked' : '';
+                            rootHtmlBuffer += `
+                                <label class="check-item" style="padding-left: 8px; font-size: 13px;">
+                                    <input type="checkbox" class="topic-checkbox" value="${topic}" ${isChecked}>
+                                    <span>${topic}</span>
+                                </label>
+                            `;
+                        });
+                        topicList.innerHTML += rootHtmlBuffer;
+                    }
+                    return; // Skip standard curriculum mapping
+                }
+
                 let rootObj = null;
                 if (sessionConfig.studyMode === 'system') {
                     rootObj = globalCurriculum.curriculum.section_III_high_yield_organ_systems.find(x => x.system === rootName);
@@ -1481,13 +1616,20 @@
         }
 
         function calculateMaxItems() {
-            if (!globalMcqs || !globalAnki) {
+            if (!globalMcqs || !globalAnki || !globalProQBank) {
                 sessionConfig.maxItems = 0;
             } else {
-                const bank = sessionConfig.moduleType === 'MCQ Bank' ? globalMcqs : globalAnki;
-                const validItems = bank.filter(item => 
-                    sessionConfig.selectedTopics.some(curriculumTopic => isTopicMatch(curriculumTopic, item.topic))
-                );
+                let bank = globalAnki;
+                if (sessionConfig.moduleType === 'MCQ Bank') bank = globalMcqs;
+                else if (sessionConfig.moduleType === 'Pro QBank') bank = globalProQBank;
+
+                const validItems = bank.filter(item => {
+                    // Exact match for Pro QBank, bypass fuzzy matching
+                    if (sessionConfig.moduleType === 'Pro QBank') {
+                        return sessionConfig.selectedTopics.includes(item.topic);
+                    }
+                    return sessionConfig.selectedTopics.some(curriculumTopic => isTopicMatch(curriculumTopic, item.topic));
+                });
                 sessionConfig.maxItems = validItems.length;
             }
             
@@ -1612,7 +1754,10 @@
         }
 
         document.getElementById('start-session-btn').addEventListener('click', () => {
-            const bank = sessionConfig.moduleType === 'MCQ Bank' ? globalMcqs : globalAnki;
+            let bank = globalAnki;
+            if (sessionConfig.moduleType === 'MCQ Bank') bank = globalMcqs;
+            else if (sessionConfig.moduleType === 'Pro QBank') bank = globalProQBank;
+
             const validItems = bank.filter(item => 
                 sessionConfig.selectedTopics.some(curriculumTopic => isTopicMatch(curriculumTopic, item.topic))
             );
@@ -1651,7 +1796,128 @@
             progressText.innerText = `Item ${currentItemIndex + 1} of ${currentSessionItems.length}`;
             const item = currentSessionItems[currentItemIndex];
 
-            if (sessionConfig.moduleType === 'MCQ Bank') {
+            if (sessionConfig.moduleType === 'Pro QBank') {
+                selectedMcqOption = null;
+                const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+                let optionsHtml = '';
+                
+                // Loops through without rendering percentage
+                item.options.forEach((opt, idx) => {
+                    optionsHtml += `
+                        <div class="uw-option" data-idx="${idx}">
+                            <span class="uw-option-letter">${letters[idx]}.</span>
+                            <span style="flex:1;">${opt.text}</span>
+                        </div>
+                    `;
+                });
+
+                contentArea.innerHTML = `
+                    <div class="box">
+                        <div class="flex justify-between items-center" style="margin-bottom: 24px;">
+                            <div style="color: var(--text-tertiary); font-size: 13px; text-transform: uppercase; font-weight: 700;">${item.topic}</div>
+                            <div class="flex gap-2">
+                                <button class="btn-secondary flex items-center gap-2 text-sm" style="padding: 6px 12px;" id="btn-prev-uw" ${currentItemIndex === 0 ? 'disabled' : ''}><i class="ph ph-arrow-left"></i> Back</button>
+                                <button class="btn-secondary flex items-center gap-2 text-sm" style="padding: 6px 12px;" id="btn-next-uw" ${currentItemIndex >= currentSessionItems.length - 1 ? 'disabled' : ''}>Next <i class="ph ph-arrow-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="uw-vignette">${item.vignette}</div>
+                        <div id="uw-options-container" style="margin-bottom: 24px;">${optionsHtml}</div>
+                        <button class="btn-primary" id="uw-action-btn" style="width: 100%; font-size: 15px; padding: 14px;" disabled>Submit Answer</button>
+                        <div id="uw-explanation-container"></div>
+                    </div>
+                `;
+
+                const optionEls = contentArea.querySelectorAll('.uw-option');
+                const actionBtn = document.getElementById('uw-action-btn');
+                const prevBtn = document.getElementById('btn-prev-uw');
+                const nextBtn = document.getElementById('btn-next-uw');
+
+                prevBtn.addEventListener('click', () => { if (currentItemIndex > 0) { currentItemIndex--; renderSessionItem(); } });
+                nextBtn.addEventListener('click', () => { if (currentItemIndex < currentSessionItems.length - 1) { currentItemIndex++; renderSessionItem(); } });
+
+                optionEls.forEach(el => {
+                    el.addEventListener('click', () => {
+                        if (actionBtn.innerText !== 'Submit Answer') return;
+                        optionEls.forEach(o => o.classList.remove('selected'));
+                        el.classList.add('selected');
+                        selectedMcqOption = parseInt(el.getAttribute('data-idx'));
+                        actionBtn.disabled = false;
+                    });
+                });
+
+                actionBtn.addEventListener('click', () => {
+                    if (actionBtn.innerText === 'Submit Answer') {
+                        // Mark correct and wrong options visually
+                        optionEls.forEach(el => {
+                            const idx = parseInt(el.getAttribute('data-idx'));
+                            if (idx === item.correctAnswerIndex) {
+                                el.classList.add('correct');
+                            } else if (idx === selectedMcqOption) {
+                                el.classList.add('wrong');
+                            }
+                        });
+
+                        // 1. Table HTML (Full brightness text)
+                        let tableHtml = '';
+                        if (item.topicSummaryTable && item.topicSummaryTable.headers && item.topicSummaryTable.rows) {
+                            tableHtml = `<div style="overflow-x:auto; margin-top: 18px;"><table class="uw-table"><thead><tr>` +
+                                item.topicSummaryTable.headers.map(h => `<th>${h}</th>`).join('') +
+                                `</tr></thead><tbody>` +
+                                item.topicSummaryTable.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') +
+                                `</tbody></table></div>`;
+                        }
+
+                        // 2. High Yield Points (Full brightness text)
+                        let highYieldHtml = '';
+                        if (item.tenHighYieldPoints && item.tenHighYieldPoints.length > 0) {
+                            highYieldHtml = `
+                                <div style="background: var(--bg-surface-hover); padding: 24px; border-radius: var(--radius-md); margin-top: 32px; border: 1px solid var(--border-light);">
+                                    <h4 class="uw-expl-title" style="font-size: 15px; margin-bottom: 14px;">High Yield Takeaways</h4>
+                                    <ul style="list-style-type: disc; margin-left: 20px; margin-bottom: 0; color: var(--text-primary); font-size: 14px; line-height: 1.7; opacity: 1;">
+                                        ${item.tenHighYieldPoints.map(p => `<li style="margin-bottom: 8px; color: var(--text-primary); opacity: 1;">${p}</li>`).join('')}
+                                    </ul>
+                                </div>`;
+                        }
+
+                        // 3. Incorrect Options (Full brightness text)
+                        let incorrectHtml = '';
+                        if (item.incorrectExplanations && item.incorrectExplanations.length > 0) {
+                            incorrectHtml = `<h4 class="uw-expl-title" style="font-size: 15px; margin-top: 24px; margin-bottom: 16px;">Incorrect Options</h4>` +
+                                item.incorrectExplanations.map(ie => `<p class="uw-expl-text" style="color: var(--text-primary); opacity: 1; margin-bottom: 16px;"><strong style="color: var(--text-primary); font-size: 14.5px;">${ie.optionText}:</strong> ${ie.reason}</p>`).join('');
+                        }
+
+                        // 4. Assemble in exact order with NO "Topic Summary" header
+                        const explHtml = `
+                            <div class="uw-explanation-section">
+                                <div class="uw-expl-title">Explanation</div>
+                                
+                                ${item.topicSummaryParagraph ? `
+                                <div style="background: rgba(37, 99, 235, 0.07); padding: 20px; border-radius: var(--radius-md); margin-bottom: 24px; border-left: 4px solid var(--brand-blue);">
+                                    <p class="uw-expl-text" style="color: var(--text-primary); opacity: 1; font-size: 14.5px; font-weight: 500; margin: 0;">${item.topicSummaryParagraph}</p>
+                                    ${tableHtml}
+                                </div>
+                                ` : (tableHtml ? `<div style="margin-bottom: 24px;">${tableHtml}</div>` : '')}
+
+                                <p class="uw-expl-text" style="color: var(--text-primary); opacity: 1; font-size: 14.5px; margin-bottom: 24px;">
+                                    <strong style="color: var(--brand-green); font-size: 15.5px;">Correct Answer: ${letters[item.correctAnswerIndex]}</strong><br><br>
+                                    ${item.correctExplanation}
+                                </p>
+                                
+                                ${incorrectHtml}
+
+                                ${highYieldHtml}
+                            </div>
+                        `;
+
+                        document.getElementById('uw-explanation-container').innerHTML = explHtml;
+                        actionBtn.innerText = currentItemIndex >= currentSessionItems.length - 1 ? 'Finish Session' : 'Next Question';
+                    } else {
+                        currentItemIndex++;
+                        renderSessionItem();
+                    }
+                });
+
+            } else if (sessionConfig.moduleType === 'MCQ Bank') {
                 selectedMcqOption = null;
                 let optionsHtml = '';
                 for (const [key, value] of Object.entries(item.options)) {
