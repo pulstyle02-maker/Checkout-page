@@ -419,28 +419,47 @@
             display: none !important;
         }
 
-        /* Allow question content to expand smoothly without extra container constraints */
-        .pro-exam-canvas {
+        /* In test mode: eliminate parent scroll paddings to span 100% full screen edge-to-edge */
+        body.test-mode-active .content-scroll {
+            padding: 0 !important;
+            overflow-x: hidden;
+        }
+        body.test-mode-active .content-wrapper {
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        body.test-mode-active #active-session-view {
             width: 100%;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 8px 4px 60px 4px;
+            padding: 0;
+            margin: 0;
         }
 
-        /* --- Authentic USMLE / UWorld Testing Engine --- */
+        /* Exam Canvas without narrow constraints */
+        .pro-exam-canvas {
+            flex: 1;
+            min-width: 0;
+            padding: 16px 24px 80px 24px;
+        }
+
+        /* Full-width sticky NBME / UWorld Top Toolbar */
         .uw-test-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
             background: #0f172a;
             color: #f8fafc;
-            padding: 8px 16px;
-            border-radius: var(--radius-md);
-            margin-bottom: 16px;
-            border: 1px solid #1e293b;
+            padding: 10px 20px;
+            border-radius: 0;
+            margin-bottom: 0;
+            border-bottom: 1px solid #1e293b;
             user-select: none;
             flex-wrap: wrap;
             gap: 8px;
+            width: 100%;
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
 
         .dark-theme .uw-test-bar {
@@ -484,24 +503,29 @@
 
         .uw-split-layout {
             display: flex;
-            gap: 16px;
-            align-items: flex-start;
-            position: relative;
+            gap: 0;
+            align-items: stretch;
+            min-height: calc(100vh - 55px);
+            width: 100%;
         }
 
-        /* Left Question Navigator */
+        /* Left Question Navigator: docked right against the left screen boundary */
         .uw-nav-pane {
-            width: 140px;
+            width: 130px;
             flex-shrink: 0;
             background: var(--bg-surface);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius-md);
-            padding: 12px;
-            max-height: calc(100vh - 200px);
+            border-right: 1px solid var(--border-light);
+            border-top: none;
+            border-bottom: none;
+            border-left: none;
+            border-radius: 0;
+            padding: 14px 10px;
+            height: calc(100vh - 55px);
             overflow-y: auto;
             position: sticky;
-            top: 0;
+            top: 52px;
             transition: all 0.2s ease;
+            z-index: 40;
         }
         .uw-nav-pane.collapsed {
             display: none;
@@ -1706,6 +1730,7 @@
         });
 
         function showDashboard() {
+            document.body.classList.remove('test-mode-active');
             setAppSidebarVisibility(true);
             setAppTopbarVisibility(true);
             stopTimers();
@@ -2307,8 +2332,20 @@
             setAppSidebarVisibility(false);
             if (sessionConfig.moduleType === 'Pro QBank') {
                 setAppTopbarVisibility(false);
+                document.body.classList.add('test-mode-active');
+                
+                // Hide duplicate old header bar
+                const oldHeader = document.querySelector('#active-session-view .session-header');
+                if (oldHeader) oldHeader.style.display = 'none';
+                
+                // Remove the 800px max-width clamp
+                const sessionContentArea = document.getElementById('session-content-area');
+                if (sessionContentArea) sessionContentArea.style.maxWidth = '100%';
             } else {
                 setAppTopbarVisibility(true);
+                document.body.classList.remove('test-mode-active');
+                const oldHeader = document.querySelector('#active-session-view .session-header');
+                if (oldHeader) oldHeader.style.display = 'flex';
             }
             document.getElementById('session-setup-view').style.display = 'none';
             document.getElementById('active-session-view').style.display = 'block';
