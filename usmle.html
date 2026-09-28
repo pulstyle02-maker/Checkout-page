@@ -2669,6 +2669,14 @@
             }
         };
 
+        // Helper to parse both **bold** and *bold* into <strong> tags
+        function formatMarkdownBold(str) {
+            if (!str || typeof str !== 'string') return str || '';
+            return str
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+        }
+
         // Render Comprehensive Explanations for New and Legacy Table Formats
         function renderSubmittedExplanation(item, letters) {
             let tableHtml = '';
@@ -2677,16 +2685,16 @@
                 if (item.topicSummaryTable.rows && item.topicSummaryTable.rows[0] && item.topicSummaryTable.rows[0].category !== undefined) {
                     tableHtml = `
                         <div style="overflow-x:auto; margin-top: 18px;">
-                            ${item.topicSummaryTable.title ? `<div style="font-weight:700; margin-bottom:8px; font-size:13px; color:var(--text-primary);">${item.topicSummaryTable.title}</div>` : ''}
+                            ${item.topicSummaryTable.title ? `<div style="font-weight:700; margin-bottom:8px; font-size:13px; color:var(--text-primary);">${formatMarkdownBold(item.topicSummaryTable.title)}</div>` : ''}
                             <table class="uw-table">
                                 <thead><tr><th style="width: 25%;">Category</th><th>Characteristics / Findings</th></tr></thead>
                                 <tbody>
                                     ${item.topicSummaryTable.rows.map(r => `
                                         <tr>
-                                            <td><b>${r.category}</b></td>
+                                            <td><b>${formatMarkdownBold(r.category)}</b></td>
                                             <td>
                                                 <ul style="margin: 0; padding-left: 18px;">
-                                                    ${r.points.map(pt => `<li>${pt}</li>`).join('')}
+                                                    ${r.points.map(pt => `<li>${formatMarkdownBold(pt)}</li>`).join('')}
                                                 </ul>
                                             </td>
                                         </tr>
@@ -2699,9 +2707,9 @@
                 // Legacy Format: { headers: [], rows: [[]] }
                 else if (item.topicSummaryTable.headers && item.topicSummaryTable.rows) {
                     tableHtml = `<div style="overflow-x:auto; margin-top: 18px;"><table class="uw-table"><thead><tr>` +
-                        item.topicSummaryTable.headers.map(h => `<th>${h}</th>`).join('') +
+                        item.topicSummaryTable.headers.map(h => `<th>${formatMarkdownBold(h)}</th>`).join('') +
                         `</tr></thead><tbody>` +
-                        item.topicSummaryTable.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') +
+                        item.topicSummaryTable.rows.map(r => `<tr>${r.map(c => `<td>${formatMarkdownBold(c)}</td>`).join('')}</tr>`).join('') +
                         `</tbody></table></div>`;
                 }
             }
@@ -2712,7 +2720,7 @@
                     <div style="background: var(--bg-surface-hover); padding: 24px; border-radius: var(--radius-md); margin-top: 32px; border: 1px solid var(--border-light);">
                         <h4 class="uw-expl-title" style="font-size: 15px; margin-bottom: 14px;">High Yield Takeaways</h4>
                         <ul style="list-style-type: disc; margin-left: 20px; margin-bottom: 0; color: var(--text-primary); font-size: 14px; line-height: 1.7;">
-                            ${item.tenHighYieldPoints.map(p => `<li style="margin-bottom: 8px;">${p}</li>`).join('')}
+                            ${item.tenHighYieldPoints.map(p => `<li style="margin-bottom: 8px;">${formatMarkdownBold(p)}</li>`).join('')}
                         </ul>
                     </div>`;
             }
@@ -2720,7 +2728,7 @@
             let incorrectHtml = '';
             if (item.incorrectExplanations && item.incorrectExplanations.length > 0) {
                 incorrectHtml = `<h4 class="uw-expl-title" style="font-size: 15px; margin-top: 24px; margin-bottom: 16px;">Educational Objective & Incorrect Options</h4>` +
-                    item.incorrectExplanations.map(ie => `<p class="uw-expl-text"><strong style="color: var(--text-primary); font-size: 14.5px;">${ie.optionText}:</strong> ${ie.reason}</p>`).join('');
+                    item.incorrectExplanations.map(ie => `<p class="uw-expl-text"><strong style="color: var(--text-primary); font-size: 14.5px;">${formatMarkdownBold(ie.optionText)}:</strong> ${formatMarkdownBold(ie.reason)}</p>`).join('');
             }
 
             const explHtml = `
@@ -2729,14 +2737,14 @@
                     
                     ${item.topicSummaryParagraph ? `
                     <div style="background: rgba(37, 99, 235, 0.05); padding: 20px; border-radius: var(--radius-md); margin-bottom: 24px; border: 1px solid var(--border-light); border-left: none !important;">
-                        <p class="uw-expl-text" style="font-size: 14.5px; font-weight: 500; margin: 0;">${item.topicSummaryParagraph}</p>
+                        <p class="uw-expl-text" style="font-size: 14.5px; font-weight: 500; margin: 0;">${formatMarkdownBold(item.topicSummaryParagraph)}</p>
                         ${tableHtml}
                     </div>
                     ` : (tableHtml ? `<div style="margin-bottom: 24px;">${tableHtml}</div>` : '')}
 
                     <p class="uw-expl-text" style="font-size: 14.5px; margin-bottom: 24px;">
                         <strong style="color: var(--brand-green); font-size: 15.5px;">Correct Answer: ${letters[item.correctAnswerIndex]}</strong><br><br>
-                        ${item.correctExplanation}
+                        ${formatMarkdownBold(item.correctExplanation)}
                     </p>
                     
                     ${incorrectHtml}
