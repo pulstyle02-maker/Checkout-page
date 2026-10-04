@@ -4356,6 +4356,7 @@ return null;
             sessionStats: { correct: 0, incorrect: 0 },
             academicYear: '1st',
             academicBlock: 'II',
+            program: 'MBBS',
             streak: 0, 
             bookmarkedMCQs: [],
             incorrectMCQs: [],
@@ -5080,6 +5081,7 @@ return null;
                 const bgCls = isActive ? 'bg-brand-blue/10 border-brand-blue/30 text-brand-blue' : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800';
                 const checkHtml = isActive ? `<i data-lucide="check-circle-2" class="w-5 h-5 text-brand-blue shrink-0 ml-2"></i>` : '';
                 const pinIcon = isDefault ? `<i data-lucide="pin" class="w-4 h-4 text-brand-blue fill-current"></i>` : `<i data-lucide="pin" class="w-4 h-4 text-zinc-400 opacity-60 hover:opacity-100 transition-opacity"></i>`;
+                const programName = appState.userData?.program || appState.program || 'MBBS';
                 
                 return `
                 <div class="w-full flex items-center gap-2 mb-2">
@@ -5089,7 +5091,7 @@ return null;
                                 <span class="text-[14px] font-black leading-none truncate">Block ${item.block}</span>
                                 ${isDefault ? `<span class="text-[8px] bg-brand-blue text-white px-1.5 py-0.5 rounded uppercase tracking-widest font-black shrink-0">Default</span>` : ''}
                             </div>
-                            <span class="text-[10px] font-bold opacity-70 uppercase tracking-widest">${item.year} Year Curriculum</span>
+                            <span class="text-[10px] font-bold opacity-70 uppercase tracking-widest">${item.year} Year ${programName}</span>
                         </div>
                         ${checkHtml}
                     </button>
@@ -6109,6 +6111,8 @@ return null;
                 if (detectedYear) appState.academicYear = detectedYear;
                 if (detectedBlock) appState.academicBlock = detectedBlock;
             }
+            
+            appState.program = data.program || 'MBBS';
 
             // USER DEFAULT OVERRIDE: Check if user pinned a default block
             const defaultYear = localStorage.getItem('default_academic_year');
@@ -6119,7 +6123,7 @@ return null;
             }
             
             const subT = document.getElementById('drawer-subtitle');
-            if(subT) subT.innerText = `${appState.academicYear} Year MBBS • UHS`;
+            if(subT) subT.innerText = `${appState.academicYear} Year ${appState.program} • UHS`;
             
             try { updateStreak(); } catch(e){}
             try { updateDashboardStatisticsUI(); } catch(e){}
@@ -6396,6 +6400,7 @@ return null;
                 purchasedBlocks: [`${year}_${block}`],
                 academicYear: year,
                 academicBlock: block,
+                program: 'MBBS',
                 totalMcqsDone: 0,
                 totalCorrect: 0,
                 streak: 0,
@@ -7426,13 +7431,21 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
                 appState.academicYear = '3rd';
             }
 
-            const syllabusKey = is3rdYear ? 'syllabus_3rd_b8_b9_v15' : `syllabus_${appState.academicYear}`;
+            const program = appState.userData?.program || appState.program || 'MBBS';
+            const syllabusKey = program === 'BDS' ? `syllabus_bds_${appState.academicYear}` : (is3rdYear ? 'syllabus_3rd_b8_b9_v15' : `syllabus_${appState.academicYear}`);
             
             // 1. Fetch latest online if connected (FORCE NETWORK OVERRIDE)
             if (navigator.onLine) {
                 try {
                     let syllabusUrls = [];
-                    if (is3rdYear) {
+                    if (program === 'BDS') {
+                        const syllabusFile = `${appState.academicYear}yearbds.json`;
+                        syllabusUrls = [
+                            `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/${syllabusFile}?t=${Date.now()}`,
+                            `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/${syllabusFile}?t=${Date.now()}`,
+                            `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/${syllabusFile}?t=${Date.now()}`
+                        ];
+                    } else if (is3rdYear) {
                         syllabusUrls = [
                             `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/refs/heads/main/3rdyearsyllabus.json?t=${Date.now()}`,
                             `https://raw.githubusercontent.com/pulstyle02-maker/Checkout-page/main/3rdyearsyllabus.json?t=${Date.now()}`,
@@ -10584,7 +10597,7 @@ Return ONLY a JSON object:
             const blockDisplay = document.getElementById('display-active-block');
             
             if (yearDisplay) {
-                yearDisplay.innerText = `${appState.academicYear} Year MBBS`;
+                yearDisplay.innerText = `${appState.academicYear} Year ${appState.program || 'MBBS'}`;
             }
             if (blockDisplay) {
                 blockDisplay.innerText = `Block ${appState.academicBlock}`;
@@ -10596,7 +10609,7 @@ Return ONLY a JSON object:
                 heroName.innerText = appState.userData ? (appState.userData.fullName || 'Student Account') : 'Student Account';
             }
             if (heroSub) {
-                heroSub.innerText = `${appState.academicYear} Year MBBS • Block ${appState.academicBlock}`;
+                heroSub.innerText = `${appState.academicYear} Year ${appState.program || 'MBBS'} • Block ${appState.academicBlock}`;
             }
 
             // Sync the Animated Theme Toggle Switch
