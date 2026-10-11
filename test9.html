@@ -328,14 +328,15 @@
         /* TRUE FULL SCREEN PWA FIX (No Grey Bottom Gap & Notch Handling) */
         html, body { 
             background-color: #ffffff !important; 
-            height: 100%;
+            height: 100%; 
             width: 100%;
-            position: fixed;
+            position: fixed; /* Locks viewport to prevent PWA scrolling gap */
             top: 0; left: 0;
             overflow: hidden;
-            overscroll-behavior-y: none; /* Prevents bounce gap */
+            overscroll-behavior-y: none;
             margin: 0 !important;
             padding: 0 !important;
+            -webkit-font-smoothing: antialiased;
         }
         html.dark, html.dark body { 
             background-color: #121214 !important; 
@@ -343,32 +344,37 @@
         #app-container {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #F1F3F5; /* Dashboard base */
+            height: 100%;
+            width: 100%;
+            background-color: #F1F3F5; 
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
         html.dark #app-container {
-            background-color: #151719; /* Dashboard base dark */
+            background-color: #151719; 
         }
         .app-screen {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
+            height: 100%;
+            width: 100%;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding-bottom: calc(60px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: calc(65px + env(safe-area-inset-bottom)) !important; /* Space for nav */
         }
-        /* Forces the Nav Bar to the absolute extreme bottom of the screen glass respecting iOS Home Indicator */
+        /* Forces Nav Bar to absolute bottom of screen glass, respecting iOS notch */
         #bottom-nav {
-            position: absolute !important;
+            position: fixed !important;
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
             padding-bottom: env(safe-area-inset-bottom) !important;
-            margin-bottom: 0px !important;
+            margin-bottom: 0 !important;
             height: calc(60px + env(safe-area-inset-bottom)) !important;
             box-sizing: border-box !important;
-            z-index: 100 !important;
+            z-index: 9999 !important;
+            transform: translateZ(0); /* Hardware acceleration */
         }
 
         /* Shake Error Animation */
@@ -7062,15 +7068,24 @@ window.toggleBlockiDecksList = function() {
     }
 };
 
-// ================= ULTRA-COMPRESSED SILENT FETCH ENGINE =================
+// ================= ULTRA-COMPRESSED SILENT FETCH ENGINE (CRASH-PROOF) =================
 async function fetchGitHubFilesSequentially(baseUrl, maxLetters, progressCb = null) {
     let allData = [];
     const letters = Array.from({length: maxLetters}, (_, i) => String.fromCharCode(97 + i));
     const cacheBuster = Date.now();
-    const chunkSize = 4;
+    const chunkSize = 2; // Reduced from 4 to 2 to prevent extreme RAM spikes on low-end phones
     let loadedCount = 0;
+    
+    // Capture the block active at start of fetch
+    const activeBlockAtStart = window.CURRENT_ACTIVE_BLOCK || appState.academicBlock;
 
     for (let i = 0; i < letters.length; i += chunkSize) {
+        // ABORT MECHANISM: If user switched blocks, kill this loop instantly to prevent OOM
+        if (activeBlockAtStart !== (window.CURRENT_ACTIVE_BLOCK || appState.academicBlock)) {
+            console.warn("Fetch aborted due to block switch. Saving RAM.");
+            return [];
+        }
+
         const chunk = letters.slice(i, i + chunkSize);
         const promises = chunk.map(char =>
             fetchWithRetry(`${baseUrl}${char}.json?nocache=${cacheBuster}`, 2).then(res => {
@@ -7091,10 +7106,11 @@ async function fetchGitHubFilesSequentially(baseUrl, maxLetters, progressCb = nu
                 } else if (typeof resItem === 'object') {
                     allData.push(normalizeMCQFormat(resItem));
                 }
-                results[j] = null; 
+                results[j] = null; // Aggressive Garbage Collection
             }
         }
-        if (i + chunkSize < letters.length) await new Promise(r => setTimeout(r, 2));
+        // Force GC breathing room
+        if (i + chunkSize < letters.length) await new Promise(r => setTimeout(r, 10));
     }
     return allData;
 }
@@ -7158,31 +7174,25 @@ async function getCacheTimestamp(key) {
 }
 function isCacheFresh(timestamp) { return timestamp > 0; }
 
-// CRITICAL FIX: Synchronous Map-based merge with duplicate overwrite capability to prevent OOM and stale cache crashes
+// CRITICAL FIX: Persistent Map prevents O(N^2) memory reallocation crashes
+window.ACTIVE_MCQ_MAP = new Map();
+
 function mergeMCQs(data, clearOld = false) {
     if (!APP_DATA.allMCQs || clearOld) {
         APP_DATA.allMCQs = [];
+        window.ACTIVE_MCQ_MAP.clear();
     }
-    // We map by ID to instantly overwrite stale/deleted questions with fresh ones
-    let mcqMap = new Map();
     
-    // Load existing into map
-    for (let i = 0; i < APP_DATA.allMCQs.length; i++) {
-        const q = APP_DATA.allMCQs[i];
-        const qId = q.id || q.statement;
-        mcqMap.set(qId, q);
-    }
-
-    // Process new data, overwriting duplicates
+    // Instantly overwrite duplicates without blowing up RAM (Resolves modified/deleted files)
     for (let i = 0; i < data.length; i++) {
         const q = normalizeMCQFormat(data[i]);
         const qId = q.id || q.statement;
         if (qId) {
-            mcqMap.set(qId, q);
+            window.ACTIVE_MCQ_MAP.set(qId, q);
         }
     }
     
-    APP_DATA.allMCQs = Array.from(mcqMap.values());
+    APP_DATA.allMCQs = Array.from(window.ACTIVE_MCQ_MAP.values());
 }
 
         // --- INSTANT CACHE-FIRST BACKGROUND SYNC ENGINE (NO ARTIFICIAL DELAYS) ---
@@ -7332,14 +7342,9 @@ else if (appState.currentScreen === 'lo_selection') renderLOs();
 else if (appState.currentScreen === 'session_builder') renderSessionBuilder();
 }
 }
-// NEW: Background refresh (non-blocking, crash-safe)
+// NEW: Background refresh (non-blocking)
 async function refreshBlockInBackground(bNum) {
 try {
-// Clear the cache file entirely before a background refresh to purge deleted files
-const db = await getDB();
-const transaction = db.transaction(STORE_NAME, "readwrite");
-transaction.objectStore(STORE_NAME).clear();
-
 const baseUrl = `https://cdn.jsdelivr.net/gh/pulstyle02-maker/Checkout-page@main/b${bNum}`;
 const freshData = await fetchGitHubFilesSequentially(baseUrl, 26);
 if (freshData && freshData.length > 0) {
@@ -11275,13 +11280,19 @@ Return ONLY a JSON object:
         }
 
         function changeBlock(block) {
+            // ABORT PREVIOUS SYNC: Lock the global state so background fetchers die instantly
+            window.CURRENT_ACTIVE_BLOCK = block;
+            
             appState.academicBlock = block;
             appState.academicYear = getYearForBlock(block);
             appState.activeModuleTab = null; // Forces module tab to select modules[0] in the new block
             
+            // AGGRESSIVE MEMORY WIPE: Free up RAM before loading new block
             APP_DATA.allMCQs = [];
             APP_DATA.allNotes = [];
             APP_DATA.allFlashcards = [];
+            if (window.ACTIVE_MCQ_MAP) window.ACTIVE_MCQ_MAP.clear();
+            
             MCQ_INDEX_CACHE = {};
             window.LOADED_MCQ_FILES = {};
             loCountEstimateMap = {};
@@ -14245,60 +14256,50 @@ Return ONLY a JSON object:
             lucide.createIcons();
         }
 
-        // --- CLEAN APP UPDATE ACTION (CRASH-PROOF CACHE WIPE) ---
+        // --- CLEAN APP UPDATE ACTION ---
         function clearCacheAndUpdateApp() {
             const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 z-[300] bg-black/60 backdrop-blur-md flex items-center justify-center p-6';
+            modal.className = 'fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm flex items-center justify-center p-6';
             modal.innerHTML = `
-                <div class="w-full max-w-xs bg-white dark:bg-[#1c1c1e] rounded-2xl p-5 text-center shadow-2xl border border-zinc-200/50 dark:border-white/10 animate-[fadeIn_0.2s_ease-out]">
-                    <div class="w-12 h-12 rounded-full bg-brand-blue/10 flex items-center justify-center mx-auto mb-3 text-brand-blue">
-                        <i data-lucide="refresh-cw" class="w-6 h-6"></i>
-                    </div>
-                    <h3 class="text-[17px] font-black text-zinc-900 dark:text-white mb-1.5">Hard Refresh & Update</h3>
-                    <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mb-5 leading-relaxed">This clears all locally downloaded files to fix stale data or crashes. Your account progress remains safe.</p>
-                    <div class="flex gap-2.5">
-                        <button id="cancel-sync-btn" class="flex-1 py-3 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 rounded-[14px] text-[13px] font-bold card-press transition-colors">Cancel</button>
-                        <button id="confirm-sync-btn" class="flex-[1.5] py-3 bg-brand-blue text-white rounded-[14px] text-[13px] font-black card-press shadow-md transition-colors">Clear & Update</button>
+                <div class="w-full max-w-xs bg-white dark:bg-[#18181b] rounded-2xl p-5 text-center shadow-xl animate-[fadeIn_0.2s_ease-out]">
+                    <h3 class="text-[16px] font-bold text-zinc-900 dark:text-white mb-1.5">Update App</h3>
+                    <p class="text-[12px] text-zinc-500 dark:text-zinc-400 mb-5 leading-normal">Refresh syllabus, MCQs, and latest study features.</p>
+                    <div class="flex gap-2">
+                        <button id="cancel-sync-btn" class="flex-1 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-[13px] font-semibold active:scale-98 transition-transform">Cancel</button>
+                        <button id="confirm-sync-btn" class="flex-1 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-black rounded-xl text-[13px] font-semibold active:scale-98 transition-transform">Update Now</button>
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
-            lucide.createIcons();
 
             modal.querySelector('#cancel-sync-btn').onclick = () => document.body.removeChild(modal);
-            modal.querySelector('#confirm-sync-btn').onclick = async () => {
+            modal.querySelector('#confirm-sync-btn').onclick = () => {
+                // Brutally hijack the screen so the user knows the update is firing
                 document.body.innerHTML = `
-                    <div style="position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:99999; color:#fff; font-family:-apple-system, BlinkMacSystemFont, sans-serif;">
-                        <div style="width:48px; height:48px; border:4px solid rgba(16,185,129,0.3); border-top-color:#10b981; border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom: 24px;"></div>
-                        <h2 style="font-weight:900; font-size:22px; letter-spacing:-0.5px; margin:0 0 8px 0;">UPDATING APP</h2>
-                        <p style="color:#888; font-weight:600; font-size:12px; letter-spacing:1px; text-transform:uppercase;">Clearing Local Database...</p>
+                    <div style="position:fixed; inset:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:99999; color:#fff; font-family:sans-serif;">
+                        <div style="width:40px; height:40px; border:3px solid #10b981; border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></div>
+                        <p style="margin-top:20px; font-weight:bold; letter-spacing:1px;">UPDATING...</p>
                         <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
                     </div>
                 `;
                 
+                // Fire and forget cache wipe (Prevents hanging promises)
                 try {
-                    // Nuclear wipe of all potential crash-causing storage mechanisms
                     localStorage.removeItem('guest_stats');
-                    localStorage.removeItem('full_block_2');
-                    localStorage.removeItem('full_block_4');
-                    localStorage.removeItem('full_block_8');
                     sessionStorage.clear();
-                    
-                    if(window.indexedDB) {
-                        const req = indexedDB.deleteDatabase("ModMedicalisCache");
-                        await new Promise(r => { req.onsuccess = r; req.onerror = r; req.onblocked = r; });
-                    }
+                    if(window.indexedDB) indexedDB.deleteDatabase("ModMedicalisCache");
                     if (window.caches) {
-                        const keys = await caches.keys();
-                        await Promise.all(keys.map(k => caches.delete(k)));
+                        caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(()=>{});
                     }
                     if ('serviceWorker' in navigator) {
-                        const regs = await navigator.serviceWorker.getRegistrations();
-                        await Promise.all(regs.map(r => r.unregister()));
+                        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(()=>{});
                     }
                 } catch(e) { console.warn("Cache wipe bypass:", e); }
 
-                setTimeout(() => { window.location.reload(true); }, 500);
+                // Force standard reload. Using native reload prevents 404 routing errors on GitHub Pages.
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 800);
             };
         }
 
