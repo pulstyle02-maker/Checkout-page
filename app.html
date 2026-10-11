@@ -329,30 +329,38 @@
         }
 
         /* =========================================
-   TRUE EDGE-TO-EDGE VIEWPORT FIX (ZERO GAP)
+   NUCLEAR PWA FULL-SCREEN FIX (NO BOTTOM GAP)
    ========================================= */
 html, body {
+    /* CRITICAL: Match your app's background so any microscopic gap is invisible */
+    background-color: #F1F3F5 !important;
     margin: 0 !important;
     padding: 0 !important;
     height: 100% !important;
     width: 100% !important;
     overflow: hidden !important;
     overscroll-behavior: none !important;
-    background-color: #F1F3F5 !important;
+    -webkit-overflow-scrolling: touch;
+    position: fixed !important;
+    inset: 0 !important;
 }
 
 html.dark, html.dark body {
-    background-color: #121316 !important;
+    background-color: #121316 !important; /* Match your dark mode app bg */
 }
 
 #app-container {
-    position: absolute !important;
+    position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    min-height: -webkit-fill-available !important;
+    background-color: #F1F3F5 !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
@@ -360,7 +368,6 @@ html.dark, html.dark body {
     overflow: hidden !important;
     z-index: 1 !important;
     box-sizing: border-box !important;
-    background-color: #F1F3F5 !important;
 }
 
 html.dark #app-container {
@@ -368,36 +375,15 @@ html.dark #app-container {
 }
 
 .app-screen {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+    flex: 1 !important;
     width: 100% !important;
     height: 100% !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
+    /* Pushes content above the nav bar + iOS home indicator */
+    padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
     box-sizing: border-box !important;
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-}
-
-/* Neutralize Tailwind pb-32/pb-28 on screen wrappers */
-.app-screen.pb-32,
-.app-screen.pb-28,
-.app-screen.pb-36,
-.app-screen.pb-40 {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-}
-
-/* Screens without bottom nav (MCQ test, Login, Onboarding) */
-#screen-mcq_screen,
-#screen-mcq_explanation,
-#screen-vivacards_viewer,
-#screen-onboarding,
-#screen-login,
-#screen-block5_promo {
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
 #bottom-nav {
@@ -406,18 +392,21 @@ html.dark #app-container {
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    height: auto !important;
+    min-height: 60px !important;
     margin: 0 !important;
-    padding: 0 0 env(safe-area-inset-bottom, 0px) 0 !important;
-    box-sizing: border-box !important;
+    /* This pushes the icons up, while the background fills the physical bottom gap */
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    box-sizing: content-box !important;
     z-index: 9999 !important;
-    background-color: rgba(241, 243, 245, 0.98) !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
+    /* Force the background to cover the safe area completely */
+    background-color: rgba(255, 255, 255, 0.95) !important;
 }
 
 html.dark #bottom-nav {
-    background-color: rgba(18, 19, 22, 0.98) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    background-color: rgba(18, 18, 20, 0.95) !important;
 }
 
         /* Shake Error Animation */
@@ -3916,7 +3905,7 @@ backface-visibility: hidden;
     <script>
         // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
         (async function emergencyCacheClear() {
-            const wipeVersion = "v18_eliminate_fill_available_gap"; // Change this string anytime you want to force all users to clear cache
+            const wipeVersion = "v15_3rdyear_block_viii_ix_full_sync"; // Change this string anytime you want to force all users to clear cache
             if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
                 console.log("Initiating Emergency Cache Wipe...");
                 localStorage.clear();
@@ -13217,7 +13206,7 @@ Return ONLY a JSON object:
         }
 
         function isRunningStandalone() {
-            return (window.navigator.standalone === true) || (window.matchMedia('(display-mode: standalone)').matches) || (window.matchMedia('(display-mode: fullscreen)').matches);
+            return (window.navigator.standalone === true) || (window.matchMedia('(display-mode: standalone)').matches);
         }
 
         function checkIosPwaButton() {
@@ -18194,38 +18183,34 @@ ${chunkText.substring(0, 9500)}`;
             navigate('block5_promo');
         };
 
-        // ================= PWA BACKGROUND WORKER GENERATOR =================
-        // Dynamic Manifest Injection for seamless Android Chrome PWA installation
-        if (!document.querySelector('link[rel="manifest"]')) {
-            const manifestData = {
-                id: "/",
-                name: "BLOCKIFY App",
-                short_name: "BLOCKIFY",
-                description: "Medical MCQ & Study Engine for Modular Curriculum",
-                start_url: "./",
-                display: "fullscreen",
-                orientation: "portrait",
-                background_color: "#ffffff",
-                theme_color: "#ffffff",
-                icons: [
-                    { src: "https://i.imgur.com/kZsZDzA.jpeg", sizes: "192x192", type: "image/jpeg", purpose: "any maskable" },
-                    { src: "https://i.imgur.com/kZsZDzA.jpeg", sizes: "512x512", type: "image/jpeg", purpose: "any maskable" }
-                ],
-                categories: ["education", "medical"]
-            };
-            const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
-            const manifestLink = document.createElement('link');
-            manifestLink.rel = 'manifest';
-            manifestLink.href = URL.createObjectURL(manifestBlob);
-            document.head.appendChild(manifestLink);
-        }
-
         // ================= BULLETPROOF PWA REGISTRATION =================
         // 1. Force-save the active app HTML page shell into CacheStorage from main thread (100% works on iOS)
         if ('caches' in window) {
-            caches.open('modmedicalis-static-v4').then(cache => {
+            caches.open('modmedicalis-static-v7').then(cache => {
                 cache.add(window.location.href).catch(()=>{});
-                cache.add('./').catch(()=>{});
+                cache.add('/app').catch(()=>{});
+                cache.add(window.location.pathname).catch(()=>{});
+            }).catch(()=>{});
+        }
+
+        // 2. Clean registration of your existing server-side sw.js file
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log("Service Worker active for:", reg.scope);
+                        if ('Notification' in window && Notification.permission === 'default') {
+                            setTimeout(() => { Notification.requestPermission(); }, 5000);
+                        }
+                    })
+                    .catch(err => console.warn("SW registration error:", err));
+            });
+        }
+        // 1. Force-save the active app HTML page shell into CacheStorage from main thread (100% works on iOS)
+        if ('caches' in window) {
+            caches.open('modmedicalis-static-v6').then(cache => {
+                cache.add(window.location.href).catch(()=>{});
+                cache.add('/app').catch(()=>{});
                 cache.add(window.location.pathname).catch(()=>{});
             }).catch(()=>{});
         }
