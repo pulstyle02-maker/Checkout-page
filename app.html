@@ -12,10 +12,8 @@
 <script>
     /* iOS PWA Absolute Bottom Bezel Sync */
     function lockPwaViewport() {
-        const h = window.innerHeight;
-        document.documentElement.style.setProperty('--app-true-height', h + 'px');
-        document.documentElement.style.height = h + 'px';
-        if (document.body) document.body.style.height = h + 'px';
+        // FIXED: Only set the CSS variable. Modifying html/body inline height directly causes the iOS bottom gap!
+        document.documentElement.style.setProperty('--app-true-height', window.innerHeight + 'px');
         window.scrollTo(0, 0);
     }
     lockPwaViewport();
@@ -145,9 +143,10 @@
         /* iOS-Grade Viewport Lock */
         html, body {
             height: 100dvh;
-            width: 100%;
+            width: 100vw;
             overflow: hidden;
-            position: fixed;
+            position: relative; /* FIXED: Removed position: fixed to stop iOS from pushing the app up */
+            overscroll-behavior: none;
             margin: 0;
             padding: 0;
             -webkit-overflow-scrolling: touch;
@@ -168,10 +167,11 @@
 
         /* App container */
         #app-container {
-            height: 100dvh;
+            position: absolute; /* FIXED: Pins perfectly to relative body */
+            inset: 0;
             width: 100%;
+            height: 100%;
             overflow: hidden;
-            position: relative;
             display: flex;
             flex-direction: column;
             margin: 0 auto;
@@ -349,42 +349,20 @@
    THE TRUE ZERO-GAP BEZEL LOCK FOR iOS PWA (NO PHANTOM BAR)
    ======================================================= */
 :root {
-    --app-true-height: 100%;
+    --app-true-height: 100dvh;
 }
 
-html {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    height: var(--app-true-height) !important;
-    max-height: 100% !important;
+html, body {
+    /* FIXED: Removed position: fixed to solve the iOS PWA pushed-up & bottom gap issue */
+    position: relative !important;
+    width: 100vw !important;
+    height: 100dvh !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
     overscroll-behavior: none !important;
-    -webkit-overflow-scrolling: touch !important;
-    background-color: #F1F3F5 !important;
-}
-
-body {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    height: var(--app-true-height) !important;
-    max-height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    overscroll-behavior-y: none !important;
     touch-action: pan-x pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
     background-color: #F1F3F5 !important;
 }
 
@@ -393,14 +371,14 @@ html.dark, html.dark body {
 }
 
 #app-container {
-    position: fixed !important;
+    /* Perfectly pinned absolute container prevents inner content from shifting */
+    position: absolute !important;
     top: 0 !important;
-    bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    height: var(--app-true-height) !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
