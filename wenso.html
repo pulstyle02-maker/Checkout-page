@@ -1173,7 +1173,7 @@
             document.documentElement.classList.add('dark');
         }
 
-        // --- IMAGE ENGINE (FREE CLIENT COMPRESSION + CLOUD STORAGE UPLOAD) ---
+        // --- IMAGE ENGINE (CLOUDINARY INTEGRATION + INSTANT FIRESTORE SYNC) ---
         const ImageEngine = {
             processFile: (file, maxWidth = 1000, quality = 0.78) => {
                 return new Promise((resolve, reject) => {
@@ -1208,20 +1208,31 @@
                 const file = event.target.files[0];
                 if (!file) return;
 
-                showToast('Optimizing & uploading...', 'success');
+                showToast('Optimizing & uploading to Cloudinary...', 'success');
                 try {
                     const optimizedDataUrl = await ImageEngine.processFile(file);
-                    let finalUrl = optimizedDataUrl;
+                    
+                    const cloudName = 'zi5j2itp';
+                    const uploadPreset = 'wenso_event';
+                    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
 
-                    if (window.FirebaseApp?.storage && window.ref && window.uploadString && window.getDownloadURL) {
-                        try {
-                            const storageRef = window.ref(window.FirebaseApp.storage, `uploads/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`);
-                            await window.uploadString(storageRef, optimizedDataUrl, 'data_url');
-                            finalUrl = await window.getDownloadURL(storageRef);
-                        } catch(storageErr) {
-                            console.log('Using local fallback:', storageErr.message);
-                        }
+                    const formData = new FormData();
+                    formData.append('file', optimizedDataUrl);
+                    formData.append('upload_preset', uploadPreset);
+                    
+                    if (currentUser && currentUser.email) {
+                        formData.append('tags', currentUser.email);
                     }
+
+                    const response = await fetch(cloudinaryUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error('Cloudinary upload failed');
+
+                    const data = await response.json();
+                    const finalUrl = data.secure_url;
 
                     document.getElementById(targetInputId).value = finalUrl;
                     const previewContainer = document.getElementById(previewContainerId);
@@ -1235,8 +1246,27 @@
                             </div>
                         `;
                     }
-                    showToast('Photo uploaded successfully!');
+
+                    // Instant Firestore Sync for Profile & Logo Changes
+                    if ((targetInputId === 'prof-cover' || targetInputId === 'prof-logo') && currentUser) {
+                        if (window.FirebaseApp?.db && window.setDoc && window.doc) {
+                            const updateField = targetInputId === 'prof-cover' ? { cover: finalUrl } : { logo: finalUrl };
+                            await window.setDoc(window.doc(window.FirebaseApp.db, "users", currentUser.id), updateField, { merge: true });
+                            
+                            currentUser = { ...currentUser, ...updateField };
+                            let users = DB.get('users');
+                            let idx = users.findIndex(u => u.id === currentUser.id);
+                            if (idx !== -1) { 
+                                users[idx] = currentUser; 
+                                DB.set('users', users); 
+                                localStorage.setItem('w4_session', JSON.stringify(currentUser));
+                            }
+                        }
+                    }
+
+                    showToast('Photo uploaded & secured successfully!');
                 } catch (err) {
+                    console.error("Upload Error:", err);
                     showToast(err.message || 'Error processing image', 'error');
                 }
             },
