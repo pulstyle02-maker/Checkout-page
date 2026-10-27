@@ -10,10 +10,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <script>
-    /* iOS PWA Absolute Bottom Bezel Sync */
+    /* iOS PWA Absolute Bottom Bezel Sync (Zero Gap Engine) */
     function lockPwaViewport() {
-        // FIXED: Only set the CSS variable. Modifying html/body inline height directly causes the iOS bottom gap!
-        document.documentElement.style.setProperty('--app-true-height', window.innerHeight + 'px');
+        const trueH = window.innerHeight;
+        document.documentElement.style.setProperty('--app-true-height', trueH + 'px');
+        if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+            document.documentElement.style.height = trueH + 'px';
+            document.body.style.height = trueH + 'px';
+        }
         window.scrollTo(0, 0);
     }
     lockPwaViewport();
@@ -392,10 +396,16 @@
 }
 
 html, body {
-    /* FIXED: Removed position: fixed to solve the iOS PWA pushed-up & bottom gap issue */
-    position: relative !important;
-    width: 100vw !important;
-    height: 100dvh !important;
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    height: var(--app-true-height, 100dvh) !important;
+    max-height: var(--app-true-height, 100dvh) !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
@@ -410,14 +420,15 @@ html.dark, html.dark body {
 }
 
 #app-container {
-    /* Perfectly pinned absolute container prevents inner content from shifting */
     position: absolute !important;
+    inset: 0 !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
+    height: var(--app-true-height, 100%) !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
@@ -445,24 +456,22 @@ html.dark #app-container {
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     box-sizing: border-box !important;
-    padding-bottom: 60px !important;
+    padding-bottom: 0px !important;
 }
 
-/* Force override all excessive padding classes */
-.app-screen.pb-32, 
-.app-screen.pb-28, 
-.app-screen.pb-36, 
-.app-screen.pb-40, 
-.app-screen.pb-24,
-.app-screen.pb-20,
-.app-screen.pb-16,
-.app-screen.pb-\[200px\] {
-    padding-bottom: 60px !important;
+/* Only add bottom padding to primary tabs that show the bottom navigation bar */
+#screen-dashboard,
+#screen-explore,
+#screen-analytics,
+#screen-profile {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-/* Standalone pages without bottom nav: exactly 0 padding at bottom */
+/* All other screens without bottom nav: flush edge-to-edge bezel alignment */
 #screen-notes_viewer,
 #screen-lo_selection,
+#screen-module_selection,
+#screen-session_builder,
 #screen-mcq_screen, 
 #screen-mcq_explanation, 
 #screen-vivacards_viewer, 
@@ -470,27 +479,38 @@ html.dark #app-container {
 #screen-login, 
 #screen-block5_promo,
 #screen-ospe_cards,
+#screen-ospe_hub,
 #screen-arena_hub,
 #screen-arena_battle,
 #screen-arena_result,
-#screen-blockifai {
-    padding-bottom: 0px !important;
+#screen-blockifai,
+#screen-saved_mcqs,
+#screen-blocki_decks,
+#screen-b9_viewer,
+#screen-mistakes_review,
+#screen-notifications_inbox,
+#screen-my_schedule,
+#screen-micro_anki,
+#screen-past_papers,
+#screen-markify,
+#screen-ward_cards {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     margin-bottom: 0px !important;
 }
 
 .safe-pb {
-    padding-bottom: 0px !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
-/* Pinned to the absolute zero coordinate of the screen */
+/* Seamless Edge-to-Edge Native Bottom Navigation Bar with Home Indicator Extension */
 #bottom-nav {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    height: 60px !important;
-    padding: 0 !important;
+    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     margin: 0 !important;
     box-sizing: border-box !important;
     z-index: 2147483647 !important;
@@ -11381,31 +11401,132 @@ lucide.createIcons();
                     });
                 }
 
-                // 2. Inject Normal Pre-made Sets (Sequential Chunking, No Round-Robin mixup)
-                let setsArray = Array.from({length: totalSets}, () => []);
-                mixedFiltered.forEach((item, index) => {
-                    if(totalSets > 0) {
-                        const setIndex = Math.floor(index / SET_SIZE);
-                        if (setsArray[setIndex]) {
-                            setsArray[setIndex].push(item);
-                        }
-                    }
-                });
+                // =========================================================================
+                // SMART BALANCED SET SYNTHESIZER
+                // 1) Length-biased correct options pushed to the last sets
+                // 2) Concept deduplication across sets (prevents testing the same thing repeatedly)
+                // 3) 30% - 40% (6-8 items per set of 20) guaranteed 3-4 line clinical vignettes
+                // =========================================================================
+                function buildSmartBalancedSets(rawItems, setSize = 20) {
+                    if (!rawItems || rawItems.length === 0) return [];
 
-                for (let i = 0; i < totalSets; i++) {
-                    let setItems = setsArray[i] || [];
-                    
-                    // Only shuffle if the user has explicitly requested randomization
-                    if (appState.sessionConfig.shuffle) {
-                        setItems = [...setItems].sort(() => 0.5 - Math.random());
+                    // Analyze & classify each question
+                    const analyzed = rawItems.map(q => {
+                        const stmt = cleanMCQStatement(q.statement || '');
+                        q.statement = stmt;
+
+                        // Identify big 3-4 line statement or multi-sentence clinical vignette
+                        const isLong = (stmt.length >= 170) || (stmt.split(/\.\s+/).length >= 3) || /(presents\s+with|history\s+of|examination\s+reveals|year-old|laboratory\s+findings|admitted\s+to)/i.test(stmt);
+
+                        // Identify if correct option is noticeably longer than distractors (length cue bias)
+                        let isBiased = false;
+                        if (q.options && q.options.length >= 3 && typeof q.correctOptionIndex === 'number' && q.options[q.correctOptionIndex]) {
+                            const correctLen = q.options[q.correctOptionIndex].trim().length;
+                            const otherLens = q.options.filter((_, idx) => idx !== q.correctOptionIndex).map(o => (o || '').trim().length);
+                            if (otherLens.length > 0) {
+                                const avgOther = otherLens.reduce((a, b) => a + b, 0) / otherLens.length;
+                                if (correctLen > avgOther * 1.4 && (correctLen - avgOther) >= 18) {
+                                    isBiased = true;
+                                }
+                            }
+                        }
+
+                        // Create concept fingerprint for deduplication
+                        let concept = q.coreConcept ? q.coreConcept.toLowerCase().trim() : '';
+                        if (!concept && q.options && typeof q.correctOptionIndex === 'number' && q.options[q.correctOptionIndex]) {
+                            concept = (q.tag || '') + '::' + q.options[q.correctOptionIndex].toLowerCase().trim();
+                        }
+
+                        return { q, isLong, isBiased, concept: concept || Math.random().toString() };
+                    });
+
+                    // Separate unbiased items from length-biased items
+                    let unbiased = analyzed.filter(item => !item.isBiased);
+                    let biased = analyzed.filter(item => item.isBiased);
+
+                    // Randomize order within each pool to prevent static patterns
+                    unbiased.sort(() => Math.random() - 0.5);
+                    biased.sort(() => Math.random() - 0.5);
+
+                    const totalCount = analyzed.length;
+                    const numSets = Math.ceil(totalCount / setSize);
+                    let finalSets = Array.from({ length: numSets }, () => []);
+
+                    // Distribute across sets with concept spacing & 30-40% long statements
+                    for (let sIdx = 0; sIdx < numSets; sIdx++) {
+                        const isTailSet = (sIdx >= numSets - Math.ceil(biased.length / setSize));
+                        const targetSetSize = Math.min(setSize, totalCount - (sIdx * setSize));
+                        
+                        // 30% to 40% long questions target (i.e. 7 out of 20)
+                        const targetLongCount = Math.round(targetSetSize * 0.35);
+
+                        let currentSet = [];
+                        let usedConcepts = new Set();
+
+                        // Selector helper that respects concept spacing
+                        function selectFromPool(pool, preferLong, countNeeded) {
+                            let added = 0;
+                            for (let i = 0; i < pool.length && added < countNeeded; i++) {
+                                const candidate = pool[i];
+                                if (!candidate) continue;
+
+                                if (preferLong === null || candidate.isLong === preferLong) {
+                                    if (!usedConcepts.has(candidate.concept)) {
+                                        currentSet.push(candidate.q);
+                                        usedConcepts.add(candidate.concept);
+                                        pool.splice(i, 1);
+                                        i--;
+                                        added++;
+                                    }
+                                }
+                            }
+                            return added;
+                        }
+
+                        // Use unbiased questions for primary sets; draw from biased for later sets
+                        let primarySource = isTailSet && biased.length > 0 ? biased : unbiased;
+                        let fallbackSource = primarySource === unbiased ? biased : unbiased;
+
+                        // 1. Fill 30-40% long clinical vignettes
+                        let longAdded = selectFromPool(primarySource, true, targetLongCount);
+                        if (longAdded < targetLongCount) {
+                            selectFromPool(fallbackSource, true, targetLongCount - longAdded);
+                        }
+
+                        // 2. Fill remaining slots with standard/concise items
+                        const remainingSlots = targetSetSize - currentSet.length;
+                        let shortAdded = selectFromPool(primarySource, false, remainingSlots);
+                        if (currentSet.length < targetSetSize) {
+                            selectFromPool(fallbackSource, false, targetSetSize - currentSet.length);
+                        }
+
+                        // 3. Failsafe: If spacing was too strict, fill any remaining slots without concept blocking
+                        while (currentSet.length < targetSetSize && (primarySource.length > 0 || fallbackSource.length > 0)) {
+                            const next = primarySource.length > 0 ? primarySource.shift() : fallbackSource.shift();
+                            if (next) currentSet.push(next.q);
+                        }
+
+                        // Randomize order within the set so long questions are naturally interspersed
+                        currentSet.sort(() => Math.random() - 0.5);
+                        finalSets[sIdx] = currentSet;
                     }
+
+                    return finalSets;
+                }
+
+                // Compile sets using the smart synthesizer
+                const synthesizedSets = buildSmartBalancedSets(mixedFiltered, SET_SIZE);
+
+                for (let i = 0; i < synthesizedSets.length; i++) {
+                    let setItems = synthesizedSets[i] || [];
+                    if (setItems.length === 0) continue;
 
                     appState.availableSets.push({
                         id: setIdCounter++,
-                        title: `Set ${i + 1}${appState.sessionConfig.shuffle ? ' (Shuffled)' : ''}`,
+                        title: `Set ${i + 1}`,
                         items: setItems,
                         isMistakes: false,
-                        originalSetIndex: i // keeping track of the numerical set for stats
+                        originalSetIndex: i
                     });
                 }
 
