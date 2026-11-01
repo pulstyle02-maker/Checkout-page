@@ -175,15 +175,19 @@
         @keyframes typingWave {
             0%, 80%, 100% { transform: scale(0.4); opacity: 0.5; }
             40% { transform: scale(1); opacity: 1; }
-        }        /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */
-        html {
+        }        /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */        html {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            height: -webkit-fill-available;
             background-color: #F1F3F5 !important;
             overflow: hidden !important;
+            overscroll-behavior: none !important;
         }
 
         body {
@@ -194,12 +198,11 @@
             bottom: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            min-height: -webkit-fill-available;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
             overscroll-behavior: none !important;
-            -webkit-overflow-scrolling: auto !important;
+            touch-action: manipulation;
             background-color: #F1F3F5 !important;
             color: #18181b;
         }
@@ -4879,7 +4882,7 @@ backface-visibility: hidden;
     <script>
         // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
         (async function emergencyCacheClear() {
-            const wipeVersion = "v37_nav_gap_fix"; // Change this string anytime you want to force all users to clear cache
+            const wipeVersion = "v38_layer_lock"; // Change this string anytime you want to force all users to clear cache
             if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
                 console.log("Initiating Emergency Cache Wipe...");
                 localStorage.clear();
@@ -22097,17 +22100,66 @@ lucide.createIcons();
 };
 window.addEventListener('resize', () => {
             if (appState.currentScreen === 'ospe_cards') sizeOspeWrappers(ospeState.lastRatio || 0.75);
-        });
+        });        // ================= iOS PWA LAYER-LOCK (stops the whole app from being dragged) =================
+        (function lockIosLayer() {
+            let startX = 0, startY = 0;
 
-        // iOS KICKBACK FIX: Force viewport reset when keyboard collapses
-        document.addEventListener('focusout', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                setTimeout(() => {
-                    window.scrollTo(0, 0);
-                    document.body.scrollTop = 0;
-                }, 100);
+            // Finds the nearest ancestor that can actually scroll in the drag direction
+            function findScroller(el, horizontal) {
+                while (el && el !== document.body && el !== document.documentElement) {
+                    const s = getComputedStyle(el);
+                    if (horizontal) {
+                        if ((s.overflowX === 'auto' || s.overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return el;
+                    } else {
+                        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+                    }
+                    el = el.parentElement;
+                }
+                return null;
             }
-        });
+
+            document.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+
+            document.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 1) return; // allow pinch handling untouched
+                const dx = e.touches[0].clientX - startX;
+                const dy = e.touches[0].clientY - startY;
+                const horizontalDrag = Math.abs(dx) > Math.abs(dy);
+
+                const scroller = findScroller(e.target, horizontalDrag);
+                if (!scroller) { e.preventDefault(); return; } // nothing scrollable here = block the page drag
+
+                if (!horizontalDrag) {
+                    const atTop = scroller.scrollTop <= 0;
+                    const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+                    if ((atTop && dy > 0) || (atBottom && dy < 0)) e.preventDefault(); // stop edge rubber-band
+                }
+            }, { passive: false });
+
+            // Keep the app glued to the real visible area (keyboard open/close)
+            function pinToVisualViewport() {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+                if (window.visualViewport) {
+                    const h = Math.round(window.visualViewport.height) + 'px';
+                    document.body.style.setProperty('height', h, 'important');
+                    document.documentElement.style.setProperty('height', h, 'important');
+                }
+            }
+
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', pinToVisualViewport);
+                window.visualViewport.addEventListener('scroll', pinToVisualViewport);
+            }
+            window.addEventListener('scroll', () => window.scrollTo(0, 0), { passive: true });
+            document.addEventListener('focusout', () => setTimeout(pinToVisualViewport, 100));
+            document.addEventListener('focusin', () => setTimeout(pinToVisualViewport, 50));
+            window.addEventListener('orientationchange', () => setTimeout(pinToVisualViewport, 300));
+        })();
     </script>
 </body>
 </html>
