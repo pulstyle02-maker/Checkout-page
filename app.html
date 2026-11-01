@@ -11,11 +11,10 @@
 <script>
     /* iOS PWA Physical Glass Edge Lock */
     function lockPwaViewport() {
-        window.scrollTo(0, 0);
+        // Intentionally left blank. 
+        // window.scrollTo(0, 0) causes layout thrashing and freezing on iOS PWA.
+        // The viewport is now strictly locked to physical bounds via CSS height: 100%.
     }
-    window.addEventListener('resize', lockPwaViewport, { passive: true });
-    window.addEventListener('orientationchange', () => setTimeout(lockPwaViewport, 100), { passive: true });
-    document.addEventListener('DOMContentLoaded', lockPwaViewport);
 </script>
     
     <!-- PWA / Native App Meta Tags -->
@@ -181,7 +180,7 @@
         /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */
         html {
             width: 100% !important;
-            height: 100dvh !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -194,7 +193,7 @@
             right: 0 !important;
             bottom: 0 !important;
             width: 100% !important;
-            height: 100dvh !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -7313,20 +7312,30 @@ return null;
                 hideLoader();
                 switchTab('dashboard');
 
+                // Kickstart syllabus & MCQ prefetch instantly using local cached block config (0 Lag)
+                setTimeout(() => { fetchSyllabus(); }, 50);
+
                 // Perform cloud sync in the background so app never lags
                 db.collection("users").doc(user.uid).get().then(docSnap => {
                     if (docSnap.exists) {
                         const cloudData = docSnap.data();
+                        
+                        // Check if block/year changed from cloud vs local cache
+                        const oldBlock = appState.academicBlock;
+                        
                         appState.userData = cloudData;
                         localStorage.setItem(localCacheKey, JSON.stringify(cloudData));
                         applyHydratedUserData(cloudData);
+                        
+                        // Only re-fetch if cloud data forced a block change
+                        if (oldBlock !== appState.academicBlock) {
+                            fetchSyllabus();
+                        }
                     }
                     try { initRealTimeNotificationsListener(user.uid); } catch(e){}
                     try { evaluateBlock5Promos(); } catch(e){}
-                    fetchSyllabus();
                 }).catch(e => {
                     console.warn("Offline - using cached profile.", e);
-                    fetchSyllabus();
                 });
 
             } else {
@@ -7668,12 +7677,12 @@ return null;
                     sessionStorage.clear();
                     indexedDB.deleteDatabase("ModMedicalisCache");
                 } catch(e) {}
-                window.location.reload(true);
+                window.location.href = window.location.pathname;
             } else {
                 if (typeof auth !== 'undefined' && auth.signOut) {
-                    auth.signOut().then(() => window.location.reload(true)).catch(() => window.location.reload(true));
+                    auth.signOut().then(() => { window.location.href = window.location.pathname; }).catch(() => { window.location.href = window.location.pathname; });
                 } else {
-                    window.location.reload(true);
+                    window.location.href = window.location.pathname;
                 }
             }
         }
@@ -17614,8 +17623,12 @@ REQUIREMENTS:
             if (newList.length > 0) {
                 const latest = newList[0];
                 
-                const isNewAndUnread = (latest.scope === 'personal' && !latest.read) || 
-                                       (latest.scope === 'global' && !readGlobals.includes(latest.id));
+                // Prevent pop-ups for notifications older than 24 hours
+                const oneDayMs = 24 * 60 * 60 * 1000;
+                const isNotTooOld = (Date.now() - new Date(latest.createdAt || 0).getTime()) < oneDayMs;
+                
+                const isNewAndUnread = isNotTooOld && ((latest.scope === 'personal' && !latest.read) || 
+                                       (latest.scope === 'global' && !readGlobals.includes(latest.id)));
 
                 if (isNewAndUnread) {
                     const sessionTriggerKey = 'popped_' + latest.id;
