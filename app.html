@@ -175,29 +175,30 @@
         @keyframes typingWave {
             0%, 80%, 100% { transform: scale(0.4); opacity: 0.5; }
             40% { transform: scale(1); opacity: 1; }
-        }        /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */        html {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
+        }        /* iOS True Edge-to-Edge Bezel Fill (iPhone & iPad) */
+        html {
             width: 100% !important;
             height: 100% !important;
-            background-color: #F1F3F5 !important;
+            height: -webkit-fill-available !important;
+            height: 100dvh !important;
+            margin: 0 !important;
+            padding: 0 !important;
             overflow: hidden !important;
             overscroll-behavior: none !important;
+            background-color: #F1F3F5 !important;
         }
 
         body {
             position: fixed !important;
+            inset: 0 !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
             bottom: 0 !important;
             width: 100% !important;
             height: 100% !important;
+            height: -webkit-fill-available !important;
+            height: 100dvh !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -216,13 +217,18 @@
             color: #f4f4f5;
         }
 
-        /* App container exactly maps to body bounds */
+        /* App container exactly maps to physical screen bounds */
         #app-container {
             position: absolute !important;
+            inset: 0 !important;
             top: 0 !important;
             left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
             width: 100% !important;
             height: 100% !important;
+            height: -webkit-fill-available !important;
+            height: 100dvh !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -241,15 +247,17 @@
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
             width: 100% !important;
             height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
+            padding-bottom: 0 !important;
             box-sizing: border-box !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
             -webkit-overflow-scrolling: touch !important;
-            /* CRITICAL: Stops scroll chain bouncing to the root window */
             overscroll-behavior-y: contain !important;
             z-index: 10;
             opacity: 0;
@@ -403,13 +411,8 @@
             border-radius: 2px;
             animation: pixelPulse 0.8s steps(2, end) infinite;
         }        /* =======================================================
-   ZERO-GAP BOTTOM NAV FIX FOR iOS PWA
+   ZERO-GAP BOTTOM NAV FIX FOR iOS PWA & SAFARI
    ======================================================= */
-
-/* Screens: NO automatic bottom padding (it was creating the phantom strip) */
-.app-screen {
-    padding-bottom: 0 !important;
-}
 
 /* Only the 4 root tabs reserve room for the bottom nav */
 #screen-dashboard,
@@ -419,7 +422,12 @@
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-/* Bottom nav: pinned to the true bottom, safe area applied ONCE */
+/* All other screens strictly have 0 bottom padding so no phantom strip can exist */
+.app-screen:not(#screen-dashboard):not(#screen-explore):not(#screen-analytics):not(#screen-profile) {
+    padding-bottom: 0 !important;
+}
+
+/* Bottom nav: anchored directly to the true physical bottom bezel */
 #bottom-nav {
     position: fixed !important;
     left: 0 !important;
@@ -433,8 +441,8 @@
     z-index: 90 !important;
     background-color: rgba(255, 255, 255, 0.98) !important;
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
-    transform: none !important;
-    -webkit-transform: none !important;
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
 }
 
 html.dark #bottom-nav {
@@ -442,9 +450,23 @@ html.dark #bottom-nav {
     border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
-/* The icon row is exactly 60px tall (not h-full) */
 #bottom-nav > div {
     height: 60px !important;
+}
+
+/* Class-based visibility that cannot be overridden by bad JS specificity */
+#bottom-nav.nav-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+}
+
+#bottom-nav.nav-visible {
+    display: block !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    opacity: 1 !important;
 }
 
 /* Selection gradient line welded to the physical bottom edge */
@@ -2270,12 +2292,8 @@ backface-visibility: hidden;
                     </div>
                 </div>
 
-                <div class="fixed bottom-0 left-0 right-0 bg-[#F1F3F5] dark:bg-[#151719] border-t-0 z-[40]">
-                    <div class="w-full max-w-3xl mx-auto px-4 py-4 md:px-8 md:py-6 pb-8 md:pb-12">
-                        <button id="btn-start-session" onclick="startSessionFlow()" class="w-full bg-zinc-200 dark:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm shadow-sm">
-                            Start Session
-                        </button>
-                    </div>
+                <div class="hidden" style="display: none !important;">
+                    <button id="btn-start-session" onclick="startSessionFlow()"></button>
                 </div>
             </div>
         </div>
@@ -4195,39 +4213,6 @@ backface-visibility: hidden;
 </div>
 </div>
 
-
-    </div>    <!-- Fixed Edge-to-Edge Native Bottom Nav (direct child of body, outside #app-container) -->
-    <div id="bottom-nav" style="display: none;">
-        <div class="w-full px-6 flex justify-between items-center max-w-md mx-auto">
-            <div onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="dashboard">
-                <i data-lucide="home" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-            </div>
-            <!-- Independent Search Trigger (Global Curriculum Search via Overlay) -->
-            <div onclick="openGlobalSearch()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
-                <i data-lucide="search" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:stroke-[2.5px]"></i>
-            </div>
-            <!-- Independent BlockifAI Trigger -->
-            <div onclick="openBlockifAI()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
-                <svg class="w-6 h-6 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:scale-110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M 36 15 L 64 15 L 64 39 L 50 22 L 36 39 Z" fill="currentColor"/>
-                    <path d="M 36 85 L 64 85 L 64 61 L 50 78 L 36 61 Z" fill="currentColor"/>
-                    <path d="M 15 36 L 15 64 L 39 64 L 22 50 L 39 36 Z" fill="url(#iconGrad)"/>
-                    <path d="M 85 36 L 85 64 L 61 64 L 78 50 L 61 36 Z" fill="url(#iconGrad)"/>
-                </svg>
-            </div>
-            <div onclick="openOspeHub()" id="nav-ospe-item" class="nav-item hidden flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="ospe_hub">
-                <i data-lucide="microscope" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-                <span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">OSPE</span>
-            </div>
-            <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="analytics">
-                <i data-lucide="bar-chart-2" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-            </div>
-            <div onclick="switchTab('profile')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="profile">
-                <i data-lucide="user" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-            </div>
-        </div>
-    </div>
-
         <!-- ================= ASK BLOCKIFAI (NOTES ACTIONS MODAL) ================= -->
         <div id="notes-ai-prompt-modal" class="fixed inset-0 z-[220] hidden flex-col justify-start items-end pointer-events-none p-4 pt-16 md:pt-14 md:pr-10">
             <div id="notes-ai-prompt-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-auto transition-opacity duration-300" onclick="closeNotesAIDiscussSheet()"></div>
@@ -4869,7 +4854,39 @@ backface-visibility: hidden;
             </div>
         </div>
 
-        <!-- AI Planner Modal Removed in favor of Conversational UI -->
+        </div><!-- End of #app-container wrapping ALL screens -->
+
+    <!-- Fixed Edge-to-Edge Native Bottom Nav (cleanly outside #app-container) -->
+    <div id="bottom-nav" class="nav-hidden" style="display: none !important;">
+        <div class="w-full px-6 flex justify-between items-center max-w-md mx-auto">
+            <div onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="dashboard">
+                <i data-lucide="home" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+            </div>
+            <!-- Independent Search Trigger (Global Curriculum Search via Overlay) -->
+            <div onclick="openGlobalSearch()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+                <i data-lucide="search" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:stroke-[2.5px]"></i>
+            </div>
+            <!-- Independent BlockifAI Trigger -->
+            <div onclick="openBlockifAI()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+                <svg class="w-6 h-6 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:scale-110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M 36 15 L 64 15 L 64 39 L 50 22 L 36 39 Z" fill="currentColor"/>
+                    <path d="M 36 85 L 64 85 L 64 61 L 50 78 L 36 61 Z" fill="currentColor"/>
+                    <path d="M 15 36 L 15 64 L 39 64 L 22 50 L 39 36 Z" fill="url(#iconGrad)"/>
+                    <path d="M 85 36 L 85 64 L 61 64 L 78 50 L 61 36 Z" fill="url(#iconGrad)"/>
+                </svg>
+            </div>
+            <div onclick="openOspeHub()" id="nav-ospe-item" class="nav-item hidden flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="ospe_hub">
+                <i data-lucide="microscope" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+                <span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">OSPE</span>
+            </div>
+            <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="analytics">
+                <i data-lucide="bar-chart-2" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+            </div>
+            <div onclick="switchTab('profile')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="profile">
+                <i data-lucide="user" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+            </div>
+        </div>
+    </div>
 
     <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -6833,6 +6850,8 @@ return null;
 
             // 1. Force bottom navigation bar to be completely hidden on loading screen
             if (bottomNav) {
+                bottomNav.classList.remove('nav-visible');
+                bottomNav.classList.add('nav-hidden');
                 bottomNav.style.setProperty('display', 'none', 'important');
             }
 
@@ -6896,9 +6915,17 @@ return null;
                 }, 200);
             }
 
-            // Restore bottom nav display only if on one of the primary tabs
-            if (bottomNav && mainTabs.includes(appState.currentScreen)) {
-                bottomNav.style.setProperty('display', 'block', 'important');
+            // Restore bottom nav display ONLY if on one of the 4 primary tabs
+            if (bottomNav) {
+                if (mainTabs.includes(appState.currentScreen)) {
+                    bottomNav.classList.remove('nav-hidden');
+                    bottomNav.classList.add('nav-visible');
+                    bottomNav.style.setProperty('display', 'block', 'important');
+                } else {
+                    bottomNav.classList.remove('nav-visible');
+                    bottomNav.classList.add('nav-hidden');
+                    bottomNav.style.setProperty('display', 'none', 'important');
+                }
             }
         }
 
@@ -9191,33 +9218,37 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             const bottomNav = document.getElementById('bottom-nav');
             const selectionGradient = document.getElementById('selection-bottom-gradient');
             
-            // Fix Bottom Nav Bug (Force explicit visibility and reset GSAP properties)
-            if (mainTabs.includes(screenId)) {
-                if (bottomNav) {
-                    bottomNav.style.display = 'block';
+            // Strictly hide or show bottom nav with classes and !important
+            if (bottomNav) {
+                if (mainTabs.includes(screenId)) {
+                    bottomNav.classList.remove('nav-hidden');
+                    bottomNav.classList.add('nav-visible');
+                    bottomNav.style.setProperty('display', 'block', 'important');
                     if (typeof gsap !== 'undefined') gsap.set(bottomNav, { clearProps: "all" });
+
+                    document.querySelectorAll('.nav-item').forEach(el => {
+                        const icon = el.querySelector('svg') || el.querySelector('i'); 
+                        if (el.dataset.target === screenId) {
+                            el.classList.add('text-zinc-900', 'dark:text-white');
+                            el.classList.remove('text-zinc-500', 'dark:text-zinc-400', 'text-zinc-400');
+                            if (icon) {
+                                icon.classList.remove('stroke-[2px]', 'opacity-50', 'opacity-100', 'fill-current');
+                                icon.classList.add('stroke-[3px]', 'scale-110');
+                            }
+                        } else {
+                            el.classList.remove('text-zinc-900', 'dark:text-white');
+                            el.classList.add('text-zinc-500', 'dark:text-zinc-400');
+                            if (icon) {
+                                icon.classList.remove('stroke-[3px]', 'scale-110', 'fill-current', 'opacity-50', 'opacity-100');
+                                icon.classList.add('stroke-[2px]');
+                            }
+                        }
+                    });
+                } else {
+                    bottomNav.classList.remove('nav-visible');
+                    bottomNav.classList.add('nav-hidden');
+                    bottomNav.style.setProperty('display', 'none', 'important');
                 }
-                document.querySelectorAll('.nav-item').forEach(el => {
-                    const icon = el.querySelector('svg') || el.querySelector('i'); 
-                    
-                    if (el.dataset.target === screenId) {
-                        el.classList.add('text-zinc-900', 'dark:text-white');
-                        el.classList.remove('text-zinc-500', 'dark:text-zinc-400', 'text-zinc-400');
-                        if (icon) {
-                            icon.classList.remove('stroke-[2px]', 'opacity-50', 'opacity-100', 'fill-current');
-                            icon.classList.add('stroke-[3px]', 'scale-110');
-                        }
-                    } else {
-                        el.classList.remove('text-zinc-900', 'dark:text-white');
-                        el.classList.add('text-zinc-500', 'dark:text-zinc-400');
-                        if (icon) {
-                            icon.classList.remove('stroke-[3px]', 'scale-110', 'fill-current', 'opacity-50', 'opacity-100');
-                            icon.classList.add('stroke-[2px]');
-                        }
-                    }
-                });
-            } else {
-                if (bottomNav) bottomNav.style.display = 'none';
             }
 
             if (selectionGradient) {
@@ -22100,65 +22131,24 @@ lucide.createIcons();
 };
 window.addEventListener('resize', () => {
             if (appState.currentScreen === 'ospe_cards') sizeOspeWrappers(ospeState.lastRatio || 0.75);
-        });        // ================= iOS PWA LAYER-LOCK (stops the whole app from being dragged) =================
+        });        // ================= iOS NATIVE BEZEL LOCK & OVERSCROLL ENGINE =================
         (function lockIosLayer() {
-            let startX = 0, startY = 0;
-
-            // Finds the nearest ancestor that can actually scroll in the drag direction
-            function findScroller(el, horizontal) {
-                while (el && el !== document.body && el !== document.documentElement) {
-                    const s = getComputedStyle(el);
-                    if (horizontal) {
-                        if ((s.overflowX === 'auto' || s.overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return el;
-                    } else {
-                        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) return el;
-                    }
-                    el = el.parentElement;
-                }
-                return null;
-            }
-
-            document.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            }, { passive: true });
-
+            // Intentionally free of visualViewport height overrides.
+            // CSS 100dvh and position:fixed inset:0 permanently lock the app to the physical bezel.
             document.addEventListener('touchmove', (e) => {
-                if (e.touches.length > 1) return; // allow pinch handling untouched
-                const dx = e.touches[0].clientX - startX;
-                const dy = e.touches[0].clientY - startY;
-                const horizontalDrag = Math.abs(dx) > Math.abs(dy);
-
-                const scroller = findScroller(e.target, horizontalDrag);
-                if (!scroller) { e.preventDefault(); return; } // nothing scrollable here = block the page drag
-
-                if (!horizontalDrag) {
-                    const atTop = scroller.scrollTop <= 0;
-                    const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
-                    if ((atTop && dy > 0) || (atBottom && dy < 0)) e.preventDefault(); // stop edge rubber-band
+                let target = e.target;
+                while (target && target !== document.body && target !== document.documentElement) {
+                    const overflow = window.getComputedStyle(target).overflowY;
+                    if (overflow === 'auto' || overflow === 'scroll') {
+                        return; // Allow native, buttery smooth touch scroll
+                    }
+                    target = target.parentElement;
+                }
+                // Stop background window rubber-band dragging on headers or static areas
+                if (e.touches.length === 1) {
+                    e.preventDefault();
                 }
             }, { passive: false });
-
-            // Keep the app glued to the real visible area (keyboard open/close)
-            function pinToVisualViewport() {
-                window.scrollTo(0, 0);
-                document.documentElement.scrollTop = 0;
-                document.body.scrollTop = 0;
-                if (window.visualViewport) {
-                    const h = Math.round(window.visualViewport.height) + 'px';
-                    document.body.style.setProperty('height', h, 'important');
-                    document.documentElement.style.setProperty('height', h, 'important');
-                }
-            }
-
-            if (window.visualViewport) {
-                window.visualViewport.addEventListener('resize', pinToVisualViewport);
-                window.visualViewport.addEventListener('scroll', pinToVisualViewport);
-            }
-            window.addEventListener('scroll', () => window.scrollTo(0, 0), { passive: true });
-            document.addEventListener('focusout', () => setTimeout(pinToVisualViewport, 100));
-            document.addEventListener('focusin', () => setTimeout(pinToVisualViewport, 50));
-            window.addEventListener('orientationchange', () => setTimeout(pinToVisualViewport, 300));
         })();
     </script>
 </body>
