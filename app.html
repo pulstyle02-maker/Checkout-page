@@ -3,32 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-
-<script>
-    /* iOS PWA Physical Glass Edge Lock */
-    function lockPwaViewport() {
-        // Intentionally left blank. 
-        // window.scrollTo(0, 0) causes layout thrashing and freezing on iOS PWA.
-        // The viewport is now strictly locked to physical bounds via CSS height: 100%.
-    }
-</script>
+<title>BLOCKIFY</title>
     
-    <!-- PWA / Native App Meta Tags -->
-    <title>BLOCKIFY</title>
-    <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#F1F3F5">
+    <!-- iOS PWA Optimization Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F1F3F5" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
+    
+    <!-- Native App Icons (Failsafe for older iOS versions) -->
     <link rel="icon" type="image/jpeg" href="https://www.modmedicalis.com/IMG_0638.jpeg">
     <link rel="apple-touch-icon" href="https://www.modmedicalis.com/IMG_0638.jpeg">
     <link rel="apple-touch-icon" sizes="192x192" href="https://www.modmedicalis.com/IMG_0638.jpeg">
     <link rel="apple-touch-icon" sizes="512x512" href="https://www.modmedicalis.com/IMG_0638.jpeg">
+
+    <!-- Dynamic PWA Installation (Blob Manifest & SW) -->
+    <script>
+        // Dynamically inject the manifest to bypass iOS caching issues
+        const pwaManifest = {
+            name: "BLOCKIFY", 
+            short_name: "Blockify", 
+            start_url: ".",
+            display: "standalone", 
+            background_color: "#F1F3F5", 
+            theme_color: "#10b981",
+            icons: [
+                { src: "https://www.modmedicalis.com/IMG_0638.jpeg", sizes: "192x192", type: "image/jpeg" },
+                { src: "https://www.modmedicalis.com/IMG_0638.jpeg", sizes: "512x512", type: "image/jpeg" }
+            ]
+        };
+        const manifestUrl = URL.createObjectURL(new Blob([JSON.stringify(pwaManifest)], { type: 'application/json' }));
+        document.write('<link rel="manifest" href="' + manifestUrl + '">');
+
+        // Clean & Fast iOS Service Worker Registration (Bypasses external sw.js files)
+        if ('serviceWorker' in navigator) {
+            const swCode = 'self.addEventListener("fetch", () => {});';
+            const swUrl = URL.createObjectURL(new Blob([swCode], { type: 'application/javascript' }));
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register(swUrl)
+                    .then(() => console.log("Dynamic iOS PWA Service Worker Registered"))
+                    .catch(err => console.warn("Dynamic SW error:", err));
+            });
+        }
+    </script>
     
     <!-- Modern Geometric Font (Foodpanda / Wolt Style) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21327,50 +21345,15 @@ ${chunkText.substring(0, 9500)}`;
             navigate('block5_promo');
         };
 
-        // ================= BULLETPROOF PWA REGISTRATION =================
-        // 1. Force-save the active app HTML page shell into CacheStorage from main thread (100% works on iOS)
-        if ('caches' in window) {
-            caches.open('modmedicalis-static-v7').then(cache => {
-                cache.add(window.location.href).catch(()=>{});
-                cache.add('/app').catch(()=>{});
-                cache.add(window.location.pathname).catch(()=>{});
-            }).catch(()=>{});
-        }
-
-        // 2. Clean registration of your existing server-side sw.js file
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => {
-                        console.log("Service Worker active for:", reg.scope);
-                        if ('Notification' in window && Notification.permission === 'default') {
-                            setTimeout(() => { Notification.requestPermission(); }, 5000);
-                        }
-                    })
-                    .catch(err => console.warn("SW registration error:", err));
-            });
-        }
-        // 1. Force-save the active app HTML page shell into CacheStorage from main thread (100% works on iOS)
-        if ('caches' in window) {
-            caches.open('modmedicalis-static-v6').then(cache => {
-                cache.add(window.location.href).catch(()=>{});
-                cache.add('/app').catch(()=>{});
-                cache.add(window.location.pathname).catch(()=>{});
-            }).catch(()=>{});
-        }
-
-        // 2. Clean registration of your existing server-side sw.js file
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => {
-                        console.log("Service Worker active for:", reg.scope);
-                        if ('Notification' in window && Notification.permission === 'default') {
-                            setTimeout(() => { Notification.requestPermission(); }, 5000);
-                        }
-                    })
-                    .catch(err => console.warn("SW registration error:", err));
-            });
+        // ================= PWA REGISTRATION HANDLED DYNAMICALLY IN <HEAD> =================
+        // Service worker and manifest are now natively injected via Blob URLs at runtime 
+        // to bypass iOS caching issues and guarantee standalone app behavior.
+        
+        // Setup notification permissions if running actively inside iOS standalone PWA mode
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            if ('Notification' in window && Notification.permission === 'default') {
+                setTimeout(() => { Notification.requestPermission(); }, 3000);
+            }
         }
 
     // ================= FORENSIC MEDICINE LECTURE SLIDES ENGINE (FORAIMC28 & BLOCK VIII) =================
