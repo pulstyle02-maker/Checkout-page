@@ -175,28 +175,41 @@
         @keyframes typingWave {
             0%, 80%, 100% { transform: scale(0.4); opacity: 0.5; }
             40% { transform: scale(1); opacity: 1; }
-        }
-
-        /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */
-        html, body {
-            position: fixed !important;
-            top: 0 !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
+        }        /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */
+        html {
+            margin: 0 !important;
+            padding: 0 !important;
             width: 100% !important;
             height: 100% !important;
+            height: -webkit-fill-available;
+            background-color: #F1F3F5 !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: -webkit-fill-available;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
             overscroll-behavior: none !important;
-            -webkit-overflow-scrolling: auto !important; /* Fixes root body scroll hijacking */
+            -webkit-overflow-scrolling: auto !important;
             background-color: #F1F3F5 !important;
             color: #18181b;
         }
 
-        html.dark, html.dark body {
-            background-color: #121316 !important; 
+        html.dark {
+            background-color: #121316 !important;
+        }
+
+        html.dark body {
+            background-color: #121316 !important;
             color: #f4f4f5;
         }
 
@@ -386,18 +399,16 @@
             background-color: currentColor;
             border-radius: 2px;
             animation: pixelPulse 0.8s steps(2, end) infinite;
-        }
-
-        /* =======================================================
-   THE TRUE ZERO-GAP BEZEL LOCK FOR iOS PWA (NO PHANTOM BAR)
+        }        /* =======================================================
+   ZERO-GAP BOTTOM NAV FIX FOR iOS PWA
    ======================================================= */
 
-/* All screens safely avoid the iOS home bar by default */
+/* Screens: NO automatic bottom padding (it was creating the phantom strip) */
 .app-screen {
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    padding-bottom: 0 !important;
 }
 
-/* Only the 4 root dashboard tabs get clearance for the bottom nav bar */
+/* Only the 4 root tabs reserve room for the bottom nav */
 #screen-dashboard,
 #screen-explore,
 #screen-analytics,
@@ -405,27 +416,20 @@
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-/* Helper for elements needing safe bottom padding */
-.safe-pb {
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-}
-
-/* Pinned to the literal bottom coordinate of the visual viewport */
+/* Bottom nav: pinned to the true bottom, safe area applied ONCE */
 #bottom-nav {
     position: fixed !important;
-    bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    bottom: 0 !important;
     width: 100% !important;
-    /* Exactly 60px content height + safe area */
-    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    height: auto !important;
     margin: 0 !important;
-    box-sizing: border-box !important;
+    padding: 0 0 env(safe-area-inset-bottom, 0px) 0 !important;
+    box-sizing: content-box !important;
     z-index: 90 !important;
     background-color: rgba(255, 255, 255, 0.98) !important;
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
-    /* Do NOT allow transforms on this element, it breaks iOS fixed bounding */
     transform: none !important;
     -webkit-transform: none !important;
 }
@@ -435,7 +439,12 @@ html.dark #bottom-nav {
     border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
-/* Selection gradient line welded directly to the physical bottom edge */
+/* The icon row is exactly 60px tall (not h-full) */
+#bottom-nav > div {
+    height: 60px !important;
+}
+
+/* Selection gradient line welded to the physical bottom edge */
 #selection-bottom-gradient {
     position: fixed !important;
     bottom: 0 !important;
@@ -561,8 +570,7 @@ html.dark #bottom-nav {
             transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        /* Responsive Notch & Home Bar Adjustments */
-        .safe-pt { padding-top: calc(max(1rem, env(safe-area-inset-top)) + 0.25rem); }
+        /* Responsive Notch & Home Bar Adjustments */        .safe-pt { padding-top: calc(max(1rem, env(safe-area-inset-top)) + 0.25rem); }
         .safe-pb { padding-bottom: 0px !important; }
 
         /* SVG Gradient Classes */
@@ -4183,41 +4191,39 @@ backface-visibility: hidden;
 </div>
 </div>
 </div>
-<!-- Fixed Edge-to-Edge Native Bottom Nav (Absolute Extreme Bottom) -->
-        <div id="bottom-nav" style="display: none;">
-            <div class="w-full h-full px-6 flex justify-between items-center max-w-md mx-auto">
-                <div onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="dashboard">
-                    <i data-lucide="home" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-                </div>
-                <!-- Independent Search Trigger (Global Curriculum Search via Overlay) -->
-                <div onclick="openGlobalSearch()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
-                    <i data-lucide="search" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:stroke-[2.5px]"></i>
-                </div>
-                <!-- Independent BlockifAI Trigger -->
-                <div onclick="openBlockifAI()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
-                    <svg class="w-6 h-6 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:scale-110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M 36 15 L 64 15 L 64 39 L 50 22 L 36 39 Z" fill="currentColor"/>
-                        <path d="M 36 85 L 64 85 L 64 61 L 50 78 L 36 61 Z" fill="currentColor"/>
-                        <path d="M 15 36 L 15 64 L 39 64 L 22 50 L 39 36 Z" fill="url(#iconGrad)"/>
-                        <path d="M 85 36 L 85 64 L 61 64 L 78 50 L 61 36 Z" fill="url(#iconGrad)"/>
-                    </svg>
-                </div>
-                <div onclick="openOspeHub()" id="nav-ospe-item" class="nav-item hidden flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="ospe_hub">
-                    <i data-lucide="microscope" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-                    <span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">OSPE</span>
-                </div>
-                <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="analytics">
-                    <i data-lucide="bar-chart-2" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-                </div>
-                <div onclick="switchTab('profile')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="profile">
-                    <i data-lucide="user" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
-                </div>
+
+
+    </div>    <!-- Fixed Edge-to-Edge Native Bottom Nav (direct child of body, outside #app-container) -->
+    <div id="bottom-nav" style="display: none;">
+        <div class="w-full px-6 flex justify-between items-center max-w-md mx-auto">
+            <div onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="dashboard">
+                <i data-lucide="home" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+            </div>
+            <!-- Independent Search Trigger (Global Curriculum Search via Overlay) -->
+            <div onclick="openGlobalSearch()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+                <i data-lucide="search" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:stroke-[2.5px]"></i>
+            </div>
+            <!-- Independent BlockifAI Trigger -->
+            <div onclick="openBlockifAI()" class="flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+                <svg class="w-6 h-6 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 group-hover:scale-110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M 36 15 L 64 15 L 64 39 L 50 22 L 36 39 Z" fill="currentColor"/>
+                    <path d="M 36 85 L 64 85 L 64 61 L 50 78 L 36 61 Z" fill="currentColor"/>
+                    <path d="M 15 36 L 15 64 L 39 64 L 22 50 L 39 36 Z" fill="url(#iconGrad)"/>
+                    <path d="M 85 36 L 85 64 L 61 64 L 78 50 L 61 36 Z" fill="url(#iconGrad)"/>
+                </svg>
+            </div>
+            <div onclick="openOspeHub()" id="nav-ospe-item" class="nav-item hidden flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="ospe_hub">
+                <i data-lucide="microscope" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+                <span class="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5">OSPE</span>
+            </div>
+            <div onclick="switchTab('analytics')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="analytics">
+                <i data-lucide="bar-chart-2" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
+            </div>
+            <div onclick="switchTab('profile')" class="nav-item flex flex-col items-center justify-center cursor-pointer group w-12 h-full transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" data-target="profile">
+                <i data-lucide="user" class="w-6 h-6 stroke-[2px] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"></i>
             </div>
         </div>
-
     </div>
-
-    <!-- Arena Co-op removed as requested -->
 
         <!-- ================= ASK BLOCKIFAI (NOTES ACTIONS MODAL) ================= -->
         <div id="notes-ai-prompt-modal" class="fixed inset-0 z-[220] hidden flex-col justify-start items-end pointer-events-none p-4 pt-16 md:pt-14 md:pr-10">
@@ -4873,7 +4879,7 @@ backface-visibility: hidden;
     <script>
         // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
         (async function emergencyCacheClear() {
-            const wipeVersion = "v36_true_bezel_zero_gap_fix"; // Change this string anytime you want to force all users to clear cache
+            const wipeVersion = "v37_nav_gap_fix"; // Change this string anytime you want to force all users to clear cache
             if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
                 console.log("Initiating Emergency Cache Wipe...");
                 localStorage.clear();
