@@ -415,12 +415,12 @@
    ZERO-GAP BOTTOM NAV FIX FOR iOS PWA & SAFARI
    ======================================================= */
 
-/* Only the 4 root tabs reserve room for the bottom nav */
+/* iOS PWA FIX: bottom nav is hidden, so never reserve phantom bottom space */
 #screen-dashboard,
 #screen-explore,
 #screen-analytics,
 #screen-profile {
-    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 0 !important;
 }
 
 /* All other screens strictly have 0 bottom padding so no phantom strip can exist */
@@ -436,8 +436,7 @@
     bottom: 0 !important;
     width: 100% !important;
     height: auto !important;
-    margin: 0 !important;
-    padding: 0 0 env(safe-area-inset-bottom, 0px) 0 !important;
+    margin: 0 !important;    padding: 0 !important;
     box-sizing: content-box !important;
     z-index: 90 !important;
     background-color: rgba(255, 255, 255, 0.98) !important;
@@ -1378,6 +1377,38 @@ backface-visibility: hidden;
 #ospe-flip-card .flip-card-back { transform: rotateY(180deg) translateZ(0); }
 #ospe-flip-card.flipped .flip-card-front { visibility: hidden; transition: visibility 0s 0.35s; }
 #ospe-flip-card:not(.flipped) .flip-card-back { visibility: hidden; transition: visibility 0s 0.35s; }
+
+/* ======================================================
+   ★★★ iOS PWA NOTCH + BOTTOM STRIP MASTER FIX ★★★
+   ====================================================== */
+
+/* 1. Kill every bottom inset that can create a phantom strip */
+.app-screen,
+#bottom-nav,
+#selection-bottom-gradient {
+    padding-bottom: 0 !important;
+}
+
+/* 2. Move ALL safe-area handling to ONE place: #app-container.
+      Absolute screens (inset:0) position to the PADDING box,
+      so this pushes EVERY screen below the notch/Dynamic Island
+      and above the home-indicator strip — on all screens at once. */
+#app-container {
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    box-sizing: border-box !important;
+}
+
+/* 3. Stop headers double-padding (container now owns the notch gap) */
+.safe-pt {
+    padding-top: 0.5rem !important;
+}
+
+/* 4. Prevent any transform/offset from shifting the whole app */
+html, body, #app-container {
+    margin: 0 !important;
+    transform: none !important;
+}
 </style>
 </head>
 <body class="bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white">
@@ -4904,7 +4935,7 @@ backface-visibility: hidden;
     <script>
         // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
         (async function emergencyCacheClear() {
-            const wipeVersion = "v39_ios_viewport_fix"; // Change this string anytime you want to force all users to clear cache
+            const wipeVersion = "v40_ios_safearea_master_fix"; // Change this string anytime you want to force all users to clear cache
             if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
                 console.log("Initiating Emergency Cache Wipe...");
                 localStorage.clear();
