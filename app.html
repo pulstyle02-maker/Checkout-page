@@ -2,8 +2,7 @@
 <html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -182,7 +181,7 @@
         /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */
         html {
             width: 100% !important;
-            height: 100% !important;
+            height: 100dvh !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -195,7 +194,7 @@
             right: 0 !important;
             bottom: 0 !important;
             width: 100% !important;
-            height: 100% !important;
+            height: 100dvh !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -481,11 +480,11 @@
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    height: calc(52px + env(safe-area-inset-bottom, 0px)) !important; /* Slimmer height */
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     margin: 0 !important;
     box-sizing: border-box !important;
-    z-index: 2147483647 !important;
+    z-index: 90 !important; /* Fixed Z-Index so bottom sheets can overlay on top of it */
     background-color: rgba(255, 255, 255, 0.98) !important;
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
     transform: none !important;
@@ -2447,8 +2446,8 @@ backface-visibility: hidden;
                             </button>
 
                             <!-- Font Size Adjuster -->
-                            <button onclick="cycleNotesFontSize()" class="w-7 h-7 flex items-center justify-center rounded text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors card-press" title="Adjust Text Size">
-                                <span id="notes-font-indicator" class="text-[12px] font-bold font-mono">A</span>
+                            <button onclick="toggleNotesFontSlider()" class="w-7 h-7 flex items-center justify-center rounded text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors card-press" title="Adjust Text Size">
+                                <span id="notes-font-indicator" class="text-[14px] font-bold font-mono">A</span>
                             </button>
 
                             <!-- Sepia / Dark / Light Reader Mode -->
@@ -2461,10 +2460,24 @@ backface-visibility: hidden;
                                 <i id="notes-search-btn-icon" data-lucide="search" class="w-4 h-4"></i>
                             </button>
 
-                            <!-- AI Explainer Action (Brand Gradient Container, Pure White Icon) -->
+                            <!-- AI Explainer Action (Brand Gradient Container, 3-Cubes Icon) -->
                             <button onclick="openNotesAIDiscussSheet()" class="w-7 h-7 rounded-lg bg-brand-gradient flex items-center justify-center text-white shadow-sm hover:opacity-95 active:scale-95 transition-all card-press ml-0.5" title="Ask BlockifAI about this topic">
-                                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-white stroke-[2.2px]"></i>
+                                <svg class="w-4 h-4" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M 36 15 L 64 15 L 64 39 L 50 22 L 36 39 Z" fill="#ffffff"/>
+                                    <path d="M 36 85 L 64 85 L 64 61 L 50 78 L 36 61 Z" fill="#ffffff"/>
+                                    <path d="M 15 36 L 15 64 L 39 64 L 22 50 L 39 36 Z" fill="#ffffff" fill-opacity="0.9"/>
+                                    <path d="M 85 36 L 85 64 L 61 64 L 78 50 L 61 36 Z" fill="#ffffff" fill-opacity="0.9"/>
+                                </svg>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Font Size Slider Panel (Hidden by default) -->
+                    <div id="notes-font-slider-panel" class="hidden px-4 pb-3 max-w-3xl mx-auto animate-[fadeIn_0.2s_ease-out]">
+                        <div class="flex items-center gap-3 bg-zinc-100 dark:bg-zinc-800/80 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-white/5 shadow-inner">
+                            <span class="text-xs font-bold text-zinc-400">A</span>
+                            <input type="range" id="notes-text-slider" min="12" max="24" value="16" step="1" oninput="applyNotesFontSize(this.value)" class="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                            <span class="text-lg font-bold text-zinc-400">A</span>
                         </div>
                     </div>
 
@@ -8658,6 +8671,13 @@ allNotes.push({ loCode: code, topicTitle: topic.topic, content: topic.generatedN
 });
 });
 }
+if (modData.objectivesNotes) {
+modData.objectivesNotes.forEach(noteObj => {
+let code = (noteObj.tags && noteObj.tags.loCode) ? noteObj.tags.loCode : extractLOCodeSafe(noteObj.tags?.objective || "");
+let title = (noteObj.tags && noteObj.tags.objective) ? noteObj.tags.objective : code;
+allNotes.push({ loCode: code, topicTitle: title, content: noteObj.contentMarkdown });
+});
+}
 });
 NOTES_CACHE[bNum] = allNotes;
 await cacheFile(cacheKey, allNotes);
@@ -8675,6 +8695,13 @@ let code = extractLOCodeSafe(lo.objective);
 lo.topics?.forEach(topic => {
 allNotes.push({ loCode: code, topicTitle: topic.topic, content: topic.generatedNotes });
 });
+});
+}
+if (modData.objectivesNotes) {
+modData.objectivesNotes.forEach(noteObj => {
+let code = (noteObj.tags && noteObj.tags.loCode) ? noteObj.tags.loCode : extractLOCodeSafe(noteObj.tags?.objective || "");
+let title = (noteObj.tags && noteObj.tags.objective) ? noteObj.tags.objective : code;
+allNotes.push({ loCode: code, topicTitle: title, content: noteObj.contentMarkdown });
 });
 }
 });
@@ -9966,7 +9993,7 @@ lucide.createIcons();
             if (!text) return '';
             let s = text;
 
-            // 1. Sanitize encoding glitches
+            // 1. Sanitize encoding glitches and Math/LaTeX symbols
             s = s.replace(/â€”/g, '—')
                  .replace(/â€“/g, '–')
                  .replace(/â€™/g, "'")
@@ -9974,10 +10001,32 @@ lucide.createIcons();
                  .replace(/â€œ/g, '"')
                  .replace(/â€ /g, '"')
                  .replace(/â€¦/g, '...')
-                 .replace(/â€¢/g, '-');
+                 .replace(/â€¢/g, '-')
+                 .replace(/\$\\\beta\$/g, 'β')
+                 .replace(/\$\\beta\$/g, 'β')
+                 .replace(/\$\\\alpha\$/g, 'α')
+                 .replace(/\$\\alpha\$/g, 'α')
+                 .replace(/\$\\\leq\$/g, '≤')
+                 .replace(/\$\\leq\$/g, '≤')
+                 .replace(/\$\\\geq\$/g, '≥')
+                 .replace(/\$\\geq\$/g, '≥')
+                 .replace(/\$\\\rightarrow\$/g, '→')
+                 .replace(/\$\\rightarrow\$/g, '→');
 
-            // 2. Strip AI placeholders & noise
+            // Strip standalone horizontal rule markdown lines safely
+            s = s.replace(/^---+$/gm, '<hr class="my-6 border-zinc-200 dark:border-zinc-800">');
+
+            // PRESERVE ASCII FLOWCHARTS SAFELY (Prevents markdown from mangling them)
+            let asciiBlocks = [];
+            s = s.replace(/```(?:ascii|text)?\s*\n([\s\S]*?)\n```/gi, function(match, content) {
+                const placeholder = `__ASCII_BLOCK_${asciiBlocks.length}__`;
+                asciiBlocks.push(`<div class="bg-zinc-50 dark:bg-[#121214] border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl my-6 overflow-x-auto shadow-inner"><pre class="font-mono text-[11.5px] md:text-[12.5px] text-zinc-800 dark:text-zinc-300 leading-[1.3] whitespace-pre">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre></div>`);
+                return placeholder;
+            });
+
+            // 2. Strip AI placeholders & noise (Hides missing illustrations)
             s = s.replace(/\[ILLUSTRATION_URL_PLACEHOLDER_\d+\]/gi, '')
+                 .replace(/\[ILLUSTRATION:[\s\S]*?\]/gi, '') 
                  .replace(/Would you like a summary of the next section[\s\S]*?\?/gi, '')
                  .replace(/Let me know if you need anything else[\s\S]*?\?/gi, '')
                  .replace(/error generating notes:.*HTTP 401\.?/gi, '')
@@ -10029,6 +10078,7 @@ lucide.createIcons();
             // 6. Primary and Secondary Headings
             s = s.replace(/^### (.*$)/gm, '<h4 class="text-[15px] font-bold text-brand-blue mt-4 mb-2 tracking-tight">$1</h4>');
             s = s.replace(/^## (.*$)/gm, '<h3 class="text-[17px] font-bold text-zinc-900 dark:text-zinc-100 mt-5 mb-2.5 tracking-tight">$1</h3>');
+            s = s.replace(/^# (.*$)/gm, '<h2 class="text-[19px] font-extrabold text-zinc-900 dark:text-zinc-50 mt-6 mb-3 tracking-tight">$1</h2>');
             s = s.replace(/^\*\*([A-Z0-9\s,\-\/\(\)]+)\*\*$/gm, '<h2 class="text-[19px] font-extrabold text-zinc-900 dark:text-zinc-50 mt-6 mb-3 tracking-tight">$1</h2>');
 
             // 7. Key-Value Definitions in Bullets (- *Term*: Definition or - **Term**: Definition)
@@ -10068,23 +10118,49 @@ lucide.createIcons();
             }
             s = s.replace(/<p>\s*<\/p>/g, '');
 
+            // RESTORE ASCII FLOWCHARTS INTACT
+            asciiBlocks.forEach((blockHtml, index) => {
+                s = s.replace(new RegExp(`<p>__ASCII_BLOCK_${index}__<\\/p>|__ASCII_BLOCK_${index}__`, 'g'), blockHtml);
+            });
+
             return s;
         }
 
         // --- AMBOSS READING TOOLS (FONT SIZE, SEPIA, HIGH-YIELD) ---
-        window.cycleNotesFontSize = function() {
-            const screen = document.getElementById('screen-notes_viewer');
-            const indicator = document.getElementById('notes-font-indicator');
-            if (!screen) return;
+        window.toggleNotesFontSlider = function() {
+            const panel = document.getElementById('notes-font-slider-panel');
+            if (!panel) return;
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                // Auto-hide the search bar if it's open
+                const searchBar = document.getElementById('notes-search-bar');
+                if (searchBar) searchBar.classList.add('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        };
 
-            const sizes = ['notes-font-sm', 'notes-font-md', 'notes-font-lg'];
-            const labels = ['A-', 'A', 'A+'];
-
-            screen.classList.remove(sizes[notesReaderConfig.fontSizeIndex]);
-            notesReaderConfig.fontSizeIndex = (notesReaderConfig.fontSizeIndex + 1) % sizes.length;
-            screen.classList.add(sizes[notesReaderConfig.fontSizeIndex]);
-
-            if (indicator) indicator.innerText = labels[notesReaderConfig.fontSizeIndex];
+        window.applyNotesFontSize = function(sizeVal) {
+            const contentArea = document.getElementById('notes-content-area');
+            if (contentArea) {
+                // Remove pre-existing rigid sizing classes
+                contentArea.classList.remove('notes-font-sm', 'notes-font-md', 'notes-font-lg');
+                
+                // Directly scale the text globally in the reader
+                const textNodes = contentArea.querySelectorAll('p, li, td, th, span');
+                textNodes.forEach(node => {
+                    node.style.fontSize = `${sizeVal}px`;
+                    node.style.lineHeight = `${parseFloat(sizeVal) * 1.6}px`;
+                });
+                
+                // Scale Headings Proportionally
+                const h2Nodes = contentArea.querySelectorAll('h2');
+                h2Nodes.forEach(node => { node.style.fontSize = `${parseFloat(sizeVal) * 1.3}px`; });
+                const h3Nodes = contentArea.querySelectorAll('h3');
+                h3Nodes.forEach(node => { node.style.fontSize = `${parseFloat(sizeVal) * 1.15}px`; });
+                const h4Nodes = contentArea.querySelectorAll('h4');
+                h4Nodes.forEach(node => { node.style.fontSize = `${parseFloat(sizeVal) * 1.05}px`; });
+            }
         };
 
         window.cycleNotesThemeMode = function() {
@@ -10303,6 +10379,11 @@ lucide.createIcons();
                     } catch(e) {}
                 }
             });
+
+            // Parse standard Markdown headers to ensure rich compatibility
+            parsed = parsed.replace(/^### (.*$)/gm, '<h4 class="text-[15px] font-bold text-brand-blue mt-4 mb-2 tracking-tight">$1</h4>');
+            parsed = parsed.replace(/^## (.*$)/gm, '<h3 class="text-[17px] font-bold text-zinc-900 dark:text-white mt-5 mb-2.5 tracking-tight">$1</h3>');
+            parsed = parsed.replace(/^# (.*$)/gm, '<h2 class="text-[19px] font-extrabold text-zinc-900 dark:text-white mt-6 mb-3 tracking-tight">$1</h2>');
             
             // Forcefully strip lingering dashes before building elements
             parsed = parsed.replace(/—|---|--/g, '-');
@@ -10376,6 +10457,11 @@ lucide.createIcons();
             parsed = parsed.replace(/<th>/gi, '<th class="px-4 py-3 font-black uppercase tracking-wider text-[11px] border-b border-white/20 whitespace-nowrap">');
             parsed = parsed.replace(/<tbody>/gi, '<tbody class="bg-white dark:bg-[#18181b] divide-y divide-zinc-200 dark:divide-zinc-800">');
             parsed = parsed.replace(/<td>/gi, '<td class="px-4 py-3.5 align-top text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed">');
+            
+            // RESTORE ASCII FLOWCHARTS INTACT
+            asciiBlocks.forEach((blockHtml, index) => {
+                parsed = parsed.replace(new RegExp(`<p>__ASCII_BLOCK_${index}__<\\/p>|__ASCII_BLOCK_${index}__`, 'g'), blockHtml);
+            });
             
             return parsed;
         }
