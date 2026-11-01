@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-touch-fullscreen" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <script>
     /* iOS PWA Physical Glass Edge Lock */
@@ -23,7 +22,9 @@
     <meta name="theme-color" content="#F1F3F5">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#F1F3F5" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121316" media="(prefers-color-scheme: dark)">
     <link rel="icon" type="image/jpeg" href="https://www.modmedicalis.com/IMG_0638.jpeg">
     <link rel="apple-touch-icon" href="https://www.modmedicalis.com/IMG_0638.jpeg">
     <link rel="apple-touch-icon" sizes="192x192" href="https://www.modmedicalis.com/IMG_0638.jpeg">
@@ -454,7 +455,7 @@ html.dark #bottom-nav {
     height: 60px !important;
 }
 
-/* Class-based visibility that cannot be overridden by bad JS specificity */
+/* Bulletproof class-based visibility that cannot be overridden by bad JS priority */
 #bottom-nav.nav-hidden {
     display: none !important;
     visibility: hidden !important;
@@ -2292,8 +2293,12 @@ backface-visibility: hidden;
                     </div>
                 </div>
 
-                <div class="hidden" style="display: none !important;">
-                    <button id="btn-start-session" onclick="startSessionFlow()"></button>
+                <div class="fixed bottom-0 left-0 right-0 bg-[#F1F3F5] dark:bg-[#151719] border-t-0 z-[40]">
+                    <div class="w-full max-w-3xl mx-auto px-4 py-4 md:px-8 md:py-6 pb-8 md:pb-12">
+                        <button id="btn-start-session" onclick="startSessionFlow()" class="w-full bg-zinc-200 dark:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm shadow-sm">
+                            Start Session
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4899,7 +4904,7 @@ backface-visibility: hidden;
     <script>
         // 1. NUCLEAR CACHE WIPE (Destroys corrupted PWA files & ghosts from bad updates)
         (async function emergencyCacheClear() {
-            const wipeVersion = "v38_layer_lock"; // Change this string anytime you want to force all users to clear cache
+            const wipeVersion = "v39_ios_viewport_fix"; // Change this string anytime you want to force all users to clear cache
             if (localStorage.getItem('app_wipe_version') !== wipeVersion) {
                 console.log("Initiating Emergency Cache Wipe...");
                 localStorage.clear();
@@ -9218,7 +9223,7 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             const bottomNav = document.getElementById('bottom-nav');
             const selectionGradient = document.getElementById('selection-bottom-gradient');
             
-            // Strictly hide or show bottom nav with classes and !important
+            // Strictly toggle bottom nav visibility with !important and classes
             if (bottomNav) {
                 if (mainTabs.includes(screenId)) {
                     bottomNav.classList.remove('nav-hidden');
@@ -22133,20 +22138,19 @@ window.addEventListener('resize', () => {
             if (appState.currentScreen === 'ospe_cards') sizeOspeWrappers(ospeState.lastRatio || 0.75);
         });        // ================= iOS NATIVE BEZEL LOCK & OVERSCROLL ENGINE =================
         (function lockIosLayer() {
-            // Intentionally free of visualViewport height overrides.
-            // CSS 100dvh and position:fixed inset:0 permanently lock the app to the physical bezel.
+            // Intentionally free of visualViewport height overrides and window.scrollTo.
+            // CSS 100dvh + position:fixed inset:0 permanently locks the app to 100% physical bounds.
             document.addEventListener('touchmove', (e) => {
                 let target = e.target;
                 while (target && target !== document.body && target !== document.documentElement) {
                     const overflow = window.getComputedStyle(target).overflowY;
                     if (overflow === 'auto' || overflow === 'scroll') {
-                        return; // Allow native, buttery smooth touch scroll
+                        return; // Allow native smooth touch scroll
                     }
                     target = target.parentElement;
                 }
-                // Stop background window rubber-band dragging on headers or static areas
                 if (e.touches.length === 1) {
-                    e.preventDefault();
+                    e.preventDefault(); // Stop rubber-band dragging on non-scrollable headers
                 }
             }, { passive: false });
         })();
