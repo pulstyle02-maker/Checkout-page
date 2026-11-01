@@ -181,21 +181,18 @@
         html, body {
             position: fixed !important;
             top: 0 !important;
+            bottom: 0 !important;
             left: 0 !important;
-            width: 100vw !important;
-            height: 100dvh !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
             overscroll-behavior: none !important;
-            -webkit-overflow-scrolling: touch !important;
+            -webkit-overflow-scrolling: auto !important; /* Fixes root body scroll hijacking */
             background-color: #F1F3F5 !important;
             color: #18181b;
-        }
-
-        /* Fallback for browsers not supporting dvh */
-        @supports not (height: 100dvh) {
-            html, body { height: 100% !important; }
         }
 
         html.dark, html.dark body {
@@ -418,7 +415,8 @@
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
-    width: 100vw !important;
+    right: 0 !important;
+    width: 100% !important;
     /* Exactly 60px content height + safe area */
     height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
@@ -9924,8 +9922,12 @@ lucide.createIcons();
 
         window.scrollToNoteTopic = function(idx) {
             const el = document.getElementById(`note-section-${idx}`);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const container = document.getElementById('notes-content-area');
+            if (el && container) {
+                container.scrollTo({
+                    top: el.offsetTop - 20,
+                    behavior: 'smooth'
+                });
             }
         };
 
@@ -10219,8 +10221,11 @@ lucide.createIcons();
                 if (countEl) countEl.innerText = matchesCount > 0 ? `${matchesCount} found` : '0 found';
 
                 const firstMatch = container.querySelector('.notes-search-match');
-                if (firstMatch) {
-                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (firstMatch && container) {
+                    container.scrollTo({
+                        top: firstMatch.offsetTop - (container.clientHeight / 2),
+                        behavior: 'smooth'
+                    });
                 }
             }, 30);
         };
@@ -18269,8 +18274,12 @@ REQUIREMENTS:
                 setTimeout(() => {
                     // Scroll to the START of the newly generated AI response, so the user reads top-down natively!
                     const latestAiMsg = document.getElementById(`ai-msg-${session.messages.length - 1}`);
-                    if (latestAiMsg) {
-                        latestAiMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (latestAiMsg && contentBox) {
+                        // iOS BUG FIX: Calculate offset manually. scrollIntoView() shifts the whole PWA viewport upward!
+                        contentBox.scrollTo({
+                            top: latestAiMsg.offsetTop - 20,
+                            behavior: 'smooth'
+                        });
                     }
                 }, 50);
             } else {
@@ -22081,8 +22090,18 @@ if (d) { const m = ospeReadMap('ospe_direct_map'); m[nxt.id] = d; ospeWriteMap('
 lucide.createIcons();
 };
 window.addEventListener('resize', () => {
-if (appState.currentScreen === 'ospe_cards') sizeOspeWrappers(ospeState.lastRatio || 0.75);
-});
-</script>
+            if (appState.currentScreen === 'ospe_cards') sizeOspeWrappers(ospeState.lastRatio || 0.75);
+        });
+
+        // iOS KICKBACK FIX: Force viewport reset when keyboard collapses
+        document.addEventListener('focusout', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                setTimeout(() => {
+                    window.scrollTo(0, 0);
+                    document.body.scrollTop = 0;
+                }, 100);
+            }
+        });
+    </script>
 </body>
 </html>
