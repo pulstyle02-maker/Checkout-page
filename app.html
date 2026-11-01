@@ -178,18 +178,12 @@
         }
 
         /* iOS-Grade Viewport Lock (Full Physical Bezel Fill) */
-        html {
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: hidden !important;
-        }
-
-        body {
+        html, body {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -199,18 +193,21 @@
             color: #18181b;
         }
 
+        /* Fallback for browsers not supporting dvh */
+        @supports not (height: 100dvh) {
+            html, body { height: 100% !important; }
+        }
+
         html.dark, html.dark body {
             background-color: #121316 !important; 
             color: #f4f4f5;
         }
 
-        /* App container pins to the literal 4 corners of the iPhone screen */
+        /* App container exactly maps to body bounds */
         #app-container {
-            position: fixed !important;
+            position: absolute !important;
             top: 0 !important;
             left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
             width: 100% !important;
             height: 100% !important;
             margin: 0 !important;
@@ -218,40 +215,41 @@
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
-            background-color: #F1F3F5 !important;
-        }
-
-        html.dark #app-container {
-            background-color: #121316 !important;
+            background-color: transparent !important;
         }
 
         /* Hide Scrollbar */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Screen Transitions */
+        /* App Screens: Strict boundary lock and anti-bounce */
         .app-screen {
             display: none;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch !important;
+            /* CRITICAL: Stops scroll chain bouncing to the root window */
+            overscroll-behavior-y: contain !important;
             z-index: 10;
             opacity: 0;
-            transform: translateX(20px); /* Pre-set for horizontal swipe */
-            /* Removed native transition so GSAP doesn't fight the browser */
+            transform: translateX(20px);
             pointer-events: none;
-            will-change: transform, opacity; /* Hardware acceleration */
+            will-change: transform, opacity;
         }
         
         .app-screen.active { 
             display: flex; 
             flex-direction: column;
             opacity: 1;
-            transform: none !important; /* Resolves iOS positional context breaking */
+            transform: none !important; /* Fixes positional detachment on iOS */
             pointer-events: auto;
         }
 
@@ -396,21 +394,13 @@
         /* =======================================================
    THE TRUE ZERO-GAP BEZEL LOCK FOR iOS PWA (NO PHANTOM BAR)
    ======================================================= */
-/* Individual screens take 100% of the display with zero bottom dead-space */
+
+/* All screens safely avoid the iOS home bar by default */
 .app-screen {
-    position: absolute !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    margin: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    box-sizing: border-box !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
-/* Single source of truth for bottom navigation clearance */
+/* Only the 4 root dashboard tabs get clearance for the bottom nav bar */
 #screen-dashboard,
 #screen-explore,
 #screen-analytics,
@@ -418,23 +408,26 @@
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
+/* Helper for elements needing safe bottom padding */
 .safe-pb {
-    padding-bottom: 0px !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
-/* Pinned to the literal bottom coordinate of the screen */
+/* Pinned to the literal bottom coordinate of the visual viewport */
 #bottom-nav {
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
-    right: 0 !important;
+    width: 100vw !important;
+    /* Exactly 60px content height + safe area */
     height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     margin: 0 !important;
     box-sizing: border-box !important;
-    z-index: 90 !important; /* Fixed Z-Index so bottom sheets can overlay on top of it */
+    z-index: 90 !important;
     background-color: rgba(255, 255, 255, 0.98) !important;
     border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    /* Do NOT allow transforms on this element, it breaks iOS fixed bounding */
     transform: none !important;
     -webkit-transform: none !important;
 }
@@ -1940,7 +1933,7 @@ backface-visibility: hidden;
         </div>
 
         <!-- ================= DASHBOARD SCREEN (FLAT REFERENCE STYLE) ================= -->
-        <div id="screen-dashboard" class="app-screen bg-[#F1F3F5] dark:bg-[#151719] text-zinc-900 dark:text-white flex flex-col min-h-screen overflow-y-auto no-scrollbar">
+        <div id="screen-dashboard" class="app-screen bg-[#F1F3F5] dark:bg-[#151719] text-zinc-900 dark:text-white flex flex-col overflow-y-auto no-scrollbar">
             <div class="w-full max-w-4xl mx-auto px-4 md:px-6 pt-12">
                 
                 <!-- Floating Nav Bar -->
@@ -2268,8 +2261,8 @@ backface-visibility: hidden;
                     </div>
                 </div>
 
-                <div class="sticky bottom-0 mt-auto left-0 right-0 bg-[#F1F3F5] dark:bg-[#151719] border-t-0 z-[40]">
-                    <div class="w-full max-w-3xl mx-auto px-4 py-4 md:px-8 md:py-6 pb-safe">
+                <div class="fixed bottom-0 left-0 right-0 bg-[#F1F3F5] dark:bg-[#151719] border-t-0 z-[40]">
+                    <div class="w-full max-w-3xl mx-auto px-4 py-4 md:px-8 md:py-6 pb-8 md:pb-12">
                         <button id="btn-start-session" onclick="startSessionFlow()" class="w-full bg-zinc-200 dark:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 font-bold py-4 rounded-[20px] transition-all text-sm shadow-sm">
                             Start Session
                         </button>
@@ -2962,7 +2955,7 @@ backface-visibility: hidden;
         </div>
 
         <!-- ================= 9. DIAGNOSTIC MISTAKES PORTAL ================= -->
-        <div id="screen-mistakes_review" class="app-screen z-20 pb-28 md:pb-32 bg-zinc-50 dark:bg-black">
+        <div id="screen-mistakes_review" class="app-screen z-20 bg-zinc-50 dark:bg-black">
             <div class="w-full max-w-3xl mx-auto px-4 md:px-8">
                 <div class="safe-pt pb-4 sticky top-0 z-20 bg-zinc-50 dark:bg-black">
                     <div class="flex items-center space-x-3">
@@ -3975,7 +3968,7 @@ backface-visibility: hidden;
         </div>
 
         <!-- ================= MY SCHEDULE PLANNER SCREEN ================= -->
-        <div id="screen-my_schedule" class="app-screen z-20 pb-32 bg-zinc-50 dark:bg-black">
+        <div id="screen-my_schedule" class="app-screen z-20 bg-zinc-50 dark:bg-black">
             <div class="w-full max-w-3xl mx-auto px-4 md:px-6">
                 <!-- Header -->
                 <div class="safe-pt pb-4 sticky top-0 bg-zinc-50 dark:bg-black z-30 flex justify-between items-center border-b border-zinc-200 dark:border-zinc-800 mb-6">
@@ -4111,7 +4104,7 @@ backface-visibility: hidden;
         </div>
 
         <!-- ================= OSPE HUB SCREEN (BLOCK VIII ONLY) ================= -->
-<div id="screen-ospe_hub" class="app-screen z-20 pb-32 bg-[#F1F3F5] dark:bg-[#121316] text-zinc-900 dark:text-white flex flex-col min-h-screen overflow-y-auto no-scrollbar">
+<div id="screen-ospe_hub" class="app-screen z-20 bg-[#F1F3F5] dark:bg-[#121316] text-zinc-900 dark:text-white flex flex-col overflow-y-auto no-scrollbar">
 <div class="w-full max-w-2xl mx-auto px-4 md:px-6 pt-8">
 <div class="flex items-center justify-between mb-6 sticky top-0 safe-pt z-30 bg-[#F1F3F5]/90 dark:bg-[#121316]/90 backdrop-blur-xl pb-3 pt-2">
 <div class="flex items-center gap-3">
