@@ -83,7 +83,45 @@
         }
     </script>
 
+    <!-- Tesseract OCR Engine (Silent Background Loading) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
     <style>
+        /* Smooth Wavy Blocks Background for Login */
+        .login-wavy-bg {
+            position: absolute;
+            inset: -50%;
+            z-index: 0;
+            background-color: #f1f3f5;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 40%);
+            filter: blur(60px);
+            animation: waveMotion 15s ease-in-out infinite alternate;
+            transform-origin: center;
+        }
+        html.dark .login-wavy-bg {
+            background-color: #09090b;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
+        }
+        @keyframes waveMotion {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(5deg) scale(1.1) translate(-2%, 2%); }
+            100% { transform: rotate(-5deg) scale(1) translate(2%, -2%); }
+        }
+
+        /* Gemini-style AI Spinning Logo */
+        @keyframes geminiSpinPulse {
+            0% { transform: rotate(0deg) scale(0.85); opacity: 0.8; }
+            50% { transform: rotate(180deg) scale(1.1); opacity: 1; filter: brightness(1.2); }
+            100% { transform: rotate(360deg) scale(0.85); opacity: 0.8; }
+        }
+        .gemini-loader-icon {
+            animation: geminiSpinPulse 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            transform-origin: center center;
+        }
         /* Native iOS App Typography Hierarchy */
         body, button, input, select, textarea {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif !important;
@@ -1615,7 +1653,10 @@ html, body, #app-container {
         </div>
 
         <!-- ================= LOGIN SCREEN ================= -->
-        <div id="screen-login" class="app-screen bg-white dark:bg-[#121212] p-6 justify-center items-center relative overflow-hidden">
+        <div id="screen-login" class="app-screen bg-transparent px-8 py-6 justify-center items-center relative overflow-hidden">
+            <!-- Continuous Smooth Motion Wavy Blocks -->
+            <div class="login-wavy-bg"></div>
+            
             <!-- Universal Top Error Toast (Spotify Style) -->
             <div id="login-error" class="hidden absolute top-4 left-4 right-4 mx-auto max-w-sm bg-rose-600 text-white text-[13px] font-bold text-center p-3 rounded-lg shadow-xl transition-all z-50 flex items-center justify-center gap-2"></div>
 
@@ -4864,17 +4905,28 @@ html, body, #app-container {
                     <div class="absolute bottom-0 left-0 right-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom,16px))] pt-3 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#000000] dark:via-[#000000]/95 z-30">
                         <div id="blockifai-capsules" class="hidden"></div>
                         
-                        <div class="max-w-2xl mx-auto relative p-[2px] rounded-[32px] group shadow-lg">
+                        <div class="max-w-2xl mx-auto relative p-[1.5px] rounded-[24px] md:rounded-[28px] group shadow-lg">
                             <!-- Spinning Gradient Outline -->
-                            <div class="absolute inset-0 bg-[conic-gradient(from_var(--angle),#10b981,#3b82f6,#10b981)] animate-[rotateGlow_3s_linear_infinite] rounded-[32px] opacity-70 group-focus-within:opacity-100 transition-opacity"></div>
+                            <div class="absolute inset-0 bg-[conic-gradient(from_var(--angle),#10b981,#3b82f6,#10b981)] animate-[rotateGlow_3s_linear_infinite] rounded-[24px] md:rounded-[28px] opacity-70 group-focus-within:opacity-100 transition-opacity"></div>
                             
-                            <form id="blockifai-chat-form" class="relative flex items-end gap-2 bg-zinc-50 dark:bg-[#121214] rounded-[30px] p-1.5 transition-all" onsubmit="handleBlockifAIChat(event)">
-                                <div class="flex-1 relative pl-3.5">
-                                    <textarea id="blockifai-chat-input" rows="1" class="w-full bg-transparent px-1 py-3.5 text-[15px] font-medium text-zinc-900 dark:text-white outline-none resize-none max-h-28 min-h-[48px] placeholder-zinc-400" placeholder="Message BlockifAI..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
+                            <form id="blockifai-chat-form" class="relative flex flex-col bg-zinc-50 dark:bg-[#121214] rounded-[22.5px] md:rounded-[26.5px] p-1.5 transition-all" onsubmit="handleBlockifAIChat(event)">
+                                <!-- Image Preview Container (With Circular Spinner overlay on each image) -->
+                                <div id="blockifai-image-preview" class="hidden flex-wrap gap-2 px-3 pt-2 pb-1.5"></div>
+                                
+                                <div class="flex items-end gap-1.5 w-full">
+                                    <input type="file" id="blockifai-image-upload" accept="image/*" multiple class="hidden" onchange="handleBlockifaiImages(event)">
+                                    <button type="button" onclick="document.getElementById('blockifai-image-upload').click()" class="w-8 h-8 rounded-full bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-emerald-500 flex items-center justify-center shrink-0 transition-colors mb-1 ml-1" title="Attach Image (Max 3)">
+                                        <i data-lucide="image-plus" class="w-4 h-4"></i>
+                                    </button>
+                                    
+                                    <div class="flex-1 relative pl-1">
+                                        <textarea id="blockifai-chat-input" rows="1" class="w-full bg-transparent px-1 py-2 text-[14.5px] font-medium text-zinc-900 dark:text-white outline-none resize-none max-h-28 min-h-[38px] placeholder-zinc-400" placeholder="Message BlockifAI..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
+                                    </div>
+                                    
+                                    <button id="blockifai-send-btn" type="submit" class="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center shrink-0 card-press transition-all mb-1 mr-1 shadow-sm">
+                                        <i data-lucide="arrow-up" class="w-4 h-4 stroke-[2.5px]"></i>
+                                    </button>
                                 </div>
-                                <button id="blockifai-send-btn" type="submit" class="w-11 h-11 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center shrink-0 card-press transition-all mb-[2px] mr-[2px]">
-                                    <i data-lucide="arrow-up" class="w-5 h-5 stroke-[2.5px]"></i>
-                                </button>
                             </form>
                         </div>
                     </div>
@@ -7253,14 +7305,16 @@ return null;
                     });
                 }
 
-                // Hide loader and show dashboard IMMEDIATELY
-                hideLoader();
-                switchTab('dashboard');
+                // PWA SPEED FIX: Guarantee loader is destroyed immediately when auth resolves locally
+                setTimeout(() => {
+                    hideLoader();
+                    switchTab('dashboard');
+                }, 0);
 
                 // Kickstart syllabus & MCQ prefetch instantly using local cached block config (0 Lag)
-                setTimeout(() => { fetchSyllabus(); }, 50);
+                setTimeout(() => { fetchSyllabus(); }, 10);
 
-                // Perform cloud sync in the background so app never lags
+                // Perform cloud sync silently in the background so app never lags or blocks interactions
                 db.collection("users").doc(user.uid).get().then(docSnap => {
                     if (docSnap.exists) {
                         const cloudData = docSnap.data();
@@ -11982,6 +12036,8 @@ Output ONLY JSON, no markdown blocks.`;
         };
 
         // ================= INFINITY CONTROLLER =================
+        window.infinityTempSelections = [];
+
         window.openInfinityTopicSelector = function() {
             if (appState.selectedLOs.length === 0) {
                 alert("Please select at least one Learning Objective first.");
@@ -11995,39 +12051,68 @@ Output ONLY JSON, no markdown blocks.`;
             const iconBox = document.getElementById('infinity-modal-icon-box');
 
             if (iconBox) iconBox.innerHTML = createPixelInfinitySVG(36, true);
+            window.infinityTempSelections = [];
 
-            let allTopics = [];
-            if (appState.currentContextLOs) {
+            let optionsHtml = '';
+            
+            // Logic Split: 1 LO selected -> Show Sub-Topics. >1 LO selected -> Show LOs.
+            if (appState.selectedLOs.length === 1) {
+                let allTopics = [];
                 appState.currentContextLOs.forEach(lo => {
                     if (appState.selectedLOs.includes(lo.id) && lo.detailedTopics) {
                         lo.detailedTopics.forEach(t => allTopics.push(t));
                     }
                 });
-            }
-            allTopics = [...new Set(allTopics)];
-
-            let optionsHtml = `
-                <div class="flex items-center gap-3 p-3.5 bg-zinc-100 dark:bg-white/[0.05] border border-brand-blue/40 rounded-2xl cursor-pointer transition-all card-press" onclick="selectInfinityTopic(this, 'Comprehensive Mix')">
-                    <div class="w-4 h-4 rounded-full border-2 border-brand-blue flex items-center justify-center shrink-0 infinity-radio">
-                        <div class="w-2 h-2 rounded-full bg-brand-blue opacity-100"></div>
-                    </div>
-                    <span class="text-[13px] font-bold text-zinc-900 dark:text-white">Comprehensive Mix (All Selected LOs)</span>
-                </div>
-            `;
-
-            allTopics.forEach(topic => {
-                optionsHtml += `
-                    <div class="flex items-center gap-3 p-3.5 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-2xl cursor-pointer hover:border-brand-blue transition-all card-press" onclick="selectInfinityTopic(this, '${safeStr(topic)}')">
-                        <div class="w-4 h-4 rounded-full border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center shrink-0 infinity-radio">
-                            <div class="w-2 h-2 rounded-full bg-brand-blue opacity-0"></div>
+                allTopics = [...new Set(allTopics)];
+                
+                optionsHtml = `
+                    <div class="flex items-center gap-3 p-3.5 bg-zinc-100 dark:bg-white/[0.05] border border-brand-blue/40 rounded-2xl cursor-pointer transition-all card-press mb-2" onclick="toggleInfinitySelection('All Topics', this)">
+                        <div class="w-4 h-4 rounded border-2 border-brand-blue flex items-center justify-center shrink-0 infinity-check">
+                            <i data-lucide="check" class="w-3 h-3 text-brand-blue opacity-100 transition-opacity"></i>
                         </div>
-                        <span class="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">${topic}</span>
+                        <span class="text-[13px] font-bold text-zinc-900 dark:text-white">Comprehensive Mix (All Topics)</span>
                     </div>
                 `;
-            });
+                
+                allTopics.forEach(topic => {
+                    optionsHtml += `
+                        <div class="flex items-center gap-3 p-3.5 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-2xl cursor-pointer hover:border-brand-blue transition-all card-press mb-2" onclick="toggleInfinitySelection('${safeStr(topic)}', this)">
+                            <div class="w-4 h-4 rounded border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center shrink-0 infinity-check">
+                                <i data-lucide="check" class="w-3 h-3 text-transparent opacity-0 transition-opacity"></i>
+                            </div>
+                            <span class="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">${topic}</span>
+                        </div>
+                    `;
+                });
+                window.infinityTempSelections.push('All Topics');
+                appState.infinity.isTopicMode = true;
+            } else {
+                optionsHtml = `
+                    <div class="flex items-center gap-3 p-3.5 bg-zinc-100 dark:bg-white/[0.05] border border-brand-blue/40 rounded-2xl cursor-pointer transition-all card-press mb-2" onclick="toggleInfinitySelection('All Selected LOs', this)">
+                        <div class="w-4 h-4 rounded border-2 border-brand-blue flex items-center justify-center shrink-0 infinity-check">
+                            <i data-lucide="check" class="w-3 h-3 text-brand-blue opacity-100 transition-opacity"></i>
+                        </div>
+                        <span class="text-[13px] font-bold text-zinc-900 dark:text-white">Comprehensive Mix (All Selected LOs)</span>
+                    </div>
+                `;
+                
+                appState.selectedLOs.forEach(loCode => {
+                    const loObj = appState.currentContextLOs.find(l => l.id === loCode);
+                    const loTitle = loObj ? loObj.title : loCode;
+                    optionsHtml += `
+                        <div class="flex items-center gap-3 p-3.5 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-2xl cursor-pointer hover:border-brand-blue transition-all card-press mb-2" onclick="toggleInfinitySelection('${safeStr(loCode)}', this)">
+                            <div class="w-4 h-4 rounded border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center shrink-0 infinity-check">
+                                <i data-lucide="check" class="w-3 h-3 text-transparent opacity-0 transition-opacity"></i>
+                            </div>
+                            <span class="text-[12px] font-medium text-zinc-700 dark:text-zinc-300"><strong class="text-zinc-900 dark:text-white">${loCode}</strong> - ${loTitle}</span>
+                        </div>
+                    `;
+                });
+                window.infinityTempSelections.push('All Selected LOs');
+                appState.infinity.isTopicMode = false;
+            }
 
             list.innerHTML = optionsHtml;
-            appState.infinity.topic = 'Comprehensive Mix';
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -12040,17 +12125,64 @@ Output ONLY JSON, no markdown blocks.`;
             lucide.createIcons();
         };
 
-        window.selectInfinityTopic = function(element, topic) {
-            appState.infinity.topic = topic;
-            document.querySelectorAll('.infinity-radio').forEach(radio => {
-                radio.classList.remove('border-brand-blue');
-                radio.classList.add('border-zinc-300', 'dark:border-zinc-700');
-                radio.querySelector('div').classList.replace('opacity-100', 'opacity-0');
-            });
-            const activeRadio = element.querySelector('.infinity-radio');
-            activeRadio.classList.add('border-brand-blue');
-            activeRadio.classList.remove('border-zinc-300', 'dark:border-zinc-700');
-            activeRadio.querySelector('div').classList.replace('opacity-0', 'opacity-100');
+        window.toggleInfinitySelection = function(val, element) {
+            const check = element.querySelector('.infinity-check');
+            const icon = check.querySelector('i');
+            const idx = window.infinityTempSelections.indexOf(val);
+            
+            if (val === 'All Topics' || val === 'All Selected LOs') {
+                window.infinityTempSelections = [val];
+                document.querySelectorAll('.infinity-check').forEach(el => {
+                    el.classList.remove('border-brand-blue');
+                    el.classList.add('border-zinc-300', 'dark:border-zinc-700');
+                    el.querySelector('i').classList.replace('opacity-100', 'opacity-0');
+                    el.querySelector('i').classList.remove('text-brand-blue');
+                });
+                check.classList.add('border-brand-blue');
+                check.classList.remove('border-zinc-300', 'dark:border-zinc-700');
+                icon.classList.replace('opacity-0', 'opacity-100');
+                icon.classList.add('text-brand-blue');
+                return;
+            }
+
+            const allIdx1 = window.infinityTempSelections.indexOf('All Topics');
+            const allIdx2 = window.infinityTempSelections.indexOf('All Selected LOs');
+            if (allIdx1 > -1) {
+                window.infinityTempSelections.splice(allIdx1, 1);
+                const allEl = document.querySelector('.infinity-check'); 
+                if (allEl) {
+                    allEl.classList.remove('border-brand-blue');
+                    allEl.classList.add('border-zinc-300', 'dark:border-zinc-700');
+                    allEl.querySelector('i').classList.replace('opacity-100', 'opacity-0');
+                    allEl.querySelector('i').classList.remove('text-brand-blue');
+                }
+            }
+            if (allIdx2 > -1) {
+                window.infinityTempSelections.splice(allIdx2, 1);
+                const allEl = document.querySelector('.infinity-check');
+                if (allEl) {
+                    allEl.classList.remove('border-brand-blue');
+                    allEl.classList.add('border-zinc-300', 'dark:border-zinc-700');
+                    allEl.querySelector('i').classList.replace('opacity-100', 'opacity-0');
+                    allEl.querySelector('i').classList.remove('text-brand-blue');
+                }
+            }
+
+            if (idx === -1) {
+                window.infinityTempSelections.push(val);
+                check.classList.add('border-brand-blue');
+                check.classList.remove('border-zinc-300', 'dark:border-zinc-700');
+                icon.classList.replace('opacity-0', 'opacity-100');
+                icon.classList.add('text-brand-blue');
+            } else {
+                window.infinityTempSelections.splice(idx, 1);
+                check.classList.remove('border-brand-blue');
+                check.classList.add('border-zinc-300', 'dark:border-zinc-700');
+                icon.classList.replace('opacity-100', 'opacity-0');
+                icon.classList.remove('text-brand-blue');
+            }
+            
+            appState.infinity.topic = window.infinityTempSelections.join(', ');
         };
 
         window.closeInfinityTopicSelector = function() {
@@ -12144,8 +12276,11 @@ Output ONLY JSON, no markdown blocks.`;
                     else throw new Error("AI Key missing.");
                 }
 
-                const loContext = appState.selectedLOs.join(', ');
-                const topicContext = appState.infinity.topic !== 'Comprehensive Mix' ? `Focus specifically on: ${appState.infinity.topic}.` : `Synthesize questions covering the entire objective.`;
+                const isAllSelected = window.infinityTempSelections && (window.infinityTempSelections.includes('All Topics') || window.infinityTempSelections.includes('All Selected LOs'));
+                const loContext = appState.infinity.isTopicMode ? appState.selectedLOs[0] : (isAllSelected ? appState.selectedLOs.join(', ') : (window.infinityTempSelections || []).join(', '));
+                const topicContext = appState.infinity.isTopicMode && !isAllSelected 
+                    ? `Focus specifically on these topics: ${(window.infinityTempSelections || []).join(', ')}.` 
+                    : `Synthesize questions covering the objective evenly.`;
                 const historyContext = appState.infinity.history.length > 0 ? `Do NOT repeat these core concepts: ${appState.infinity.history.slice(-15).join(', ')}` : '';
 
                 const prompt = `You are a medical professor authoring board-exam MCQs (UHS Modular, USMLE Step 1).
@@ -17810,7 +17945,7 @@ REQUIREMENTS:
         // --- EXPENSIVE MINIMAL BLOCKIFAI ENGINE & AI PLANNER (0 REPEAT READS) ---
         window.GEMINI_API_KEY = null;
 
-        // NON-DESTRUCTIVE High-End Markdown Lexer (Preserves 100% of the AI's content & supports Tables)
+        // CLEAN CLINICAL MARKDOWN FORMATTER (Clean hierarchy, sharp typography, mobile-native readability)
         function formatBlockifAIMinimal(text) {
             if (!text) return "";
             
@@ -17821,29 +17956,30 @@ REQUIREMENTS:
             
             let html = cleanText
                 .replace(/```[a-z]*\n?/gi, "")
-                .replace(/^### (.*$)/gm, '<h3 class="text-[18px] font-bold text-zinc-900 dark:text-white mt-6 mb-2">$1</h3>')
-                .replace(/^## (.*$)/gm, '<h2 class="text-[20px] font-bold text-zinc-900 dark:text-white mt-6 mb-3">$1</h2>')
-                .replace(/^# (.*$)/gm, '<h1 class="text-[24px] font-bold text-zinc-900 dark:text-white mt-6 mb-4">$1</h1>')
+                .replace(/^### (.*$)/gm, '<h4 class="text-[14.5px] font-bold text-emerald-600 dark:text-emerald-400 mt-4 mb-1.5 tracking-tight">$1</h4>')
+                .replace(/^## (.*$)/gm, '<h3 class="text-[16px] font-bold text-zinc-900 dark:text-zinc-50 mt-5 mb-2 tracking-tight">$1</h3>')
+                .replace(/^# (.*$)/gm, '<h2 class="text-[18px] font-black text-zinc-950 dark:text-white mt-6 mb-2.5 pb-1 border-b border-zinc-200 dark:border-zinc-800 tracking-tight">$1</h2>')
                 .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-zinc-950 dark:text-white">$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em class="italic text-zinc-600 dark:text-zinc-300 font-medium">$1</em>')
-                .replace(/^\s*[\-\*]\s+(.*$)/gm, '<li class="ml-5 mb-2 list-disc text-[17px] text-zinc-900 dark:text-[#f4f4f5] leading-[1.6]">$1</li>')
-                .replace(/^\s*(\d+)\.\s+(.*$)/gm, '<li class="ml-5 mb-2.5 list-decimal text-[17px] text-zinc-900 dark:text-[#f4f4f5] leading-[1.6]"><span class="-ml-1.5">$2</span></li>');
+                .replace(/\*(.*?)\*/g, '<em class="italic text-zinc-600 dark:text-zinc-300">$1</em>')
+                .replace(/^\s*[\-\*]\s+(.*$)/gm, '<li class="ml-4 mb-1.5 list-disc text-[14.5px] text-zinc-800 dark:text-zinc-200 leading-[1.6]">$1</li>')
+                .replace(/^\s*(\d+)\.\s+(.*$)/gm, '<li class="ml-4 mb-1.5 list-decimal text-[14.5px] text-zinc-800 dark:text-zinc-200 leading-[1.6]">$2</li>');
 
-            // Wrap lists conceptually to prevent loose items
-            html = html.replace(/(<li class="[^"]*list-disc[^"]*">.*<\/li>\n?)+/g, '<ul class="my-4">$&</ul>');
-            html = html.replace(/(<li class="[^"]*list-decimal[^"]*">.*<\/li>\n?)+/g, '<ol class="my-4">$&</ol>');
+            // Wrap lists cleanly
+            html = html.replace(/(<li class="[^"]*list-disc[^"]*">.*<\/li>\n?)+/g, '<ul class="my-2.5 space-y-1">$&</ul>');
+            html = html.replace(/(<li class="[^"]*list-decimal[^"]*">.*<\/li>\n?)+/g, '<ol class="my-2.5 space-y-1">$&</ol>');
 
+            // Clean, responsive medical tables
             html = html.replace(/(?:^\|.*\|\n?)+/gm, function(match) {
                 let rows = match.trim().split('\n');
-                let tableHtml = '<div class="overflow-x-auto my-5 border-y border-zinc-300 dark:border-zinc-800 no-scrollbar"><table class="w-full text-left text-[16px] border-collapse">';
+                let tableHtml = '<div class="overflow-x-auto my-3.5 border border-zinc-200 dark:border-zinc-800 rounded-xl no-scrollbar"><table class="w-full text-left text-[13px] border-collapse">';
                 rows.forEach((row, i) => {
                     if (row.match(/^[\s\|:\-]+$/)) return; 
                     let cells = row.split('|').filter(c => c.trim() !== '');
-                    tableHtml += '<tr class="border-b border-zinc-200 dark:border-zinc-800">';
+                    tableHtml += '<tr class="border-b border-zinc-200 dark:border-zinc-800 last:border-b-0">';
                     cells.forEach(cell => {
                         let cellTag = i === 0 ? 'th' : 'td';
-                        let fontClass = i === 0 ? 'font-bold text-zinc-900 dark:text-white bg-zinc-50 dark:bg-transparent' : 'text-zinc-800 dark:text-zinc-300 font-medium';
-                        tableHtml += `<${cellTag} class="px-4 py-3 align-top ${fontClass}">${cell.trim()}</${cellTag}>`;
+                        let fontClass = i === 0 ? 'font-bold uppercase tracking-wider text-[11px] text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800/60' : 'text-zinc-700 dark:text-zinc-300 font-medium';
+                        tableHtml += `<${cellTag} class="px-3.5 py-2.5 align-top ${fontClass}">${cell.trim()}</${cellTag}>`;
                     });
                     tableHtml += '</tr>';
                 });
@@ -17856,29 +17992,26 @@ REQUIREMENTS:
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (line === '') {
-                    output.push('<div class="h-3"></div>');
                     continue;
                 }
                 if (line.startsWith('<div') || line.startsWith('<h') || line.startsWith('<ul') || line.startsWith('<ol') || line.startsWith('<li') || line.startsWith('<table') || line.startsWith('<tr') || line.startsWith('<td') || line.startsWith('<th')) {
                     output.push(line);
                 } else {
-                    output.push(`<p class="text-[17.5px] leading-[1.65] text-zinc-900 dark:text-[#f4f4f5] font-normal mb-3">${line}</p>`);
+                    output.push(`<p class="text-[14.5px] leading-[1.65] text-zinc-850 dark:text-zinc-200 font-normal mb-2.5">${line}</p>`);
                 }
             }
             
             let finalHtml = output.join('');
             
-            // MAGIC FIX: Parse Anki Cloze Syntax into Interactive Chat Buttons
+            // Interactive Anki Cloze syntax [...]
             finalHtml = finalHtml.replace(/\{\{c\d+::(.*?)(?:::.*?)?\}\}/g, (match, hiddenText) => {
-                // Ensure safe string escaping to prevent HTML breakage inside the onclick handler
                 const safeHiddenText = hiddenText.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                return `<button onclick="window.revealChatCloze(this, '${safeHiddenText}')" class="inline-block mx-1 px-2.5 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-600 dark:bg-indigo-500/25 dark:text-indigo-300 font-black font-mono text-[14px] border border-indigo-500/30 card-press transition-all">[...]</button>`;
+                return `<button onclick="window.revealChatCloze(this, '${safeHiddenText}')" class="inline-block mx-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-300 font-mono font-bold text-[13px] border border-emerald-500/30 card-press">[...]</button>`;
             });
 
-            // Add Save Mnemonic button if response looks like it contains a mnemonic
             if (finalHtml.toLowerCase().includes("mnemonic") || finalHtml.toLowerCase().includes("memory trick")) {
                 const safeTextToSave = encodeURIComponent(cleanMCQStatement(cleanText.substring(0, 300)));
-                finalHtml += `<div class="mt-4 flex justify-start"><button onclick="saveAiMnemonic('${safeTextToSave}')" class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 card-press"><i data-lucide="save" class="w-3.5 h-3.5"></i> Save Mnemonic</button></div>`;
+                finalHtml += `<div class="mt-3 flex justify-start"><button onclick="saveAiMnemonic('${safeTextToSave}')" class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-[10.5px] font-black uppercase tracking-widest flex items-center gap-1.5 card-press"><i data-lucide="save" class="w-3.5 h-3.5"></i> Save Mnemonic</button></div>`;
             }
             
             return finalHtml;
@@ -18105,7 +18238,6 @@ REQUIREMENTS:
                 // 3 Blocks Empty State
                 document.getElementById('blockifai-chat-form').style.display = 'flex';
                 
-                // Construct Unfilled SVG without container background
                 const SVG_EMPTY_STATE = `
                 <svg class="w-16 h-16 drop-shadow-md" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M 36 15 L 64 15 L 64 39 L 50 22 L 36 39 Z" fill="currentColor" class="text-zinc-900 dark:text-white"/>
@@ -18122,7 +18254,7 @@ REQUIREMENTS:
                             ${SVG_EMPTY_STATE}
                         </div>
                         <h3 class="font-[1000] text-[22px] text-zinc-900 dark:text-white mb-2 tracking-tight">Hey, ${userName}, ask anything to BlockifAI</h3>
-                        <p class="text-[13px] text-zinc-500 max-w-[280px] mb-8 font-medium leading-relaxed">Get instant explanations, memory mnemonics, or quick pop quizzes.</p>
+                        <p class="text-[13px] text-zinc-500 max-w-[280px] mb-8 font-medium leading-relaxed">Get instant explanations, memory mnemonics, or upload notes for clinical synthesis.</p>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 w-full max-w-md px-3">
                             <button onclick="runBlockifAI('Create a 5-question pop quiz on Pharmacology for my current block.')" class="bg-zinc-50 dark:bg-[#121214] border border-zinc-200/80 dark:border-white/5 p-3.5 rounded-2xl text-left hover:border-emerald-500/50 transition-colors card-press shadow-sm group">
@@ -18156,15 +18288,33 @@ REQUIREMENTS:
             document.getElementById('blockifai-chat-form').style.display = 'flex';
             contentBox.innerHTML = session.messages.map((msg, index) => {
                 if (msg.role === 'user') {
+                    let imagesHtml = '';
+                    if (msg.images && msg.images.length > 0) {
+                        imagesHtml = `<div class="flex gap-2 mb-2 flex-wrap justify-end">` + 
+                            msg.images.map(img => `<img src="${img.dataUrl}" class="max-w-[140px] max-h-[140px] rounded-xl border border-white/20 shadow-sm object-cover">`).join('') +
+                        `</div>`;
+                    }
                     return `
-                        <div id="ai-msg-${index}" class="self-end max-w-[85%] flex flex-col items-end mb-4 animate-[fadeIn_0.2s_ease-out] group">
-                            <div class="bg-brand-gradient text-white px-5 py-3.5 rounded-[22px] rounded-br-[6px] shadow-[0_4px_15px_rgba(75,184,214,0.25)]">
-                                <p class="text-[14.5px] leading-relaxed font-medium whitespace-pre-wrap">${msg.content}</p>
+                        <div id="ai-msg-${index}" class="self-end max-w-[85%] flex flex-col items-end mb-3.5 animate-[fadeIn_0.2s_ease-out] group">
+                            <div class="bg-brand-gradient text-white px-4 py-2.5 rounded-[20px] rounded-br-[4px] shadow-[0_3px_12px_rgba(16,185,129,0.2)]">
+                                ${imagesHtml}
+                                ${msg.content ? `<p class="text-[14px] leading-relaxed font-medium whitespace-pre-wrap">${msg.content}</p>` : ''}
                             </div>
-                            <!-- ChatGPT Style User Actions -->
-                            <div class="flex items-center gap-3 mt-2 mr-2 opacity-50 hover:opacity-100 transition-opacity">
-                                <button onclick="editBlockifaiMessage(${index})" class="flex items-center gap-1 text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
-                                <button onclick="copyBlockifaiText(\`${encodeURIComponent(msg.content)}\`)" class="flex items-center gap-1 text-[11px] font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                            <!-- Sent Message Action Bar (Edit, Resend, Copy) -->
+                            <div class="flex items-center gap-2 mt-1.5 mr-1 text-zinc-400 dark:text-zinc-500 text-[11px] font-bold opacity-75 hover:opacity-100 transition-opacity">
+                                <button onclick="editBlockifaiMessage(${index})" class="hover:text-zinc-900 dark:hover:text-white px-1.5 py-0.5 rounded transition-colors flex items-center gap-1" title="Edit message">
+                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                    <span>Edit</span>
+                                </button>
+                                <span>•</span>
+                                <button onclick="resendBlockifaiMessage(${index})" class="hover:text-emerald-500 px-1.5 py-0.5 rounded transition-colors flex items-center gap-1" title="Resend message">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                    <span>Resend</span>
+                                </button>
+                                <span>•</span>
+                                <button onclick="copyBlockifaiText(\`${encodeURIComponent(msg.content || '')}\`)" class="hover:text-zinc-900 dark:hover:text-white px-1.5 py-0.5 rounded transition-colors" title="Copy text">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                </button>
                             </div>
                         </div>
                     `;
@@ -18342,28 +18492,119 @@ REQUIREMENTS:
         let blockifaiAbortController = null;
         let isBlockifaiGenerating = false;
 
+        // --- OCR BACKGROUND ENGINE WITH LIVE SPINNER OVERLAY ---
+        window.pendingBlockifaiImages = [];
+        
+        window.handleBlockifaiImages = function(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+            
+            const previewContainer = document.getElementById('blockifai-image-preview');
+            
+            Array.from(files).forEach(file => {
+                if (window.pendingBlockifaiImages.length >= 3) {
+                    alert("Maximum 3 images allowed per prompt.");
+                    return;
+                }
+                
+                const id = 'img_' + Date.now() + Math.random().toString(36).substr(2, 5);
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const dataUrl = ev.target.result;
+                    const imgObj = { id, file, dataUrl, ocrText: "", processing: true };
+                    window.pendingBlockifaiImages.push(imgObj);
+                    
+                    previewContainer.classList.remove('hidden');
+                    previewContainer.classList.add('flex');
+                    previewContainer.insertAdjacentHTML('beforeend', `
+                        <div id="preview-${id}" class="relative w-14 h-14 rounded-xl overflow-hidden border border-zinc-200/80 dark:border-zinc-700 shadow-sm shrink-0 bg-black/5">
+                            <img src="${dataUrl}" class="w-full h-full object-cover">
+                            <!-- Live Background OCR Spinner Overlay -->
+                            <div id="spinner-${id}" class="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center transition-all duration-300">
+                                <div class="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                                <span class="text-[8px] font-bold text-white mt-1">Reading...</span>
+                            </div>
+                            <button type="button" onclick="removeBlockifaiImage('${id}')" class="absolute -top-1 -right-1 bg-black/80 text-white rounded-full p-1 shadow-md hover:bg-black transition-colors"><i data-lucide="x" class="w-2.5 h-2.5"></i></button>
+                        </div>
+                    `);
+                    lucide.createIcons();
+                    
+                    // Run silent client-side OCR extraction
+                    if (window.Tesseract && typeof Tesseract.recognize === 'function') {
+                        Tesseract.recognize(file, 'eng')
+                            .then(({ data: { text } }) => {
+                                const target = window.pendingBlockifaiImages.find(i => i.id === id);
+                                if (target) {
+                                    target.ocrText = (text || "").trim();
+                                    target.processing = false;
+                                }
+                                const spinEl = document.getElementById(`spinner-${id}`);
+                                if (spinEl) {
+                                    spinEl.className = "absolute inset-0 bg-emerald-950/70 flex flex-col items-center justify-center transition-all duration-300";
+                                    spinEl.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-400 stroke-[3px]"></i>`;
+                                    lucide.createIcons();
+                                    setTimeout(() => {
+                                        if (spinEl) {
+                                            spinEl.style.opacity = '0';
+                                            setTimeout(() => spinEl.remove(), 250);
+                                        }
+                                    }, 800);
+                                }
+                            }).catch(err => {
+                                console.warn("Tesseract OCR warning:", err);
+                                const target = window.pendingBlockifaiImages.find(i => i.id === id);
+                                if (target) target.processing = false;
+                                const spinEl = document.getElementById(`spinner-${id}`);
+                                if (spinEl) spinEl.remove();
+                            });
+                    } else {
+                        imgObj.processing = false;
+                        const spinEl = document.getElementById(`spinner-${id}`);
+                        if (spinEl) spinEl.remove();
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+            e.target.value = '';
+        };
+
+        window.removeBlockifaiImage = function(id) {
+            window.pendingBlockifaiImages = window.pendingBlockifaiImages.filter(i => i.id !== id);
+            const el = document.getElementById(`preview-${id}`);
+            if (el) el.remove();
+            if (window.pendingBlockifaiImages.length === 0) {
+                document.getElementById('blockifai-image-preview').classList.add('hidden');
+                document.getElementById('blockifai-image-preview').classList.remove('flex');
+            }
+        };
+
         window.updateChatButtonState = function() {
             const btn = document.getElementById('blockifai-send-btn');
             if(!btn) return;
             if(isBlockifaiGenerating) {
-                // Pixelated Animated Cube
-                btn.innerHTML = `<div class="pixel-cube text-zinc-900 dark:text-white"></div>`;
+                btn.innerHTML = `<div class="w-3 h-3 bg-zinc-900 dark:bg-white rounded-sm"></div>`;
                 btn.classList.remove('bg-zinc-900', 'dark:bg-white', 'text-white', 'dark:text-black');
-                btn.classList.add('bg-transparent', 'border-[2.5px]', 'border-zinc-900', 'dark:border-white');
+                btn.classList.add('bg-zinc-200', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white');
+                btn.title = "Stop Generating";
             } else {
-                // Native React-app style up arrow
-                btn.innerHTML = `<i data-lucide="arrow-up" class="w-5 h-5 stroke-[3px]"></i>`;
-                btn.classList.remove('bg-transparent', 'border-[2.5px]', 'border-zinc-900', 'dark:border-white');
+                btn.innerHTML = `<i data-lucide="arrow-up" class="w-4 h-4 stroke-[3px]"></i>`;
+                btn.classList.remove('bg-zinc-200', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white');
                 btn.classList.add('bg-zinc-900', 'dark:bg-white', 'text-white', 'dark:text-black');
+                btn.title = "Send";
             }
             lucide.createIcons();
         };
 
-        // --- ChatGPT Style Actions ---
+        // --- Message Actions: Copy, Edit, and Resend ---
         window.copyBlockifaiText = function(encodedStr) {
             const txt = decodeURIComponent(encodedStr);
             navigator.clipboard.writeText(txt).then(() => {
-                alert("Copied to clipboard!");
+                const toast = document.createElement('div');
+                toast.className = 'fixed top-12 left-1/2 -translate-x-1/2 bg-zinc-900 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-2xl z-[600] animate-[fadeIn_0.2s_ease-out] flex items-center gap-1.5';
+                toast.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i> Copied to clipboard`;
+                document.body.appendChild(toast);
+                lucide.createIcons();
+                setTimeout(() => toast.remove(), 1800);
             });
         };
 
@@ -18374,27 +18615,34 @@ REQUIREMENTS:
             const msg = session.messages[index];
             const input = document.getElementById('blockifai-chat-input');
             if (input) {
-                input.value = msg.content;
+                input.value = msg.content || '';
                 input.style.height = 'auto';
-                input.style.height = input.scrollHeight + 'px';
+                input.style.height = Math.max(38, input.scrollHeight) + 'px';
                 input.focus();
+            }
+        };
+
+        window.resendBlockifaiMessage = function(index) {
+            if (isBlockifaiGenerating) return;
+            const session = appState.aiSessions.find(s => s.id === appState.currentAiSessionId);
+            if (!session || !session.messages[index]) return;
+            
+            const msg = session.messages[index];
+            if (msg.role === 'user') {
+                runBlockifAI(msg.content, msg.images || []);
             }
         };
 
         window.regenerateBlockifaiMessage = function(index) {
             if (isBlockifaiGenerating) return;
-            
             const session = appState.aiSessions.find(s => s.id === appState.currentAiSessionId);
             if (!session) return;
             
-            // Delete AI's message and anything after it to cleanly regenerate
             session.messages = session.messages.slice(0, index);
-            
-            // Find the immediate preceding user prompt to trigger runBlockifAI
             const lastUserMsg = session.messages[session.messages.length - 1];
             if (lastUserMsg && lastUserMsg.role === 'user') {
-                session.messages.pop(); // Pop it out so runBlockifAI pushes it back cleanly
-                runBlockifAI(lastUserMsg.content);
+                session.messages.pop(); 
+                runBlockifAI(lastUserMsg.content, lastUserMsg.images || []);
             }
         };
 
@@ -18528,35 +18776,65 @@ REQUIREMENTS:
             return null;
         }
 
-        window.handleBlockifAIChat = function(e) {
+        window.handleBlockifAIChat = async function(e) {
             e.preventDefault();
             
             const input = document.getElementById('blockifai-chat-input');
             const text = input.value.trim();
-            if (!text) return;
 
-            if (window.aiPlannerState && window.aiPlannerState.active) {
+            if (window.aiPlannerState && window.aiPlannerState.active && text) {
                 input.value = '';
                 input.style.height = '';
                 window.handlePlannerReply(text);
                 return;
             }
 
+            // Clean Pause / Stop Handling: Abort ongoing request quietly without error banners
             if (isBlockifaiGenerating) {
-                if (blockifaiAbortController) blockifaiAbortController.abort();
+                if (blockifaiAbortController) {
+                    blockifaiAbortController.abort();
+                }
                 isBlockifaiGenerating = false;
                 updateChatButtonState();
+                const geminiBg = document.getElementById('gemini-generating-bg');
+                if (geminiBg) geminiBg.classList.remove('gemini-ambient-active');
                 return;
+            }
+            
+            if (!text && (!window.pendingBlockifaiImages || window.pendingBlockifaiImages.length === 0)) return;
+
+            // Wait briefly if an attached image is still completing its local OCR scan
+            const pendingOcr = window.pendingBlockifaiImages.filter(i => i.processing);
+            if (pendingOcr.length > 0) {
+                input.disabled = true;
+                let waitLimit = 0;
+                while (window.pendingBlockifaiImages.some(i => i.processing) && waitLimit < 15) {
+                    await new Promise(r => setTimeout(r, 200));
+                    waitLimit++;
+                }
+                input.disabled = false;
+            }
+
+            const attachedImages = window.pendingBlockifaiImages.map(i => ({ 
+                dataUrl: i.dataUrl, 
+                ocrText: i.ocrText || "" 
+            }));
+            
+            window.pendingBlockifaiImages = [];
+            const previewContainer = document.getElementById('blockifai-image-preview');
+            if (previewContainer) {
+                previewContainer.innerHTML = '';
+                previewContainer.classList.add('hidden');
+                previewContainer.classList.remove('flex');
             }
             
             input.value = '';
             input.style.height = ''; 
             
-            runBlockifAI(text);
+            runBlockifAI(text, attachedImages);
         };
 
-        window.runBlockifAI = function(prompt) {
-            // Unconditionally allow BlockifAI for Forensics Special Users & Block VIII
+        window.runBlockifAI = function(prompt, images = []) {
             if (appState.isForensicsSpecial) {
                 // Fully unlocked
             } else if (appState.isGuest) {
@@ -18566,9 +18844,10 @@ REQUIREMENTS:
                 }
             }
 
-            // Force session creation before opening chat to avoid empty chat bug
+            const titleText = prompt || "Image Analysis";
+            const title = titleText.length > 30 ? titleText.substring(0, 30) + '...' : titleText;
+
             if (!appState.currentAiSessionId) {
-                const title = prompt.length > 30 ? prompt.substring(0, 30) + '...' : prompt;
                 appState.currentAiSessionId = 'chat_' + Date.now();
                 appState.aiSessions.unshift({
                     id: appState.currentAiSessionId,
@@ -18584,33 +18863,18 @@ REQUIREMENTS:
                 openBlockifAI();
             }
 
-            if (!appState.currentAiSessionId) {
-                const title = prompt.length > 30 ? prompt.substring(0, 30) + '...' : prompt;
-                appState.currentAiSessionId = 'chat_' + Date.now();
-                appState.aiSessions.unshift({
-                    id: appState.currentAiSessionId,
-                    title: title,
-                    type: 'chat',
-                    updatedAt: Date.now(),
-                    messages: []
-                });
-                if (appState.aiSessions.length > 20) appState.aiSessions.pop();
-            }
-
             const session = appState.aiSessions.find(s => s.id === appState.currentAiSessionId);
-            session.messages.push({ role: 'user', content: prompt });
+            session.messages.push({ role: 'user', content: prompt, images: images });
             session.updatedAt = Date.now();
-            
             appState.aiSessions.sort((a,b) => b.updatedAt - a.updatedAt);
             
-            // IMMEDIATELY SAVE CHAT TO FIREBASE WHEN USER SENDS SO HISTORY IS NEVER LOST!
             if (appState.currentUser && !appState.isGuest) {
                 updateUserDoc({ aiSessions: appState.aiSessions }).catch(e => console.warn(e));
             }
             
             renderBlockifAiSidebar();
-            renderBlockifAIChat(false); // Scroll to bottom naturally for loading bubble
-            fetchBlockifAIResponse(prompt, session);
+            renderBlockifAIChat(true); 
+            fetchBlockifAIResponse(prompt, session, images);
         };
 
         // Performance Deep Diagnostic Bridge
@@ -18642,7 +18906,7 @@ Provide:
             runBlockifAI(prompt);
         };
 
-        async function fetchBlockifAIResponse(prompt, session) {
+        async function fetchBlockifAIResponse(prompt, session, images = []) {
             const contentBox = document.getElementById('blockifai-content');
             const geminiBg = document.getElementById('gemini-generating-bg');
             
@@ -18785,10 +19049,20 @@ OFFICIAL TEXTBOOK CHAPTER MARKINGS DIRECTORY FOR BLOCK V (2ND YEAR MBBS):
     * Ch 6: Blindness & National Vision Programs -> LO: HNSS-CM-002
 `;
 
-                let historyContents = session.messages.map(msg => ({
-                    role: msg.role === 'user' ? 'user' : 'assistant',
-                    content: msg.content
-                }));
+                // Map session messages into API messages: Silently incorporate any extracted OCR text without cluttering user bubbles
+                let historyContents = session.messages.map(msg => {
+                    let promptPayload = msg.content || "";
+                    if (msg.role === 'user' && msg.images && msg.images.length > 0) {
+                        const ocrBlobs = msg.images.map((im, i) => im.ocrText ? `[Extracted Text from Image ${i+1}]:\n${im.ocrText}` : '').filter(Boolean).join('\n\n');
+                        if (ocrBlobs) {
+                            promptPayload = `${promptPayload}\n\n--- BACKGROUND ATTACHED IMAGE CONTEXT (Extracted via OCR) ---\n${ocrBlobs}\n--- END OF ATTACHED IMAGE CONTEXT ---`.trim();
+                        }
+                    }
+                    return {
+                        role: msg.role === 'user' ? 'user' : 'assistant',
+                        content: promptPayload
+                    };
+                });
                 
                 historyContents.unshift({
                     role: "system",
@@ -18865,21 +19139,22 @@ CRITICAL RULES & BEHAVIORS:
                 renderBlockifAIChat(true); 
 
             } catch (error) {
-                if (error.name === 'AbortError') {
+                // If user tapped stop / pause or aborted, remove the thinking indicator cleanly without developer error boxes
+                if (error.name === 'AbortError' || error.message?.includes('aborted') || !isBlockifaiGenerating) {
                     const loaderEl = document.getElementById(loadingId);
                     if (loaderEl) loaderEl.remove();
-                    // Leave the user's message intact, but abort AI generation.
                 } else {
-                    console.error(error);
+                    console.error("AI Response Error:", error);
                     const loaderEl = document.getElementById(loadingId);
                     if (loaderEl) {
                         loaderEl.outerHTML = `
-                            <div class="self-start max-w-[85%] bg-rose-50/50 border border-rose-200 p-4 rounded-2xl rounded-tl-sm ml-2">
-                                <p class="text-xs text-rose-500 font-bold"><i data-lucide="alert-triangle" class="w-4 h-4 inline mb-0.5"></i> ${error.message}</p>
+                            <div class="self-start max-w-[85%] bg-rose-50/70 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 p-4 rounded-2xl rounded-tl-sm ml-2">
+                                <p class="text-xs text-rose-600 dark:text-rose-400 font-bold"><i data-lucide="alert-triangle" class="w-4 h-4 inline mb-0.5"></i> Unable to reach AI server. Tap resend or try again.</p>
                             </div>
                         `;
                         lucide.createIcons();
                     }
+                    // Remove incomplete user prompt on network error to allow clean retry
                     session.messages.pop();
                 }
             } finally {
