@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Topic 3.1: Thyroiditis — 3D Animated Clinical Reel</title>
+  <style>
+    :root {
+      --bg-studio: #04070f;
+      --accent: #38bdf8;
+      --accent-crimson: #fb375e;
+      --accent-amber: #fbbf24;
+      --accent-violet: #a855f7;
+      --accent-teal: #2dd4bf;
+      --accent-slate: #cbd5e1;
+      --glass: rgba(9, 15, 30, 0.72);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 45%, #0e172d 0%, #050811 58%, #020308 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text-main);
+      user-select: none;
+    }
+
+    /* Ambient Studio Backdrop */
+    .studio-wrapper {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .ambient-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.16), transparent 55%);
+      transition: background 0.8s ease;
+      z-index: 0;
+    }
+
+    /* 9:16 Vertical Shorts / Reel Viewport */
+    .reel-stage {
+      position: relative;
+      height: min(93vh, 920px);
+      aspect-ratio: 9 / 16;
+      max-width: calc(100vw - 24px);
+      border-radius: 28px;
+      overflow: hidden;
+      background: #03060e;
+      box-shadow:
+        0 30px 90px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(255, 255, 255, 0.12),
+        0 0 80px -18px var(--stage-glow, rgba(56, 189, 248, 0.35));
+      z-index: 2;
+      transition: box-shadow 0.7s ease;
+    }
+
+    @media (max-width: 600px) {
+      .studio-wrapper { padding: 0; }
+      .reel-stage {
+        height: 100vh;
+        width: 100vw;
+        max-width: 100vw;
+        border-radius: 0;
+        aspect-ratio: auto;
+      }
+      .side-panel { display: none !important; }
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Subtle Cinematic Vignette + Scanline Grain */
+    .cinematic-vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at 50% 42%, transparent 48%, rgba(2, 5, 14, 0.65) 100%),
+        linear-gradient(180deg, rgba(2, 6, 16, 0.72) 0%, transparent 22%, transparent 66%, rgba(2, 6, 16, 0.88) 100%);
+      z-index: 3;
+    }
+
+    /* Whip-Pan & Speed Streak Transition Overlay */
+    .transition-fx {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 18;
+      opacity: 0;
+    }
+
+    .transition-fx.whip {
+      animation: whipFlash 0.44s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .transition-fx.plunge {
+      animation: plungeFlash 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes whipFlash {
+      0% { opacity: 0; transform: translateX(30%) scaleX(1.3); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), rgba(56,189,248,0.55), transparent); filter: blur(18px); }
+      35% { opacity: 0.95; transform: translateX(0%) scaleX(1.8); }
+      100% { opacity: 0; transform: translateX(-45%) scaleX(1.1); }
+    }
+
+    @keyframes plungeFlash {
+      0% { opacity: 0; transform: scale(0.7); background: radial-gradient(circle, rgba(251,191,36,0.55), rgba(56,189,248,0.35), transparent 70%); }
+      40% { opacity: 0.95; transform: scale(1.45); }
+      100% { opacity: 0; transform: scale(2.3); }
+    }
+
+    /* Top Story Segment Progress Bars */
+    .story-bars {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      right: 14px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+      z-index: 25;
+      pointer-events: none;
+    }
+
+    .story-bar {
+      height: 3.5px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.22);
+      overflow: hidden;
+    }
+
+    .story-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #fff, var(--accent));
+      border-radius: 99px;
+      transition: width 0.06s linear;
+    }
+
+    /* Top HUD Header */
+    .top-hud {
+      position: absolute;
+      top: 24px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 24;
+      pointer-events: none;
+    }
+
+    .topic-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(8, 13, 28, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(12px);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #e2e8f0;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-crimson);
+      box-shadow: 0 0 10px var(--accent-crimson);
+      animation: livePulse 1.4s infinite ease-in-out;
+    }
+
+    @keyframes livePulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.45); opacity: 0.6; }
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .hud-icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(8, 13, 28, 0.72);
+      backdrop-filter: blur(12px);
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease;
+    }
+
+    .hud-icon-btn:hover {
+      background: rgba(56, 189, 248, 0.24);
+      transform: scale(1.06);
+    }
+
+    /* 3D-Tracked Floating Anatomical Callouts */
+    .callout-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 12;
+      overflow: hidden;
+    }
+
+    .pin-label {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.28s ease;
+      will-change: left, top, opacity;
+    }
+
+    .pin-label.visible { opacity: 1; }
+
+    .pin-chip {
+      padding: 4px 9px;
+      border-radius: 8px;
+      background: rgba(6, 11, 24, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(8px);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: #f8fafc;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    }
+
+    .pin-stem {
+      width: 1.5px;
+      height: 22px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.1));
+    }
+
+    .pin-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 10px #fff;
+    }
+
+    /* Main Kinetic Graphics Overlay Layer */
+    .hud-stage {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 66px 18px 86px;
+    }
+
+    /* Hero Title Banner */
+    .hero-banner {
+      text-align: center;
+      transform: translateY(-10px);
+      opacity: 0;
+      transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .hero-banner.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .kicker {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 5px;
+      text-shadow: 0 2px 12px rgba(56, 189, 248, 0.5);
+    }
+
+    .mega-title {
+      font-size: clamp(26px, 4.4vh, 36px);
+      font-weight: 900;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.7));
+    }
+
+    .sub-pill-row {
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .mini-chip {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #e2e8f0;
+      backdrop-filter: blur(8px);
+    }
+
+    /* Floating Clinical Subtype Card */
+    .clinical-card {
+      margin-top: auto;
+      margin-bottom: 10px;
+      background: linear-gradient(145deg, rgba(10, 17, 36, 0.84), rgba(6, 10, 22, 0.90));
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-left: 4px solid var(--card-accent, var(--accent));
+      border-radius: 18px;
+      padding: 13px 15px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+      transform: translateY(22px) scale(0.96);
+      opacity: 0;
+      transition: all 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .clinical-card.active {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .card-index {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--card-accent, var(--accent));
+    }
+
+    .card-badge {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #f8fafc;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 850;
+      line-height: 1.15;
+      color: #ffffff;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .card-points {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .card-point {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 12.2px;
+      line-height: 1.35;
+      color: #cbd5e1;
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: all 0.32s ease;
+    }
+
+    .card-point.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .point-bullet {
+      width: 6px;
+      height: 6px;
+      margin-top: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--card-accent, var(--accent));
+      box-shadow: 0 0 8px var(--card-accent, var(--accent));
+    }
+
+    /* Pathophysiology Live Chart + 5-Step Strip */
+    .patho-panel {
+      margin-top: auto;
+      margin-bottom: 10px;
+      background: rgba(7, 12, 26, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 18px;
+      padding: 12px 14px;
+      backdrop-filter: blur(16px);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .patho-panel.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .patho-steps {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .p-step {
+      text-align: center;
+      padding: 5px 3px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 8.5px;
+      font-weight: 700;
+      line-height: 1.18;
+      color: #94a3b8;
+      transition: all 0.28s ease;
+    }
+
+    .p-step.active {
+      background: rgba(251, 191, 36, 0.18);
+      border-color: rgba(251, 191, 36, 0.65);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(251, 191, 36, 0.25);
+    }
+
+    .p-step.done {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+    }
+
+    .hormone-graph-wrap {
+      position: relative;
+      height: 66px;
+      width: 100%;
+    }
+
+    .graph-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+
+    /* Kinetic Captions (YouTube Shorts Style) */
+    .caption-zone {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 58px;
+      text-align: center;
+      z-index: 22;
+      pointer-events: none;
+    }
+
+    .caption-box {
+      display: inline-block;
+      max-width: 100%;
+      padding: 7px 12px;
+      border-radius: 12px;
+      background: rgba(3, 6, 14, 0.72);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      font-size: clamp(13.5px, 1.95vh, 16px);
+      font-weight: 800;
+      line-height: 1.32;
+      letter-spacing: -0.01em;
+      color: rgba(255, 255, 255, 0.58);
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      transition: opacity 0.2s ease;
+    }
+
+    .caption-box .word {
+      display: inline-block;
+      margin: 0 2px;
+      transition: color 0.12s ease, transform 0.12s ease;
+    }
+
+    .caption-box .word.spoken {
+      color: #ffffff;
+    }
+
+    .caption-box .word.current {
+      color: #fde047;
+      transform: scale(1.06);
+    }
+
+    .caption-box .word.key.spoken,
+    .caption-box .word.key.current {
+      color: #38bdf8;
+    }
+
+    /* Bottom Transport Bar */
+    .transport-bar {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 10px;
+      z-index: 26;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 14px;
+      background: rgba(8, 13, 28, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(14px);
+    }
+
+    .play-mini-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #030712;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-weight: 900;
+    }
+
+    .scrubber-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scrubber {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 8px var(--accent);
+      cursor: pointer;
+    }
+
+    .time-readout {
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: #cbd5e1;
+      min-width: 58px;
+      text-align: right;
+    }
+
+    .speed-btn {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 7px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* Start / Replay Splash Overlay */
+    .start-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      background: radial-gradient(circle at 50% 42%, rgba(9, 17, 38, 0.62), rgba(3, 6, 15, 0.92));
+      backdrop-filter: blur(8px);
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+
+    .start-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .start-badge {
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+
+    .start-title {
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+      background: linear-gradient(180deg, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .start-desc {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      max-width: 290px;
+      margin-bottom: 24px;
+    }
+
+    .start-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 24px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      color: #030712;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      box-shadow: 0 12px 32px rgba(56, 189, 248, 0.45);
+      transition: transform 0.16s ease, box-shadow 0.2s ease;
+    }
+
+    .start-cta:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 16px 40px rgba(56, 189, 248, 0.6);
+    }
+
+    .start-sub-cta {
+      margin-top: 12px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #cbd5e1;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 7px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    /* Desktop Side Chapter & Clinical Reference Panel */
+    .side-panel {
+      width: 310px;
+      max-height: min(93vh, 920px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 2;
+    }
+
+    .panel-card {
+      background: rgba(8, 13, 28, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 16px;
+      backdrop-filter: blur(16px);
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .chapter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chapter-btn {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .chapter-btn:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .chapter-btn.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .chapter-time {
+      font-size: 10px;
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ref-summary {
+      font-size: 11.5px;
+      line-height: 1.48;
+      color: #94a3b8;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .ref-summary strong { color: #f8fafc; }
+    .ref-item { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .ref-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+    /* Modal Study Sheet (for mobile / compact view) */
+    .study-modal {
+      position: absolute;
+      inset: 0;
+      z-index: 45;
+      background: rgba(4, 8, 18, 0.94);
+      backdrop-filter: blur(18px);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s ease;
+    }
+
+    .study-modal.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .modal-body {
+      overflow-y: auto;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow" id="ambientGlow"></div>
+
+  <div class="studio-wrapper">
+    <!-- 9:16 REEL VIEWPORT -->
+    <div class="reel-stage" id="reelStage">
+      <canvas id="webgl-canvas"></canvas>
+      <div class="cinematic-vignette"></div>
+      <div class="transition-fx" id="transitionFx"></div>
+
+      <!-- 3D-Tracked Callout Pins -->
+      <div class="callout-layer" id="calloutLayer"></div>
+
+      <!-- Segmented Story Progress Bars -->
+      <div class="story-bars" id="storyBars">
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+        <div class="story-bar"><div class="story-bar-fill"></div></div>
+      </div>
+
+      <!-- Top HUD -->
+      <div class="top-hud">
+        <div class="topic-pill">
+          <span class="pulse-dot" id="pulseDot"></span>
+          <span id="hudSectionLabel">TOPIC 3.1 • THYROIDITIS</span>
+        </div>
+        <div class="top-actions">
+          <button class="hud-icon-btn" id="audioToggleBtn" title="Toggle Audio / Voice (M)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="audioIconSvg">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+          </button>
+          <button class="hud-icon-btn" id="studyBtn" title="Reference Text">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main HUD Stage -->
+      <div class="hud-stage">
+        <div class="hero-banner" id="heroBanner">
+          <div class="kicker" id="heroKicker">TOPIC 3.1 • CLINICAL PATHOLOGY</div>
+          <div class="mega-title" id="heroTitle">THYROIDITIS</div>
+          <div class="sub-pill-row" id="heroPills"></div>
+        </div>
+
+        <!-- Classification Card -->
+        <div class="clinical-card" id="clinicalCard">
+          <div class="card-header">
+            <span class="card-index" id="cardIndex">SUBTYPE 01</span>
+            <span class="card-badge" id="cardBadge">AUTOIMMUNE</span>
+          </div>
+          <div class="card-title" id="cardTitle">Hashimoto Thyroiditis</div>
+          <div class="card-points" id="cardPoints"></div>
+        </div>
+
+        <!-- Pathophysiology Live Cascade & Hormone Curve -->
+        <div class="patho-panel" id="pathoPanel">
+          <div class="graph-label-row">
+            <span>General Pathophysiology Cascade</span>
+            <span id="phaseStatusTag" style="color:#fbbf24">STAGE 1 / 5</span>
+          </div>
+          <div class="patho-steps" id="pathoSteps">
+            <div class="p-step">1. Trigger<br><span style="opacity:.7">(Imm / Viral)</span></div>
+            <div class="p-step">2. Follicle<br><span style="opacity:.7">Inflammation</span></div>
+            <div class="p-step">3. Hormone<br><span style="opacity:.7">Thyrotoxicosis</span></div>
+            <div class="p-step">4. Damage<br><span style="opacity:.7">& Atrophy</span></div>
+            <div class="p-step">5. Hypo-<br><span style="opacity:.7">thyroidism</span></div>
+          </div>
+          <div class="hormone-graph-wrap">
+            <svg viewBox="0 0 300 62" width="100%" height="100%" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="hormoneGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#38bdf8"/>
+                  <stop offset="45%" stop-color="#fbbf24"/>
+                  <stop offset="65%" stop-color="#fb7185"/>
+                  <stop offset="100%" stop-color="#60a5fa"/>
+                </linearGradient>
+                <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="rgba(251,191,36,0.38)"/>
+                  <stop offset="100%" stop-color="rgba(56,189,248,0.0)"/>
+                </linearGradient>
+              </defs>
+              <!-- Normal Baseline -->
+              <line x1="0" y1="36" x2="300" y2="36" stroke="rgba(255,255,255,0.16)" stroke-dasharray="4 4" stroke-width="1"/>
+              <text x="4" y="32" fill="#64748b" font-size="7.5" font-weight="700">NORMAL T3/T4</text>
+              <text x="122" y="10" fill="#fbbf24" font-size="7.5" font-weight="800">THYROTOXICOSIS SURGE</text>
+              <text x="220" y="57" fill="#60a5fa" font-size="7.5" font-weight="800">HYPOTHYROIDISM</text>
+              <path id="hormoneAreaPath" d="M 0 36 L 60 36 C 90 36, 112 8, 146 11 C 178 14, 198 50, 240 52 L 300 52 L 300 62 L 0 62 Z" fill="url(#areaGrad)" opacity="0.5"/>
+              <path id="hormoneCurvePath" d="M 0 36 L 60 36 C 90 36, 112 8, 146 11 C 178 14, 198 50, 240 52 L 300 52" fill="none" stroke="url(#hormoneGrad)" stroke-width="3" stroke-linecap="round"/>
+              <circle id="hormoneMarker" cx="0" cy="36" r="4.5" fill="#fff" stroke="#fbbf24" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kinetic Captions -->
+      <div class="caption-zone">
+        <div class="caption-box" id="captionBox"></div>
+      </div>
+
+      <!-- Bottom Scrubber & Transport -->
+      <div class="transport-bar" id="transportBar">
+        <button class="play-mini-btn" id="playPauseBtn" title="Play / Pause (Space)">▶</button>
+        <div class="scrubber-wrap">
+          <input type="range" min="0" max="65" step="0.05" value="0" class="scrubber" id="scrubber" />
+          <span class="time-readout" id="timeReadout">0:00 / 1:05</span>
+        </div>
+        <button class="speed-btn" id="speedBtn" title="Playback Speed">1.0x</button>
+      </div>
+
+      <!-- Study Modal -->
+      <div class="study-modal" id="studyModal">
+        <div class="modal-head">
+          <span style="font-size:12px;font-weight:800;letter-spacing:0.12em;color:var(--accent)">SOURCE CLINICAL NOTES (TOPIC 3.1)</span>
+          <button class="hud-icon-btn" id="closeStudyBtn">✕</button>
+        </div>
+        <div class="modal-body" id="studyModalBody"></div>
+      </div>
+
+      <!-- Start Overlay -->
+      <div class="start-overlay" id="startOverlay">
+        <div class="start-badge">TOPIC 3.1 • 3D ANIMATED REEL</div>
+        <div class="start-title">DEFINING<br>THYROIDITIS</div>
+        <div class="start-desc">
+          A 65-second 3D anatomical reel exploring thyroid inflammation, its four clinical subtypes, and the five-step pathophysiological cascade.
+        </div>
+        <button class="start-cta" id="startWithAudioBtn">
+          <span>▶</span>
+          <span>WATCH REEL (VOICE + 3D SFX)</span>
+        </button>
+        <button class="start-sub-cta" id="startMutedBtn">Watch Visuals Muted</button>
+      </div>
+    </div>
+
+    <!-- DESKTOP COMPANION CHAPTER & REFERENCE PANEL -->
+    <div class="side-panel">
+      <div class="panel-card">
+        <div class="panel-title">Reel Chapters (Tap to Jump)</div>
+        <div class="chapter-list" id="chapterList"></div>
+      </div>
+      <div class="panel-card" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="panel-title">Topic 3.1 Reference Text</div>
+        <div class="ref-summary" id="desktopRefSummary"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js r128 UMD (Works cleanly on HTTP, HTTPS & file://) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    const TOTAL_DURATION = 65.0;
+
+    // =========================================================================
+    // 1. CLINICAL CONTENT & NARRATIVE SCRIPT (100% faithful to source txt)
+    // =========================================================================
+    const CHAPTERS = [
+      { id: 0, title: "1. Definition of Thyroiditis", start: 0.0, end: 8.5, accent: "#fb375e", label: "DEFINITION" },
+      { id: 1, title: "2. Classification Overview", start: 8.5, end: 12.0, accent: "#38bdf8", label: "ETIOLOGY & TYPES" },
+      { id: 2, title: "3. Hashimoto Thyroiditis", start: 12.0, end: 20.5, accent: "#a855f7", label: "SUBTYPE 01" },
+      { id: 3, title: "4. Subacute Lymphocytic", start: 20.5, end: 28.0, accent: "#2dd4bf", label: "SUBTYPE 02" },
+      { id: 4, title: "5. Granulomatous (de Quervain)", start: 28.0, end: 36.5, accent: "#f59e0b", label: "SUBTYPE 03" },
+      { id: 5, title: "6. Riedel Thyroiditis", start: 36.5, end: 44.5, accent: "#cbd5e1", label: "SUBTYPE 04" },
+      { id: 6, title: "7. General Pathophysiology", start: 44.5, end: 61.5, accent: "#fbbf24", label: "PATHOPHYSIOLOGY" },
+      { id: 7, title: "8. Summary Recap", start: 61.5, end: 65.0, accent: "#38bdf8", label: "TOPIC 3.1 RECAP" }
+    ];
+
+    const NARRATION_CUES = [
+      {
+        start: 0.2, end: 8.3,
+        text: "Thyroiditis describes a diverse, heterogeneous group of clinical disorders that share one unifying characteristic: thyroid inflammation.",
+        keys: ["Thyroiditis", "diverse,", "heterogeneous", "unifying", "thyroid", "inflammation."]
+      },
+      {
+        start: 8.7, end: 11.8,
+        text: "Clinically, it is categorized into four distinct subtypes by presentation and cause.",
+        keys: ["four", "subtypes", "cause."]
+      },
+      {
+        start: 12.2, end: 20.3,
+        text: "First, Hashimoto thyroiditis: a chronic autoimmune condition causing gradual thyroid failure and parenchyma destruction.",
+        keys: ["Hashimoto", "chronic", "autoimmune", "thyroid", "failure", "parenchyma", "destruction."]
+      },
+      {
+        start: 20.7, end: 27.8,
+        text: "Second, subacute lymphocytic thyroiditis—also known as painless thyroiditis—an autoimmune process that may occur postpartum.",
+        keys: ["subacute", "lymphocytic", "painless", "autoimmune", "postpartum."]
+      },
+      {
+        start: 28.2, end: 36.3,
+        text: "Third, granulomatous or de Quervain thyroiditis: a painful, self-limited condition often triggered by a viral infection.",
+        keys: ["granulomatous", "Quervain", "painful,", "self-limited", "viral", "infection."]
+      },
+      {
+        start: 36.7, end: 44.3,
+        text: "Fourth, Riedel thyroiditis: a rare disorder defined by extensive fibrosis involving the gland and adjacent neck tissues.",
+        keys: ["Riedel", "rare", "extensive", "fibrosis", "adjacent", "neck", "tissues."]
+      },
+      {
+        start: 44.8, end: 51.4,
+        text: "Symptomatic pathophysiology follows a cascade: an autoimmune or viral trigger sparks inflammation of thyroid follicles...",
+        keys: ["autoimmune", "viral", "trigger", "inflammation", "follicles..."]
+      },
+      {
+        start: 51.5, end: 57.6,
+        text: "...possibly releasing preformed hormone in a thyrotoxicosis phase, before follicular damage and atrophy...",
+        keys: ["preformed", "hormone", "thyrotoxicosis", "follicular", "damage", "atrophy..."]
+      },
+      {
+        start: 57.7, end: 61.4,
+        text: "...ultimately leading to thyroid hypofunction, or hypothyroidism.",
+        keys: ["thyroid", "hypofunction,", "hypothyroidism."]
+      },
+      {
+        start: 61.7, end: 64.8,
+        text: "Four disorders. One unifying thyroid inflammation. That is thyroiditis.",
+        keys: ["unifying", "inflammation.", "thyroiditis."]
+      }
+    ];
+
+    const REFERENCE_HTML = `
+      <div class="ref-item"><strong>[DEFINITION OF THYROIDITIS]</strong><br>Thyroiditis describes a diverse and heterogeneous group of clinical disorders that share the unifying characteristic of thyroid inflammation.</div>
+      <div class="ref-item"><strong>• Hashimoto Thyroiditis:</strong> A chronic autoimmune condition causing gradual thyroid failure and parenchyma destruction.</div>
+      <div class="ref-item"><strong>• Subacute Lymphocytic Thyroiditis:</strong> Also known as painless thyroiditis; an autoimmune process that may occur in the postpartum period.</div>
+      <div class="ref-item"><strong>• Granulomatous (de Quervain) Thyroiditis:</strong> A painful, self-limited condition often triggered by a viral infection.</div>
+      <div class="ref-item"><strong>• Riedel Thyroiditis:</strong> A rare disorder defined by extensive fibrosis that involves the gland and may reach adjacent neck tissues.</div>
+      <div class="ref-item"><strong>[GENERAL PATHOPHYSIOLOGY]</strong><br>Triggering Event (Autoimmune or Viral) → Inflammation of Thyroid Follicles → Possible Release of Preformed Hormone (Thyrotoxicosis Phase) → Follicular Damage/Atrophy → Thyroid Hypofunction (Hypothyroidism)</div>
+    `;
+
+    document.getElementById("desktopRefSummary").innerHTML = REFERENCE_HTML;
+    document.getElementById("studyModalBody").innerHTML = REFERENCE_HTML;
+
+    // =========================================================================
+    // 2. SOUND DESIGN ENGINE (Web Audio Procedural SFX + SpeechSynthesis)
+    // =========================================================================
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.master = null;
+        this.droneGain = null;
+        this.droneOscs = [];
+        this.enabled = true;
+        this.hasVoice = ("speechSynthesis" in window);
+        this.preferredVoice = null;
+        this.triggeredCues = new Set();
+        this.triggeredSfx = new Set();
+        if (this.hasVoice) {
+          this.pickVoice();
+          window.speechSynthesis.onvoiceschanged = () => this.pickVoice();
+        }
+      }
+
+      pickVoice() {
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices.length) return;
+        const priorities = ["Google US English", "Samantha", "Daniel", "Microsoft Aria", "Natural", "en-US", "en-GB"];
+        for (const p of priorities) {
+          const found = voices.find(v => v.name.includes(p) || v.lang === p);
+          if (found) { this.preferredVoice = found; return; }
+        }
+        this.preferredVoice = voices.find(v => v.lang.startsWith("en")) || voices[0];
+      }
+
+      initAudio() {
+        if (this.ctx) {
+          if (this.ctx.state === "suspended") this.ctx.resume();
+          return;
+        }
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.enabled ? 0.55 : 0.0;
+        this.master.connect(this.ctx.destination);
+
+        // Ambient cinematic sub-pad
+        this.droneGain = this.ctx.createGain();
+        this.droneGain.gain.value = 0.08;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 260;
+        this.droneGain.connect(filter);
+        filter.connect(this.master);
+
+        [55, 82.41, 110].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          osc.type = idx === 0 ? "sine" : "triangle";
+          osc.frequency.value = freq;
+          const g = this.ctx.createGain();
+          g.gain.value = idx === 0 ? 0.65 : 0.22;
+          osc.connect(g);
+          g.connect(this.droneGain);
+          osc.start();
+          this.droneOscs.push(osc);
+        });
+      }
+
+      setEnabled(flag) {
+        this.enabled = flag;
+        if (this.master && this.ctx) {
+          this.master.gain.setTargetAtTime(flag ? 0.55 : 0.0, this.ctx.currentTime, 0.08);
+        }
+        if (!flag && this.hasVoice) {
+          window.speechSynthesis.cancel();
+        }
+      }
+
+      setDroneActive(playing) {
+        if (!this.droneGain || !this.ctx) return;
+        this.droneGain.gain.setTargetAtTime(playing && this.enabled ? 0.10 : 0.0, this.ctx.currentTime, 0.2);
+      }
+
+      playBoom(freqStart = 120, freqEnd = 36, dur = 0.55, vol = 0.45) {
+        if (!this.ctx || !this.enabled) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freqStart, t);
+        osc.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        osc.connect(g);
+        g.connect(this.master);
+        osc.start(t);
+        osc.stop(t + dur);
+      }
+
+      playWhoosh(dur = 0.36, high = 2200) {
+        if (!this.ctx || !this.enabled) return;
+        const t = this.ctx.currentTime;
+        const bufSize = Math.floor(this.ctx.sampleRate * dur);
+        const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.Q.value = 1.6;
+        filter.frequency.setValueAtTime(220, t);
+        filter.frequency.exponentialRampToValueAtTime(high, t + dur * 0.45);
+        filter.frequency.exponentialRampToValueAtTime(320, t + dur);
+
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.linearRampToValueAtTime(0.24, t + dur * 0.3);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+        src.connect(filter);
+        filter.connect(g);
+        g.connect(this.master);
+        src.start(t);
+      }
+
+      playChime(notes = [523.25, 659.25, 783.99], step = 0.06, vol = 0.14) {
+        if (!this.ctx || !this.enabled) return;
+        const t = this.ctx.currentTime;
+        notes.forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(f, t + idx * step);
+          g.gain.setValueAtTime(0.001, t + idx * step);
+          g.gain.linearRampToValueAtTime(vol, t + idx * step + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t + idx * step + 0.55);
+          osc.connect(g);
+          g.connect(this.master);
+          osc.start(t + idx * step);
+          osc.stop(t + idx * step + 0.6);
+        });
+      }
+
+      speak(text, speed = 1.0) {
+        if (!this.hasVoice || !this.enabled) return;
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(text);
+        if (this.preferredVoice) utt.voice = this.preferredVoice;
+        utt.rate = Math.min(1.4, Math.max(0.85, 1.03 * speed));
+        utt.pitch = 1.0;
+        utt.volume = 0.95;
+        window.speechSynthesis.speak(utt);
+      }
+
+      resetTriggers(currentTime) {
+        this.triggeredCues.clear();
+        this.triggeredSfx.clear();
+        if (this.hasVoice) window.speechSynthesis.cancel();
+        // Pre-mark cues already passed
+        NARRATION_CUES.forEach((c, idx) => {
+          if (currentTime > c.start + 1.2) this.triggeredCues.add(idx);
+        });
+      }
+
+      update(t, playing, speed) {
+        this.setDroneActive(playing);
+        if (!playing) return;
+
+        NARRATION_CUES.forEach((cue, idx) => {
+          if (t >= cue.start && t < cue.end && !this.triggeredCues.has(idx)) {
+            this.triggeredCues.add(idx);
+            this.speak(cue.text, speed);
+          }
+        });
+
+        const sfxEvents = [
+          { id: "s0", t: 0.05, fn: () => this.playBoom(130, 38, 0.7, 0.45) },
+          { id: "s1", t: 3.1, fn: () => this.playBoom(90, 42, 0.3, 0.25) },
+          { id: "s2", t: 8.5, fn: () => { this.playWhoosh(0.35); this.playChime([440, 554.37], 0.05, 0.12); } },
+          { id: "s3", t: 12.0, fn: () => { this.playWhoosh(0.35); this.playBoom(110, 40, 0.4, 0.3); } },
+          { id: "s4", t: 20.5, fn: () => { this.playWhoosh(0.38, 1600); this.playChime([392, 493.88, 587.33], 0.08, 0.11); } },
+          { id: "s5", t: 28.0, fn: () => { this.playWhoosh(0.32, 2600); this.playBoom(145, 34, 0.45, 0.42); } },
+          { id: "s6", t: 36.5, fn: () => { this.playWhoosh(0.38, 1200); this.playBoom(95, 30, 0.6, 0.42); } },
+          { id: "s7", t: 44.5, fn: () => { this.playWhoosh(0.55, 3200); this.playBoom(125, 36, 0.55, 0.35); } },
+          { id: "s8", t: 51.6, fn: () => { this.playBoom(140, 45, 0.4, 0.35); this.playChime([587.33, 739.99, 880, 1174.66], 0.055, 0.15); } },
+          { id: "s9", t: 57.6, fn: () => this.playBoom(75, 32, 0.5, 0.25) },
+          { id: "s10", t: 61.5, fn: () => { this.playWhoosh(0.42); this.playChime([440, 554.37, 659.25], 0.07, 0.13); } }
+        ];
+        sfxEvents.forEach(ev => {
+          if (t >= ev.t && t < ev.t + 0.5 && !this.triggeredSfx.has(ev.id)) {
+            this.triggeredSfx.add(ev.id);
+            ev.fn();
+          }
+        });
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    // =========================================================================
+    // 3. THREE.JS PROCEDURAL 3D ANATOMICAL & MICROSCOPIC WORLD
+    // =========================================================================
+    const canvas = document.getElementById("webgl-canvas");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x040711);
+    scene.fog = new THREE.FogExp2(0x040711, 0.028);
+
+    const camera = new THREE.PerspectiveCamera(44, 9 / 16, 0.1, 150);
+
+    function resizeRenderer() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const w = Math.max(100, Math.floor(rect.width));
+      const h = Math.max(100, Math.floor(rect.height));
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener("resize", resizeRenderer);
+    resizeRenderer();
+
+    // Procedural Studio Cube Environment Map for Wet Specular Biological Sheen
+    function buildStudioEnvMap() {
+      const faces = [];
+      const colors = [
+        ["#0f2447", "#060b18"],
+        ["#1e1133", "#050811"],
+        ["#38bdf8", "#0b1429"],
+        ["#1e293b", "#03050a"],
+        ["#fb375e", "#091022"],
+        ["#0c1830", "#03060e"]
+      ];
+      for (let i = 0; i < 6; i++) {
+        const c = document.createElement("canvas");
+        c.width = 128; c.height = 128;
+        const ctx = c.getContext("2d");
+        const grad = ctx.createRadialGradient(64, 48, 8, 64, 64, 90);
+        grad.addColorStop(0, colors[i][0]);
+        grad.addColorStop(1, colors[i][1]);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 128, 128);
+        // Specular studio softboxes
+        if (i === 2 || i === 0 || i === 4) {
+          ctx.fillStyle = "rgba(255,255,255,0.45)";
+          ctx.beginPath();
+          ctx.ellipse(42, 38, 26, 12, 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        faces.push(c);
+      }
+      const cubeTex = new THREE.CubeTexture(faces);
+      cubeTex.needsUpdate = true;
+      return cubeTex;
+    }
+
+    const envMap = buildStudioEnvMap();
+    scene.environment = envMap;
+
+    // Procedural Biological Vascular + Lobular Surface Textures
+    function buildTissueTextures() {
+      const size = 512;
+      const colorCanv = document.createElement("canvas");
+      colorCanv.width = size; colorCanv.height = size;
+      const cCtx = colorCanv.getContext("2d");
+
+      const bumpCanv = document.createElement("canvas");
+      bumpCanv.width = size; bumpCanv.height = size;
+      const bCtx = bumpCanv.getContext("2d");
+
+      // Base organic mottled parenchyma
+      cCtx.fillStyle = "#d96b7e";
+      cCtx.fillRect(0, 0, size, size);
+      bCtx.fillStyle = "#808080";
+      bCtx.fillRect(0, 0, size, size);
+
+      for (let i = 0; i < 240; i++) {
+        const x = Math.random() * size;
+        const y = Math.random() * size;
+        const r = 10 + Math.random() * 28;
+        const g = cCtx.createRadialGradient(x, y, 1, x, y, r);
+        g.addColorStop(0, i % 2 === 0 ? "rgba(244,142,158,0.28)" : "rgba(165,58,82,0.25)");
+        g.addColorStop(1, "rgba(217,107,126,0)");
+        cCtx.fillStyle = g;
+        cCtx.beginPath(); cCtx.arc(x, y, r, 0, Math.PI * 2); cCtx.fill();
+
+        const bg = bCtx.createRadialGradient(x, y, 1, x, y, r * 0.85);
+        bg.addColorStop(0, "rgba(235,235,235,0.25)");
+        bg.addColorStop(1, "rgba(128,128,128,0)");
+        bCtx.fillStyle = bg;
+        bCtx.beginPath(); bCtx.arc(x, y, r * 0.85, 0, Math.PI * 2); bCtx.fill();
+      }
+
+      // Delicate capillary branching
+      for (let v = 0; v < 26; v++) {
+        let vx = Math.random() * size;
+        let vy = Math.random() * size;
+        let angle = Math.random() * Math.PI * 2;
+        cCtx.strokeStyle = "rgba(145, 22, 48, 0.42)";
+        cCtx.lineWidth = 1.4;
+        bCtx.strokeStyle = "rgba(215, 215, 215, 0.35)";
+        bCtx.lineWidth = 1.6;
+        cCtx.beginPath(); bCtx.beginPath();
+        cCtx.moveTo(vx, vy); bCtx.moveTo(vx, vy);
+        for (let s = 0; s < 14; s++) {
+          angle += (Math.random() - 0.5) * 0.8;
+          vx += Math.cos(angle) * 16;
+          vy += Math.sin(angle) * 16;
+          cCtx.lineTo(vx, vy); bCtx.lineTo(vx, vy);
+        }
+        cCtx.stroke(); bCtx.stroke();
+      }
+
+      const map = new THREE.CanvasTexture(colorCanv);
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.encoding = THREE.sRGBEncoding;
+
+      const bump = new THREE.CanvasTexture(bumpCanv);
+      bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
+      return { map, bump };
+    }
+
+    const tissueTex = buildTissueTextures();
+
+    // Lighting Rig
+    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x1e1b4b, 0.75);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight(0xfff1f2, 1.55);
+    keyLight.position.set(4.5, 6.5, 7.0);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.PointLight(0x38bdf8, 2.2, 24);
+    rimLight.position.set(-4.5, 3.0, -4.5);
+    scene.add(rimLight);
+
+    const pathologyLight = new THREE.PointLight(0xfb375e, 1.6, 18);
+    pathologyLight.position.set(2.8, -1.5, 4.2);
+    scene.add(pathologyLight);
+
+    // -------------------------------------------------------------------------
+    // MACRO WORLD GROUP (Neck, Trachea, Vessels, Butterfly Thyroid Gland)
+    // -------------------------------------------------------------------------
+    const macroGroup = new THREE.Group();
+    scene.add(macroGroup);
+
+    // Translucent Neck Holographic Context Collar
+    const neckMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.055
+    });
+    const neckCollar = new THREE.Mesh(new THREE.CylinderGeometry(2.85, 3.25, 7.6, 24, 8, true), neckMat);
+    neckCollar.position.set(0, 0.1, -0.4);
+    macroGroup.add(neckCollar);
+
+    // 3D Trachea & Hyaline Cartilage Rings
+    const tracheaGroup = new THREE.Group();
+    macroGroup.add(tracheaGroup);
+
+    const tracheaCoreMat = new THREE.MeshPhysicalMaterial({
+      color: 0x475569,
+      roughness: 0.45,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.36,
+      envMap
+    });
+    const tracheaTube = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.64, 7.2, 28, 1, true), tracheaCoreMat);
+    tracheaTube.position.set(0, 0.1, -0.35);
+    tracheaGroup.add(tracheaTube);
+
+    const ringMat = new THREE.MeshPhysicalMaterial({
+      color: 0x94a3b8,
+      roughness: 0.3,
+      clearcoat: 0.6,
+      transparent: true,
+      opacity: 0.72,
+      envMap
+    });
+    for (let i = 0; i < 13; i++) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.69, 0.085, 12, 32, Math.PI * 1.65), ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.rotation.z = -Math.PI * 0.325;
+      ring.position.set(0, -2.5 + i * 0.43, -0.35);
+      tracheaGroup.add(ring);
+    }
+
+    // Carotid Arteries & Jugular Veins flanking the thyroid
+    function createVessel(points, color, radius) {
+      const curve = new THREE.CatmullRomCurve3(points);
+      const geo = new THREE.TubeGeometry(curve, 36, radius, 12, false);
+      const mat = new THREE.MeshPhysicalMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.22,
+        roughness: 0.22,
+        clearcoat: 0.85,
+        transparent: true,
+        opacity: 0.82,
+        envMap
+      });
+      return new THREE.Mesh(geo, mat);
+    }
+
+    const leftCarotid = createVessel([
+      new THREE.Vector3(-1.85, -3.5, -0.55),
+      new THREE.Vector3(-1.62, -1.2, -0.45),
+      new THREE.Vector3(-1.55, 0.6, -0.35),
+      new THREE.Vector3(-1.72, 3.4, -0.45)
+    ], 0xdc2626, 0.14);
+    const rightCarotid = createVessel([
+      new THREE.Vector3(1.85, -3.5, -0.55),
+      new THREE.Vector3(1.62, -1.2, -0.45),
+      new THREE.Vector3(1.55, 0.6, -0.35),
+      new THREE.Vector3(1.72, 3.4, -0.45)
+    ], 0xdc2626, 0.14);
+    const leftJugular = createVessel([
+      new THREE.Vector3(-2.15, -3.5, -0.78),
+      new THREE.Vector3(-1.95, 0.0, -0.68),
+      new THREE.Vector3(-2.05, 3.4, -0.78)
+    ], 0x2563eb, 0.17);
+    const rightJugular = createVessel([
+      new THREE.Vector3(2.15, -3.5, -0.78),
+      new THREE.Vector3(1.95, 0.0, -0.68),
+      new THREE.Vector3(2.05, 3.4, -0.78)
+    ], 0x2563eb, 0.17);
+    macroGroup.add(leftCarotid, rightCarotid, leftJugular, rightJugular);
+
+    // Sculpted 3D Butterfly Thyroid Gland
+    const thyroidGroup = new THREE.Group();
+    macroGroup.add(thyroidGroup);
+
+    const thyroidMat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(0xe66a7d),
+      emissive: new THREE.Color(0x540814),
+      emissiveIntensity: 0.25,
+      map: tissueTex.map,
+      bumpMap: tissueTex.bump,
+      bumpScale: 0.035,
+      roughness: 0.26,
+      metalness: 0.04,
+      clearcoat: 0.92,
+      clearcoatRoughness: 0.16,
+      envMap,
+      envMapIntensity: 1.25
+    });
+
+    function createSculptedLobe(side) {
+      const geo = new THREE.SphereGeometry(1, 36, 36);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        let x = pos.getX(i);
+        let y = pos.getY(i);
+        let z = pos.getZ(i);
+
+        // Teardrop anatomical tapering (wider inferiorly, tapered superior pole)
+        const taper = y > 0 ? 1.0 - y * 0.42 : 1.0 + y * 0.12;
+        x *= 0.64 * taper;
+        y *= 1.48;
+        z *= 0.58 * taper;
+
+        // Curve slightly posteriorly to hug tracheal wall
+        const medialSide = side * x < 0;
+        if (medialSide) z -= 0.12;
+        x += side * (y * 0.08); // slight outward upper/lower flare
+        z -= Math.pow(x * 0.65, 2) * 0.28;
+
+        // Organic lobular micro-undulation
+        const lobule = Math.sin(x * 7.2 + y * 4.5) * Math.cos(z * 6.8 + y * 3.1) * 0.032;
+        x += lobule;
+        z += lobule;
+        pos.setXYZ(i, x, y, z);
+      }
+      geo.computeVertexNormals();
+      geo.userData.basePos = Float32Array.from(geo.attributes.position.array);
+      geo.userData.baseNorm = Float32Array.from(geo.attributes.normal.array);
+
+      const mesh = new THREE.Mesh(geo, thyroidMat);
+      mesh.position.set(side * 0.92, 0.05, 0.05);
+      mesh.rotation.z = side * -0.14;
+      mesh.rotation.y = side * -0.25;
+      return mesh;
+    }
+
+    const leftLobe = createSculptedLobe(-1);
+    const rightLobe = createSculptedLobe(1);
+    thyroidGroup.add(leftLobe, rightLobe);
+
+    // Isthmus bridging across anterior trachea
+    const isthmusCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.72, -0.18, 0.28),
+      new THREE.Vector3(-0.28, -0.22, 0.56),
+      new THREE.Vector3(0.0, -0.24, 0.62),
+      new THREE.Vector3(0.28, -0.22, 0.56),
+      new THREE.Vector3(0.72, -0.18, 0.28)
+    ]);
+    const isthmusGeo = new THREE.TubeGeometry(isthmusCurve, 24, 0.27, 16, false);
+    const isthmusMesh = new THREE.Mesh(isthmusGeo, thyroidMat);
+    isthmusMesh.scale.set(1, 1.35, 0.72);
+    thyroidGroup.add(isthmusMesh);
+
+    // Subtle Pyramidal Lobe (realistic anatomical detail!)
+    const pyrGeo = new THREE.ConeGeometry(0.14, 0.85, 16);
+    const pyrMesh = new THREE.Mesh(pyrGeo, thyroidMat);
+    pyrMesh.position.set(-0.16, 0.36, 0.44);
+    pyrMesh.rotation.z = 0.14;
+    thyroidGroup.add(pyrMesh);
+
+    // Morph thyroid vertex positions smoothly (inflammation swell, atrophy pits, throb)
+    function updateThyroidDeform(swellAmount, atrophyAmount, time) {
+      [leftLobe, rightLobe].forEach((lobe, lIdx) => {
+        const geo = lobe.geometry;
+        const pos = geo.attributes.position;
+        const base = geo.userData.basePos;
+        const norm = geo.userData.baseNorm;
+        const pulse = Math.sin(time * 4.5 + lIdx * 0.3) * 0.014 * Math.max(0.2, swellAmount);
+
+        for (let i = 0; i < pos.count; i++) {
+          const bx = base[i * 3], by = base[i * 3 + 1], bz = base[i * 3 + 2];
+          const nx = norm[i * 3], ny = norm[i * 3 + 1], nz = norm[i * 3 + 2];
+
+          // Patchy parenchymal pitting for Hashimoto atrophy
+          const pitPattern = Math.sin(bx * 8 + lIdx) * Math.sin(by * 5.5) * Math.cos(bz * 7);
+          const pit = atrophyAmount * (pitPattern > 0.15 ? -0.13 * pitPattern : -0.05);
+          const disp = swellAmount * 0.13 + pulse + pit;
+
+          pos.setXYZ(i, bx + nx * disp, by + ny * disp, bz + nz * disp);
+        }
+        pos.needsUpdate = true;
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // PATHOLOGY ACTORS ON MACRO GLAND
+    // -------------------------------------------------------------------------
+    // 1. Y-Shaped Autoimmune Antibodies (Hashimoto & Subacute)
+    const antibodyGroup = new THREE.Group();
+    macroGroup.add(antibodyGroup);
+    const abMat = new THREE.MeshPhysicalMaterial({
+      color: 0xc084fc,
+      emissive: 0x7e22ce,
+      emissiveIntensity: 0.75,
+      roughness: 0.2,
+      clearcoat: 0.8
+    });
+    function buildAntibodyMesh() {
+      const g = new THREE.Group();
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 8), abMat);
+      stem.position.y = -0.05;
+      const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.12, 8), abMat);
+      armL.position.set(-0.045, 0.05, 0); armL.rotation.z = 0.65;
+      const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.12, 8), abMat);
+      armR.position.set(0.045, 0.05, 0); armR.rotation.z = -0.65;
+      g.add(stem, armL, armR);
+      return g;
+    }
+    const antibodies = [];
+    for (let i = 0; i < 24; i++) {
+      const ab = buildAntibodyMesh();
+      const angle = (i / 24) * Math.PI * 2;
+      const side = i % 2 === 0 ? -1 : 1;
+      ab.userData = {
+        baseX: side * (0.75 + Math.random() * 0.8),
+        baseY: (Math.random() - 0.5) * 2.2,
+        baseZ: 0.35 + Math.random() * 0.85,
+        phase: angle
+      };
+      antibodyGroup.add(ab);
+      antibodies.push(ab);
+    }
+
+    // 2. Painless Lymphocytic Cloud (Subacute Lymphocytic)
+    const lymphCloudGroup = new THREE.Group();
+    macroGroup.add(lymphCloudGroup);
+    const lymphMat = new THREE.MeshPhysicalMaterial({
+      color: 0x5eead4,
+      emissive: 0x0f766e,
+      emissiveIntensity: 0.55,
+      roughness: 0.3,
+      transparent: true,
+      opacity: 0.78
+    });
+    const lymphCells = [];
+    const lymphGeo = new THREE.SphereGeometry(0.085, 14, 14);
+    for (let i = 0; i < 34; i++) {
+      const m = new THREE.Mesh(lymphGeo, lymphMat);
+      const a = Math.random() * Math.PI * 2;
+      m.userData = { angle: a, rad: 0.8 + Math.random() * 1.1, y: (Math.random() - 0.5) * 2.4, speed: 0.5 + Math.random() * 0.6 };
+      lymphCloudGroup.add(m);
+      lymphCells.push(m);
+    }
+
+    // 3. Spiky 3D Viruses + Pain Rings (Granulomatous / de Quervain)
+    const viralGroup = new THREE.Group();
+    macroGroup.add(viralGroup);
+    const virusCoreMat = new THREE.MeshPhysicalMaterial({
+      color: 0x34d399,
+      emissive: 0x059669,
+      emissiveIntensity: 0.7,
+      roughness: 0.25
+    });
+    const virusSpikeMat = new THREE.MeshPhysicalMaterial({
+      color: 0xfb7185,
+      emissive: 0xe11d48,
+      emissiveIntensity: 0.85,
+      roughness: 0.2
+    });
+    function buildVirusMesh() {
+      const g = new THREE.Group();
+      const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.11, 1), virusCoreMat);
+      g.add(core);
+      const dirs = [
+        [1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1],
+        [0.7,0.7,0],[-0.7,0.7,0],[0.7,-0.7,0],[-0.7,-0.7,0]
+      ];
+      const spGeo = new THREE.ConeGeometry(0.028, 0.09, 6);
+      dirs.forEach(d => {
+        const sp = new THREE.Mesh(spGeo, virusSpikeMat);
+        const v = new THREE.Vector3(d[0], d[1], d[2]).normalize();
+        sp.position.copy(v).multiplyScalar(0.13);
+        sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v);
+        g.add(sp);
+      });
+      return g;
+    }
+    const viruses = [];
+    for (let i = 0; i < 14; i++) {
+      const v = buildVirusMesh();
+      v.userData = {
+        target: new THREE.Vector3((i % 2 === 0 ? 1 : -1) * (0.55 + Math.random() * 0.55), (Math.random() - 0.5) * 1.6, 0.35 + Math.random() * 0.35),
+        dir: new THREE.Vector3((Math.random() - 0.5) * 2.2, (Math.random() - 0.5) * 1.8, 2.2 + Math.random() * 1.6),
+        spin: 1 + Math.random() * 2
+      };
+      viralGroup.add(v);
+      viruses.push(v);
+    }
+
+    // Pain Shockwave Rings
+    const painRings = [];
+    const painRingGeo = new THREE.TorusGeometry(0.75, 0.025, 10, 48);
+    for (let i = 0; i < 3; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.0 });
+      const r = new THREE.Mesh(painRingGeo, mat);
+      r.position.set(0.85, 0.1, 0.45);
+      viralGroup.add(r);
+      painRings.push(r);
+    }
+
+    // 4. Riedel Fibrosis Invasive Collagen Tendrils (growing smoothly via drawRange)
+    const fibrosisGroup = new THREE.Group();
+    macroGroup.add(fibrosisGroup);
+    const fibMat = new THREE.MeshPhysicalMaterial({
+      color: 0xe2e8f0,
+      emissive: 0x475569,
+      emissiveIntensity: 0.25,
+      roughness: 0.65,
+      metalness: 0.12,
+      clearcoat: 0.2,
+      envMap
+    });
+
+    const fibTendrils = [];
+    const tendrilSeeds = [
+      // Wrapping lobes & extending onto tracheal rings and carotid vessels
+      [[-0.9, 0.9, 0.4], [-1.1, 0.3, 0.55], [-0.8, -0.5, 0.6], [-0.2, -1.0, 0.45], [0.25, -1.65, 0.15]],
+      [[0.9, 1.0, 0.4], [1.15, 0.35, 0.55], [0.85, -0.4, 0.58], [0.15, -0.8, 0.55], [-0.45, -1.5, 0.18]],
+      [[-0.85, 0.2, 0.5], [-1.3, 0.1, 0.1], [-1.62, 0.0, -0.38], [-1.65, 0.65, -0.45]],
+      [[0.85, 0.1, 0.5], [1.35, -0.1, 0.05], [1.62, -0.25, -0.38], [1.65, 0.45, -0.42]],
+      [[-0.4, -0.2, 0.65], [0.0, 0.45, 0.45], [0.15, 1.35, 0.22], [-0.2, 2.05, 0.12]],
+      [[0.4, -0.35, 0.62], [0.05, -0.95, 0.42], [0.0, -1.75, 0.24], [0.35, -2.3, 0.1]],
+      [[-1.0, -0.7, 0.4], [-0.55, -1.25, 0.32], [0.15, -1.35, 0.32], [0.75, -1.05, 0.25]],
+      [[0.95, 0.65, 0.42], [0.45, 0.95, 0.28], [-0.25, 1.05, 0.25], [-0.95, 0.75, 0.35]],
+      [[-1.1, 0.45, 0.2], [-1.55, 0.85, -0.25], [-1.85, 1.45, -0.55]],
+      [[1.1, 0.45, 0.2], [1.55, 0.95, -0.25], [1.85, 1.55, -0.55]]
+    ];
+    tendrilSeeds.forEach(pts => {
+      const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+      const geo = new THREE.TubeGeometry(curve, 44, 0.055, 8, false);
+      const count = geo.index ? geo.index.count : geo.attributes.position.count;
+      geo.userData.totalCount = count;
+      geo.setDrawRange(0, 0);
+      const m = new THREE.Mesh(geo, fibMat);
+      fibrosisGroup.add(m);
+      fibTendrils.push(m);
+    });
+
+    // -------------------------------------------------------------------------
+    // MICROSCOPIC FOLLICLE CHAMBER (Deep Z = -34 for Seamless Plunge Transition)
+    // -------------------------------------------------------------------------
+    const microGroup = new THREE.Group();
+    microGroup.position.set(0, 0, -34);
+    scene.add(microGroup);
+
+    // Speed Tunnel Rings along plunge path (-6 to -28)
+    const tunnelGroup = new THREE.Group();
+    scene.add(tunnelGroup);
+    for (let i = 0; i < 14; i++) {
+      const tMat = new THREE.MeshBasicMaterial({
+        color: i % 2 === 0 ? 0xfb375e : 0x38bdf8,
+        transparent: true,
+        opacity: 0.28
+      });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.4 - i * 0.08, 0.025, 8, 40), tMat);
+      ring.position.set(0, 0, -4.5 - i * 1.75);
+      tunnelGroup.add(ring);
+    }
+
+    // Hero Thyroid Follicle (Ring/Shell of cuboidal epithelial cells with front cutaway)
+    const follicleGroup = new THREE.Group();
+    microGroup.add(follicleGroup);
+
+    const epiCellMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf472b6,
+      emissive: 0x4c0519,
+      emissiveIntensity: 0.35,
+      roughness: 0.25,
+      clearcoat: 0.85,
+      envMap
+    });
+    const epiCells = [];
+    const epiGeo = new THREE.SphereGeometry(0.24, 16, 16);
+    // Arrange cells on sphere excluding front camera cone (z > 0.65)
+    for (let lat = -3; lat <= 3; lat++) {
+      const phi = (lat / 3.6) * (Math.PI / 2);
+      const y = Math.sin(phi) * 1.55;
+      const rRing = Math.cos(phi) * 1.55;
+      const segs = Math.max(6, Math.round(rRing * 7.5));
+      for (let s = 0; s < segs; s++) {
+        const theta = (s / segs) * Math.PI * 2;
+        const x = Math.cos(theta) * rRing;
+        const z = Math.sin(theta) * rRing;
+        if (z > 0.82 && Math.abs(x) < 1.05 && Math.abs(y) < 1.05) continue; // open front cutaway!
+        const cell = new THREE.Mesh(epiGeo, epiCellMat);
+        cell.position.set(x, y, z);
+        cell.scale.set(1.05, 0.92, 1.05);
+        cell.userData = { basePos: new THREE.Vector3(x, y, z), rand: Math.random() * Math.PI * 2 };
+        follicleGroup.add(cell);
+        epiCells.push(cell);
+      }
+    }
+
+    // Glowing Gelatinous Colloid Sphere inside the follicle
+    const colloidMat = new THREE.MeshPhysicalMaterial({
+      color: 0xfbbf24,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.55,
+      roughness: 0.15,
+      clearcoat: 1.0,
+      transparent: true,
+      opacity: 0.58,
+      envMap
+    });
+    const colloidSphere = new THREE.Mesh(new THREE.SphereGeometry(1.26, 32, 32), colloidMat);
+    follicleGroup.add(colloidSphere);
+
+    // 85 Instanced Preformed T3 / T4 Hormone Molecules bursting during Thyrotoxicosis
+    const hormoneCount = 85;
+    const hormoneGeo = new THREE.SphereGeometry(0.075, 10, 10);
+    const hormoneMat = new THREE.MeshStandardMaterial({
+      color: 0xfde047,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 1.35,
+      roughness: 0.15
+    });
+    const hormoneInst = new THREE.InstancedMesh(hormoneGeo, hormoneMat, hormoneCount);
+    microGroup.add(hormoneInst);
+
+    const hormoneData = [];
+    for (let i = 0; i < hormoneCount; i++) {
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.15).normalize();
+      hormoneData.push({
+        base: dir.clone().multiplyScalar(0.2 + Math.random() * 0.85),
+        vel: dir.clone().multiplyScalar(1.6 + Math.random() * 2.6),
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Nearby Micro-Capillary Vessel receiving released T3/T4 hormones
+    const capCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-3.4, -2.1, 0.9),
+      new THREE.Vector3(-1.4, -1.7, 1.35),
+      new THREE.Vector3(1.2, -1.65, 1.25),
+      new THREE.Vector3(3.4, -2.0, 0.85)
+    ]);
+    const capMat = new THREE.MeshPhysicalMaterial({
+      color: 0xdc2626,
+      emissive: 0x7f1d1d,
+      emissiveIntensity: 0.35,
+      roughness: 0.25,
+      transparent: true,
+      opacity: 0.62,
+      envMap
+    });
+    const microCapillary = new THREE.Mesh(new THREE.TubeGeometry(capCurve, 32, 0.26, 14, false), capMat);
+    microGroup.add(microCapillary);
+
+    // Micro Triggers (Antibodies & Virions invading follicle)
+    const microInvaders = new THREE.Group();
+    microGroup.add(microInvaders);
+    const microActors = [];
+    for (let i = 0; i < 12; i++) {
+      const m = i % 2 === 0 ? buildAntibodyMesh() : buildVirusMesh();
+      m.scale.setScalar(1.35);
+      m.userData = {
+        start: new THREE.Vector3((i % 2 === 0 ? -1 : 1) * (2.6 + Math.random()), (Math.random() - 0.5) * 2.5, 2.2),
+        end: new THREE.Vector3((Math.random() - 0.5) * 2.2, (Math.random() - 0.5) * 2.0, 0.9)
+      };
+      microInvaders.add(m);
+      microActors.push(m);
+    }
+
+    // Secondary Out-of-Focus Background Follicles for Depth
+    [[-2.9, 1.9, -2.6], [3.1, 1.4, -3.2], [-2.5, -1.3, -3.5], [2.7, -0.8, -2.8]].forEach(pos => {
+      const bgF = new THREE.Mesh(
+        new THREE.SphereGeometry(0.95, 18, 18),
+        new THREE.MeshPhysicalMaterial({ color: 0x9f1239, transparent: true, opacity: 0.28, roughness: 0.4 })
+      );
+      bgF.position.set(pos[0], pos[1], pos[2]);
+      microGroup.add(bgF);
+    });
+
+    // Ambient Floating Biological Bokeh Dust
+    const particleCount = 260;
+    const pGeo = new THREE.BufferGeometry();
+    const pPositions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      pPositions[i * 3] = (Math.random() - 0.5) * 14;
+      pPositions[i * 3 + 1] = (Math.random() - 0.5) * 12;
+      pPositions[i * 3 + 2] = 4 - Math.random() * 44;
+    }
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPositions, 3));
+    const pMat = new THREE.PointsMaterial({ color: 0x7dd3fc, size: 0.055, transparent: true, opacity: 0.45 });
+    const bokehDust = new THREE.Points(pGeo, pMat);
+    scene.add(bokehDust);
+
+    // =========================================================================
+    // 4. CINEMATIC CAMERA RIG (Panning, Zooming, Tracking, Dolly-FOV, Shake)
+    // =========================================================================
+    const CAMERA_KEYFRAMES = [
+      // Scene 1: Definition Hero Reveal
+      { t: 0.0,  pos: [0.0, 0.35, 2.55], target: [0.0, 0.0, 0.2],  fov: 50 },
+      { t: 3.2,  pos: [0.4, 0.25, 5.65], target: [0.0, 0.0, 0.0],  fov: 42 },
+      { t: 8.3,  pos: [-1.1, 0.45, 5.1], target: [0.0, 0.0, 0.0],  fov: 44 },
+      // Scene 2: Classification Orbit
+      { t: 8.7,  pos: [2.4, 0.7, 5.3],   target: [0.0, 0.05, 0.0], fov: 46 },
+      { t: 11.8, pos: [0.2, 0.2, 5.9],   target: [0.0, 0.0, 0.0],  fov: 44 },
+      // Scene 3: Hashimoto (Track Left Lobe)
+      { t: 12.2, pos: [-2.1, 0.55, 3.65], target: [-0.85, 0.1, 0.15], fov: 40 },
+      { t: 20.3, pos: [-1.35, -0.35, 3.3], target: [-0.8, -0.1, 0.2], fov: 37 },
+      // Scene 4: Subacute Lymphocytic (Smooth pan to Right Lobe)
+      { t: 20.8, pos: [2.15, 0.45, 3.85], target: [0.85, 0.15, 0.15], fov: 42 },
+      { t: 27.8, pos: [1.15, 0.05, 4.3],  target: [0.65, 0.05, 0.1],  fov: 40 },
+      // Scene 5: Granulomatous / de Quervain (Dynamic Viral Impact Snap)
+      { t: 28.3, pos: [1.85, 0.6, 3.35],  target: [0.8, 0.1, 0.25],   fov: 48 },
+      { t: 31.5, pos: [0.65, 0.25, 4.15], target: [0.35, 0.0, 0.2],   fov: 43 },
+      { t: 36.3, pos: [-0.55, 0.1, 4.9],  target: [0.0, 0.0, 0.1],    fov: 42 },
+      // Scene 6: Riedel Fibrosis (Dramatic Low-Angle Dutch Push-In)
+      { t: 36.8, pos: [-1.45, -1.55, 3.9], target: [0.0, -0.25, 0.05], fov: 39 },
+      { t: 44.3, pos: [0.45, -0.95, 3.45], target: [0.0, -0.35, -0.1], fov: 36 },
+      // Scene 7: Plunge Inside Follicle Chamber (Pathophysiology)
+      { t: 44.7, pos: [0.0, 0.0, 1.5],     target: [0.0, 0.0, -34.0], fov: 58 },
+      { t: 45.6, pos: [0.0, 0.15, -28.4],  target: [0.0, 0.0, -34.0], fov: 46 },
+      { t: 51.4, pos: [1.45, 0.35, -29.3], target: [0.0, 0.0, -34.0], fov: 42 },
+      { t: 55.2, pos: [-0.95, -0.25, -28.5], target: [0.0, -0.2, -34.0], fov: 50 },
+      { t: 61.3, pos: [0.25, 0.2, -27.4],  target: [0.0, -0.15, -34.0], fov: 42 },
+      // Scene 8: Hero Pullback to Loop Frame
+      { t: 62.0, pos: [0.0, 0.25, -8.0],   target: [0.0, 0.0, 0.0],   fov: 54 },
+      { t: 65.0, pos: [0.0, 0.35, 2.55],   target: [0.0, 0.0, 0.2],   fov: 50 }
+    ];
+
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+    function smoothstep(edge0, edge1, x) {
+      const t = clamp01((x - edge0) / (edge1 - edge0));
+      return t * t * (3 - 2 * t);
+    }
+
+    const camTarget = new THREE.Vector3();
+    function updateCamera(t) {
+      let k0 = CAMERA_KEYFRAMES[0];
+      let k1 = CAMERA_KEYFRAMES[CAMERA_KEYFRAMES.length - 1];
+      for (let i = 0; i < CAMERA_KEYFRAMES.length - 1; i++) {
+        if (t >= CAMERA_KEYFRAMES[i].t && t <= CAMERA_KEYFRAMES[i + 1].t) {
+          k0 = CAMERA_KEYFRAMES[i];
+          k1 = CAMERA_KEYFRAMES[i + 1];
+          break;
+        }
+      }
+      const span = Math.max(0.0001, k1.t - k0.t);
+      const u = easeInOutCubic(clamp01((t - k0.t) / span));
+
+      const px = k0.pos[0] + (k1.pos[0] - k0.pos[0]) * u;
+      const py = k0.pos[1] + (k1.pos[1] - k0.pos[1]) * u;
+      const pz = k0.pos[2] + (k1.pos[2] - k0.pos[2]) * u;
+
+      const tx = k0.target[0] + (k1.target[0] - k0.target[0]) * u;
+      const ty = k0.target[1] + (k1.target[1] - k0.target[1]) * u;
+      const tz = k0.target[2] + (k1.target[2] - k0.target[2]) * u;
+
+      // Subtle organic handheld breathing + impact micro-shake
+      let shakeAmp = 0.014;
+      // Impact bursts at inflammation flash (3.1s), viral collision (28.7s), hormone rupture (51.8s)
+      if (t > 2.9 && t < 3.6) shakeAmp += 0.045 * (1 - (t - 2.9) / 0.7);
+      if (t > 28.4 && t < 29.8) shakeAmp += 0.065 * (1 - (t - 28.4) / 1.4);
+      if (t > 51.6 && t < 53.0) shakeAmp += 0.055 * (1 - (t - 51.6) / 1.4);
+
+      const bx = Math.sin(t * 1.7) * 0.035 + Math.sin(t * 28.0) * shakeAmp;
+      const by = Math.cos(t * 1.3) * 0.03 + Math.cos(t * 23.0) * shakeAmp;
+
+      camera.position.set(px + bx, py + by, pz);
+      camTarget.set(tx, ty, tz);
+      camera.lookAt(camTarget);
+
+      // Subtle Dutch tilt during Riedel Fibrosis
+      const riedelTilt = smoothstep(36.5, 37.5, t) * (1 - smoothstep(43.8, 44.6, t));
+      camera.rotation.z += riedelTilt * -0.075;
+
+      const fov = k0.fov + (k1.fov - k0.fov) * u;
+      if (Math.abs(camera.fov - fov) > 0.05) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
+    }
+
+    // =========================================================================
+    // 5. 3D SCENE STATE CHOREOGRAPHY PER TIMESTAMP
+    // =========================================================================
+    const dummy = new THREE.Object3D();
+    const tmpColor = new THREE.Color();
+
+    function update3DWorld(t) {
+      // Subtle ambient rotation of macro thyroid so it feels alive
+      thyroidGroup.rotation.y = Math.sin(t * 0.45) * 0.08;
+      tracheaGroup.rotation.y = thyroidGroup.rotation.y * 0.6;
+      neckCollar.rotation.y = t * 0.09;
+      bokehDust.rotation.y = t * 0.03;
+
+      // Carotid arterial pulse
+      const arterialPulse = 1 + Math.pow(Math.max(0, Math.sin(t * 4.2)), 6) * 0.14;
+      leftCarotid.scale.set(arterialPulse, 1, arterialPulse);
+      rightCarotid.scale.set(arterialPulse, 1, arterialPulse);
+
+      // Default visibility flags
+      antibodyGroup.visible = false;
+      lymphCloudGroup.visible = false;
+      viralGroup.visible = false;
+      fibrosisGroup.visible = false;
+      tunnelGroup.visible = t > 44.2 && t < 46.2;
+
+      let swell = 0.0;
+      let atrophy = 0.0;
+      let baseCol = new THREE.Color(0xe66a7d);
+      let emCol = new THREE.Color(0x540814);
+      let emInt = 0.25;
+      let rough = 0.26;
+      let clearcoat = 0.92;
+
+      if (t < 12.0) {
+        // Scene 1 & 2: Healthy -> Unifying Inflammation Flash
+        const inf = smoothstep(2.6, 4.2, t) * (1 - 0.35 * smoothstep(8.5, 11.5, t));
+        swell = inf * 0.9;
+        baseCol.lerp(new THREE.Color(0xf43f5e), inf);
+        emCol.lerp(new THREE.Color(0xbe123c), inf);
+        emInt = 0.25 + inf * 0.65;
+        pathologyLight.color.setHex(0xfb375e);
+        pathologyLight.intensity = 1.4 + inf * 2.0;
+      } else if (t < 20.5) {
+        // Scene 3: Hashimoto (Autoimmune antibodies + gradual parenchyma atrophy)
+        const p = smoothstep(12.0, 19.5, t);
+        antibodyGroup.visible = true;
+        antibodies.forEach((ab, i) => {
+          const rush = smoothstep(12.2, 14.8, t);
+          const jitter = Math.sin(t * 3.5 + i) * 0.07;
+          ab.position.set(
+            ab.userData.baseX * (1.8 - 0.8 * rush) + jitter,
+            ab.userData.baseY + Math.cos(t * 2.2 + i) * 0.08,
+            ab.userData.baseZ * (2.2 - 1.2 * rush)
+          );
+          ab.rotation.set(t * 1.4 + i, t * 0.9, i);
+          ab.scale.setScalar(smoothstep(12.0, 12.6, t));
+        });
+        swell = 0.35 * (1 - p);
+        atrophy = p * 1.1;
+        baseCol.setHex(0xbe185d).lerp(new THREE.Color(0x8b5cf6), p * 0.72);
+        emCol.setHex(0x581c87);
+        emInt = 0.35 - p * 0.15;
+        rough = 0.28 + p * 0.32;
+        pathologyLight.color.setHex(0xa855f7);
+        pathologyLight.intensity = 1.9;
+      } else if (t < 28.0) {
+        // Scene 4: Subacute Lymphocytic (Painless soft cyan-teal lymphocytic haze)
+        const p = smoothstep(20.5, 22.0, t);
+        lymphCloudGroup.visible = true;
+        lymphCells.forEach((cell, i) => {
+          const ang = cell.userData.angle + t * cell.userData.speed * 0.4;
+          cell.position.set(
+            Math.cos(ang) * cell.userData.rad,
+            cell.userData.y + Math.sin(t * 1.4 + i) * 0.12,
+            Math.sin(ang) * cell.userData.rad * 0.75 + 0.15
+          );
+          cell.scale.setScalar(p);
+        });
+        swell = 0.45 * p;
+        baseCol.setHex(0x64748b).lerp(new THREE.Color(0x38bdf8), 0.35);
+        emCol.setHex(0x0f766e);
+        emInt = 0.32;
+        pathologyLight.color.setHex(0x2dd4bf);
+        pathologyLight.intensity = 1.75;
+      } else if (t < 36.5) {
+        // Scene 5: Granulomatous / de Quervain (Viral impact -> painful glow -> self-limited fade)
+        viralGroup.visible = true;
+        const impact = smoothstep(28.0, 29.3, t);
+        const resolve = smoothstep(33.2, 36.2, t);
+        viruses.forEach((v, i) => {
+          const fly = smoothstep(28.0, 29.1 + (i % 4) * 0.15, t);
+          v.position.lerpVectors(v.userData.target.clone().add(v.userData.dir), v.userData.target, fly);
+          v.rotation.set(t * v.userData.spin, t * 1.2, i);
+          v.scale.setScalar(1.0 - resolve * 0.85);
+        });
+        // Radiating pain rings
+        painRings.forEach((r, idx) => {
+          const cycle = ((t - 28.6 + idx * 0.45) % 1.35) / 1.35;
+          const active = t > 28.6 && cycle > 0;
+          r.scale.setScalar(active ? 0.45 + cycle * 2.1 : 0.001);
+          r.material.opacity = active ? (1 - cycle) * 0.75 * (1 - resolve) : 0;
+        });
+        swell = (1.05 * impact) * (1 - resolve * 0.65);
+        baseCol.setHex(0xf43f5e).lerp(new THREE.Color(0xe66a7d), resolve * 0.75);
+        emCol.setHex(0xe11d48);
+        emInt = (0.85 * impact) * (1 - resolve * 0.75) + 0.18;
+        pathologyLight.color.setHex(0xf59e0b);
+        pathologyLight.intensity = 2.6 - resolve * 1.3;
+      } else if (t < 44.5) {
+        // Scene 6: Riedel Thyroiditis (Extensive stony fibrosis invading neck tissues)
+        const p = smoothstep(36.8, 43.2, t);
+        fibrosisGroup.visible = true;
+        fibTendrils.forEach((mesh, idx) => {
+          const delay = idx * 0.045;
+          const tp = clamp01((p - delay) / (1 - delay));
+          const drawVerts = Math.floor((mesh.geometry.userData.totalCount * tp) / 3) * 3;
+          mesh.geometry.setDrawRange(0, drawVerts);
+        });
+        swell = 0.25 * (1 - p);
+        baseCol.setHex(0xe66a7d).lerp(new THREE.Color(0xcbd5e1), p * 0.92);
+        emCol.setHex(0x334155);
+        emInt = 0.15;
+        rough = 0.26 + p * 0.56;
+        clearcoat = 0.92 - p * 0.75;
+        pathologyLight.color.setHex(0x94a3b8);
+        pathologyLight.intensity = 1.65;
+      } else {
+        // Scene 7 & 8: Microscopic Follicle Chamber Pathophysiology (t = 44.5 to 65.0)
+        // Stage 1: Trigger (44.5-48.2), Stage 2: Inflam (48.2-51.5), Stage 3: Hormone Release (51.5-55.2),
+        // Stage 4: Damage/Atrophy (55.2-58.3), Stage 5: Hypothyroidism (58.3-61.5)
+        const trigP = smoothstep(45.2, 48.2, t);
+        const infP = smoothstep(48.0, 51.2, t);
+        const burstP = smoothstep(51.5, 55.2, t);
+        const atrophyP = smoothstep(55.0, 58.6, t);
+        const hypoP = smoothstep(58.2, 61.2, t);
+
+        // Animate Invading Antibodies & Viruses inside Follicle chamber
+        microActors.forEach((m, i) => {
+          const move = smoothstep(45.0, 48.8, t) * (1 - smoothstep(53.0, 56.0, t));
+          m.position.lerpVectors(m.userData.start, m.userData.end, move);
+          m.rotation.set(t * 1.8 + i, t * 1.1, i);
+          m.visible = t > 44.8 && t < 56.5;
+        });
+
+        // Follicle epithelial cell ring morphing
+        epiCells.forEach(c => {
+          const inflameSpread = 1 + infP * 0.14 - atrophyP * 0.24;
+          const cellShrink = 1 + infP * 0.24 - atrophyP * 0.48;
+          const wobble = Math.sin(t * 6 + c.userData.rand) * 0.03 * infP * (1 - hypoP);
+          c.position.copy(c.userData.basePos).multiplyScalar(inflameSpread);
+          c.position.x += wobble;
+          c.scale.setScalar(Math.max(0.35, cellShrink));
+        });
+
+        // Epithelial cell color: pink -> fiery inflamed red -> dull purple-slate atrophied
+        tmpColor.setHex(0xf472b6)
+          .lerp(new THREE.Color(0xef4444), infP * (1 - atrophyP))
+          .lerp(new THREE.Color(0x475569), atrophyP * 0.85);
+        epiCellMat.color.copy(tmpColor);
+        epiCellMat.emissive.setHex(0x991b1b).lerp(new THREE.Color(0x1e293b), atrophyP);
+        epiCellMat.emissiveIntensity = 0.25 + infP * 0.65 * (1 - atrophyP);
+
+        // Colloid Shrinks & Dims as Preformed Hormone Leaks Out
+        const colloidScale = Math.max(0.25, 1.0 - burstP * 0.52 - atrophyP * 0.25);
+        colloidSphere.scale.setScalar(colloidScale);
+        colloidMat.opacity = Math.max(0.08, 0.62 - burstP * 0.42 - hypoP * 0.12);
+        colloidMat.emissiveIntensity = Math.max(0.05, 0.55 + burstP * 0.65 - atrophyP * 0.75);
+
+        // Instanced T3 / T4 Preformed Hormone Particles
+        for (let i = 0; i < hormoneCount; i++) {
+          const h = hormoneData[i];
+          const swirl = Math.sin(t * 2.2 + h.phase) * 0.08;
+          let pos = h.base.clone();
+          let sc = 1.0;
+
+          if (t >= 51.5) {
+            // Burst outward toward capillary and camera!
+            const leakTime = Math.max(0, t - 51.5);
+            const burstDist = smoothstep(0, 3.6, leakTime);
+            pos.addScaledVector(h.vel, burstDist * 1.45);
+            // Pull downward toward capillary after peak
+            if (burstDist > 0.35) {
+              pos.y -= (burstDist - 0.35) * 1.3;
+            }
+            // Fade out hormone count during Hypothyroidism
+            sc = Math.max(0.0, 1.0 - smoothstep(55.8, 60.2, t) * (i % 5 === 0 ? 0.55 : 0.98));
+            if (i < 12 && hypoP > 0.3) sc = 0.35; // tiny residual trickle
+          }
+
+          dummy.position.set(pos.x + swirl, pos.y + Math.cos(t * 2 + h.phase) * 0.06, pos.z);
+          dummy.scale.setScalar(sc);
+          dummy.updateMatrix();
+          hormoneInst.setMatrixAt(i, dummy.matrix);
+        }
+        hormoneInst.instanceMatrix.needsUpdate = true;
+
+        pathologyLight.color.setHex(burstP > 0.1 && atrophyP < 0.5 ? 0xfbbf24 : 0x3b82f6);
+        pathologyLight.intensity = 1.8;
+      }
+
+      thyroidMat.color.copy(baseCol);
+      thyroidMat.emissive.copy(emCol);
+      thyroidMat.emissiveIntensity = emInt;
+      thyroidMat.roughness = rough;
+      thyroidMat.clearcoat = clearcoat;
+      updateThyroidDeform(swell, atrophy, t);
+    }
+
+    // =========================================================================
+    // 6. 3D-TO-2D PROJECTED ANATOMICAL CALLOUT PINS
+    // =========================================================================
+    const calloutLayer = document.getElementById("calloutLayer");
+    const PINS = [
+      { id: "leftLobe", text: "Left Lobe", pos: new THREE.Vector3(-1.15, 0.65, 0.45), show: t => t > 1.2 && t < 11.8 },
+      { id: "isthmus", text: "Isthmus", pos: new THREE.Vector3(0.0, -0.25, 0.72), show: t => t > 2.0 && t < 11.8 },
+      { id: "trachea", text: "Trachea", pos: new THREE.Vector3(0.0, -1.65, 0.4), show: t => (t > 2.5 && t < 11.8) || (t > 38.2 && t < 44.2) },
+      { id: "abPin", text: "Autoantibodies", pos: new THREE.Vector3(-1.35, 0.85, 0.8), show: t => t > 13.0 && t < 19.8 },
+      { id: "lymphPin", text: "Painless Lymphocytic Infiltrate", pos: new THREE.Vector3(0.9, 0.75, 0.7), show: t => t > 21.5 && t < 27.4 },
+      { id: "virusPin", text: "Viral Trigger", pos: new THREE.Vector3(0.95, 0.85, 0.7), show: t => t > 28.6 && t < 34.0 },
+      { id: "fibPin", text: "Fibrosis → Neck Tissues", pos: new THREE.Vector3(-1.4, -0.1, -0.2), show: t => t > 38.5 && t < 44.2 },
+      { id: "folliclePin", text: "Thyroid Follicle", pos: new THREE.Vector3(0.0, 1.48, -34.0), show: t => t > 46.2 && t < 51.3 },
+      { id: "t3t4Pin", text: "T3 / T4 Hormone Surge", pos: new THREE.Vector3(1.15, -0.5, -32.4), show: t => t > 51.9 && t < 56.2 },
+      { id: "atrophyPin", text: "Follicular Atrophy", pos: new THREE.Vector3(-0.75, 0.9, -33.2), show: t => t > 56.2 && t < 61.0 }
+    ];
+
+    PINS.forEach(p => {
+      const el = document.createElement("div");
+      el.className = "pin-label";
+      el.innerHTML = `<div class="pin-chip">${p.text}</div><div class="pin-stem"></div><div class="pin-dot"></div>`;
+      calloutLayer.appendChild(el);
+      p.el = el;
+    });
+
+    const projVec = new THREE.Vector3();
+    function updateProjectedPins(t) {
+      const w = calloutLayer.clientWidth;
+      const h = calloutLayer.clientHeight;
+      PINS.forEach(p => {
+        if (!p.show(t)) {
+          p.el.classList.remove("visible");
+          return;
+        }
+        projVec.copy(p.pos).project(camera);
+        if (projVec.z >= 1 || projVec.z < -1) {
+          p.el.classList.remove("visible");
+          return;
+        }
+        const x = (projVec.x * 0.5 + 0.5) * w;
+        const y = (-projVec.y * 0.5 + 0.5) * h;
+        if (x < 35 || x > w - 35 || y < 80 || y > h - 135) {
+          p.el.classList.remove("visible");
+          return;
+        }
+        p.el.style.left = `${x.toFixed(1)}px`;
+        p.el.style.top = `${y.toFixed(1)}px`;
+        p.el.classList.add("visible");
+      });
+    }
+
+    // =========================================================================
+    // 7. HUD OVERLAY, KINETIC CAPTIONS, CHARTS & TRANSITIONS
+    // =========================================================================
+    const heroBanner = document.getElementById("heroBanner");
+    const heroKicker = document.getElementById("heroKicker");
+    const heroTitle = document.getElementById("heroTitle");
+    const heroPills = document.getElementById("heroPills");
+    const clinicalCard = document.getElementById("clinicalCard");
+    const cardIndex = document.getElementById("cardIndex");
+    const cardBadge = document.getElementById("cardBadge");
+    const cardTitle = document.getElementById("cardTitle");
+    const cardPoints = document.getElementById("cardPoints");
+    const pathoPanel = document.getElementById("pathoPanel");
+    const pathoSteps = document.querySelectorAll("#pathoSteps .p-step");
+    const phaseStatusTag = document.getElementById("phaseStatusTag");
+    const hormoneCurvePath = document.getElementById("hormoneCurvePath");
+    const hormoneMarker = document.getElementById("hormoneMarker");
+    const captionBox = document.getElementById("captionBox");
+    const storyFills = document.querySelectorAll(".story-bar-fill");
+    const hudSectionLabel = document.getElementById("hudSectionLabel");
+    const pulseDot = document.getElementById("pulseDot");
+    const ambientGlow = document.getElementById("ambientGlow");
+    const reelStage = document.getElementById("reelStage");
+    const transitionFx = document.getElementById("transitionFx");
+
+    let lastChapterId = -1;
+    let lastCueIndex = -1;
+
+    function fireTransition(type = "whip") {
+      transitionFx.classList.remove("whip", "plunge");
+      void transitionFx.offsetWidth;
+      transitionFx.classList.add(type);
+    }
+
+    function setHero(active, kicker = "", title = "", pills = []) {
+      if (!active) {
+        heroBanner.classList.remove("active");
+        return;
+      }
+      heroKicker.textContent = kicker;
+      heroTitle.textContent = title;
+      heroPills.innerHTML = pills.map(txt => `<span class="mini-chip">${txt}</span>`).join("");
+      heroBanner.classList.add("active");
+    }
+
+    function setCard(active, idxTxt, badgeTxt, titleTxt, accentColor, points, elapsedInScene) {
+      if (!active) {
+        clinicalCard.classList.remove("active");
+        return;
+      }
+      clinicalCard.style.setProperty("--card-accent", accentColor);
+      if (cardTitle.textContent !== titleTxt) {
+        cardIndex.textContent = idxTxt;
+        cardBadge.textContent = badgeTxt;
+        cardTitle.textContent = titleTxt;
+        cardPoints.innerHTML = points.map(p =>
+          `<div class="card-point"><span class="point-bullet"></span><span>${p}</span></div>`
+        ).join("");
+      }
+      clinicalCard.classList.add("active");
+      const ptEls = cardPoints.querySelectorAll(".card-point");
+      ptEls.forEach((el, i) => {
+        el.classList.toggle("show", elapsedInScene > 0.55 + i * 0.9);
+      });
+    }
+
+    const totalCurveLen = hormoneCurvePath.getTotalLength();
+    hormoneCurvePath.style.strokeDasharray = totalCurveLen;
+
+    function updateHUD(t) {
+      // Determine current chapter
+      let activeChap = CHAPTERS[0];
+      for (const ch of CHAPTERS) {
+        if (t >= ch.start && t <= ch.end) { activeChap = ch; break; }
+      }
+
+      if (activeChap.id !== lastChapterId) {
+        if (lastChapterId !== -1) {
+          fireTransition(activeChap.id === 6 ? "plunge" : "whip");
+        }
+        lastChapterId = activeChap.id;
+        hudSectionLabel.textContent = `TOPIC 3.1 • ${activeChap.label}`;
+        pulseDot.style.background = activeChap.accent;
+        pulseDot.style.boxShadow = `0 0 10px ${activeChap.accent}`;
+        reelStage.style.setProperty("--stage-glow", activeChap.accent + "55");
+        ambientGlow.style.background = `radial-gradient(circle at 50% 50%, ${activeChap.accent}26, transparent 58%)`;
+        document.querySelectorAll(".chapter-btn").forEach((btn, idx) => {
+          btn.classList.toggle("active", idx === activeChap.id);
+        });
+      }
+
+      // Story Progress Segment Fills
+      CHAPTERS.forEach((ch, idx) => {
+        let pct = 0;
+        if (t >= ch.end) pct = 100;
+        else if (t > ch.start) pct = ((t - ch.start) / (ch.end - ch.start)) * 100;
+        storyFills[idx].style.width = `${pct.toFixed(2)}%`;
+      });
+
+      // Scene-Specific HUD Panels
+      pathoPanel.classList.remove("active");
+      if (t < 8.5) {
+        setHero(true, "TOPIC 3.1 • DEFINE THYROIDITIS", t < 2.8 ? "ONE GLAND. FOUR DISORDERS." : "THYROIDITIS",
+          t > 3.2 ? ["Diverse & Heterogeneous", "Unifying: Thyroid Inflammation"] : ["Clinical Pathology"]);
+        setCard(false);
+      } else if (t < 12.0) {
+        setHero(true, "CLASSIFICATION & ETIOLOGY", "FOUR SUBTYPES", ["Clinical Presentation", "Underlying Cause"]);
+        setCard(false);
+      } else if (t < 20.5) {
+        setHero(false);
+        setCard(true, "SUBTYPE 01 / 04", "CHRONIC AUTOIMMUNE", "Hashimoto Thyroiditis", "#a855f7",
+          ["Chronic autoimmune condition", "Gradual thyroid failure & parenchyma destruction"], t - 12.0);
+      } else if (t < 28.0) {
+        setHero(false);
+        setCard(true, "SUBTYPE 02 / 04", "PAINLESS THYROIDITIS", "Subacute Lymphocytic Thyroiditis", "#2dd4bf",
+          ["Also known as painless thyroiditis", "Autoimmune process; may occur postpartum"], t - 20.5);
+      } else if (t < 36.5) {
+        setHero(false);
+        setCard(true, "SUBTYPE 03 / 04", "DE QUERVAIN • PAINFUL", "Granulomatous Thyroiditis", "#f59e0b",
+          ["Also called de Quervain thyroiditis", "Painful, self-limited; often triggered by viral infection"], t - 28.0);
+      } else if (t < 44.5) {
+        setHero(false);
+        setCard(true, "SUBTYPE 04 / 04", "RARE • INVASIVE FIBROSIS", "Riedel Thyroiditis", "#cbd5e1",
+          ["Rare disorder defined by extensive fibrosis", "Involves the gland & may reach adjacent neck tissues"], t - 36.5);
+      } else if (t < 61.5) {
+        setHero(true, "GENERAL PATHOPHYSIOLOGY", "5-STEP CASCADE", ["Symptomatic Inflammatory Progression"]);
+        setCard(false);
+        pathoPanel.classList.add("active");
+
+        const pNorm = clamp01((t - 44.8) / (61.2 - 44.8));
+        const stageIdx = t < 48.2 ? 0 : t < 51.5 ? 1 : t < 55.2 ? 2 : t < 58.3 ? 3 : 4;
+        const stageTitles = ["1. TRIGGERING EVENT", "2. FOLLICLE INFLAMMATION", "3. THYROTOXICOSIS PHASE", "4. DAMAGE / ATROPHY", "5. HYPOTHYROIDISM"];
+        phaseStatusTag.textContent = stageTitles[stageIdx];
+        pathoSteps.forEach((s, idx) => {
+          s.classList.toggle("active", idx === stageIdx);
+          s.classList.toggle("done", idx < stageIdx);
+        });
+
+        // Trace SVG Hormone Curve live
+        const drawLen = totalCurveLen * pNorm;
+        hormoneCurvePath.style.strokeDashoffset = (totalCurveLen - drawLen).toFixed(1);
+        const pt = hormoneCurvePath.getPointAtLength(drawLen);
+        hormoneMarker.setAttribute("cx", pt.x.toFixed(1));
+        hormoneMarker.setAttribute("cy", pt.y.toFixed(1));
+      } else {
+        setHero(true, "TOPIC 3.1 COMPLETE", "THYROIDITIS", ["Definition", "4 Subtypes", "5-Step Cascade"]);
+        setCard(false);
+      }
+
+      // Word-Synced Kinetic Captions
+      let cueIdx = -1;
+      for (let i = 0; i < NARRATION_CUES.length; i++) {
+        if (t >= NARRATION_CUES[i].start && t <= NARRATION_CUES[i].end) {
+          cueIdx = i;
+          break;
+        }
+      }
+      if (cueIdx === -1) {
+        captionBox.style.opacity = "0";
+      } else {
+        captionBox.style.opacity = "1";
+        const cue = NARRATION_CUES[cueIdx];
+        const words = cue.text.split(" ");
+        if (cueIdx !== lastCueIndex) {
+          lastCueIndex = cueIdx;
+          captionBox.innerHTML = words.map((w, i) => {
+            const isKey = cue.keys.includes(w);
+            return `<span class="word ${isKey ? "key" : ""}" data-wi="${i}">${w}</span>`;
+          }).join(" ");
+        }
+        const cueProg = clamp01((t - cue.start) / Math.max(0.1, cue.end - cue.start - 0.35));
+        const activeWord = Math.floor(cueProg * words.length);
+        const spans = captionBox.querySelectorAll(".word");
+        spans.forEach((sp, i) => {
+          sp.classList.toggle("spoken", i < activeWord);
+          sp.classList.toggle("current", i === activeWord);
+        });
+      }
+    }
+
+    // =========================================================================
+    // 8. PLAYBACK CONTROLLER, TIMELINE SCRUBBING & UI EVENTS
+    // =========================================================================
+    let currentTime = 0;
+    let isPlaying = false;
+    let playbackSpeed = 1.0;
+    let lastFrameMs = performance.now();
+
+    const startOverlay = document.getElementById("startOverlay");
+    const playPauseBtn = document.getElementById("playPauseBtn");
+    const scrubber = document.getElementById("scrubber");
+    const timeReadout = document.getElementById("timeReadout");
+    const speedBtn = document.getElementById("speedBtn");
+    const audioToggleBtn = document.getElementById("audioToggleBtn");
+    const audioIconSvg = document.getElementById("audioIconSvg");
+    const chapterList = document.getElementById("chapterList");
+    const studyModal = document.getElementById("studyModal");
+
+    // Populate Desktop Chapters
+    CHAPTERS.forEach(ch => {
+      const btn = document.createElement("button");
+      btn.className = "chapter-btn";
+      const mm = Math.floor(ch.start / 60);
+      const ss = String(Math.floor(ch.start % 60)).padStart(2, "0");
+      btn.innerHTML = `<span>${ch.title}</span><span class="chapter-time">${mm}:${ss}</span>`;
+      btn.addEventListener("click", () => {
+        startOverlay.classList.add("hidden");
+        sound.initAudio();
+        seekTo(ch.start + 0.02);
+        if (!isPlaying) togglePlay(true);
+      });
+      chapterList.appendChild(btn);
+    });
+
+    function fmtTime(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const m = Math.floor(s / 60);
+      const r = String(s % 60).padStart(2, "0");
+      return `${m}:${r}`;
+    }
+
+    function updateAudioIcon() {
+      audioIconSvg.innerHTML = sound.enabled
+        ? `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>`
+        : `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>`;
+    }
+
+    function togglePlay(forceState) {
+      isPlaying = typeof forceState === "boolean" ? forceState : !isPlaying;
+      playPauseBtn.textContent = isPlaying ? "❚❚" : "▶";
+      if (isPlaying) {
+        sound.initAudio();
+        if (currentTime >= TOTAL_DURATION - 0.1) {
+          currentTime = 0;
+          sound.resetTriggers(0);
+        }
+      } else {
+        if (sound.hasVoice) window.speechSynthesis.cancel();
+      }
+      sound.setDroneActive(isPlaying);
+    }
+
+    function seekTo(t) {
+      currentTime = Math.max(0, Math.min(TOTAL_DURATION, t));
+      sound.resetTriggers(currentTime);
+      lastCueIndex = -1;
+    }
+
+    document.getElementById("startWithAudioBtn").addEventListener("click", () => {
+      sound.setEnabled(true);
+      updateAudioIcon();
+      sound.initAudio();
+      startOverlay.classList.add("hidden");
+      seekTo(0);
+      togglePlay(true);
+    });
+
+    document.getElementById("startMutedBtn").addEventListener("click", () => {
+      sound.setEnabled(false);
+      updateAudioIcon();
+      startOverlay.classList.add("hidden");
+      seekTo(0);
+      togglePlay(true);
+    });
+
+    playPauseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePlay();
+    });
+
+    // Click anywhere on 3D canvas stage to play/pause
+    canvas.addEventListener("click", () => {
+      if (!startOverlay.classList.contains("hidden")) return;
+      togglePlay();
+    });
+
+    scrubber.addEventListener("input", (e) => {
+      seekTo(parseFloat(e.target.value));
+    });
+
+    speedBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const speeds = [1.0, 1.25, 0.85];
+      const next = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+      playbackSpeed = next;
+      speedBtn.textContent = `${next}x`;
+    });
+
+    audioToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sound.initAudio();
+      sound.setEnabled(!sound.enabled);
+      updateAudioIcon();
+    });
+
+    document.getElementById("studyBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      studyModal.classList.add("open");
+      if (isPlaying) togglePlay(false);
+    });
+
+    document.getElementById("closeStudyBtn").addEventListener("click", () => {
+      studyModal.classList.remove("open");
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (startOverlay.classList.contains("hidden")) togglePlay();
+      } else if (e.code === "ArrowRight") {
+        seekTo(currentTime + 3.0);
+      } else if (e.code === "ArrowLeft") {
+        seekTo(currentTime - 3.0);
+      } else if (e.key === "m" || e.key === "M") {
+        sound.initAudio();
+        sound.setEnabled(!sound.enabled);
+        updateAudioIcon();
+      } else if (e.key === "r" || e.key === "R") {
+        seekTo(0);
+        togglePlay(true);
+      }
+    });
+
+    // =========================================================================
+    // 9. MAIN 60FPS ANIMATION LOOP
+    // =========================================================================
+    function animate(nowMs) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.05, (nowMs - lastFrameMs) / 1000);
+      lastFrameMs = nowMs;
+
+      if (isPlaying) {
+        currentTime += dt * playbackSpeed;
+        if (currentTime >= TOTAL_DURATION) {
+          // Seamless Loop!
+          currentTime = 0;
+          sound.resetTriggers(0);
+          lastCueIndex = -1;
+        }
+      } else if (!startOverlay.classList.contains("hidden")) {
+        // Gentle idle showcase rotation behind start splash
+        thyroidGroup.rotation.y = Math.sin(nowMs * 0.0006) * 0.28;
+      }
+
+      // Update Scrubber UI
+      scrubber.value = currentTime.toFixed(2);
+      timeReadout.textContent = `${fmtTime(currentTime)} / ${fmtTime(TOTAL_DURATION)}`;
+
+      // Update World, Camera, HUD, 3D Pins, and Audio
+      update3DWorld(currentTime);
+      updateCamera(currentTime);
+      updateHUD(currentTime);
+      updateProjectedPins(currentTime);
+      sound.update(currentTime, isPlaying, playbackSpeed);
+
+      renderer.render(scene, camera);
+    }
+
+    // Initialize frame 0 cleanly
+    update3DWorld(0);
+    updateCamera(0);
+    updateHUD(0);
+    requestAnimationFrame(animate);
+  })();
+  </script>
+</body>
+</html>
