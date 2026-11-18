@@ -5574,6 +5574,7 @@ return null;
             totalCorrect: 0,
             loStats: {}, 
             setStats: {}, 
+            algoState: null,
             currentUser: null,
             userData: null,
             infinity: { active: false, topic: '', history: [], loadingNext: false }
@@ -5641,7 +5642,9 @@ return null;
             appState.mcqSessionQuestions.forEach((q, i) => {
                 const hist = appState.mcqHistory[i];
                 const qId = q.id || q.statement.substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
-                if (hist && hist.selected === q.correctOptionIndex) {
+                const omrCorrect = !!(hist && hist.selected === q.correctOptionIndex);
+                recordMcqPerformanceSilent(q, omrCorrect, appState.sessionConfig.timePerMcq || 60, !hist || hist.selected === null);
+                if (omrCorrect) {
                     appState.sessionStats.correct++;
                     appState.totalCorrect++;
                     // Remove from mistakes
@@ -6162,12 +6165,17 @@ return null;
                 if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
                 appState.loStats[qTag].attempted += 1;
                 if (isCorrect) appState.loStats[qTag].correct += 1;
+
+                const testAnsTime = Math.round((Date.now() - (appState.mcqStartTime || Date.now())) / 1000);
+                recordMcqPerformanceSilent(question, isCorrect, testAnsTime, false);
                 
                 appState.mcqHistory[appState.currentMcqIndex] = {
                     selected: appState.mcqSelectedOptionIndex,
                     correct: isCorrect
                 };
             } else {
+                const testSkipQ = appState.mcqSessionQuestions[appState.currentMcqIndex];
+                recordMcqPerformanceSilent(testSkipQ, false, appState.sessionConfig.timePerMcq || 60, true);
                 appState.mcqHistory[appState.currentMcqIndex] = { selected: null, correct: false };
             }
 
@@ -7290,6 +7298,7 @@ return null;
             appState.loStats = data.loStats || {};
             appState.setStats = data.setStats || {};
             appState.aiSessions = data.aiSessions || [];
+            appState.algoState = hydrateAlgoState(data.mcqAlgorithmState);
 
             const plans = data.purchasedBlocks || [];
             if (plans.length > 0 && plans[0] !== "ALL" && data.role !== "master") {
@@ -7334,6 +7343,436 @@ return null;
             try { updateStreak(); } catch(e){}
             try { updateDashboardStatisticsUI(); } catch(e){}
             try { updateContinueCardUI(); } catch(e){}
+        }
+
+        // ================= ADAPTIVE MCQ PERFORMANCE & NON-REPEATING SET ENGINE =================
+        function getCanonicalMcqId(q) {
+            if (!q) return '';
+            if (q.id) return String(q.id).trim();
+            const raw = String(q.statement || q.question || q.stem || q.front || q.text || '');
+            // Deterministic compact FNV-1a hash for questions without explicit id
+            let h = 2166136261;
+            for (let i = 0; i < raw.length; i++) {
+                h ^= raw.charCodeAt(i);
+                h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+            }
+            return 'h_' + (h >>> 0).toString(36) + '_' + raw.length;
+        }
+
+        function classifyMcqStatementLength(stmt) {
+            const s = (stmt || '').trim();
+            const isClinicalLong = (s.length >= 220) || (s.split(/\.\s+/).length >= 3) || /(presents\s+with|history\s+of|examination\s+reveals|year-old|laboratory\s+findings|admitted\s+to)/i.test(s);
+            if (isClinicalLong || s.length >= 175) return 'long';
+            if (s.length >= 115) return 'medium';
+            return 'short';
+        }
+
+        function createEmptyAlgoState() {
+            return {
+                v: 1,
+                updatedAt: 0,
+                mcqPerf: {},      // { [qId]: { s: seen, c: correct, w: wrong, t: avgSec, l: lastTs } }
+                lengthStats: {
+                    short: { a: 0, c: 0, t: 0 },
+                    medium: { a: 0, c: 0, t: 0 },
+                    long: { a: 0, c: 0, t: 0 }
+                },
+                conceptStats: {}, // { [conceptKey]: { a: attempted, c: correct } }
+                diffStats: {},    // { [diffKey]: { a: attempted, c: correct } }
+                lockedSets: {}    // { [scopeKey]: { [setIdx]: [qId1, qId2, ...] } }
+            };
+        }
+
+        function hydrateAlgoState(cloudData) {
+            const uid = appState.currentUser ? appState.currentUser.uid : 'guest';
+            const localKey = 'blockify_algo_state_' + uid;
+            let localData = null;
+            try {
+                const raw = localStorage.getItem(localKey);
+                if (raw) localData = JSON.parse(raw);
+            } catch (e) {}
+
+            const base = createEmptyAlgoState();
+            let chosen = base;
+
+            if (cloudData && localData) {
+                chosen = (localData.updatedAt || 0) > (cloudData.updatedAt || 0) ? localData : cloudData;
+            } else if (cloudData) {
+                chosen = cloudData;
+            } else if (localData) {
+                chosen = localData;
+            }
+
+            return {
+                ...base,
+                ...chosen,
+                lengthStats: {
+                    short: { a: 0, c: 0, t: 0, ...(chosen.lengthStats?.short || {}) },
+                    medium: { a: 0, c: 0, t: 0, ...(chosen.lengthStats?.medium || {}) },
+                    long: { a: 0, c: 0, t: 0, ...(chosen.lengthStats?.long || {}) }
+                },
+                mcqPerf: chosen.mcqPerf || {},
+                conceptStats: chosen.conceptStats || {},
+                diffStats: chosen.diffStats || {},
+                lockedSets: chosen.lockedSets || {}
+            };
+        }
+
+        function getAlgoState() {
+            if (!appState.algoState) {
+                appState.algoState = hydrateAlgoState(appState.userData?.mcqAlgorithmState);
+            }
+            return appState.algoState;
+        }
+
+        let _algoSyncTimer = null;
+        function scheduleSilentAlgoSync(immediate = false) {
+            const state = getAlgoState();
+            state.updatedAt = Date.now();
+
+            const uid = appState.currentUser ? appState.currentUser.uid : 'guest';
+            try {
+                localStorage.setItem('blockify_algo_state_' + uid, JSON.stringify(state));
+            } catch (e) {}
+
+            if (appState.userData) {
+                appState.userData.mcqAlgorithmState = state;
+            }
+
+            const flush = () => {
+                if (appState.isGuest || !appState.currentUser || appState.currentUser.uid === 'guest_user') {
+                    try { localStorage.setItem('guest_stats', JSON.stringify(appState.userData)); } catch (e) {}
+                    return;
+                }
+                db.collection("users").doc(appState.currentUser.uid).update({
+                    mcqAlgorithmState: state
+                }).catch(() => {}); // Silent background sync
+            };
+
+            clearTimeout(_algoSyncTimer);
+            if (immediate) {
+                flush();
+            } else {
+                _algoSyncTimer = setTimeout(flush, 2000);
+            }
+        }
+
+        function recordMcqPerformanceSilent(question, isCorrect, timeTakenSec = 0, wasSkipped = false) {
+            if (!question) return;
+            try {
+                const state = getAlgoState();
+                const qId = getCanonicalMcqId(question);
+                if (!qId) return;
+
+                const cleanTime = Math.max(1, Math.min(300, Math.round(timeTakenSec || 0)));
+
+                // 1. Per-MCQ Telemetry
+                const prev = state.mcqPerf[qId] || { s: 0, c: 0, w: 0, t: 0, l: 0 };
+                const newSeen = prev.s + 1;
+                const newAvgT = prev.s > 0 ? Math.round(((prev.t * prev.s) + cleanTime) / newSeen) : cleanTime;
+                state.mcqPerf[qId] = {
+                    s: newSeen,
+                    c: prev.c + (isCorrect ? 1 : 0),
+                    w: prev.w + (isCorrect ? 0 : 1),
+                    t: newAvgT,
+                    l: Date.now()
+                };
+
+                // Keep mcqPerf bounded to 4,500 most recent items to stay well within Firestore 1MB limit
+                const perfKeys = Object.keys(state.mcqPerf);
+                if (perfKeys.length > 4500) {
+                    perfKeys.sort((a, b) => (state.mcqPerf[a].l || 0) - (state.mcqPerf[b].l || 0));
+                    for (let i = 0; i < perfKeys.length - 4000; i++) {
+                        delete state.mcqPerf[perfKeys[i]];
+                    }
+                }
+
+                // 2. Statement Length Performance Telemetry
+                const lenTier = classifyMcqStatementLength(cleanMCQStatement(question.statement || ''));
+                const ls = state.lengthStats[lenTier] || { a: 0, c: 0, t: 0 };
+                const nextA = ls.a + 1;
+                state.lengthStats[lenTier] = {
+                    a: nextA,
+                    c: ls.c + (isCorrect ? 1 : 0),
+                    t: ls.a > 0 ? Math.round(((ls.t * ls.a) + cleanTime) / nextA) : cleanTime
+                };
+
+                // 3. Core Concept Telemetry
+                const rawConcept = (question.coreConcept || '').trim();
+                if (rawConcept) {
+                    const cKey = rawConcept.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+                    const cs = state.conceptStats[cKey] || { a: 0, c: 0 };
+                    state.conceptStats[cKey] = { a: cs.a + 1, c: cs.c + (isCorrect ? 1 : 0) };
+                    const cKeys = Object.keys(state.conceptStats);
+                    if (cKeys.length > 200) {
+                        delete state.conceptStats[cKeys[0]];
+                    }
+                }
+
+                // 4. Difficulty Telemetry
+                const rawDiff = (question.difficulty || '').trim().toLowerCase();
+                if (rawDiff) {
+                    const dKey = rawDiff.replace(/[^a-z0-9]+/g, '_').slice(0, 20);
+                    const ds = state.diffStats[dKey] || { a: 0, c: 0 };
+                    state.diffStats[dKey] = { a: ds.a + 1, c: ds.c + (isCorrect ? 1 : 0) };
+                }
+
+                scheduleSilentAlgoSync(false);
+            } catch (e) {
+                console.warn("Silent MCQ telemetry skipped:", e);
+            }
+        }
+
+        function getScopeKeyForSession() {
+            const yr = String(appState.academicYear || '1st').replace(/[^a-zA-Z0-9]/g, '');
+            const blk = String(appState.academicBlock || 'II').replace(/[^a-zA-Z0-9]/g, '');
+            const sub = String(appState.context?.subject || 'Gen').replace(/[^a-zA-Z0-9]/g, '');
+            const los = (appState.selectedLOs || []).slice().sort().join('_').replace(/[^a-zA-Z0-9_]/g, '');
+            const src = appState.pharmaBookSource || 'big';
+            const cat = String(appState.selectedPharmaCategory || 'All').replace(/[^a-zA-Z0-9]/g, '');
+            const mode = appState.mode || 'mcqs';
+            const baseKey = `${yr}_${blk}_${mode}_${sub}_${los}_${src}_${cat}`;
+            // Compact key if many LOs are selected simultaneously
+            if (baseKey.length > 90) {
+                let h = 2166136261;
+                for (let i = 0; i < baseKey.length; i++) {
+                    h ^= baseKey.charCodeAt(i);
+                    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+                }
+                return `${yr}_${blk}_${mode}_${sub}_${(h >>> 0).toString(36)}`;
+            }
+            return baseKey;
+        }
+
+        function lockAdaptiveSetPartition(scopeKey, setIdx, items) {
+            if (!scopeKey || setIdx === undefined || setIdx === null || !Array.isArray(items) || items.length === 0) return;
+            const state = getAlgoState();
+            if (!state.lockedSets[scopeKey]) state.lockedSets[scopeKey] = {};
+            const ids = items.map(q => getCanonicalMcqId(q)).filter(Boolean);
+            state.lockedSets[scopeKey][String(setIdx)] = ids;
+
+            // Cap stored scope histories to 40 scopes to keep Firebase document ultra-light
+            const scopeKeys = Object.keys(state.lockedSets);
+            if (scopeKeys.length > 40) {
+                delete state.lockedSets[scopeKeys[0]];
+            }
+            scheduleSilentAlgoSync(true);
+        }
+
+        function computeAdaptiveMcqScore(item, state) {
+            let score = 0;
+            const perf = state.mcqPerf[item.qId];
+
+            // 1. Strongly prioritize unseen MCQs so previously encountered MCQs don't crowd new sets
+            if (!perf || perf.s === 0) {
+                score += 60;
+            } else {
+                const acc = perf.c / perf.s;
+                // Missed previously -> higher priority than mastered ones
+                score += (1 - acc) * 28;
+                if (perf.t > 55) score += 8; // Slow recall penalty boost
+                // Recency cooldown
+                const hoursAgo = (Date.now() - (perf.l || 0)) / 3600000;
+                if (hoursAgo < 24) score -= 20;
+            }
+
+            // 2. Adapt to user's statement-length weakness (short vs medium vs long clinical vignettes)
+            const ls = state.lengthStats[item.lenTier];
+            if (ls && ls.a >= 3) {
+                const tierAcc = ls.c / ls.a;
+                if (tierAcc < 0.65) score += 18;
+                else if (tierAcc < 0.78) score += 8;
+                if (ls.t > 50) score += 6;
+            }
+
+            // 3. Adapt to user's weak coreConcept
+            if (item.conceptKey && state.conceptStats[item.conceptKey]) {
+                const cs = state.conceptStats[item.conceptKey];
+                if (cs.a >= 1) {
+                    const cAcc = cs.c / cs.a;
+                    if (cAcc < 0.6) score += 22;
+                    else if (cAcc >= 0.9 && cs.a >= 2) score -= 10;
+                }
+            }
+
+            // 4. Adapt to user's weak difficulty tier
+            if (item.diffKey && state.diffStats[item.diffKey]) {
+                const ds = state.diffStats[item.diffKey];
+                if (ds.a >= 3 && (ds.c / ds.a) < 0.6) {
+                    score += 12;
+                }
+            }
+
+            // 5. Length-bias resistance: push length-cued questions toward later sets
+            if (item.isBiased) score -= 28;
+
+            // Slight natural jitter to keep order dynamic among equally scored items
+            score += Math.random() * 4;
+            return score;
+        }
+
+        function buildAdaptiveNonRepeatingSets(rawItems, setSize = 20, scopeKey = '') {
+            if (!rawItems || rawItems.length === 0) return [];
+
+            const state = getAlgoState();
+            const isMcqMode = (appState.mode === 'mcqs');
+
+            // 1. Strict deduplication across entire raw pool + metadata extraction
+            const itemById = new Map();
+            const analyzed = [];
+            rawItems.forEach(q => {
+                if (!q) return;
+                const qId = getCanonicalMcqId(q);
+                if (!qId || itemById.has(qId)) return;
+
+                let stmt = q.statement || '';
+                if (isMcqMode) {
+                    stmt = cleanMCQStatement(stmt);
+                    q.statement = stmt;
+                }
+
+                const lenTier = classifyMcqStatementLength(stmt);
+
+                // Detect option length bias (correct option significantly longer than distractors)
+                let isBiased = false;
+                if (q.options && q.options.length >= 3 && typeof q.correctOptionIndex === 'number' && q.options[q.correctOptionIndex]) {
+                    const correctLen = String(q.options[q.correctOptionIndex]).trim().length;
+                    const otherLens = q.options.filter((_, idx) => idx !== q.correctOptionIndex).map(o => String(o || '').trim().length);
+                    if (otherLens.length > 0) {
+                        const avgOther = otherLens.reduce((a, b) => a + b, 0) / otherLens.length;
+                        if (correctLen > avgOther * 1.4 && (correctLen - avgOther) >= 18) {
+                            isBiased = true;
+                        }
+                    }
+                }
+
+                const rawConcept = q.coreConcept ? q.coreConcept.toLowerCase().trim() : '';
+                const conceptKey = rawConcept ? rawConcept.replace(/[^a-z0-9]+/g, '_').slice(0, 40) : '';
+                const dedupConcept = rawConcept || ((q.options && typeof q.correctOptionIndex === 'number' && q.options[q.correctOptionIndex])
+                    ? (q.tag || '') + '::' + String(q.options[q.correctOptionIndex]).toLowerCase().trim()
+                    : qId);
+                const diffKey = (q.difficulty || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 20);
+                const catKey = (q.category || 'General').trim();
+
+                const entry = { q, qId, lenTier, isBiased, conceptKey, dedupConcept, diffKey, catKey, score: 0 };
+                entry.score = isMcqMode ? computeAdaptiveMcqScore(entry, state) : Math.random();
+                itemById.set(qId, entry);
+                analyzed.push(entry);
+            });
+
+            const totalCount = analyzed.length;
+            const numSets = Math.ceil(totalCount / setSize);
+            const finalSets = Array.from({ length: numSets }, () => []);
+            const globalUsedIds = new Set(); // Guarantees ZERO repetition across all sets!
+
+            // 2. Restore any already-locked sets for this scope FIRST (never changes past sets or repeats their MCQs)
+            const lockedMap = (isMcqMode && scopeKey && state.lockedSets && state.lockedSets[scopeKey]) ? state.lockedSets[scopeKey] : {};
+            for (let sIdx = 0; sIdx < numSets; sIdx++) {
+                const lockedIds = lockedMap[String(sIdx)];
+                if (Array.isArray(lockedIds) && lockedIds.length > 0) {
+                    const restoredItems = [];
+                    for (const id of lockedIds) {
+                        if (!globalUsedIds.has(id) && itemById.has(id)) {
+                            globalUsedIds.add(id);
+                            restoredItems.push(itemById.get(id).q);
+                        }
+                    }
+                    if (restoredItems.length > 0) {
+                        finalSets[sIdx] = restoredItems;
+                    }
+                }
+            }
+
+            // 3. Remaining pool strictly excludes every MCQ already assigned to a locked set
+            const remainingPool = analyzed.filter(item => !globalUsedIds.has(item.qId));
+            // Sort highest adaptive priority first
+            remainingPool.sort((a, b) => b.score - a.score);
+
+            // Compute adaptive statement-length quotas based on user's saved lengthStats
+            function getAdaptiveLengthQuotas(targetSize) {
+                const ls = state.lengthStats;
+                const sAcc = ls.short.a >= 3 ? (ls.short.c / ls.short.a) : 0.75;
+                const mAcc = ls.medium.a >= 3 ? (ls.medium.c / ls.medium.a) : 0.75;
+                const lAcc = ls.long.a >= 3 ? (ls.long.c / ls.long.a) : 0.75;
+
+                // Base weights: 35% long clinical, 40% medium, 25% short
+                let wLong = 0.35 + (lAcc < 0.65 ? 0.10 : 0);
+                let wMed = 0.40 + (mAcc < 0.65 ? 0.08 : 0);
+                let wShort = 0.25 + (sAcc < 0.65 ? 0.10 : 0);
+                const wSum = wLong + wMed + wShort;
+
+                const longTarget = Math.round(targetSize * (wLong / wSum));
+                const medTarget = Math.round(targetSize * (wMed / wSum));
+                const shortTarget = Math.max(0, targetSize - longTarget - medTarget);
+                return { long: longTarget, medium: medTarget, short: shortTarget };
+            }
+
+            // 4. Fill remaining unlocked sets sequentially with zero overlap
+            for (let sIdx = 0; sIdx < numSets; sIdx++) {
+                // Skip sets already restored from locked history
+                if (finalSets[sIdx].length > 0) continue;
+
+                const targetSetSize = Math.min(setSize, remainingPool.length);
+                if (targetSetSize <= 0) break;
+
+                const currentSet = [];
+                const usedConcepts = new Set();
+                const categoryUsage = {};
+                const quotas = getAdaptiveLengthQuotas(targetSetSize);
+
+                function pickFromRemaining(preferredLenTier, countNeeded, enforceConcept) {
+                    let added = 0;
+                    for (let i = 0; i < remainingPool.length && added < countNeeded; i++) {
+                        const cand = remainingPool[i];
+                        if (!cand || globalUsedIds.has(cand.qId)) continue;
+                        if (preferredLenTier && cand.lenTier !== preferredLenTier) continue;
+                        if (enforceConcept && usedConcepts.has(cand.dedupConcept)) continue;
+                        // Soft category balance inside each 20-MCQ set
+                        if (enforceConcept && (categoryUsage[cand.catKey] || 0) >= Math.ceil(targetSetSize * 0.65) && remainingPool.length > countNeeded) {
+                            continue;
+                        }
+
+                        currentSet.push(cand.q);
+                        globalUsedIds.add(cand.qId);
+                        usedConcepts.add(cand.dedupConcept);
+                        categoryUsage[cand.catKey] = (categoryUsage[cand.catKey] || 0) + 1;
+                        remainingPool.splice(i, 1);
+                        i--;
+                        added++;
+                    }
+                    return added;
+                }
+
+                // Step A: Fill adaptive statement-length quotas while enforcing concept & category diversity
+                pickFromRemaining('long', quotas.long, true);
+                pickFromRemaining('medium', quotas.medium, true);
+                pickFromRemaining('short', quotas.short, true);
+
+                // Step B: Fill any remaining slots (any length, still respecting concept spacing)
+                if (currentSet.length < targetSetSize) {
+                    pickFromRemaining(null, targetSetSize - currentSet.length, true);
+                }
+
+                // Step C: Failsafe if pool has duplicate concepts remaining
+                if (currentSet.length < targetSetSize) {
+                    pickFromRemaining(null, targetSetSize - currentSet.length, false);
+                }
+
+                // Interleave statement lengths naturally inside the set
+                currentSet.sort(() => Math.random() - 0.5);
+                finalSets[sIdx] = currentSet;
+            }
+
+            // If any leftover items exist (e.g. if new MCQs were added after all sets were previously locked), append as new set(s)
+            while (remainingPool.length > 0) {
+                const extraBatch = remainingPool.splice(0, setSize).map(item => {
+                    globalUsedIds.add(item.qId);
+                    return item.q;
+                });
+                if (extraBatch.length > 0) finalSets.push(extraBatch);
+            }
+
+            return finalSets.filter(s => s.length > 0);
         }
 
         auth.onAuthStateChanged((user) => {
@@ -11600,121 +12039,10 @@ lucide.createIcons();
                     });
                 }
 
-                // =========================================================================
-                // SMART BALANCED SET SYNTHESIZER
-                // 1) Length-biased correct options pushed to the last sets
-                // 2) Concept deduplication across sets (prevents testing the same thing repeatedly)
-                // 3) 30% - 40% (6-8 items per set of 20) guaranteed 3-4 line clinical vignettes
-                // =========================================================================
-                function buildSmartBalancedSets(rawItems, setSize = 20) {
-                    if (!rawItems || rawItems.length === 0) return [];
-
-                    // Analyze & classify each question
-                    const analyzed = rawItems.map(q => {
-                        const stmt = cleanMCQStatement(q.statement || '');
-                        q.statement = stmt;
-
-                        // Identify big 3-4 line statement or multi-sentence clinical vignette
-                        const isLong = (stmt.length >= 170) || (stmt.split(/\.\s+/).length >= 3) || /(presents\s+with|history\s+of|examination\s+reveals|year-old|laboratory\s+findings|admitted\s+to)/i.test(stmt);
-
-                        // Identify if correct option is noticeably longer than distractors (length cue bias)
-                        let isBiased = false;
-                        if (q.options && q.options.length >= 3 && typeof q.correctOptionIndex === 'number' && q.options[q.correctOptionIndex]) {
-                            const correctLen = q.options[q.correctOptionIndex].trim().length;
-                            const otherLens = q.options.filter((_, idx) => idx !== q.correctOptionIndex).map(o => (o || '').trim().length);
-                            if (otherLens.length > 0) {
-                                const avgOther = otherLens.reduce((a, b) => a + b, 0) / otherLens.length;
-                                if (correctLen > avgOther * 1.4 && (correctLen - avgOther) >= 18) {
-                                    isBiased = true;
-                                }
-                            }
-                        }
-
-                        // Create concept fingerprint for deduplication
-                        let concept = q.coreConcept ? q.coreConcept.toLowerCase().trim() : '';
-                        if (!concept && q.options && typeof q.correctOptionIndex === 'number' && q.options[q.correctOptionIndex]) {
-                            concept = (q.tag || '') + '::' + q.options[q.correctOptionIndex].toLowerCase().trim();
-                        }
-
-                        return { q, isLong, isBiased, concept: concept || Math.random().toString() };
-                    });
-
-                    // Separate unbiased items from length-biased items
-                    let unbiased = analyzed.filter(item => !item.isBiased);
-                    let biased = analyzed.filter(item => item.isBiased);
-
-                    // Randomize order within each pool to prevent static patterns
-                    unbiased.sort(() => Math.random() - 0.5);
-                    biased.sort(() => Math.random() - 0.5);
-
-                    const totalCount = analyzed.length;
-                    const numSets = Math.ceil(totalCount / setSize);
-                    let finalSets = Array.from({ length: numSets }, () => []);
-
-                    // Distribute across sets with concept spacing & 30-40% long statements
-                    for (let sIdx = 0; sIdx < numSets; sIdx++) {
-                        const isTailSet = (sIdx >= numSets - Math.ceil(biased.length / setSize));
-                        const targetSetSize = Math.min(setSize, totalCount - (sIdx * setSize));
-                        
-                        // 30% to 40% long questions target (i.e. 7 out of 20)
-                        const targetLongCount = Math.round(targetSetSize * 0.35);
-
-                        let currentSet = [];
-                        let usedConcepts = new Set();
-
-                        // Selector helper that respects concept spacing
-                        function selectFromPool(pool, preferLong, countNeeded) {
-                            let added = 0;
-                            for (let i = 0; i < pool.length && added < countNeeded; i++) {
-                                const candidate = pool[i];
-                                if (!candidate) continue;
-
-                                if (preferLong === null || candidate.isLong === preferLong) {
-                                    if (!usedConcepts.has(candidate.concept)) {
-                                        currentSet.push(candidate.q);
-                                        usedConcepts.add(candidate.concept);
-                                        pool.splice(i, 1);
-                                        i--;
-                                        added++;
-                                    }
-                                }
-                            }
-                            return added;
-                        }
-
-                        // Use unbiased questions for primary sets; draw from biased for later sets
-                        let primarySource = isTailSet && biased.length > 0 ? biased : unbiased;
-                        let fallbackSource = primarySource === unbiased ? biased : unbiased;
-
-                        // 1. Fill 30-40% long clinical vignettes
-                        let longAdded = selectFromPool(primarySource, true, targetLongCount);
-                        if (longAdded < targetLongCount) {
-                            selectFromPool(fallbackSource, true, targetLongCount - longAdded);
-                        }
-
-                        // 2. Fill remaining slots with standard/concise items
-                        const remainingSlots = targetSetSize - currentSet.length;
-                        let shortAdded = selectFromPool(primarySource, false, remainingSlots);
-                        if (currentSet.length < targetSetSize) {
-                            selectFromPool(fallbackSource, false, targetSetSize - currentSet.length);
-                        }
-
-                        // 3. Failsafe: If spacing was too strict, fill any remaining slots without concept blocking
-                        while (currentSet.length < targetSetSize && (primarySource.length > 0 || fallbackSource.length > 0)) {
-                            const next = primarySource.length > 0 ? primarySource.shift() : fallbackSource.shift();
-                            if (next) currentSet.push(next.q);
-                        }
-
-                        // Randomize order within the set so long questions are naturally interspersed
-                        currentSet.sort(() => Math.random() - 0.5);
-                        finalSets[sIdx] = currentSet;
-                    }
-
-                    return finalSets;
-                }
-
-                // Compile sets using the smart synthesizer
-                const synthesizedSets = buildSmartBalancedSets(mixedFiltered, SET_SIZE);
+                // Compile sets using the Adaptive Statement-Length + User Performance + Zero-Repeat Engine
+                const currentScopeKey = getScopeKeyForSession();
+                appState.currentScopeKey = currentScopeKey;
+                const synthesizedSets = buildAdaptiveNonRepeatingSets(mixedFiltered, SET_SIZE, currentScopeKey);
 
                 for (let i = 0; i < synthesizedSets.length; i++) {
                     let setItems = synthesizedSets[i] || [];
@@ -13158,6 +13486,10 @@ Return ONLY a JSON object:
                 }
 
                 let setItems = [...selectedSet.items]; 
+                if (appState.mode === 'mcqs' && !selectedSet.isMistakes && selectedSet.originalSetIndex !== undefined) {
+                    const scopeKey = appState.currentScopeKey || getScopeKeyForSession();
+                    lockAdaptiveSetPartition(scopeKey, selectedSet.originalSetIndex, setItems);
+                }
                 appState.sessionQuestions = setItems;
                 appState.currentQuestionIndex = 0;
                 
@@ -13251,13 +13583,16 @@ Return ONLY a JSON object:
             if (!appState.loStats[qTag]) appState.loStats[qTag] = { attempted: 0, correct: 0 };
             appState.loStats[qTag].attempted += 1;
             
+            const skipTime = Math.round((Date.now() - (appState.mcqStartTime || Date.now())) / 1000);
+            recordMcqPerformanceSilent(question, false, skipTime, true);
+
             appState.mcqHistory[appState.currentMcqIndex] = {
                 selected: null,
                 correct: false
             };
 
             if (appState.currentUser) {
-                db.collection("users").doc(appState.currentUser.uid).update({
+                updateUserDoc({
                     totalMcqsDone: appState.totalMcqsDone,
                     incorrectMCQs: appState.incorrectMCQs,
                     loStats: appState.loStats
@@ -13296,13 +13631,16 @@ Return ONLY a JSON object:
             appState.loStats[qTag].attempted += 1;
             if (isCorrect) appState.loStats[qTag].correct += 1;
             
+            const ansTime = Math.round((Date.now() - (appState.mcqStartTime || Date.now())) / 1000);
+            recordMcqPerformanceSilent(question, isCorrect, ansTime, false);
+
             appState.mcqHistory[appState.currentMcqIndex] = {
                 selected: appState.mcqSelectedOptionIndex,
                 correct: isCorrect
             };
 
             if (appState.currentUser) {
-                db.collection("users").doc(appState.currentUser.uid).update({
+                updateUserDoc({
                     totalMcqsDone: appState.totalMcqsDone,
                     totalCorrect: appState.totalCorrect,
                     incorrectMCQs: appState.incorrectMCQs,
