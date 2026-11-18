@@ -1462,6 +1462,54 @@ html, body, #app-container {
     margin: 0 !important;
     transform: none !important;
 }
+
+/* ===== IPAD / BIG-SCREEN SPLIT-SCREEN (MCQ + BLOCKIFAI SIDE-BY-SIDE) ===== */
+@media (min-width: 768px) {
+    #app-container.ai-split-active #screen-mcq_screen.active,
+    #app-container.ai-split-active #screen-mcq_explanation.active {
+        left: 0 !important;
+        right: auto !important;
+        width: 55% !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    html.dark #app-container.ai-split-active #screen-mcq_screen.active,
+    html.dark #app-container.ai-split-active #screen-mcq_explanation.active {
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #app-container.ai-split-active #screen-blockifai.split-pane-active {
+        display: flex !important;
+        flex-direction: column !important;
+        left: auto !important;
+        right: 0 !important;
+        width: 45% !important;
+        height: 100% !important;
+        opacity: 1 !important;
+        transform: none !important;
+        pointer-events: auto !important;
+        z-index: 45 !important;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.08);
+    }
+    html.dark #app-container.ai-split-active #screen-blockifai.split-pane-active {
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.55);
+    }
+    /* Collapse BlockifAI history sidebar into a drawer when in split-screen */
+    #screen-blockifai.split-pane-active #blockifai-sidebar {
+        position: absolute !important;
+        z-index: 55 !important;
+    }
+    #screen-blockifai.split-pane-active #blockifai-sidebar.-translate-x-full {
+        transform: translateX(-100%) !important;
+    }
+    #screen-blockifai.split-pane-active #blockifai-sidebar:not(.-translate-x-full) {
+        transform: translateX(0) !important;
+    }
+    #screen-blockifai.split-pane-active #blockifai-sidebar-overlay:not(.hidden) {
+        display: block !important;
+    }
+    #screen-blockifai.split-pane-active #blockifai-menu-btn {
+        display: flex !important;
+    }
+}
 </style>
 </head>
 <body class="bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white">
@@ -2388,13 +2436,19 @@ html, body, #app-container {
                             </div>
                         </div>
                         
-                        <!-- Header Right Controls (Timer + Bigger Bookmark with active state) -->
-                        <div class="flex items-center gap-3 shrink-0">
+                        <!-- Header Right Controls (Timer + Split AI + Bigger Bookmark with active state) -->
+                        <div class="flex items-center gap-2.5 shrink-0">
                             <!-- Timer (Clean Pastel Text, No Container) -->
                             <div id="mcq-timer-box" class="flex items-center space-x-1.5 text-emerald-500 dark:text-emerald-400 transition-all duration-300">
                                 <i data-lucide="timer" class="w-4 h-4"></i>
                                 <span id="mcq-time-text" class="text-[16px] font-medium font-mono tracking-widest">00:00</span>
                             </div>
+
+                            <!-- iPad / Big-Screen Split AI Toggle -->
+                            <button id="header-btn-split-ai" onclick="toggleBlockifaiSplit()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/5 dark:bg-white/10 hover:bg-emerald-500/15 text-zinc-700 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] font-bold transition-all card-press" title="Open BlockifAI Split Screen">
+                                <i data-lucide="columns-2" class="w-4 h-4 stroke-[2px]"></i>
+                                <span>Split AI</span>
+                            </button>
 
                             <!-- Bigger Bookmark Button (Toggles with Confirmation Toast & Active Fill) -->
                             <button id="header-btn-bookmark" onclick="toggleCurrentMCQBookmark(this)" class="p-2 text-zinc-400 hover:text-brand-blue transition-all card-press rounded-full" title="Save MCQ">
@@ -4877,8 +4931,8 @@ html, body, #app-container {
                     <!-- Native Sticky Header with Medical Gradient extending beyond notch -->
                     <div class="safe-pt px-3 pb-3 flex items-center justify-between bg-brand-gradient z-30 shrink-0 sticky top-0 shadow-md">
                         <div class="flex items-center gap-1.5">
-                            <button onclick="goBack()" class="p-2 text-white/90 hover:text-white transition-colors card-press"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
-                            <button onclick="toggleBlockifaiSidebar()" class="md:hidden p-2 text-white/90 hover:text-white transition-colors card-press"><i data-lucide="menu" class="w-5 h-5"></i></button>
+                            <button id="blockifai-back-btn" onclick="handleBlockifaiBack()" class="p-2 text-white/90 hover:text-white transition-colors card-press"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+                            <button id="blockifai-menu-btn" onclick="toggleBlockifaiSidebar()" class="md:hidden p-2 text-white/90 hover:text-white transition-colors card-press"><i data-lucide="menu" class="w-5 h-5"></i></button>
                             
                             <!-- 3 JUGGLING CUBES ICON IN HEADER -->
                             <div class="flex items-center gap-2 ml-1">
@@ -4891,9 +4945,21 @@ html, body, #app-container {
                                 <span class="font-black text-[17px] tracking-tight text-white" style="font-family: 'Plus Jakarta Sans', sans-serif;">BlockifAI</span>
                             </div>
                         </div>
-                        <button onclick="createNewAiSession()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-full text-[12px] font-bold card-press transition-colors border border-white/20 shadow-sm">
-                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> New
-                        </button>
+                        <div class="flex items-center gap-1.5">
+                            <button id="blockifai-ask-current-mcq-btn" onclick="askBlockifaiCurrentMcqInSplit()" class="hidden items-center gap-1 px-2.5 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-full text-[11px] font-bold card-press transition-colors border border-white/20 shadow-sm" title="Ask about active MCQ">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>Current MCQ</span>
+                            </button>
+                            <button onclick="createNewAiSession()" class="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-full text-[12px] font-bold card-press transition-colors border border-white/20 shadow-sm">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> New
+                            </button>
+                            <button id="blockifai-expand-btn" onclick="expandBlockifaiFromSplit()" class="hidden p-1.5 bg-white/15 hover:bg-white/25 text-white rounded-full transition-colors card-press" title="Expand Fullscreen">
+                                <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                            </button>
+                            <button id="blockifai-close-split-btn" onclick="closeBlockifaiSplit()" class="hidden p-1.5 bg-white/15 hover:bg-white/25 text-white rounded-full transition-colors card-press" title="Close Split Screen">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Chat Message Area -->
@@ -6871,7 +6937,7 @@ return null;
             renderStreakDots();
         }
 
-        function safeStr(str) { if (!str) return ''; return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;"); }
+        function safeStr(str) { if (!str) return ''; return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\r?\n/g, "\\n"); }
 
         function showLoader(text, showProgress = false) {
             const loader = document.getElementById('global-loader');
@@ -8045,15 +8111,15 @@ return null;
             lucide.createIcons();
         }
 
-        // ================= NEW BLOCK IX FORMAT NORMALIZER =================
+        // ================= UNIVERSAL MCQ FORMAT NORMALIZER =================
 function normalizeMCQFormat(q) {
-    if (!q) return q;
+    if (!q || typeof q !== 'object') return q;
     
-    // Detect new Block IX structured format
+    // 1. Detect new Block IX object-keyed options format
     if (q.stem && q.options && !Array.isArray(q.options)) {
         let normalized = { ...q };
         normalized.statement = q.stem;
-        normalized.tag = q.objective ? q.objective.split('.')[0].trim() : "General";
+        normalized.tag = q.tag ? String(q.tag).trim() : (q.objective ? q.objective.split('.')[0].trim() : "General");
 
         const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
         const actualKeys = letters.filter(k => q.options && q.options[k]);
@@ -8068,7 +8134,7 @@ function normalizeMCQFormat(q) {
             });
         });
 
-        // 🔀 SHUFFLE OPTIONS RANDOMLY
+        // Shuffle options randomly
         for (let i = mappedOptions.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [mappedOptions[i], mappedOptions[j]] = [mappedOptions[j], mappedOptions[i]];
@@ -8099,7 +8165,31 @@ function normalizeMCQFormat(q) {
         };
         return normalized;
     }
-    return q;
+
+    // 2. Standard Array-Options MCQ Format (e.g. id, tag, category, coreConcept, cognitiveLevel, difficulty, statement, options[], correctOptionIndex, correctOption, optionExplanations[], citation)
+    let normalized = { ...q };
+    normalized.statement = q.statement || q.question || q.stem || "";
+    normalized.tag = q.tag ? String(q.tag).trim() : (q.objective ? q.objective.split('.')[0].trim() : "General");
+
+    if (Array.isArray(q.options)) {
+        normalized.options = q.options;
+        normalized.optionExplanations = Array.isArray(q.optionExplanations)
+            ? q.optionExplanations
+            : (Array.isArray(q.explanations) ? q.explanations : []);
+
+        // Resolve correctOptionIndex safely from numeric index or correctOption string
+        let idx = typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : parseInt(q.correctOptionIndex, 10);
+        if (isNaN(idx) || idx < 0 || idx >= normalized.options.length) {
+            const targetAns = String(q.correctOption || q.correctAnswer || "").trim().toLowerCase();
+            if (targetAns) {
+                idx = normalized.options.findIndex(o => String(o).trim().toLowerCase() === targetAns);
+            }
+            if (isNaN(idx) || idx < 0) idx = 0;
+        }
+        normalized.correctOptionIndex = idx;
+    }
+
+    return normalized;
 }
 
 // ================= BLOCKI DECKS (FLASHCARD) ADD & RENDER SYSTEM =================
@@ -8266,12 +8356,22 @@ async function fetchGitHubFilesSequentially(baseUrl, maxLetters, progressCb = nu
         for(let j = 0; j < results.length; j++){
             let resItem = results[j];
             if(resItem) {
-                if (Array.isArray(resItem)) {
-                    for(let k = 0; k < resItem.length; k++) {
-                        allData.push(normalizeMCQFormat(resItem[k]));
+                const unwrapped = Array.isArray(resItem)
+                    ? resItem
+                    : (resItem.questions || resItem.mcqs || resItem.results || resItem.data || null);
+
+                if (Array.isArray(unwrapped)) {
+                    for(let k = 0; k < unwrapped.length; k++) {
+                        const norm = normalizeMCQFormat(unwrapped[k]);
+                        if (norm && norm.statement && Array.isArray(norm.options) && norm.options.length > 0) {
+                            allData.push(norm);
+                        }
                     }
                 } else if (typeof resItem === 'object') {
-                    allData.push(normalizeMCQFormat(resItem));
+                    const norm = normalizeMCQFormat(resItem);
+                    if (norm && norm.statement && Array.isArray(norm.options) && norm.options.length > 0) {
+                        allData.push(norm);
+                    }
                 }
                 results[j] = null; // Aggressive Garbage Collection
             }
@@ -8349,12 +8449,16 @@ function mergeMCQs(data, clearOld = false) {
         APP_DATA.allMCQs = [];
         window.ACTIVE_MCQ_MAP.clear();
     }
-    
+
+    const items = Array.isArray(data)
+        ? data
+        : (data && (data.questions || data.mcqs || data.results || data.data)) || [];
+
     // Instantly overwrite duplicates without blowing up RAM (Resolves modified/deleted files)
-    for (let i = 0; i < data.length; i++) {
-        const q = normalizeMCQFormat(data[i]);
-        const qId = q.id || q.statement;
-        if (qId) {
+    for (let i = 0; i < items.length; i++) {
+        const q = normalizeMCQFormat(items[i]);
+        const qId = q && (q.id || q.statement);
+        if (qId && Array.isArray(q.options) && q.options.length > 0) {
             window.ACTIVE_MCQ_MAP.set(qId, q);
         }
     }
@@ -9128,7 +9232,8 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
 
                     let count = 0;
                     if (APP_DATA.allMCQs && APP_DATA.allMCQs.length > 0) {
-                        count = APP_DATA.allMCQs.filter(q => q.tag && String(q.tag).trim() === code).length;
+                        const normCode = normalizeLOCode(code);
+                        count = APP_DATA.allMCQs.filter(q => q.tag && normalizeLOCode(q.tag) === normCode).length;
                     }
                     if (count === 0 && typeof loCountEstimateMap !== 'undefined' && loCountEstimateMap[code]) {
                         count = loCountEstimateMap[code];
@@ -9206,6 +9311,11 @@ if (bNum === (blockToNum[appState.academicBlock] || 1)) APP_DATA.allFlashcards =
             if (screenId !== 'mcq_screen' && appState.timerInterval) {
                 clearInterval(appState.timerInterval);
                 appState.timerInterval = null;
+            }
+
+            // Close BlockifAI split pane if user exits MCQ / Explanation screens
+            if (screenId !== 'mcq_screen' && screenId !== 'mcq_explanation' && typeof closeBlockifaiSplit === 'function') {
+                closeBlockifaiSplit();
             }
 
             // 1. VISUAL TRANSITION HAPPENS IMMEDIATELY (ZERO FREEZING)
@@ -13371,7 +13481,13 @@ Return ONLY a JSON object:
                         <button onclick="goBackFromExplanation()" class="p-2 -ml-2 text-zinc-900 dark:text-white hover:text-brand-blue transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
                         <h1 class="text-lg font-normal text-zinc-900 dark:text-white">Explanation</h1>
                     </div>
-                    ${question.citation ? `<button onclick="openCitationModal('${safeStr(question.citation)}')" class="text-[11px] font-black uppercase tracking-widest text-white bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 px-3.5 py-1.5 rounded-full transition-colors flex items-center shadow-sm">See reference</button>` : ''}
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleBlockifaiSplit()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/5 dark:bg-white/10 hover:bg-emerald-500/15 text-zinc-700 dark:text-zinc-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] font-bold transition-all card-press" title="Toggle BlockifAI Split Screen">
+                            <i data-lucide="columns-2" class="w-4 h-4 stroke-[2px]"></i>
+                            <span>Split AI</span>
+                        </button>
+                        ${question.citation ? `<button onclick="openCitationModal('${safeStr(question.citation)}')" class="text-[11px] font-black uppercase tracking-widest text-white bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 px-3.5 py-1.5 rounded-full transition-colors flex items-center shadow-sm">See reference</button>` : ''}
+                    </div>
                 </div>
             `;
             
@@ -18078,7 +18194,152 @@ REQUIREMENTS:
             }
         };
 
+        window.isSplitScreenActive = function() {
+            const container = document.getElementById('app-container');
+            return !!(container && container.classList.contains('ai-split-active'));
+        };
+
+        window.toggleBlockifaiSplit = function() {
+            if (window.innerWidth < 768) {
+                openBlockifAI();
+                return;
+            }
+            if (isSplitScreenActive()) {
+                closeBlockifaiSplit();
+            } else {
+                openBlockifaiSplit(null);
+            }
+        };
+
+        window.openBlockifaiSplit = function(incomingPrompt = null) {
+            if (window.innerWidth < 768) {
+                openBlockifAI(incomingPrompt);
+                return;
+            }
+
+            if (appState.userData && appState.userData.aiSessions) {
+                appState.aiSessions = appState.userData.aiSessions;
+            } else if (!appState.aiSessions) {
+                appState.aiSessions = [];
+            }
+
+            const sidebarName = document.getElementById('ai-sidebar-name');
+            if (sidebarName && appState.userData) sidebarName.innerText = appState.userData.fullName || 'Student';
+
+            const container = document.getElementById('app-container');
+            const aiScreen = document.getElementById('screen-blockifai');
+            const sidebar = document.getElementById('blockifai-sidebar');
+            const overlay = document.getElementById('blockifai-sidebar-overlay');
+            const expandBtn = document.getElementById('blockifai-expand-btn');
+            const closeBtn = document.getElementById('blockifai-close-split-btn');
+            const askMcqBtn = document.getElementById('blockifai-ask-current-mcq-btn');
+            const splitHeaderBtn = document.getElementById('header-btn-split-ai');
+
+            if (container) container.classList.add('ai-split-active');
+            if (aiScreen) aiScreen.classList.add('split-pane-active');
+            if (sidebar) sidebar.classList.add('-translate-x-full');
+            if (overlay) overlay.classList.add('hidden');
+            if (expandBtn) { expandBtn.classList.remove('hidden'); expandBtn.classList.add('flex'); }
+            if (closeBtn) { closeBtn.classList.remove('hidden'); closeBtn.classList.add('flex'); }
+            if (askMcqBtn) { askMcqBtn.classList.remove('hidden'); askMcqBtn.classList.add('flex'); }
+            if (splitHeaderBtn) {
+                splitHeaderBtn.classList.add('bg-emerald-500/15', 'text-emerald-600', 'dark:text-emerald-400');
+            }
+
+            if (incomingPrompt) {
+                const newId = 'chat_' + Date.now();
+                appState.currentAiSessionId = newId;
+                const newSession = {
+                    id: newId,
+                    title: incomingPrompt.length > 30 ? incomingPrompt.substring(0, 30) + '...' : incomingPrompt,
+                    type: 'chat',
+                    updatedAt: Date.now(),
+                    messages: [{ role: 'user', content: incomingPrompt }]
+                };
+                appState.aiSessions.unshift(newSession);
+                if (appState.aiSessions.length > 25) appState.aiSessions.pop();
+                if (appState.userData) appState.userData.aiSessions = appState.aiSessions;
+                updateUserDoc({ aiSessions: appState.aiSessions });
+
+                renderBlockifAiSidebar();
+                renderBlockifAIChat(false);
+                fetchBlockifAIResponse(incomingPrompt, newSession);
+            } else {
+                if (!appState.currentAiSessionId && appState.aiSessions.length > 0) {
+                    const lastChat = appState.aiSessions.find(s => s.type !== 'usmlefy');
+                    if (lastChat) appState.currentAiSessionId = lastChat.id;
+                }
+                renderBlockifAiSidebar();
+                renderBlockifAIChat();
+            }
+
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeBlockifaiSplit = function() {
+            const container = document.getElementById('app-container');
+            const aiScreen = document.getElementById('screen-blockifai');
+            const expandBtn = document.getElementById('blockifai-expand-btn');
+            const closeBtn = document.getElementById('blockifai-close-split-btn');
+            const askMcqBtn = document.getElementById('blockifai-ask-current-mcq-btn');
+            const splitHeaderBtn = document.getElementById('header-btn-split-ai');
+
+            if (container) container.classList.remove('ai-split-active');
+            if (aiScreen) aiScreen.classList.remove('split-pane-active');
+            if (expandBtn) { expandBtn.classList.add('hidden'); expandBtn.classList.remove('flex'); }
+            if (closeBtn) { closeBtn.classList.add('hidden'); closeBtn.classList.remove('flex'); }
+            if (askMcqBtn) { askMcqBtn.classList.add('hidden'); askMcqBtn.classList.remove('flex'); }
+            if (splitHeaderBtn) {
+                splitHeaderBtn.classList.remove('bg-emerald-500/15', 'text-emerald-600', 'dark:text-emerald-400');
+            }
+        };
+
+        window.expandBlockifaiFromSplit = function() {
+            closeBlockifaiSplit();
+            navigate('blockifai');
+            renderBlockifAiSidebar();
+            renderBlockifAIChat();
+        };
+
+        window.handleBlockifaiBack = function() {
+            if (isSplitScreenActive()) {
+                closeBlockifaiSplit();
+            } else {
+                goBack();
+            }
+        };
+
+        window.askBlockifaiCurrentMcqInSplit = function() {
+            const q = appState.mcqSessionQuestions && appState.mcqSessionQuestions[appState.currentMcqIndex];
+            if (!q) return;
+            const statement = cleanMCQStatement(q.statement);
+            const optionsText = q.options ? q.options.map((o, i) => String.fromCharCode(65 + i) + '. ' + o).join('\n') : '';
+            let prompt = `Help me understand this MCQ:\n\nQuestion: ${statement}\n\nOptions:\n${optionsText}`;
+            if (appState.mcqIsSubmitted && q.options && q.correctOptionIndex !== undefined) {
+                const correctText = q.options[q.correctOptionIndex];
+                const expText = q.optionExplanations && q.optionExplanations[q.correctOptionIndex] ? q.optionExplanations[q.correctOptionIndex] : '';
+                prompt += `\n\nCorrect Answer: ${correctText}${expText ? '\nOfficial Explanation: ' + expText : ''}\n\nExplain why the correct answer is right and why the other options are wrong.`;
+            } else {
+                prompt += `\n\nBreak down the core medical concepts tested here without immediately spoiling the final option letter.`;
+            }
+            runBlockifAI(prompt);
+        };
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth < 768 && isSplitScreenActive()) {
+                closeBlockifaiSplit();
+            }
+        });
+
         window.openBlockifAI = function(incomingPrompt = null) {
+            // On iPad / big screen during MCQ or Explanation, automatically open side-by-side split screen
+            if (window.innerWidth >= 768 && (appState.currentScreen === 'mcq_screen' || appState.currentScreen === 'mcq_explanation')) {
+                openBlockifaiSplit(incomingPrompt);
+                return;
+            }
+
+            closeBlockifaiSplit();
+
             if (appState.userData && appState.userData.aiSessions) {
                 appState.aiSessions = appState.userData.aiSessions;
             } else {
@@ -18129,9 +18390,9 @@ REQUIREMENTS:
             
             if (window.aiPlannerState) window.aiPlannerState.active = false;
             
-            // Close sidebar on mobile after clicking new chat
+            // Close sidebar on mobile or split-screen after clicking new chat
             const sidebar = document.getElementById('blockifai-sidebar');
-            if (!sidebar.classList.contains('-translate-x-full') && window.innerWidth < 768) {
+            if (!sidebar.classList.contains('-translate-x-full') && (window.innerWidth < 768 || isSplitScreenActive())) {
                 toggleBlockifaiSidebar();
             }
             
@@ -18150,9 +18411,9 @@ REQUIREMENTS:
                 if (window.aiPlannerState) window.aiPlannerState.active = false;
             }
             
-            // Close sidebar on mobile after selection
+            // Close sidebar on mobile or split-screen after selection
             const sidebar = document.getElementById('blockifai-sidebar');
-            if (!sidebar.classList.contains('-translate-x-full') && window.innerWidth < 768) {
+            if (!sidebar.classList.contains('-translate-x-full') && (window.innerWidth < 768 || isSplitScreenActive())) {
                 toggleBlockifaiSidebar();
             }
 
@@ -18859,7 +19120,7 @@ REQUIREMENTS:
                 if (appState.aiSessions.length > 20) appState.aiSessions.pop();
             }
 
-            if (appState.currentScreen !== 'blockifai') {
+            if (appState.currentScreen !== 'blockifai' && !isSplitScreenActive()) {
                 openBlockifAI();
             }
 
